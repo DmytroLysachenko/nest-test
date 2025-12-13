@@ -6,6 +6,8 @@ export interface User {
   displayName: string;
   passwordHash: string;
   role: Role;
+  createdAt: Date | null;
+  updatedAt: Date | null;
 }
 
 export type SafeUser = Omit<User, 'passwordHash'>;

@@ -37,7 +37,7 @@ importers:
         version: 0.14.3
       drizzle-orm:
         specifier: ^0.45.0
-        version: 0.45.0(pg@8.16.3(pg-native@3.5.2))
+        version: 0.45.0(@types/pg@8.16.0)(pg@8.16.3(pg-native@3.5.2))
       passport:
         specifier: ^0.7.0
         version: 0.7.0
@@ -87,6 +87,9 @@ importers:
       '@types/passport-jwt':
         specifier: ^4.0.1
         version: 4.0.1
+      '@types/pg':
+        specifier: ^8.16.0
+        version: 8.16.0
       '@types/supertest':
         specifier: ^6.0.2
         version: 6.0.3
@@ -1194,6 +1197,9 @@ packages:
 
   '@types/passport@1.0.17':
     resolution: {integrity: sha512-aciLyx+wDwT2t2/kJGJR2AEeBz0nJU4WuRX04Wu9Dqc5lSUtwu0WERPHYsLhF9PtseiAMPBGNUOtFjxZ56prsg==}
+
+  '@types/pg@8.16.0':
+    resolution: {integrity: sha512-RmhMd/wD+CF8Dfo+cVIy3RR5cl8CyfXQ0tGgW6XBL8L4LM/UTEbNXYRbLwU6w+CgrKBNbrQWt4FUtTfaU5jSYQ==}
 
   '@types/qs@6.14.0':
     resolution: {integrity: sha512-eOunJqu0K1923aExK6y8p6fsihYEn/BYuQ4g0CxAAgFc4b/ZLN4CrsRZ55srTdqoiLzU2B2evC+apEIxprEzkQ==}
@@ -4727,6 +4733,12 @@ snapshots:
     dependencies:
       '@types/express': 5.0.6
 
+  '@types/pg@8.16.0':
+    dependencies:
+      '@types/node': 22.19.2
+      pg-protocol: 1.10.3
+      pg-types: 2.2.0
+
   '@types/qs@6.14.0': {}
 
   '@types/range-parser@1.2.7': {}
@@ -5395,8 +5407,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.45.0(pg@8.16.3(pg-native@3.5.2)):
+  drizzle-orm@0.45.0(@types/pg@8.16.0)(pg@8.16.3(pg-native@3.5.2)):
     optionalDependencies:
+      '@types/pg': 8.16.0
       pg: 8.16.3(pg-native@3.5.2)
 
   dunder-proto@1.0.1:

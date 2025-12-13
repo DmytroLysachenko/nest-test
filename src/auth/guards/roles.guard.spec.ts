@@ -28,7 +28,9 @@ describe('RolesGuard', () => {
   });
 
   it('blocks access when user role priority is too low', () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([Role.UserPremium]);
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+      Role.UserPremium,
+    ]);
     const canActivate = guard.canActivate(
       createExecutionContext({ role: Role.User }),
     );

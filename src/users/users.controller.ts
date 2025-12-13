@@ -4,7 +4,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Role } from '../auth/role.enum';
-import { SafeUser, UsagePolicy } from './user.entity';
+import type { SafeUser, UsagePolicy } from './user.entity';
 import { UsersService } from './users.service';
 
 @Controller('users')
@@ -30,7 +30,11 @@ export class UsersController {
   getPremiumInsights(@CurrentUser() user: SafeUser) {
     return {
       message: `Premium insights unlocked for ${user.displayName}`,
-      features: ['market-trends', 'salary-benchmarks', 'saved-search-automation'],
+      features: [
+        'market-trends',
+        'salary-benchmarks',
+        'saved-search-automation',
+      ],
     };
   }
 

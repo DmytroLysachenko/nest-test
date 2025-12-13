@@ -1,60 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { Role } from '../auth/role.enum';
 import { SafeUser, UsagePolicy, User } from './user.entity';
-
-interface SeedUser {
-  id: string;
-  email: string;
-  displayName: string;
-  role: Role;
-  password: string;
-}
+import { UsersRepository } from './users.repository';
 
 @Injectable()
-export class UsersService {
-  private readonly users: User[];
+export class UsersService implements OnModuleInit {
   private readonly usagePolicies: Record<Role, UsagePolicy>;
 
-  constructor() {
-    const seedUsers: SeedUser[] = [
-      {
-        id: 'u-guest',
-        email: 'guest@example.com',
-        displayName: 'Guest Account',
-        role: Role.Guest,
-        password: 'guestpass',
-      },
-      {
-        id: 'u-user',
-        email: 'user@example.com',
-        displayName: 'Standard User',
-        role: Role.User,
-        password: 'userpass',
-      },
-      {
-        id: 'u-premium',
-        email: 'premium@example.com',
-        displayName: 'Premium User',
-        role: Role.UserPremium,
-        password: 'premiumpass',
-      },
-      {
-        id: 'u-admin',
-        email: 'admin@example.com',
-        displayName: 'Administrator',
-        role: Role.Admin,
-        password: 'adminpass',
-      },
-    ];
-
-    this.users = seedUsers.map(
-      ({ password, ...rest }): User => ({
-        ...rest,
-        passwordHash: bcrypt.hashSync(password, 10),
-      }),
-    );
-
+  constructor(
+    private readonly usersRepository: UsersRepository,
+    private readonly configService: ConfigService,
+  ) {
     this.usagePolicies = {
       [Role.Guest]: {
         role: Role.Guest,
@@ -91,15 +49,66 @@ export class UsersService {
     };
   }
 
+  async onModuleInit() {
+    const shouldSeed =
+      this.configService
+        .get<string>('SEED_DEMO_USERS', 'false')
+        .toLowerCase() === 'true';
+
+    if (shouldSeed) {
+      await this.seedDemoUsers();
+    }
+  }
+
+  private async seedDemoUsers() {
+    const seedUsers = [
+      {
+        id: 'u-guest',
+        email: 'guest@example.com',
+        displayName: 'Guest Account',
+        role: Role.Guest,
+        password: 'guestpass',
+      },
+      {
+        id: 'u-user',
+        email: 'user@example.com',
+        displayName: 'Standard User',
+        role: Role.User,
+        password: 'userpass',
+      },
+      {
+        id: 'u-premium',
+        email: 'premium@example.com',
+        displayName: 'Premium User',
+        role: Role.UserPremium,
+        password: 'premiumpass',
+      },
+      {
+        id: 'u-admin',
+        email: 'admin@example.com',
+        displayName: 'Administrator',
+        role: Role.Admin,
+        password: 'adminpass',
+      },
+    ];
+
+    for (const user of seedUsers) {
+      await this.usersRepository.upsertUser({
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        passwordHash: bcrypt.hashSync(user.password, 10),
+      });
+    }
+  }
+
   async findByEmail(email: string): Promise<User | null> {
-    const normalizedEmail = email.toLowerCase();
-    const user = this.users.find((u) => u.email.toLowerCase() === normalizedEmail);
-    return user ?? null;
+    return this.usersRepository.findByEmail(email);
   }
 
   async findById(id: string): Promise<User | null> {
-    const user = this.users.find((u) => u.id === id);
-    return user ?? null;
+    return this.usersRepository.findById(id);
   }
 
   async isPasswordValid(user: User, password: string): Promise<boolean> {
