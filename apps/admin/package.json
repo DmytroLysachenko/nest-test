@@ -52,7 +52,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "preview": "vite preview",
-    "start": "vite --port 5173"
+    "start": "vite --port 5173 --host 127.0.0.1"
   },
   "type": "module"
 }
