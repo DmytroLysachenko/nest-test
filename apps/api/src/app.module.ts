@@ -11,6 +11,7 @@ import { DrizzleModule } from '@/common/modules/drizzle/drizzle.module';
 import { validateEnv } from '@/config/env';
 import { LoggerMiddleware } from '@/common/middleware';
 import { NodeMailerModule } from '@/common/modules/node-mailer/node-mailer.module';
+import { GeminiModule } from '@/common/modules/gemini/gemini.module';
 import { AuthModule } from '@/features/auth/auth.module';
 import { UserModule } from '@/features/user/user.module';
 import { RolesGuard } from '@/common/guards';
@@ -37,6 +38,7 @@ import { RolesGuard } from '@/common/guards';
     HealthModule,
     AuthModule,
     NodeMailerModule,
+    GeminiModule,
     UserModule,
   ],
   providers: [

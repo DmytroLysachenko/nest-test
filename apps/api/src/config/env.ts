@@ -14,6 +14,8 @@ export const EnvSchema = z.object({
   MAIL_USERNAME: z.string(),
   MAIL_PASSWORD: z.string(),
   DATABASE_URL: z.string(),
+  GEMINI_API_KEY: z.string(),
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash-lite'),
   ALLOWED_ORIGINS: z.string().default('*'),
   API_PREFIX: z.string().default('api'),
 });
