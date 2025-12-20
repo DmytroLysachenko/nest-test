@@ -1,0 +1,23 @@
+import { pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+
+import { careerProfileStatusEnum } from './_enums';
+import { profileInputsTable } from './profile-inputs';
+import { usersTable } from './users';
+
+export const careerProfilesTable = pgTable('career_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => usersTable.id, { onDelete: 'cascade' }),
+  profileInputId: uuid('profile_input_id')
+    .notNull()
+    .references(() => profileInputsTable.id, { onDelete: 'cascade' }),
+  status: careerProfileStatusEnum('status').default('PENDING').notNull(),
+  content: text('content'),
+  model: varchar('model', { length: 100 }),
+  error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
