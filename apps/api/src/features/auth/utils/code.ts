@@ -1,8 +1,7 @@
-import crypto from 'crypto';
+import { randomInt } from 'crypto';
 
 export const generateCode = (length = 6) => {
-  return crypto
-    .randomInt(0, 10 ** length)
+  return randomInt(0, 10 ** length)
     .toString()
     .padStart(length, '0');
 };

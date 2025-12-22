@@ -1,0 +1,90 @@
+@host = http://localhost:3000
+@apiPrefix = api
+@baseUrl = {{host}}/{{apiPrefix}}
+@accessToken = replace_with_access_token
+
+### Health check (public)
+GET {{baseUrl}}/health
+
+### Health test (public)
+GET {{baseUrl}}/health/test
+
+### Send register code (public)
+POST {{baseUrl}}/auth/send-register-code
+Content-Type: application/json
+
+{
+  "email": "user@example.com"
+}
+
+### Register (public)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "Password123!",
+  "confirmPassword": "Password123!",
+  "code": "123456"
+}
+
+### Login (public)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "Password123!"
+}
+
+### Logout (auth)
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{accessToken}}
+
+### Change password (auth)
+POST {{baseUrl}}/auth/change-password
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "oldPassword": "Password123!",
+  "newPassword": "Password123!",
+  "confirmPassword": "Password123!"
+}
+
+### Reset password (public)
+POST {{baseUrl}}/auth/reset-password
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "code": "123456",
+  "newPassword": "Password123!",
+  "confirmPassword": "Password123!"
+}
+
+### Send reset password code (public)
+POST {{baseUrl}}/auth/send-reset-password-code
+Content-Type: application/json
+
+{
+  "email": "user@example.com"
+}
+
+### Get current user (auth)
+GET {{baseUrl}}/user
+Authorization: Bearer {{accessToken}}
+
+### Create profile input (auth)
+POST {{baseUrl}}/profile-inputs
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "targetRoles": "JavaScript developer, TypeScript developer, Next.js developer",
+  "notes": "Looking for mid-level roles, remote preferred."
+}
+
+### Get latest profile input (auth)
+GET {{baseUrl}}/profile-inputs/latest
+Authorization: Bearer {{accessToken}}
