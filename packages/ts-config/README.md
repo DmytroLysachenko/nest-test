@@ -1,4 +1,4 @@
-## 查看配置
+﻿## View config
 
 ```bash
 pnpm dlx tsc --showConfig

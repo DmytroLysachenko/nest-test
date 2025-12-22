@@ -1,6 +1,6 @@
-import js from '@eslint/js';
+﻿import js from '@eslint/js';
 import tsParser from '@typescript-eslint/parser';
-// import onlyWarn from 'eslint-plugin-only-warn'; // TODO: 区域环境，只在生产环境启用
+// import onlyWarn from 'eslint-plugin-only-warn'; // TODO: enable only in production.
 import type { FlatConfig } from '@typescript-eslint/utils/ts-eslint';
 
 import gitignore from 'eslint-config-flat-gitignore';
@@ -12,7 +12,7 @@ import tseslint, { configs as tseslintConfigs } from 'typescript-eslint';
 import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
 
 // =========================================
-// 基础 ESLint 配置
+// Base ESLint config
 // =========================================
 const eslintConfig = [
   {
@@ -23,7 +23,7 @@ const eslintConfig = [
 ] as FlatConfig.Config[];
 
 // =========================================
-// TypeScript ESLint 配置
+// TypeScript ESLint config
 // =========================================
 const tseslintConfig = tseslint.config(
   {
@@ -39,7 +39,7 @@ const tseslintConfig = tseslint.config(
         ...globals.jest,
       },
       parserOptions: {
-        // 启用类型检查功能
+        // Enable type-aware linting
         projectService: true,
 
         project: ['./tsconfig.json', './apps/*/tsconfig.json', './packages/*/tsconfig.json'],
@@ -54,7 +54,7 @@ const tseslintConfig = tseslint.config(
     },
   },
   {
-    // 对 .mjs 文件禁用类型检查
+    // Disable type-aware linting for .mjs files
     files: ['**/*.mjs'],
     ...tseslintConfigs.disableTypeChecked,
     name: 'base/typescript-eslint/disable-type-checked',
@@ -62,18 +62,18 @@ const tseslintConfig = tseslint.config(
 );
 
 // =========================================
-// 忽略文件配置
+// Ignore files config
 // =========================================
 const ignoresConfig = [
   {
     name: 'base/eslint/ignores',
-    // ignores 选项需要在单独的配置对象中 替代 .eslintignore 文件
+    // Use a dedicated config block instead of .eslintignore
     ignores: [...gitignore().ignores],
   },
 ] as FlatConfig.Config[];
 
 // =========================================
-// Import 配置
+// Import config
 // =========================================
 const importConfig = [
   pluginImportX.flatConfigs.recommended,
@@ -87,8 +87,8 @@ const importConfig = [
       sourceType: 'module',
     },
     rules: {
-      'import-x/no-anonymous-default-export': 'warn', // 警告匿名默认导出
-      // 'import-x/order': 'off', // 禁用可能与 Prettier 冲突的规则
+      'import-x/no-anonymous-default-export': 'warn', // Warn on anonymous default exports
+      // 'import-x/order': 'off', // Disable if it conflicts with Prettier
       'import-x/order': [
         'error',
         {
@@ -96,10 +96,10 @@ const importConfig = [
           'newlines-between': 'always',
         },
       ],
-      'import-x/first': 'error', // import 语句必须放在文件最前面
-      'import-x/newline-after-import': 'error', // import 语句后必须空一行
-      'import-x/no-duplicates': 'error', // 禁止重复导入
-      'import-x/no-unresolved': 'error', // 禁止未解析的导入
+      'import-x/first': 'error', // Enforce imports at the top
+      'import-x/newline-after-import': 'error', // Require a blank line after imports
+      'import-x/no-duplicates': 'error', // Disallow duplicate imports
+      'import-x/no-unresolved': 'error', // Disallow unresolved imports
     },
     settings: {
       'import-x/resolver-next': [
@@ -119,7 +119,7 @@ const importConfig = [
 ] as FlatConfig.Config[];
 
 // =========================================
-// turbo配置
+// Turbo config
 // =========================================
 const turboConfig = [
   {

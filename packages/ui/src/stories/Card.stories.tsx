@@ -1,4 +1,4 @@
-import {
+﻿import {
   Card,
   CardHeader,
   CardTitle,
@@ -18,20 +18,20 @@ const meta: Meta<typeof Card> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// 基础卡片
+// Basic card
 export const Basic: Story = {
   render: () => (
     <Card>
       <CardHeader>
-        <CardTitle>卡片标题</CardTitle>
-        <CardDescription>卡片描述信息</CardDescription>
+        <CardTitle>Card title</CardTitle>
+        <CardDescription>Card description</CardDescription>
         <CardAction>
-          <button>操作</button>
+          <button>Action</button>
         </CardAction>
       </CardHeader>
-      <CardContent>这里是卡片内容区域。</CardContent>
+      <CardContent>This is the card content area.</CardContent>
       <CardFooter>
-        <button>底部按钮</button>
+        <button>Footer button</button>
       </CardFooter>
     </Card>
   ),

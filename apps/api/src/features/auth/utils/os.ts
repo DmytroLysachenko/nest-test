@@ -1,6 +1,6 @@
-import { UAParser } from 'ua-parser-js';
+﻿import { UAParser } from 'ua-parser-js';
 
-// 获取设备信息
+// Get device info
 export function getDeviceInfo(userAgent: string) {
   const parser = new UAParser(userAgent || '');
   const device = parser.getDevice();

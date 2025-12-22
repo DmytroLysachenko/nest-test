@@ -1,4 +1,4 @@
-import { z } from 'zod';
+﻿import { z } from 'zod';
 
 export const EnvSchema = z.object({
   HOST: z.string(),
@@ -10,7 +10,7 @@ export const EnvSchema = z.object({
   REFRESH_TOKEN_EXPIRATION: z.string(),
   MAIL_HOST: z.string(),
   MAIL_PORT: z.coerce.number().default(587),
-  MAIL_SECURE: z.coerce.boolean().default(false), // 是否使用 TLS (如果是465端口则为true)
+  MAIL_SECURE: z.coerce.boolean().default(false), // Use TLS (true for port 465)
   MAIL_USERNAME: z.string(),
   MAIL_PASSWORD: z.string(),
   DATABASE_URL: z.string(),

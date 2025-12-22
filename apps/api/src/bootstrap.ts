@@ -1,4 +1,4 @@
-import { NestExpressApplication } from '@nestjs/platform-express';
+﻿import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { RequestMethod, ValidationPipe } from '@nestjs/common';
@@ -71,11 +71,11 @@ export const bootstrap = async (app: NestExpressApplication) => {
 
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // 只允许DTO中有定义的属性，自动剔除多余属性
-      forbidNonWhitelisted: true, // 如果有未定义的属性，抛出异常而不是静默剔除
-      transform: true, // 自动转换请求参数为DTO声明的类型
+      whitelist: true, // Allow only DTO properties and strip unknown fields.
+      forbidNonWhitelisted: true, // Reject requests with unknown properties.
+      transform: true, // Transform payloads to DTO types.
       transformOptions: {
-        enableImplicitConversion: true, // 启用隐式类型转换（如字符串转数字）
+        enableImplicitConversion: true, // Enable implicit type conversion.
       },
       disableErrorMessages: configService.get('NODE_ENV') === 'production',
     }),
@@ -88,15 +88,15 @@ export const bootstrap = async (app: NestExpressApplication) => {
     logger.log(
       [
         '',
-        chalk.magentaBright('╔══════════════════════════════════════════════════════╗'),
-        chalk.green.bold('  🚀 Service Started!'),
-        chalk.cyanBright('  ────────────────────────────────────────────────────'),
-        chalk.blueBright('  🌍 URL: ') +
+        chalk.magentaBright('===================================================='),
+        chalk.green.bold('  Service Started!'),
+        chalk.cyanBright('  --------------------------------------------------'),
+        chalk.blueBright('  URL: ') +
           chalk.whiteBright.underline(`http://${configService.get('HOST')}:${configService.get('PORT')}`),
-        chalk.yellowBright('  📚 Docs: ') +
+        chalk.yellowBright('  Docs: ') +
           chalk.whiteBright.underline(`http://${configService.get('HOST')}:${configService.get('PORT')}/docs`),
-        chalk.cyanBright('  🌱 Env: ') + chalk.whiteBright(`${configService.get('NODE_ENV')}`),
-        chalk.magentaBright('╚══════════════════════════════════════════════════════╝'),
+        chalk.cyanBright('  Env: ') + chalk.whiteBright(`${configService.get('NODE_ENV')}`),
+        chalk.magentaBright('===================================================='),
         '',
       ].join('\n'),
     );

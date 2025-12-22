@@ -1,4 +1,4 @@
-// @ts-expect-error 此包没有类型定义
+﻿// @ts-expect-error This package has no type definitions
 import pluginNext from '@next/eslint-plugin-next';
 import type { FlatConfig } from '@typescript-eslint/utils/ts-eslint';
 import pluginJsxA11y from 'eslint-plugin-jsx-a11y';
@@ -10,30 +10,30 @@ import { config as baseConfig } from './base.js';
 const nextJsConfig = [
   {
     name: 'base/next/config',
-    // 插件配置
+    // Plugin config
     plugins: {
-      react: pluginReact, // React 核心插件
-      'jsx-a11y': pluginJsxA11y, // 可访问性检查
-      'react-hooks': pluginReactHooks, // React Hooks 规则
-      '@next/next': pluginNext, // Next.js 特定规则
+      react: pluginReact, // React core plugin
+      'jsx-a11y': pluginJsxA11y, // Accessibility checks
+      'react-hooks': pluginReactHooks, // React Hooks rules
+      '@next/next': pluginNext, // Next.js specific rules
     },
     rules: {
-      // React 相关规则
+      // React rules
       ...pluginReact.configs.recommended.rules,
       ...pluginReact.configs['jsx-runtime'].rules,
       ...pluginReactHooks.configs.recommended.rules,
       ...pluginNext.configs.recommended.rules,
-      ...pluginNext.configs['core-web-vitals'].rules, // Next.js 严格模式
+      ...pluginNext.configs['core-web-vitals'].rules, // Next.js strict mode
       ...pluginJsxA11y.configs.strict.rules,
 
-      // 自定义规则调整
+      // Custom rule adjustments
       // react
-      'react/no-unknown-property': 'off', // 禁用未知属性检查
-      'react/react-in-jsx-scope': 'off', // 无需导入 React
-      'react/prop-types': 'off', // 禁用 PropTypes 检查
-      'react/jsx-no-target-blank': 'off', // 允许 target="_blank"
+      'react/no-unknown-property': 'off', // Disable unknown property checks
+      'react/react-in-jsx-scope': 'off', // No need to import React
+      'react/prop-types': 'off', // Disable PropTypes checks
+      'react/jsx-no-target-blank': 'off', // Allow target="_blank"
 
-      // 可访问性警告
+      // Accessibility warnings
       'jsx-a11y/alt-text': [
         'warn',
         {
@@ -47,10 +47,10 @@ const nextJsConfig = [
       'jsx-a11y/role-has-required-aria-props': 'warn',
       'jsx-a11y/role-supports-aria-props': 'warn',
     },
-    // 全局设置
+    // Global settings
     settings: {
       react: {
-        version: 'detect', // 自动检测 React 版本
+        version: 'detect', // Auto-detect React version
       },
     },
   },

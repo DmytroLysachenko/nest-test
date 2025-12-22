@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+﻿import { BadRequestException, Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 
 import { Public } from '@/common/decorators';
@@ -50,7 +50,7 @@ export class AuthController {
   @Post('change-password')
   async changePassword(@Body() body: ChangePasswordDto, @Req() request: Request) {
     const sessionID = request.headers['authorization'] as string;
-    // TODO: 权限控制的时候统一处理
+    // TODO: handle permissions consistently
     await this.authService.changePassword({ ...body, email: sessionID });
     return 'Change password successfully';
   }

@@ -1,4 +1,4 @@
-import {
+﻿import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -20,37 +20,37 @@ const meta: Meta<typeof DropdownMenu> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// 基础下拉菜单
+// Basic dropdown menu
 export const Basic: Story = {
   render: () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button>打开菜单</button>
+        <button>Open menu</button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuLabel>操作</DropdownMenuLabel>
-        <DropdownMenuItem>编辑</DropdownMenuItem>
-        <DropdownMenuItem>删除</DropdownMenuItem>
+        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+        <DropdownMenuItem>Edit</DropdownMenuItem>
+        <DropdownMenuItem>Delete</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>更多</DropdownMenuItem>
+        <DropdownMenuItem>More</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   ),
 };
 
-// 带 Checkbox/Radio 的下拉菜单
+// Dropdown menu with checkbox/radio
 export const WithCheckboxRadio: Story = {
   render: () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button>多选菜单</button>
+        <button>Multi-select menu</button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuCheckboxItem checked>选项A</DropdownMenuCheckboxItem>
-        <DropdownMenuCheckboxItem>选项B</DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem checked>Option A</DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem>Option B</DropdownMenuCheckboxItem>
         <DropdownMenuRadioGroup value="1">
-          <DropdownMenuRadioItem value="1">单选1</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="2">单选2</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="1">Option 1</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="2">Option 2</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>

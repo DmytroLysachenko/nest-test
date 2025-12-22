@@ -1,38 +1,38 @@
-{
+﻿{
   "extends": "./tsconfig.base.json",
   "display": "Base Library",
 
   /*
-   * ═══════════════════════════════════════════════════════════════════════════════════════
-   * TypeScript 库开发配置文件
-   * 基于 tsconfig.base.json 扩展，专为库开发优化
-   * ═══════════════════════════════════════════════════════════════════════════════════════
+   * =====================================================================
+   * TypeScript library config
+   * Extends tsconfig.base.json for library development
+   * =====================================================================
    *
-   * ⚛️ React/JSX 支持:
-   *   • jsx                - 使用 React 17+ 的新 JSX 转换
-   *   • lib                - 包含 ES2022、DOM 和 DOM.Iterable 类型定义
+   * React/JSX support:
+   *   - jsx                - use the React 17+ JSX transform
+   *   - lib                - include ES2022, DOM, and DOM.Iterable typings
    *
-   * 📦 库开发配置:
-   *   • declaration        - 生成 .d.ts 类型声明文件
-   *   • moduleResolution   - 使用 bundler 模式的模块解析
-   *   • declarationMap     - 生成声明文件的 source map，便于调试
+   * Library build options:
+   *   - declaration        - generate .d.ts type declarations
+   *   - moduleResolution   - use bundler module resolution
+   *   - declarationMap     - generate declaration source maps
    *
-   * 🏗️ Monorepo 支持:
-   *   • composite          - 启用增量编译，适用于大型项目或 monorepo (可选)
-   * ═══════════════════════════════════════════════════════════════════════════════════════
+   * Monorepo support:
+   *   - composite          - enable incremental builds (optional)
+   * =====================================================================
    */
 
   "compilerOptions": {
-    // ⚛️ React/JSX 支持
+    // React/JSX support
     "jsx": "react-jsx",
     "lib": ["es2022", "DOM", "DOM.Iterable"],
 
-    // 📦 库开发配置
+    // Library build options
     "declaration": true,
     "moduleResolution": "bundler",
     "declarationMap": true
 
-    // 🏗️ Monorepo 支持 (可选)
+    // Monorepo support (optional)
     // "composite": true
   }
 }

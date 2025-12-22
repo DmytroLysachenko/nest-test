@@ -1,4 +1,4 @@
-import { Toaster, toast } from '@repo/ui/components/sonner';
+﻿import { Toaster, toast } from '@repo/ui/components/sonner';
 
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
@@ -10,16 +10,16 @@ const meta: Meta<typeof Toaster> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// 基础 Toaster
+// Basic toaster
 export const Basic: Story = {
   render: () => <Toaster />,
 };
 
-// 触发 toast
+// Trigger toast
 export const WithToast: Story = {
   render: () => (
     <>
-      <button onClick={() => toast('Hello Sonner!')}>显示 Toast</button>
+      <button onClick={() => toast('Hello Sonner!')}>Show Toast</button>
       <Toaster />
     </>
   ),

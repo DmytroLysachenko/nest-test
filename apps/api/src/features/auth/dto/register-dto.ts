@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+﻿import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsString } from 'class-validator';
 
 export class RegisterDto {
@@ -16,5 +16,5 @@ export class RegisterDto {
 
   @ApiProperty()
   @IsString()
-  code: string; // TODO：长度限制
+  code: string; // TODO: add length validation
 }

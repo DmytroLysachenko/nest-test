@@ -1,41 +1,41 @@
-{
+﻿{
   "$schema": "https://json.schemastore.org/tsconfig.json",
   "display": "Base",
 
   /*
-   * ═══════════════════════════════════════════════════════════════════════════════════════
-   * TypeScript 基础配置文件
-   * 适用于现代 TypeScript 项目的严格配置
-   * ═══════════════════════════════════════════════════════════════════════════════════════
+   * =====================================================================
+   * TypeScript base config
+   * Strict settings for modern TypeScript projects
+   * =====================================================================
    *
-   * 🔧 基础选项:
-   *   • esModuleInterop      - 允许默认导入非ES模块的模块
-   *   • skipLibCheck         - 跳过库文件的类型检查，加快编译速度
-   *   • target               - 指定编译后输出的JavaScript版本 (ES2022)
-   *   • resolveJsonModule    - 允许导入JSON模块
-   *   • moduleDetection      - 强制模块检测
-   *   • isolatedModules      - 每个文件作为单独的模块进行编译
-   *   • verbatimModuleSyntax - 保留导入导出语法不变
-   *   • useDefineForClassFields - 建议为 true
+   * Base options:
+   *   - esModuleInterop      - allow default imports from non-ES modules
+   *   - skipLibCheck         - skip type checks for library files
+   *   - target               - output JavaScript version (ES2022)
+   *   - resolveJsonModule    - allow importing JSON modules
+   *   - moduleDetection      - force module detection
+   *   - isolatedModules      - compile each file as a separate module
+   *   - verbatimModuleSyntax - preserve import/export syntax
+   *   - useDefineForClassFields - recommended to set true
    *
-   * 🔒 严格模式:
-   *   • strict                     - 启用所有严格类型检查选项
-   *   • noUncheckedIndexedAccess   - 索引签名类型会包含 undefined
-   *   • noImplicitOverride         - 子类重写父类方法时必须显式使用 override 关键字
-   *   • noUncheckedSideEffectImports - 防止未检查的副作用导入
-   *   • erasableSyntaxOnly         - 5.8.3 新增，向前兼容运行时 TypeScript
+   * Strict mode:
+   *   - strict                     - enable all strict type checks
+   *   - noUncheckedIndexedAccess   - index signatures include undefined
+   *   - noImplicitOverride         - require override keyword for overrides
+   *   - noUncheckedSideEffectImports - prevent unchecked side-effect imports
+   *   - erasableSyntaxOnly         - 5.8.3+ for runtime-compatible TS
    *
-   * ⚡ 性能优化:
-   *   • incremental - 启用增量编译
+   * Performance:
+   *   - incremental - enable incremental compilation
    *
-   * 🚀 非转译模式:
-   *   • module  - 保持模块类型不变
-   *   • noEmit  - 不输出编译结果
-   * ═══════════════════════════════════════════════════════════════════════════════════════
+   * No-emit mode:
+   *   - module  - preserve module type
+   *   - noEmit  - do not output compiled files
+   * =====================================================================
    */
 
   "compilerOptions": {
-    // 🔧 基础选项
+    // Base options
     "esModuleInterop": true,
     "skipLibCheck": true,
     "target": "esnext",
@@ -45,16 +45,16 @@
     "verbatimModuleSyntax": true,
     "useDefineForClassFields": true,
 
-    // 🔒 严格模式
+    // Strict mode
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noUncheckedSideEffectImports": true,
 
-    // ⚡ 性能优化
+    // Performance
     "incremental": true,
 
-    // 🚀 非转译模式
+    // No-emit mode
     "module": "preserve",
     "noEmit": true
   }

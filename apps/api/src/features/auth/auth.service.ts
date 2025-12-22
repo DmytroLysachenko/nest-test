@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+﻿import { BadRequestException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { otpsTable, profilesTable, passportTable, usersTable } from '@repo/db';
 import { eq } from 'drizzle-orm';
@@ -36,11 +36,11 @@ export class AuthService {
       .then((res) => res[0]);
 
     if (!user) {
-      throw new UserNotFoundException('用户不存在');
+      throw new UserNotFoundException('User not found');
     }
 
     if (!(await validatePassword(password, user.password))) {
-      throw new UnauthorizedException('密码错误');
+      throw new UnauthorizedException('Incorrect password');
     }
 
     return user;

@@ -1,4 +1,4 @@
-import { toast } from '@repo/ui/components/sonner';
+﻿import { toast } from '@repo/ui/components/sonner';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { paths } from '@/config/paths';
@@ -25,7 +25,8 @@ export interface AuthResponse {
   token: string;
   refreshToken: string;
 }
-// 登录
+
+// Login
 export const useLogin = () => {
   const { login } = authStore();
   return useMutation({

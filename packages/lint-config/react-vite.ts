@@ -1,4 +1,4 @@
-import type { FlatConfig } from '@typescript-eslint/utils/ts-eslint';
+﻿import type { FlatConfig } from '@typescript-eslint/utils/ts-eslint';
 import pluginJsxA11y from 'eslint-plugin-jsx-a11y';
 import pluginReact from 'eslint-plugin-react';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
@@ -10,9 +10,9 @@ const viteConfig = [
   {
     name: 'base/vite/config',
     plugins: {
-      react: pluginReact, // React 核心插件
-      'jsx-a11y': pluginJsxA11y, // 可访问性检查
-      'react-hooks': pluginReactHooks, // React Hooks 规则
+      react: pluginReact, // React core plugin
+      'jsx-a11y': pluginJsxA11y, // Accessibility checks
+      'react-hooks': pluginReactHooks, // React Hooks rules
       'react-refresh': pluginReactRefresh,
     },
     rules: {
@@ -21,14 +21,14 @@ const viteConfig = [
       ...pluginReactHooks.configs.recommended.rules,
       ...pluginJsxA11y.configs.strict.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
-      'react/no-unknown-property': 'off', // 禁用未知属性检查
-      'react/react-in-jsx-scope': 'off', // 无需导入 React
-      'react/prop-types': 'off', // 禁用 PropTypes 检查
-      'react/jsx-no-target-blank': 'off', // 允许 target="_blank"
+      'react/no-unknown-property': 'off', // Disable unknown property checks
+      'react/react-in-jsx-scope': 'off', // No need to import React
+      'react/prop-types': 'off', // Disable PropTypes checks
+      'react/jsx-no-target-blank': 'off', // Allow target="_blank"
     },
     settings: {
       react: {
-        version: 'detect', // 自动检测 React 版本
+        version: 'detect', // Auto-detect React version
       },
     },
   },

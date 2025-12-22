@@ -1,4 +1,4 @@
-import { Avatar, AvatarImage, AvatarFallback } from '@repo/ui/components/avatar';
+﻿import { Avatar, AvatarImage, AvatarFallback } from '@repo/ui/components/avatar';
 
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
@@ -10,7 +10,7 @@ const meta: Meta<typeof Avatar> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// 基础头像
+// Basic avatar
 export const Basic: Story = {
   render: () => (
     <Avatar>
@@ -20,12 +20,12 @@ export const Basic: Story = {
   ),
 };
 
-// 无图片时的 Fallback
+// Fallback when no image
 export const WithFallback: Story = {
   render: () => (
     <Avatar>
       <AvatarImage src="" alt="avatar" />
-      <AvatarFallback>张三</AvatarFallback>
+      <AvatarFallback>JD</AvatarFallback>
     </Avatar>
   ),
 };

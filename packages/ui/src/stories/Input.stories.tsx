@@ -1,4 +1,4 @@
-import { Input } from '@repo/ui/components/input';
+﻿import { Input } from '@repo/ui/components/input';
 
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
@@ -17,10 +17,10 @@ const meta: Meta<typeof Input> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// 基础输入框
+// Basic input
 export const Basic: Story = {
   args: {
-    placeholder: '请输入内容',
+    placeholder: 'Enter text',
     type: 'text',
   },
 };

@@ -1,70 +1,68 @@
-import { Meta } from "@storybook/addon-docs/blocks";
+﻿import { Meta } from "@storybook/addon-docs/blocks";
 
 <Meta title="Intro"/>
 
-# UI 组件库简介
+# UI Component Library Overview
 
-本组件库基于 React，适用于中后台、管理系统等场景，支持主题定制与现代化开发体验。组件风格参考 [shadcn/ui](https://ui.shadcn.com/) 并结合团队实际需求进行优化。
+This component library is built with React for admin and dashboard scenarios, with theme customization and a modern developer experience. The style is inspired by [shadcn/ui](https://ui.shadcn.com/) and tailored to team needs.
 
 ---
 
-## 快速开始
+## Quick Start
 
-**安装依赖**
+**Install dependencies**
 
 ```bash
 pnpm add @repo/ui
 ```
 
-**引入全局样式**
+**Import global styles**
 
-在项目入口文件（如 `main.tsx` 或 `app.tsx`）中引入：
+In your entry file (for example `main.tsx` or `app.tsx`):
 
 ```ts
 import '@repo/ui/styles/globals.css';
 ```
 
-**使用组件**
+**Use components**
 
 ```tsx
 import { Button } from '@repo/ui/components/button';
 
-<Button variant="primary">按钮</Button>
+<Button variant="primary">Button</Button>
 ```
 
 ---
 
-## 组件一览
+## Components
 
-- **Button 按钮**：多变体、多尺寸，支持图标与加载态
-- **Avatar 头像**：用户头像展示
-- **DropdownMenu 下拉菜单**：多级菜单与交互
-- **Sonner 通知**：轻量级消息提示
-- **Label 标签**、**Input 输入框**、**Form 表单**、**Card 卡片** 等
+- **Button**: multiple variants and sizes, supports icons and loading state
+- **Avatar**: user avatar display
+- **DropdownMenu**: multi-level menus and interactions
+- **Sonner**: lightweight notifications
+- **Label**, **Input**, **Form**, **Card**, and more
 
-详见左侧各组件文档。
-
----
-
-## 主题与定制
-
-- 主题色与暗色模式详见 [Colors](/?path=/docs/colors) 文档
-- 支持自定义 CSS 变量，详见 `globals.css`
-- 可结合 Tailwind CSS 等工具灵活扩展
+See component docs in the left sidebar.
 
 ---
 
-## Storybook 指南
+## Theme and customization
 
-- 通过 Storybook 可交互预览所有组件
-- 支持 Props 配置、主题切换、代码示例等
-- 进阶用法与配置详见 [Configure your project](/?path=/docs/configure-your-project)
+- Theme colors and dark mode: see [Colors](/?path=/docs/colors)
+- Customize CSS variables in `globals.css`
+- Extend with Tailwind CSS utilities as needed
 
 ---
 
-## 参考与致谢
+## Storybook guide
 
-- 设计与实现参考 [shadcn/ui](https://ui.shadcn.com/)
-- 感谢开源社区的贡献
+- Use Storybook to preview all components interactively
+- Supports Props controls, theme switching, and code examples
+- Advanced usage: [Configure your project](/?path=/docs/configure-your-project)
 
+---
 
+## References and thanks
+
+- Inspired by [shadcn/ui](https://ui.shadcn.com/)
+- Thanks to the open-source community

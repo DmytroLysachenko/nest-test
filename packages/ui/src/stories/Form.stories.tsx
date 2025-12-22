@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form';
+﻿import { useForm } from 'react-hook-form';
 
 import {
   Form,
@@ -20,7 +20,7 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj;
 
-// 基础表单
+// Basic form
 export const Basic: Story = {
   render: () => {
     const form = useForm({ defaultValues: { username: '' } });
@@ -32,11 +32,11 @@ export const Basic: Story = {
             control={form.control}
             render={({ field }) => (
               <FormItem>
-                <FormLabel>用户名</FormLabel>
+                <FormLabel>Username</FormLabel>
                 <FormControl>
-                  <Input placeholder="请输入用户名" {...field} />
+                  <Input placeholder="Enter username" {...field} />
                 </FormControl>
-                <FormDescription>请输入您的用户名</FormDescription>
+                <FormDescription>Please enter your username</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
