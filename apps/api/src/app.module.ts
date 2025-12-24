@@ -15,6 +15,7 @@ import { GeminiModule } from '@/common/modules/gemini/gemini.module';
 import { AuthModule } from '@/features/auth/auth.module';
 import { UserModule } from '@/features/user/user.module';
 import { ProfileInputsModule } from '@/features/profile-inputs/profile-inputs.module';
+import { DocumentsModule } from '@/features/documents/documents.module';
 import { RolesGuard } from '@/common/guards';
 
 @Module({
@@ -42,6 +43,7 @@ import { RolesGuard } from '@/common/guards';
     GeminiModule,
     UserModule,
     ProfileInputsModule,
+    DocumentsModule,
   ],
   providers: [
     {

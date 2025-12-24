@@ -16,6 +16,10 @@ export const EnvSchema = z.object({
   DATABASE_URL: z.string(),
   GEMINI_API_KEY: z.string(),
   GEMINI_MODEL: z.string().default('gemini-2.5-flash-lite'),
+  GCS_BUCKET: z.string(),
+  GCP_PROJECT_ID: z.string().optional(),
+  GCP_CLIENT_EMAIL: z.string().optional(),
+  GCP_PRIVATE_KEY: z.string().optional(),
   ALLOWED_ORIGINS: z.string().default('*'),
   API_PREFIX: z.string().default('api'),
 });

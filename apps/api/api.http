@@ -88,3 +88,15 @@ Content-Type: application/json
 ### Get latest profile input (auth)
 GET {{baseUrl}}/profile-inputs/latest
 Authorization: Bearer {{accessToken}}
+
+### Create document upload URL (auth)
+POST {{baseUrl}}/documents/upload-url
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "type": "CV",
+  "originalName": "cv.pdf",
+  "mimeType": "application/pdf",
+  "size": 123456
+}

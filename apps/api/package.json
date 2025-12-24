@@ -3,6 +3,7 @@
   "description": "NestJS API",
   "version": "1.0.0",
   "dependencies": {
+    "@google-cloud/storage": "^7.15.2",
     "@google/generative-ai": "^0.21.0",
     "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/axios": "^4.0.0",
