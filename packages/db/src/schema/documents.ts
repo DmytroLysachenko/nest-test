@@ -13,5 +13,6 @@ export const documentsTable = pgTable('documents', {
   originalName: text('original_name').notNull(),
   mimeType: text('mime_type').notNull(),
   size: integer('size').notNull(),
+  uploadedAt: timestamp('uploaded_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });

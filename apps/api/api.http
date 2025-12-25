@@ -100,3 +100,12 @@ Content-Type: application/json
   "mimeType": "application/pdf",
   "size": 123456
 }
+
+### Confirm document upload (auth)
+POST {{baseUrl}}/documents/confirm
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "documentId": "replace_with_document_id"
+}

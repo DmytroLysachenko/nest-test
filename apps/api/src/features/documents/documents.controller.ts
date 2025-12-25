@@ -6,6 +6,7 @@ import { JwtValidateUser } from '@/types/interface/jwt';
 
 import { DocumentsService } from './documents.service';
 import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
+import { ConfirmDocumentDto } from './dto/confirm-document.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('documents')
@@ -15,5 +16,10 @@ export class DocumentsController {
   @Post('upload-url')
   async createUploadUrl(@CurrentUser() user: JwtValidateUser, @Body() dto: CreateUploadUrlDto) {
     return this.documentsService.createUploadUrl(user.userId, dto);
+  }
+
+  @Post('confirm')
+  async confirmUpload(@CurrentUser() user: JwtValidateUser, @Body() dto: ConfirmDocumentDto) {
+    return this.documentsService.confirmUpload(user.userId, dto);
   }
 }

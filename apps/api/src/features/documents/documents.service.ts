@@ -1,12 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { documentsTable } from '@repo/db';
 import { randomUUID } from 'crypto';
+import { and, eq } from 'drizzle-orm';
 
 import { Drizzle } from '@/common/decorators';
 import { GcsService } from '@/common/modules/gcs/gcs.service';
 
 import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
+import { ConfirmDocumentDto } from './dto/confirm-document.dto';
 
 @Injectable()
 export class DocumentsService {
@@ -39,6 +41,32 @@ export class DocumentsService {
       document,
       uploadUrl,
     };
+  }
+
+  async confirmUpload(userId: string, dto: ConfirmDocumentDto) {
+    const document = await this.db
+      .select()
+      .from(documentsTable)
+      .where(and(eq(documentsTable.id, dto.documentId), eq(documentsTable.userId, userId)))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    const exists = await this.gcsService.fileExists(document.storagePath);
+    if (!exists) {
+      throw new BadRequestException('File not found in storage');
+    }
+
+    const [updated] = await this.db
+      .update(documentsTable)
+      .set({ uploadedAt: new Date() })
+      .where(eq(documentsTable.id, document.id))
+      .returning();
+
+    return updated;
   }
 
   private sanitizeFilename(filename: string) {
