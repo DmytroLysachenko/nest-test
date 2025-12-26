@@ -2,13 +2,14 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { documentsTable } from '@repo/db';
 import { randomUUID } from 'crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 
 import { Drizzle } from '@/common/decorators';
 import { GcsService } from '@/common/modules/gcs/gcs.service';
 
 import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 import { ConfirmDocumentDto } from './dto/confirm-document.dto';
+import { ListDocumentsQuery } from './dto/list-documents.query';
 
 @Injectable()
 export class DocumentsService {
@@ -67,6 +68,18 @@ export class DocumentsService {
       .returning();
 
     return updated;
+  }
+
+  async list(userId: string, query: ListDocumentsQuery) {
+    const where = query.type
+      ? and(eq(documentsTable.userId, userId), eq(documentsTable.type, query.type))
+      : eq(documentsTable.userId, userId);
+
+    return this.db
+      .select()
+      .from(documentsTable)
+      .where(where)
+      .orderBy(desc(documentsTable.createdAt));
   }
 
   private sanitizeFilename(filename: string) {

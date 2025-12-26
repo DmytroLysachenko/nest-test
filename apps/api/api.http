@@ -109,3 +109,24 @@ Content-Type: application/json
 {
   "documentId": "replace_with_document_id"
 }
+
+### List documents (auth)
+GET {{baseUrl}}/documents
+Authorization: Bearer {{accessToken}}
+
+### List documents by type (auth)
+GET {{baseUrl}}/documents?type=CV
+Authorization: Bearer {{accessToken}}
+
+### Create career profile (auth)
+POST {{baseUrl}}/career-profiles
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "instructions": "Focus on backend roles and highlight NestJS experience."
+}
+
+### Get latest career profile (auth)
+GET {{baseUrl}}/career-profiles/latest
+Authorization: Bearer {{accessToken}}

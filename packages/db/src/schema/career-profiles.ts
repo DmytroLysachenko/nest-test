@@ -12,6 +12,7 @@ export const careerProfilesTable = pgTable('career_profiles', {
   profileInputId: uuid('profile_input_id')
     .notNull()
     .references(() => profileInputsTable.id, { onDelete: 'cascade' }),
+  documentIds: text('document_ids'),
   status: careerProfileStatusEnum('status').default('PENDING').notNull(),
   content: text('content'),
   model: varchar('model', { length: 100 }),

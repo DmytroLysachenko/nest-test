@@ -16,6 +16,7 @@ import { AuthModule } from '@/features/auth/auth.module';
 import { UserModule } from '@/features/user/user.module';
 import { ProfileInputsModule } from '@/features/profile-inputs/profile-inputs.module';
 import { DocumentsModule } from '@/features/documents/documents.module';
+import { CareerProfilesModule } from '@/features/career-profiles/career-profiles.module';
 import { RolesGuard } from '@/common/guards';
 
 @Module({
@@ -44,6 +45,7 @@ import { RolesGuard } from '@/common/guards';
     UserModule,
     ProfileInputsModule,
     DocumentsModule,
+    CareerProfilesModule,
   ],
   providers: [
     {
