@@ -37,6 +37,13 @@ export class GcsService {
     return exists;
   }
 
+  async downloadFile(objectPath: string) {
+    const bucket = this.storage.bucket(this.bucketName);
+    const file = bucket.file(objectPath);
+    const [buffer] = await file.download();
+    return buffer;
+  }
+
   private getClientConfig(): ConstructorParameters<typeof Storage>[0] | undefined {
     const clientEmail = this.config.get('GCP_CLIENT_EMAIL');
     const privateKey = this.config.get('GCP_PRIVATE_KEY');

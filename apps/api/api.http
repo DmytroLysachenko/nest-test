@@ -118,6 +118,15 @@ Authorization: Bearer {{accessToken}}
 GET {{baseUrl}}/documents?type=CV
 Authorization: Bearer {{accessToken}}
 
+### Extract document text (auth)
+POST {{baseUrl}}/documents/extract
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "documentId": "replace_with_document_id"
+}
+
 ### Create career profile (auth)
 POST {{baseUrl}}/career-profiles
 Authorization: Bearer {{accessToken}}

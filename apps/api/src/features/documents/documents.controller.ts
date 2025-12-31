@@ -8,6 +8,7 @@ import { DocumentsService } from './documents.service';
 import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 import { ConfirmDocumentDto } from './dto/confirm-document.dto';
 import { ListDocumentsQuery } from './dto/list-documents.query';
+import { ExtractDocumentDto } from './dto/extract-document.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('documents')
@@ -27,5 +28,10 @@ export class DocumentsController {
   @Get()
   async list(@CurrentUser() user: JwtValidateUser, @Query() query: ListDocumentsQuery) {
     return this.documentsService.list(user.userId, query);
+  }
+
+  @Post('extract')
+  async extractText(@CurrentUser() user: JwtValidateUser, @Body() dto: ExtractDocumentDto) {
+    return this.documentsService.extractText(user.userId, dto);
   }
 }

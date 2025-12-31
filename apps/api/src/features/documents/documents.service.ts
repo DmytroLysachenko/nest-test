@@ -3,6 +3,7 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { documentsTable } from '@repo/db';
 import { randomUUID } from 'crypto';
 import { and, desc, eq } from 'drizzle-orm';
+import pdfParse from 'pdf-parse';
 
 import { Drizzle } from '@/common/decorators';
 import { GcsService } from '@/common/modules/gcs/gcs.service';
@@ -10,6 +11,7 @@ import { GcsService } from '@/common/modules/gcs/gcs.service';
 import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 import { ConfirmDocumentDto } from './dto/confirm-document.dto';
 import { ListDocumentsQuery } from './dto/list-documents.query';
+import { ExtractDocumentDto } from './dto/extract-document.dto';
 
 @Injectable()
 export class DocumentsService {
@@ -80,6 +82,41 @@ export class DocumentsService {
       .from(documentsTable)
       .where(where)
       .orderBy(desc(documentsTable.createdAt));
+  }
+
+  async extractText(userId: string, dto: ExtractDocumentDto) {
+    const document = await this.db
+      .select()
+      .from(documentsTable)
+      .where(and(eq(documentsTable.id, dto.documentId), eq(documentsTable.userId, userId)))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    if (!document.uploadedAt) {
+      throw new BadRequestException('Document is not uploaded yet');
+    }
+
+    if (document.mimeType !== 'application/pdf') {
+      throw new BadRequestException('Only PDF documents are supported');
+    }
+
+    const fileBuffer = await this.gcsService.downloadFile(document.storagePath);
+    const parsed = await pdfParse(fileBuffer);
+
+    const [updated] = await this.db
+      .update(documentsTable)
+      .set({
+        extractedText: parsed.text,
+        extractedAt: new Date(),
+      })
+      .where(eq(documentsTable.id, document.id))
+      .returning();
+
+    return updated;
   }
 
   private sanitizeFilename(filename: string) {
