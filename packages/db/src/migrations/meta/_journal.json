@@ -15,6 +15,13 @@
       "when": 1766424179018,
       "tag": "0001_lively_ravenous",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767350521407,
+      "tag": "0002_easy_marvel_boy",
+      "breakpoints": true
     }
   ]
 }
