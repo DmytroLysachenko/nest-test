@@ -51,12 +51,14 @@ export class CareerProfilesService {
     try {
       const prompt = this.buildPrompt(profileInput.targetRoles, profileInput.notes, documents, dto.instructions);
       const content = await this.geminiService.generateText(prompt);
+      const contentJson = this.extractJson(content);
 
       const [updated] = await this.db
         .update(careerProfilesTable)
         .set({
           status: 'READY',
           content,
+          contentJson,
           model: 'gemini',
           error: null,
           updatedAt: new Date(),
@@ -120,7 +122,10 @@ export class CareerProfilesService {
 
     return [
       'You are a career profile generator.',
-      'Create a concise career profile in markdown.',
+      'Create a concise career profile in markdown, then output a JSON block.',
+      'The JSON must be the last section, wrapped in a ```json code fence.',
+      'JSON shape:',
+      '{ "summary": string, "coreSkills": string[], "preferredRoles": string[], "strengths": string[], "gaps": string[] }',
       '',
       `Target roles: ${targetRoles}`,
       notes ? `Notes: ${notes}` : 'Notes: none',
@@ -141,5 +146,18 @@ export class CareerProfilesService {
     ]
       .filter(Boolean)
       .join('\n');
+  }
+
+  private extractJson(content: string) {
+    const match = content.match(/```json\\s*([\\s\\S]*?)\\s*```/i);
+    if (!match?.[1]) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(match[1]);
+    } catch {
+      return null;
+    }
   }
 }

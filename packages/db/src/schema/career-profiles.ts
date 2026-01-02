@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
 import { careerProfileStatusEnum } from './_enums';
 import { profileInputsTable } from './profile-inputs';
@@ -15,6 +15,7 @@ export const careerProfilesTable = pgTable('career_profiles', {
   documentIds: text('document_ids'),
   status: careerProfileStatusEnum('status').default('PENDING').notNull(),
   content: text('content'),
+  contentJson: jsonb('content_json'),
   model: varchar('model', { length: 100 }),
   error: text('error'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

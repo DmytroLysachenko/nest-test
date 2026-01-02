@@ -1,0 +1,1 @@
+ALTER TABLE "career_profiles" ADD COLUMN "content_json" jsonb;
