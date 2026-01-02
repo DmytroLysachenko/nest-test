@@ -25,8 +25,9 @@ If you only read this README, you should be able to understand:
 2) User submits profile input: target roles + optional notes.
 3) User requests a signed GCS upload URL and uploads PDF documents (CV/LinkedIn).
 4) User confirms the upload so the backend can mark the file as ready.
-5) User triggers career profile generation using Gemini.
-6) Backend stores the generated profile as markdown.
+5) User extracts PDF text and stores it for AI use.
+6) User triggers career profile generation using Gemini.
+7) Backend stores the generated profile as markdown.
 
 The AI output is used later for matching and job discovery.
 
@@ -53,12 +54,12 @@ Minimal, LLM-first data model:
 
 - User: authenticated identity.
 - ProfileInput: user intent (target roles + notes).
-- Document: metadata for uploaded PDFs stored in GCS.
+- Document: metadata for uploaded PDFs stored in GCS, plus extracted text.
 - CareerProfile: AI-generated markdown output tied to a profile input and documents.
 
 Tables (simplified):
 - profile_inputs: user_id, target_roles, notes
-- documents: user_id, type, storage_path, original_name, mime_type, size, uploaded_at
+- documents: user_id, type, storage_path, original_name, mime_type, size, uploaded_at, extracted_text, extracted_at
 - career_profiles: user_id, profile_input_id, document_ids, status, content, model, error
 
 ---
@@ -83,6 +84,7 @@ Profile input:
 Documents:
 - POST `/documents/upload-url` (returns signed GCS URL + document record)
 - POST `/documents/confirm` (verifies file exists and marks uploaded)
+- POST `/documents/extract` (downloads PDF from GCS and stores extracted text)
 - GET `/documents` (optional `?type=CV|LINKEDIN|OTHER`)
 
 Career profile:
@@ -185,6 +187,7 @@ pnpm start
 3) Client uploads PDF directly to GCS using the signed URL.
 4) Client calls `POST /documents/confirm` with `documentId`.
 5) Backend verifies the object exists in GCS and sets `uploaded_at`.
+6) Client calls `POST /documents/extract` to extract text into `extracted_text`.
 
 ---
 
@@ -194,6 +197,7 @@ pnpm start
 2) Backend:
    - fetches latest profile input,
    - finds confirmed documents,
+   - includes extracted text when available,
    - builds a prompt,
    - calls Gemini,
    - stores markdown in `career_profiles.content`.
@@ -212,7 +216,7 @@ pnpm start
 ## Roadmap
 
 Short-term:
-- PDF text extraction (turn CV/LinkedIn PDF into prompt input)
+- Use extracted PDF text directly in profile generation
 - Async AI jobs (queue + retries)
 - Career profile versioning
 

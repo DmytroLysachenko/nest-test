@@ -92,12 +92,31 @@ export class CareerProfilesService {
   private buildPrompt(
     targetRoles: string,
     notes: string | null,
-    documents: Array<{ storagePath: string; originalName: string; mimeType: string }>,
+    documents: Array<{
+      storagePath: string;
+      originalName: string;
+      mimeType: string;
+      extractedText: string | null;
+      extractedAt: Date | null;
+    }>,
     instructions?: string,
   ) {
     const documentList = documents
       .map((doc) => `- ${doc.originalName} (${doc.mimeType}) at ${doc.storagePath}`)
       .join('\n');
+
+    const extractedSections = documents
+      .filter((doc) => doc.extractedText)
+      .map((doc, index) =>
+        [
+          `Document ${index + 1}: ${doc.originalName}`,
+          doc.extractedAt ? `Extracted at: ${doc.extractedAt.toISOString()}` : '',
+          doc.extractedText ?? '',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      )
+      .join('\n\n');
 
     return [
       'You are a career profile generator.',
@@ -108,6 +127,8 @@ export class CareerProfilesService {
       '',
       'Documents (for reference):',
       documentList,
+      extractedSections ? '\nExtracted document text:\n' : '',
+      extractedSections,
       '',
       instructions ? `Additional instructions: ${instructions}` : '',
       '',

@@ -14,13 +14,13 @@ export class GeminiService {
   private readonly defaultModel: string;
 
   constructor(private readonly config: ConfigService<Env>) {
-    const apiKey = this.config.get('GEMINI_API_KEY');
+    const apiKey = this.config.get<string>('GEMINI_API_KEY');
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY is required');
     }
 
     this.client = new GoogleGenerativeAI(apiKey);
-    this.defaultModel = this.config.get('GEMINI_MODEL') ?? 'gemini-2.5-flash-lite';
+    this.defaultModel = this.config.get<string>('GEMINI_MODEL') ?? 'gemini-2.5-flash-lite';
   }
 
   async generateText(prompt: string, options: GenerateTextOptions = {}): Promise<string> {

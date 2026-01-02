@@ -1,4 +1,4 @@
-﻿import { Input } from '@repo/ui/components/input';
+import { Input } from '@repo/ui/components/input';
 
 import type { Meta, StoryObj } from '@storybook/react-vite';
 

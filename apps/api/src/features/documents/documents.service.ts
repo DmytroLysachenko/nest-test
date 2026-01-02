@@ -1,7 +1,8 @@
+import { randomUUID } from 'crypto';
+
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { documentsTable } from '@repo/db';
-import { randomUUID } from 'crypto';
 import { and, desc, eq } from 'drizzle-orm';
 import pdfParse from 'pdf-parse';
 
@@ -77,11 +78,7 @@ export class DocumentsService {
       ? and(eq(documentsTable.userId, userId), eq(documentsTable.type, query.type))
       : eq(documentsTable.userId, userId);
 
-    return this.db
-      .select()
-      .from(documentsTable)
-      .where(where)
-      .orderBy(desc(documentsTable.createdAt));
+    return this.db.select().from(documentsTable).where(where).orderBy(desc(documentsTable.createdAt));
   }
 
   async extractText(userId: string, dto: ExtractDocumentDto) {

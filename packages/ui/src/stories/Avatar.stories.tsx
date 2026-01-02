@@ -1,4 +1,4 @@
-﻿import { Avatar, AvatarImage, AvatarFallback } from '@repo/ui/components/avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@repo/ui/components/avatar';
 
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
