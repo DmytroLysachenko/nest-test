@@ -1,20 +1,20 @@
 @host = http://localhost:3000
 @apiPrefix = api
 @baseUrl = {{host}}/{{apiPrefix}}
-@accessToken = replace_with_access_token
-
+@accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1ODkzNTIwZC01YWY0LTRhZDgtYmRjMS05MmE2M2YzZjgzMmIiLCJyb2xlIjoidXNlciIsImlhdCI6MTc2Nzg5ODI3NywiZXhwIjoxNzY3OTg0Njc3fQ.VdQQH5cHugW8m5qd2KU-mHxdGUf_amxSfURBNfqcztY
+@uploadUrl = https://storage.googleapis.com/job-seeking-bucket/documents/5893520d-5af4-4ad8-bdc1-92a63f3f832b/c4154a15-d898-4733-97f4-29266eccdf69/sample.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=job-seeking-service-account%40job-seeking-service.iam.gserviceaccount.com%2F20260108%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260108T190411Z&X-Goog-Expires=900&X-Goog-SignedHeaders=content-type%3Bhost&X-Goog-Signature=38e84198ba76c8b5486a26697cfd5412d328e2c0cdd54497ab2cbaaa060e3ff2fa16887cff461eb7e711859109e280de44f2ac4dfcd701c50f31a319e528e0ed2cc4b3f02f15c572c9fdfd45e73c2c32db9c76f5ffdfe4c88ad3fdcd63e16dff30af1a195db11060285d6aafa992030ed00e8e1a967abe851ec214d920f333a805618fe284750dcc3ddae52a781027c1f3c420c1a2be472eb43c7befbb72e7631e4d7406c115412f0c0948d6789aa5f3d6703554941170d863630f1292d2297d24a5d6e16618e5877f6e3ef3824341bbc7bcfcdd9e744f09d7903ef1d723fdefc6a9a6b6b9306837ea11c327c35f7ae0d8ede45edb64e93502f27f8ece388d70
 ### Health check (public)
-GET {{baseUrl}}/health
+GET http://localhost:3000/health
 
 ### Health test (public)
-GET {{baseUrl}}/health/test
+GET http://localhost:3000/health/test
 
 ### Send register code (public)
 POST {{baseUrl}}/auth/send-register-code
 Content-Type: application/json
 
 {
-  "email": "user@example.com"
+  "email": "copaca7463@gopicta.com"
 }
 
 ### Register (public)
@@ -22,10 +22,10 @@ POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
-  "email": "user@example.com",
+  "email": "copaca7463@gopicta.com",
   "password": "Password123!",
   "confirmPassword": "Password123!",
-  "code": "123456"
+  "code": "987149"
 }
 
 ### Login (public)
@@ -33,8 +33,8 @@ POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "user@example.com",
-  "password": "Password123!"
+  "email": "copaca7463@gopicta.com",
+  "password": "Password123!?"
 }
 
 ### Logout (auth)
@@ -48,8 +48,8 @@ Content-Type: application/json
 
 {
   "oldPassword": "Password123!",
-  "newPassword": "Password123!",
-  "confirmPassword": "Password123!"
+  "password": "Password123!?",
+  "confirmPassword": "Password123!?"
 }
 
 ### Reset password (public)
@@ -96,10 +96,16 @@ Content-Type: application/json
 
 {
   "type": "CV",
-  "originalName": "cv.pdf",
+  "originalName": "sample.pdf",
   "mimeType": "application/pdf",
   "size": 123456
 }
+
+### Upload PDF to signed URL (public)
+PUT {{uploadUrl}}
+Content-Type: application/pdf
+
+< ./apps/api/test-files/sample.pdf
 
 ### Confirm document upload (auth)
 POST {{baseUrl}}/documents/confirm
@@ -107,7 +113,7 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "documentId": "replace_with_document_id"
+  "documentId": "c4154a15-d898-4733-97f4-29266eccdf69"
 }
 
 ### List documents (auth)
@@ -126,6 +132,10 @@ Content-Type: application/json
 {
   "documentId": "replace_with_document_id"
 }
+
+### Sync documents with storage (auth)
+POST {{baseUrl}}/documents/sync
+Authorization: Bearer {{accessToken}}
 
 ### Create career profile (auth)
 POST {{baseUrl}}/career-profiles

@@ -116,7 +116,93 @@ export class DocumentsService {
     return updated;
   }
 
+  async syncWithStorage(userId: string) {
+    const prefix = `documents/${userId}/`;
+    const files = await this.gcsService.listObjects(prefix);
+
+    const dbDocuments = await this.db.select().from(documentsTable).where(eq(documentsTable.userId, userId));
+    const dbById = new Map(dbDocuments.map((doc) => [doc.id, doc]));
+    const seenIds = new Set<string>();
+
+    let created = 0;
+    let removed = 0;
+    let updated = 0;
+
+    for (const file of files) {
+      const path = file.name;
+      const parsed = this.parseObjectPath(path, userId);
+      if (!parsed) {
+        continue;
+      }
+      const { documentId, filename } = parsed;
+      seenIds.add(documentId);
+
+      const existing = dbById.get(documentId);
+      if (!existing) {
+        const [metadata] = await file.getMetadata();
+        const mimeType = metadata.contentType ?? 'application/octet-stream';
+        const size = metadata.size ? Number(metadata.size) : 0;
+
+        await this.db.insert(documentsTable).values({
+          id: documentId,
+          userId,
+          type: 'OTHER',
+          storagePath: path,
+          originalName: filename,
+          mimeType,
+          size,
+          uploadedAt: new Date(),
+        });
+        created += 1;
+        continue;
+      }
+
+      if (existing.storagePath !== path) {
+        await this.db.update(documentsTable).set({ storagePath: path }).where(eq(documentsTable.id, documentId));
+        updated += 1;
+      }
+
+      if (!existing.uploadedAt) {
+        await this.db.update(documentsTable).set({ uploadedAt: new Date() }).where(eq(documentsTable.id, documentId));
+        updated += 1;
+      }
+    }
+
+    for (const doc of dbDocuments) {
+      if (!seenIds.has(doc.id)) {
+        await this.db.delete(documentsTable).where(eq(documentsTable.id, doc.id));
+        removed += 1;
+      }
+    }
+
+    return {
+      created,
+      updated,
+      removed,
+      totalInDb: dbDocuments.length,
+      totalInStorage: files.length,
+    };
+  }
+
   private sanitizeFilename(filename: string) {
     return filename.replace(/[^\w.\-]+/g, '_');
+  }
+
+  private parseObjectPath(path: string, userId: string) {
+    const prefix = `documents/${userId}/`;
+    if (!path.startsWith(prefix)) {
+      return null;
+    }
+    const rest = path.slice(prefix.length);
+    const parts = rest.split('/');
+    if (parts.length < 2) {
+      return null;
+    }
+    const [documentId, ...filenameParts] = parts;
+    const filename = filenameParts.join('/');
+    if (!documentId || !filename) {
+      return null;
+    }
+    return { documentId, filename };
   }
 }

@@ -44,6 +44,12 @@ export class GcsService {
     return buffer;
   }
 
+  async listObjects(prefix: string) {
+    const bucket = this.storage.bucket(this.bucketName);
+    const [files] = await bucket.getFiles({ prefix });
+    return files;
+  }
+
   private getClientConfig(): ConstructorParameters<typeof Storage>[0] | undefined {
     const clientEmail = this.config.get('GCP_CLIENT_EMAIL');
     const privateKey = this.config.get('GCP_PRIVATE_KEY');

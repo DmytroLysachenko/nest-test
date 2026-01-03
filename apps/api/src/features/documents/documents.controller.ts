@@ -34,4 +34,9 @@ export class DocumentsController {
   async extractText(@CurrentUser() user: JwtValidateUser, @Body() dto: ExtractDocumentDto) {
     return this.documentsService.extractText(user.userId, dto);
   }
+
+  @Post('sync')
+  async sync(@CurrentUser() user: JwtValidateUser) {
+    return this.documentsService.syncWithStorage(user.userId);
+  }
 }
