@@ -139,3 +139,12 @@ Content-Type: application/json
 ### Get latest career profile (auth)
 GET {{baseUrl}}/career-profiles/latest
 Authorization: Bearer {{accessToken}}
+
+### Score job fit (auth)
+POST {{baseUrl}}/job-matching/score
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "jobDescription": "We are looking for a backend developer with NestJS, PostgreSQL, and REST API experience."
+}

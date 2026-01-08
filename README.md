@@ -91,6 +91,9 @@ Career profile:
 - POST `/career-profiles` (Gemini generation, stores markdown)
 - GET `/career-profiles/latest`
 
+Job matching:
+- POST `/job-matching/score` (scores a job description using profile JSON)
+
 Examples for all endpoints are in `apps/api/api.http`.
 
 ---
