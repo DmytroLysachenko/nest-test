@@ -3,7 +3,10 @@ import { Request } from 'express';
 
 import { Public } from '@/common/decorators';
 import { Device, DeviceType } from '@/common/decorators/device.decorator';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '@/common/guards';
 import { LocalAuthGuard } from '@/common/guards/local-auth.guard';
+import { JwtValidateUser } from '@/types/interface/jwt';
 
 import { LoginDto } from './dto/login-dto';
 import { AuthService } from './auth.service';
@@ -40,18 +43,17 @@ export class AuthController {
     return this.authService.register(body);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('logout')
-  async logout(@Req() request: Request) {
-    const sessionID = request.headers['authorization'] as string;
-    await this.authService.logout(sessionID);
+  async logout(@CurrentUser() user: JwtValidateUser) {
+    await this.authService.logout(user.userId);
     return 'Logout successfully';
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('change-password')
-  async changePassword(@Body() body: ChangePasswordDto, @Req() request: Request) {
-    const sessionID = request.headers['authorization'] as string;
-    // TODO: handle permissions consistently
-    await this.authService.changePassword({ ...body, email: sessionID });
+  async changePassword(@Body() body: ChangePasswordDto, @CurrentUser() user: JwtValidateUser) {
+    await this.authService.changePassword(user.userId, body);
     return 'Change password successfully';
   }
 

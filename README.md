@@ -85,6 +85,7 @@ Documents:
 - POST `/documents/upload-url` (returns signed GCS URL + document record)
 - POST `/documents/confirm` (verifies file exists and marks uploaded)
 - POST `/documents/extract` (downloads PDF from GCS and stores extracted text)
+- POST `/documents/sync` (syncs DB with GCS objects for the user)
 - GET `/documents` (optional `?type=CV|LINKEDIN|OTHER`)
 
 Career profile:

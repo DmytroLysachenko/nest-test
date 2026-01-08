@@ -145,9 +145,13 @@ export class AuthService {
     await this.tokenService.removeToken(id);
   }
 
-  async changePassword(dto: ChangePasswordDto & { email: string }) {
-    const { email, oldPassword, password, confirmPassword } = dto;
-    const { users } = await this.findUserByEmail(email);
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const { oldPassword, password, confirmPassword } = dto;
+    const result = await this.findUserById(userId);
+    if (!result?.users) {
+      throw new UserNotFoundException('User not found');
+    }
+    const { users } = result;
 
     if (password !== confirmPassword) {
       throw new BadRequestException('Passwords do not match');
@@ -161,7 +165,7 @@ export class AuthService {
       await this.db
         .update(usersTable)
         .set({ password: await hashPassword(password) })
-        .where(eq(usersTable.email, email));
+        .where(eq(usersTable.id, userId));
     } catch (error) {
       this.logger.error(error);
       throw new InternalServerErrorException('Change password failed');
@@ -177,6 +181,20 @@ export class AuthService {
       .from(usersTable)
       .leftJoin(profilesTable, eq(usersTable.id, profilesTable.userId))
       .where(eq(usersTable.email, email))
+      .limit(1)
+      .then((res) => res[0]);
+    return result;
+  }
+
+  async findUserById(userId: string): Promise<{
+    users: typeof usersTable.$inferSelect;
+    profiles: typeof profilesTable.$inferSelect;
+  }> {
+    const result = await this.db
+      .select()
+      .from(usersTable)
+      .leftJoin(profilesTable, eq(usersTable.id, profilesTable.userId))
+      .where(eq(usersTable.id, userId))
       .limit(1)
       .then((res) => res[0]);
     return result;
