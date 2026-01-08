@@ -149,15 +149,25 @@ export class CareerProfilesService {
   }
 
   private extractJson(content: string) {
-    const match = content.match(/```json\\s*([\\s\\S]*?)\\s*```/i);
-    if (!match?.[1]) {
+    const match = content.match(/```json\s*([\s\S]*?)\s*```/i);
+    const candidate = match?.[1] ?? this.extractJsonObject(content);
+    if (!candidate) {
       return null;
     }
 
     try {
-      return JSON.parse(match[1]);
+      return JSON.parse(candidate);
     } catch {
       return null;
     }
+  }
+
+  private extractJsonObject(content: string) {
+    const first = content.indexOf('{');
+    const last = content.lastIndexOf('}');
+    if (first === -1 || last === -1 || last <= first) {
+      return null;
+    }
+    return content.slice(first, last + 1);
   }
 }

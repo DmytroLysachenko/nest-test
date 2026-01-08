@@ -7,7 +7,7 @@
 
 ## Purpose
 
-This repository contains a full-stack monorepo for a career search assistant. The backend is a NestJS API that handles authentication, user intake, document uploads to Google Cloud Storage (GCS), and AI-based career profile generation using Google Gemini. The frontend (admin app) is a React 19 + Vite dashboard. The shared packages include Drizzle ORM schemas, UI components, and lint/TS configs.
+This repository contains a full-stack monorepo for a career search assistant. The backend is a NestJS API that handles authentication, user intake, document uploads to Google Cloud Storage (GCS), and AI-based career profile generation using Google Gemini via Vertex AI. The frontend (admin app) is a React 19 + Vite dashboard. The shared packages include Drizzle ORM schemas, UI components, and lint/TS configs.
 
 If you only read this README, you should be able to understand:
 - what the system does,
@@ -130,6 +130,7 @@ Optional/Local dev:
 - `GCP_PROJECT_ID`
 - `GCP_CLIENT_EMAIL`
 - `GCP_PRIVATE_KEY`
+- `GCP_LOCATION`
 
 Email:
 - `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SECURE`
@@ -160,7 +161,7 @@ cp apps/admin/.env.example apps/admin/.env
 cp packages/db/.env.example packages/db/.env
 ```
 
-Set `DATABASE_URL`, `GEMINI_API_KEY`, and `GCS_BUCKET`.
+Set `DATABASE_URL`, `GCP_PROJECT_ID`, `GCP_LOCATION`, and `GCS_BUCKET`.
 
 ### Start database
 

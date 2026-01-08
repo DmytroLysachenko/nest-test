@@ -2,7 +2,7 @@
 @apiPrefix = api
 @baseUrl = {{host}}/{{apiPrefix}}
 @accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1ODkzNTIwZC01YWY0LTRhZDgtYmRjMS05MmE2M2YzZjgzMmIiLCJyb2xlIjoidXNlciIsImlhdCI6MTc2Nzg5ODI3NywiZXhwIjoxNzY3OTg0Njc3fQ.VdQQH5cHugW8m5qd2KU-mHxdGUf_amxSfURBNfqcztY
-@uploadUrl = https://storage.googleapis.com/job-seeking-bucket/documents/5893520d-5af4-4ad8-bdc1-92a63f3f832b/c4154a15-d898-4733-97f4-29266eccdf69/sample.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=job-seeking-service-account%40job-seeking-service.iam.gserviceaccount.com%2F20260108%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260108T190411Z&X-Goog-Expires=900&X-Goog-SignedHeaders=content-type%3Bhost&X-Goog-Signature=38e84198ba76c8b5486a26697cfd5412d328e2c0cdd54497ab2cbaaa060e3ff2fa16887cff461eb7e711859109e280de44f2ac4dfcd701c50f31a319e528e0ed2cc4b3f02f15c572c9fdfd45e73c2c32db9c76f5ffdfe4c88ad3fdcd63e16dff30af1a195db11060285d6aafa992030ed00e8e1a967abe851ec214d920f333a805618fe284750dcc3ddae52a781027c1f3c420c1a2be472eb43c7befbb72e7631e4d7406c115412f0c0948d6789aa5f3d6703554941170d863630f1292d2297d24a5d6e16618e5877f6e3ef3824341bbc7bcfcdd9e744f09d7903ef1d723fdefc6a9a6b6b9306837ea11c327c35f7ae0d8ede45edb64e93502f27f8ece388d70
+@uploadUrl = https://storage.googleapis.com/job-seeking-bucket/documents/5893520d-5af4-4ad8-bdc1-92a63f3f832b/ba60a200-9687-4cc4-9f74-ec9197bba40b/sample.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=job-seeking-service-account%40job-seeking-service.iam.gserviceaccount.com%2F20260108%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260108T195740Z&X-Goog-Expires=900&X-Goog-SignedHeaders=content-type%3Bhost&X-Goog-Signature=42cc8da3dac845efab76de59580b95d4d7257f702bc9536c7704e414c0832f3e08e8af8dc3b61f72cf0f3bf2abcbe2cc61cb8e3ceba3b38f6f7d1b04543bcb04ac6adab0496cf0a53d41049143d808abec754ad491f511abc90cabd48858aceccf43c53cbc91d1f3ee77ec687b99de94173b68dd72971a8e74d08624fccfc7a4de1de7a64daa711c6ca8c17680aa0e57c164fea91ae80ec8ea0a59257a6b2fcdb91ec9c11050fdb420da4f49a6c82c9352e8183f839dcbeff03c7c626bdbc4e6943ce4c8bd81e8f4704c7d6f3fccfbcd7128a5269ba1f4ef4dfd86c17ef62a5c0ec72f0e323107f5df5d1d357b65d17644737e2a2e6da8f8922b6c124e807c03
 ### Health check (public)
 GET http://localhost:3000/health
 
@@ -105,7 +105,7 @@ Content-Type: application/json
 PUT {{uploadUrl}}
 Content-Type: application/pdf
 
-< ./apps/api/test-files/sample.pdf
+< ./apps/api/test-files/real_pdf.pdf
 
 ### Confirm document upload (auth)
 POST {{baseUrl}}/documents/confirm
@@ -113,7 +113,7 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "documentId": "c4154a15-d898-4733-97f4-29266eccdf69"
+  "documentId": "ba60a200-9687-4cc4-9f74-ec9197bba40b"
 }
 
 ### List documents (auth)
@@ -130,7 +130,7 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "documentId": "replace_with_document_id"
+  "documentId": "ba60a200-9687-4cc4-9f74-ec9197bba40b"
 }
 
 ### Sync documents with storage (auth)

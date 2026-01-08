@@ -4,7 +4,6 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { documentsTable } from '@repo/db';
 import { and, desc, eq } from 'drizzle-orm';
-import pdfParse from 'pdf-parse';
 
 import { Drizzle } from '@/common/decorators';
 import { GcsService } from '@/common/modules/gcs/gcs.service';
@@ -102,7 +101,19 @@ export class DocumentsService {
     }
 
     const fileBuffer = await this.gcsService.downloadFile(document.storagePath);
-    const parsed = await pdfParse(fileBuffer);
+    const pdfParseModule = await import('pdf-parse');
+    const parseFn =
+      (pdfParseModule as unknown as { default?: (input: Buffer) => Promise<{ text: string }> }).default ??
+      (pdfParseModule as unknown as (input: Buffer) => Promise<{ text: string }>);
+    if (typeof parseFn !== 'function') {
+      throw new BadRequestException('PDF parser is not available');
+    }
+    let parsed: { text: string };
+    try {
+      parsed = await parseFn(fileBuffer);
+    } catch (error) {
+      throw new BadRequestException('Failed to parse PDF');
+    }
 
     const [updated] = await this.db
       .update(documentsTable)
