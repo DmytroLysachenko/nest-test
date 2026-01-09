@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 
 import { JwtAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -38,5 +38,10 @@ export class DocumentsController {
   @Post('sync')
   async sync(@CurrentUser() user: JwtValidateUser) {
     return this.documentsService.syncWithStorage(user.userId);
+  }
+
+  @Delete(':id')
+  async remove(@CurrentUser() user: JwtValidateUser, @Param('id') documentId: string) {
+    return this.documentsService.remove(user.userId, documentId);
   }
 }

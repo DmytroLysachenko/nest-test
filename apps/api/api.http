@@ -137,6 +137,10 @@ Content-Type: application/json
 POST {{baseUrl}}/documents/sync
 Authorization: Bearer {{accessToken}}
 
+### Delete document (auth)
+DELETE {{baseUrl}}/documents/replace_with_document_id
+Authorization: Bearer {{accessToken}}
+
 ### Create career profile (auth)
 POST {{baseUrl}}/career-profiles
 Authorization: Bearer {{accessToken}}

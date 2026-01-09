@@ -195,6 +195,24 @@ export class DocumentsService {
     };
   }
 
+  async remove(userId: string, documentId: string) {
+    const document = await this.db
+      .select()
+      .from(documentsTable)
+      .where(and(eq(documentsTable.id, documentId), eq(documentsTable.userId, userId)))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    await this.gcsService.deleteObject(document.storagePath);
+    await this.db.delete(documentsTable).where(eq(documentsTable.id, document.id));
+
+    return { deleted: true };
+  }
+
   private sanitizeFilename(filename: string) {
     return filename.replace(/[^\w.\-]+/g, '_');
   }

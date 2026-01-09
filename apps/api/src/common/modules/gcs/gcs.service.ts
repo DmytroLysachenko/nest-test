@@ -50,6 +50,12 @@ export class GcsService {
     return files;
   }
 
+  async deleteObject(objectPath: string) {
+    const bucket = this.storage.bucket(this.bucketName);
+    const file = bucket.file(objectPath);
+    await file.delete({ ignoreNotFound: true });
+  }
+
   private getClientConfig(): ConstructorParameters<typeof Storage>[0] | undefined {
     const clientEmail = this.config.get('GCP_CLIENT_EMAIL');
     const privateKey = this.config.get('GCP_PRIVATE_KEY');
