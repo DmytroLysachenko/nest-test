@@ -38,12 +38,16 @@ export class CareerProfilesService {
       throw new BadRequestException('No uploaded documents found');
     }
 
+    const nextVersion = await this.getNextVersion(userId);
+
     const [careerProfile] = await this.db
       .insert(careerProfilesTable)
       .values({
         userId,
         profileInputId: profileInput.id,
         documentIds: documents.map((doc) => doc.id).join(','),
+        version: nextVersion,
+        isActive: true,
         status: 'PENDING',
       })
       .returning();
@@ -52,6 +56,8 @@ export class CareerProfilesService {
       const prompt = this.buildPrompt(profileInput.targetRoles, profileInput.notes, documents, dto.instructions);
       const content = await this.geminiService.generateText(prompt);
       const contentJson = this.extractJson(content);
+
+      await this.deactivateProfiles(userId, careerProfile.id);
 
       const [updated] = await this.db
         .update(careerProfilesTable)
@@ -85,7 +91,7 @@ export class CareerProfilesService {
     return this.db
       .select()
       .from(careerProfilesTable)
-      .where(eq(careerProfilesTable.userId, userId))
+      .where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true)))
       .orderBy(desc(careerProfilesTable.createdAt))
       .limit(1)
       .then(([result]) => result);
@@ -169,5 +175,22 @@ export class CareerProfilesService {
       return null;
     }
     return content.slice(first, last + 1);
+  }
+
+  private async getNextVersion(userId: string) {
+    const [latest] = await this.db
+      .select({ version: careerProfilesTable.version })
+      .from(careerProfilesTable)
+      .where(eq(careerProfilesTable.userId, userId))
+      .orderBy(desc(careerProfilesTable.version))
+      .limit(1);
+    return (latest?.version ?? 0) + 1;
+  }
+
+  private async deactivateProfiles(userId: string, activeId: string) {
+    await this.db
+      .update(careerProfilesTable)
+      .set({ isActive: false })
+      .where(and(eq(careerProfilesTable.userId, userId), not(eq(careerProfilesTable.id, activeId))));
   }
 }

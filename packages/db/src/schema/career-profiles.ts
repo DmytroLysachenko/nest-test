@@ -1,4 +1,4 @@
-import { jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, integer, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
 import { careerProfileStatusEnum } from './_enums';
 import { profileInputsTable } from './profile-inputs';
@@ -13,6 +13,8 @@ export const careerProfilesTable = pgTable('career_profiles', {
     .notNull()
     .references(() => profileInputsTable.id, { onDelete: 'cascade' }),
   documentIds: text('document_ids'),
+  version: integer('version').notNull().default(1),
+  isActive: boolean('is_active').notNull().default(true),
   status: careerProfileStatusEnum('status').default('PENDING').notNull(),
   content: text('content'),
   contentJson: jsonb('content_json'),
