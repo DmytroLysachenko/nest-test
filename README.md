@@ -403,9 +403,14 @@ JSON schema:
   "coreSkills": string[],
   "preferredRoles": string[],
   "strengths": string[],
-  "gaps": string[]
+  "gaps": string[],
+  "topKeywords": string[]
 }
 ```
+
+Job matching notes:
+- Uses weighted scoring (roles 40%, skills 40%, strengths 20% + keyword bonus).
+- Optional `minScore` in request to filter matches.
 
 ---
 

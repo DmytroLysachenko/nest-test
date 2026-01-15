@@ -13,6 +13,7 @@ type ProfileJson = {
   preferredRoles?: string[];
   strengths?: string[];
   gaps?: string[];
+  topKeywords?: string[];
 };
 
 @Injectable()
@@ -38,12 +39,16 @@ export class JobMatchingService {
 
     const profileJson = profile.contentJson as ProfileJson;
     const score = this.calculateScore(dto.jobDescription, profileJson);
+    const minScore = dto.minScore ?? 0;
+    const isMatch = score.score >= minScore;
 
     return {
       score,
+      isMatch,
       profileId: profile.id,
       matchedSkills: score.matchedSkills,
       matchedRoles: score.matchedRoles,
+      explanation: score.explanation,
       gaps: profileJson.gaps ?? [],
     };
   }
@@ -53,19 +58,24 @@ export class JobMatchingService {
     const skills = this.tokenizeList(profile.coreSkills ?? []);
     const roles = this.tokenizeList(profile.preferredRoles ?? []);
     const strengths = this.tokenizeList(profile.strengths ?? []);
+    const keywords = this.tokenizeList(profile.topKeywords ?? []);
 
     const matchedSkills = this.intersect(jobTokens, skills);
     const matchedRoles = this.intersect(jobTokens, roles);
     const matchedStrengths = this.intersect(jobTokens, strengths);
+    const matchedKeywords = this.intersect(jobTokens, keywords);
 
-    const totalSignals = skills.length + roles.length + strengths.length;
-    const matchedSignals = matchedSkills.length + matchedRoles.length + matchedStrengths.length;
-    const ratio = totalSignals ? matchedSignals / totalSignals : 0;
+    const skillsScore = this.weightedRatio(matchedSkills.length, skills.length, 0.4);
+    const rolesScore = this.weightedRatio(matchedRoles.length, roles.length, 0.4);
+    const strengthsScore = this.weightedRatio(matchedStrengths.length, strengths.length, 0.2);
+    const keywordBonus = this.weightedRatio(matchedKeywords.length, keywords.length, 0.1);
+    const totalScore = skillsScore + rolesScore + strengthsScore + keywordBonus;
 
     return {
-      score: Math.round(ratio * 100),
+      score: Math.min(100, Math.round(totalScore * 100)),
       matchedSkills,
       matchedRoles,
+      explanation: this.buildExplanation(matchedSkills, matchedRoles, matchedStrengths, matchedKeywords),
     };
   }
 
@@ -83,5 +93,26 @@ export class JobMatchingService {
   private intersect(a: string[], b: string[]) {
     const setB = new Set(b);
     return Array.from(new Set(a.filter((token) => setB.has(token))));
+  }
+
+  private weightedRatio(matched: number, total: number, weight: number) {
+    if (!total) {
+      return 0;
+    }
+    return (matched / total) * weight;
+  }
+
+  private buildExplanation(
+    matchedSkills: string[],
+    matchedRoles: string[],
+    matchedStrengths: string[],
+    matchedKeywords: string[],
+  ) {
+    return {
+      matchedSkills,
+      matchedRoles,
+      matchedStrengths,
+      matchedKeywords,
+    };
   }
 }

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, desc, eq, isNull, not } from 'drizzle-orm';
 import { careerProfilesTable, documentsTable, profileInputsTable } from '@repo/db';
+import { z } from 'zod';
 
 import { Drizzle } from '@/common/decorators';
 import { GeminiService } from '@/common/modules/gemini/gemini.service';
@@ -55,7 +56,7 @@ export class CareerProfilesService {
     try {
       const prompt = this.buildPrompt(profileInput.targetRoles, profileInput.notes, documents, dto.instructions);
       const content = await this.geminiService.generateText(prompt);
-      const contentJson = this.extractJson(content);
+      const { data: contentJson, error: jsonError } = this.parseProfileJson(content);
 
       await this.deactivateProfiles(userId, careerProfile.id);
 
@@ -66,7 +67,7 @@ export class CareerProfilesService {
           content,
           contentJson,
           model: 'gemini',
-          error: null,
+          error: jsonError ?? null,
           updatedAt: new Date(),
         })
         .where(eq(careerProfilesTable.id, careerProfile.id))
@@ -131,7 +132,7 @@ export class CareerProfilesService {
       'Create a concise career profile in markdown, then output a JSON block.',
       'The JSON must be the last section, wrapped in a ```json code fence.',
       'JSON shape:',
-      '{ "summary": string, "coreSkills": string[], "preferredRoles": string[], "strengths": string[], "gaps": string[] }',
+      '{ "summary": string, "coreSkills": string[], "preferredRoles": string[], "strengths": string[], "gaps": string[], "topKeywords": string[] }',
       '',
       `Target roles: ${targetRoles}`,
       notes ? `Notes: ${notes}` : 'Notes: none',
@@ -149,6 +150,7 @@ export class CareerProfilesService {
       '- Preferred roles',
       '- Strengths',
       '- Gaps / areas to improve',
+      '- Top keywords',
     ]
       .filter(Boolean)
       .join('\n');
@@ -175,6 +177,29 @@ export class CareerProfilesService {
       return null;
     }
     return content.slice(first, last + 1);
+  }
+
+  private parseProfileJson(content: string) {
+    const raw = this.extractJson(content);
+    if (!raw) {
+      return { data: null, error: 'Profile JSON block is missing' };
+    }
+
+    const schema = z.object({
+      summary: z.string(),
+      coreSkills: z.array(z.string()),
+      preferredRoles: z.array(z.string()),
+      strengths: z.array(z.string()),
+      gaps: z.array(z.string()),
+      topKeywords: z.array(z.string()),
+    });
+
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) {
+      return { data: null, error: 'Profile JSON does not match schema' };
+    }
+
+    return { data: parsed.data, error: null };
   }
 
   private async getNextVersion(userId: string) {

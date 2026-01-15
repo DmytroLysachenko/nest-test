@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class ScoreJobDto {
   @ApiProperty({
@@ -8,4 +8,13 @@ export class ScoreJobDto {
   @IsString()
   @IsNotEmpty()
   jobDescription: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Optional minimum score (0-100) to consider a job a fit.',
+    example: 60,
+  })
+  @IsNumber()
+  @IsOptional()
+  minScore?: number;
 }

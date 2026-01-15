@@ -160,5 +160,6 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "jobDescription": "We are looking for a backend developer with NestJS, PostgreSQL, and REST API experience."
+  "jobDescription": "We are looking for a backend developer with NestJS, PostgreSQL, and REST API experience.",
+  "minScore": 60
 }
