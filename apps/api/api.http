@@ -137,6 +137,20 @@ Content-Type: application/json
 POST {{baseUrl}}/documents/sync
 Authorization: Bearer {{accessToken}}
 
+### Get document by id (auth)
+GET {{baseUrl}}/documents/replace_with_document_id
+Authorization: Bearer {{accessToken}}
+
+### Update document metadata (auth)
+PATCH {{baseUrl}}/documents/replace_with_document_id
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "type": "CV",
+  "originalName": "updated-name.pdf"
+}
+
 ### Delete document (auth)
 DELETE {{baseUrl}}/documents/replace_with_document_id
 Authorization: Bearer {{accessToken}}

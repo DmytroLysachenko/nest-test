@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 
 import { JwtAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -9,6 +9,7 @@ import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 import { ConfirmDocumentDto } from './dto/confirm-document.dto';
 import { ListDocumentsQuery } from './dto/list-documents.query';
 import { ExtractDocumentDto } from './dto/extract-document.dto';
+import { UpdateDocumentDto } from './dto/update-document.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('documents')
@@ -38,6 +39,20 @@ export class DocumentsController {
   @Post('sync')
   async sync(@CurrentUser() user: JwtValidateUser) {
     return this.documentsService.syncWithStorage(user.userId);
+  }
+
+  @Get(':id')
+  async getById(@CurrentUser() user: JwtValidateUser, @Param('id') documentId: string) {
+    return this.documentsService.getById(user.userId, documentId);
+  }
+
+  @Patch(':id')
+  async update(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id') documentId: string,
+    @Body() dto: UpdateDocumentDto,
+  ) {
+    return this.documentsService.update(user.userId, documentId, dto);
   }
 
   @Delete(':id')

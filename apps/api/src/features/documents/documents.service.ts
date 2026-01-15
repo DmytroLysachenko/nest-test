@@ -12,6 +12,7 @@ import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 import { ConfirmDocumentDto } from './dto/confirm-document.dto';
 import { ListDocumentsQuery } from './dto/list-documents.query';
 import { ExtractDocumentDto } from './dto/extract-document.dto';
+import { UpdateDocumentDto } from './dto/update-document.dto';
 
 @Injectable()
 export class DocumentsService {
@@ -78,6 +79,45 @@ export class DocumentsService {
       : eq(documentsTable.userId, userId);
 
     return this.db.select().from(documentsTable).where(where).orderBy(desc(documentsTable.createdAt));
+  }
+
+  async getById(userId: string, documentId: string) {
+    const document = await this.db
+      .select()
+      .from(documentsTable)
+      .where(and(eq(documentsTable.id, documentId), eq(documentsTable.userId, userId)))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    return document;
+  }
+
+  async update(userId: string, documentId: string, dto: UpdateDocumentDto) {
+    const document = await this.db
+      .select()
+      .from(documentsTable)
+      .where(and(eq(documentsTable.id, documentId), eq(documentsTable.userId, userId)))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    const [updated] = await this.db
+      .update(documentsTable)
+      .set({
+        type: dto.type ?? document.type,
+        originalName: dto.originalName ?? document.originalName,
+      })
+      .where(eq(documentsTable.id, document.id))
+      .returning();
+
+    return updated;
   }
 
   async extractText(userId: string, dto: ExtractDocumentDto) {

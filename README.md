@@ -256,6 +256,8 @@ Documents:
 - POST `/documents/confirm` (verifies object exists in GCS)
 - POST `/documents/extract` (download PDF, extract text into DB)
 - POST `/documents/sync` (sync DB with actual GCS objects for user)
+- GET `/documents/:id` (fetch a single document)
+- PATCH `/documents/:id` (update metadata: type, originalName)
 - DELETE `/documents/:id` (delete object in GCS and DB)
 - GET `/documents` (optional `?type=CV|LINKEDIN|OTHER`)
 
