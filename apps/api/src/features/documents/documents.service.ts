@@ -137,6 +137,10 @@ export class DocumentsService {
     }
 
     if (document.mimeType !== 'application/pdf') {
+      await this.db
+        .update(documentsTable)
+        .set({ extractionStatus: 'FAILED', extractionError: 'Only PDF documents are supported' })
+        .where(eq(documentsTable.id, document.id));
       throw new BadRequestException('Only PDF documents are supported');
     }
 
@@ -152,6 +156,10 @@ export class DocumentsService {
     try {
       parsed = await parseFn(fileBuffer);
     } catch (error) {
+      await this.db
+        .update(documentsTable)
+        .set({ extractionStatus: 'FAILED', extractionError: 'Failed to parse PDF' })
+        .where(eq(documentsTable.id, document.id));
       throw new BadRequestException('Failed to parse PDF');
     }
 
@@ -160,6 +168,8 @@ export class DocumentsService {
       .set({
         extractedText: parsed.text,
         extractedAt: new Date(),
+        extractionStatus: 'READY',
+        extractionError: null,
       })
       .where(eq(documentsTable.id, document.id))
       .returning();

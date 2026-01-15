@@ -1,6 +1,6 @@
 import { integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
-import { documentTypeEnum } from './_enums';
+import { documentExtractionStatusEnum, documentTypeEnum } from './_enums';
 import { usersTable } from './users';
 
 export const documentsTable = pgTable('documents', {
@@ -16,5 +16,7 @@ export const documentsTable = pgTable('documents', {
   uploadedAt: timestamp('uploaded_at', { withTimezone: true }),
   extractedText: text('extracted_text'),
   extractedAt: timestamp('extracted_at', { withTimezone: true }),
+  extractionStatus: documentExtractionStatusEnum('extraction_status').default('PENDING').notNull(),
+  extractionError: text('extraction_error'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });

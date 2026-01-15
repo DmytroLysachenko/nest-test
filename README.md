@@ -209,6 +209,7 @@ Minimal, LLM-first model:
 Tables (simplified):
 - profile_inputs: user_id, target_roles, notes
 - documents: user_id, type, storage_path, original_name, mime_type, size, uploaded_at, extracted_text, extracted_at
+  - includes `extraction_status` and `extraction_error`
 - career_profiles: user_id, profile_input_id, document_ids, status, content, content_json, model, error
   - includes `version` and `is_active` for profile history
 

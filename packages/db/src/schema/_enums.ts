@@ -9,8 +9,10 @@ export const otpTypeEnum = pgEnum('otp_type', [
 
 export const documentTypeEnum = pgEnum('document_type', ['CV', 'LINKEDIN', 'OTHER']);
 export const careerProfileStatusEnum = pgEnum('career_profile_status', ['PENDING', 'READY', 'FAILED']);
+export const documentExtractionStatusEnum = pgEnum('document_extraction_status', ['PENDING', 'READY', 'FAILED']);
 
 export type OTPType = (typeof otpTypeEnum.enumValues)[number];
 export type Gender = (typeof genderEnum.enumValues)[number];
 export type DocumentType = (typeof documentTypeEnum.enumValues)[number];
 export type CareerProfileStatus = (typeof careerProfileStatusEnum.enumValues)[number];
+export type DocumentExtractionStatus = (typeof documentExtractionStatusEnum.enumValues)[number];
