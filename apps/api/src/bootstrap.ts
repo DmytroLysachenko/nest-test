@@ -33,11 +33,20 @@ export const bootstrap = async (app: NestExpressApplication) => {
 
   app.use(compression());
   app.use(helmet());
+  const allowedOrigins = configService.get('ALLOWED_ORIGINS') ?? '*';
+  const origin =
+    allowedOrigins === '*'
+      ? true
+      : allowedOrigins
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+
   app.enableCors({
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     maxAge: 3600,
-    origin: configService.get('ALLOWED_ORIGINS'),
+    origin,
   });
 
   // =====================================================

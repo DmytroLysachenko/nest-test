@@ -1,5 +1,6 @@
 ﻿import { BadRequestException, Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 
 import { Public } from '@/common/decorators';
@@ -32,6 +33,7 @@ export class AuthController {
   @UseGuards(LocalAuthGuard)
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async login(@Body() body: LoginDto, @Device() device: DeviceType, @Req() request: Request) {
     const user = request.user as User;
     return {
@@ -43,6 +45,7 @@ export class AuthController {
   @Public()
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   async register(@Body() body: RegisterDto) {
     return this.authService.register(body);
   }
@@ -68,6 +71,7 @@ export class AuthController {
   @Public()
   @Post('reset-password')
   @ApiOperation({ summary: 'Reset password with verification code' })
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   async resetPassword(@Body() body: ResetPasswordDto) {
     await this.authService.resetPassword(body);
     return 'Reset password successfully';
@@ -76,6 +80,7 @@ export class AuthController {
   @Public()
   @Post('send-register-code')
   @ApiOperation({ summary: 'Send registration verification code' })
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   async sendRegisterCode(@Body() body: SendCodeDto) {
     try {
       const code = await this.optsService.generateOtpCode(body.email, 'EMAIL_REGISTER');
@@ -88,6 +93,7 @@ export class AuthController {
   @Public()
   @Post('send-reset-password-code')
   @ApiOperation({ summary: 'Send reset password verification code' })
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   async sendResetPasswordCode(@Body() body: SendCodeDto) {
     try {
       const code = await this.optsService.generateOtpCode(body.email, 'PASSWORD_RESET');

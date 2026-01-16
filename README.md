@@ -64,6 +64,10 @@ Failure handling guidelines:
 - Background tasks should retry with backoff.
 - Errors should be stored and surfaced to the frontend.
 
+Security hardening:
+- Auth endpoints are rate limited (login/register/reset/code).
+- CORS allows explicit origins from `ALLOWED_ORIGINS`; use comma-separated list in production.
+
 ## Data Ownership and Boundaries
 
 API-owned tables (source of truth):
