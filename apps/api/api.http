@@ -168,6 +168,22 @@ Content-Type: application/json
 GET {{baseUrl}}/career-profiles/latest
 Authorization: Bearer {{accessToken}}
 
+### List career profile versions (auth)
+GET {{baseUrl}}/career-profiles?status=READY&isActive=false&limit=10&offset=0
+Authorization: Bearer {{accessToken}}
+
+### Get career profile by id (auth)
+GET {{baseUrl}}/career-profiles/replace_with_profile_id
+Authorization: Bearer {{accessToken}}
+
+### Restore career profile version (auth)
+POST {{baseUrl}}/career-profiles/replace_with_profile_id/restore
+Authorization: Bearer {{accessToken}}
+
+### List documents for career profile (auth)
+GET {{baseUrl}}/career-profiles/replace_with_profile_id/documents
+Authorization: Bearer {{accessToken}}
+
 ### Score job fit (auth)
 POST {{baseUrl}}/job-matching/score
 Authorization: Bearer {{accessToken}}

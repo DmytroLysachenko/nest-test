@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { and, desc, eq, isNull, not } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, not, sql } from 'drizzle-orm';
 import { careerProfilesTable, documentsTable, profileInputsTable } from '@repo/db';
 import { z } from 'zod';
 
@@ -8,6 +8,7 @@ import { Drizzle } from '@/common/decorators';
 import { GeminiService } from '@/common/modules/gemini/gemini.service';
 
 import { CreateCareerProfileDto } from './dto/create-career-profile.dto';
+import { ListCareerProfilesQuery } from './dto/list-career-profiles.query';
 
 @Injectable()
 export class CareerProfilesService {
@@ -96,6 +97,118 @@ export class CareerProfilesService {
       .orderBy(desc(careerProfilesTable.createdAt))
       .limit(1)
       .then(([result]) => result);
+  }
+
+  async listVersions(userId: string, query: ListCareerProfilesQuery) {
+    const conditions = [eq(careerProfilesTable.userId, userId)];
+
+    if (query.status) {
+      conditions.push(eq(careerProfilesTable.status, query.status));
+    }
+
+    if (query.isActive !== undefined) {
+      conditions.push(eq(careerProfilesTable.isActive, query.isActive === 'true'));
+    }
+
+    const statement = this.db
+      .select()
+      .from(careerProfilesTable)
+      .where(and(...conditions))
+      .orderBy(desc(careerProfilesTable.version), desc(careerProfilesTable.createdAt));
+
+    const limit = query.limit ? Number(query.limit) : undefined;
+    const offset = query.offset ? Number(query.offset) : undefined;
+
+    if (limit) {
+      statement.limit(limit);
+    }
+
+    if (offset !== undefined) {
+      statement.offset(offset);
+    }
+
+    const items = await statement;
+    const [{ total }] = await this.db
+      .select({ total: sql<number>`count(*)` })
+      .from(careerProfilesTable)
+      .where(and(...conditions));
+
+    const [active] = await this.db
+      .select({ id: careerProfilesTable.id, version: careerProfilesTable.version })
+      .from(careerProfilesTable)
+      .where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true)))
+      .limit(1);
+
+    const [latest] = await this.db
+      .select({ version: careerProfilesTable.version })
+      .from(careerProfilesTable)
+      .where(eq(careerProfilesTable.userId, userId))
+      .orderBy(desc(careerProfilesTable.version))
+      .limit(1);
+
+    return {
+      items,
+      total: Number(total ?? 0),
+      activeId: active?.id ?? null,
+      activeVersion: active?.version ?? null,
+      latestVersion: latest?.version ?? null,
+    };
+  }
+
+  async getById(userId: string, profileId: string) {
+    const profile = await this.db
+      .select()
+      .from(careerProfilesTable)
+      .where(and(eq(careerProfilesTable.id, profileId), eq(careerProfilesTable.userId, userId)))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!profile) {
+      throw new NotFoundException('Career profile not found');
+    }
+
+    return profile;
+  }
+
+  async restoreVersion(userId: string, profileId: string) {
+    const profile = await this.getById(userId, profileId);
+
+    if (profile.status !== 'READY') {
+      throw new BadRequestException('Only READY profiles can be restored');
+    }
+
+    return this.db.transaction(async (tx) => {
+      await tx
+        .update(careerProfilesTable)
+        .set({ isActive: false })
+        .where(and(eq(careerProfilesTable.userId, userId), not(eq(careerProfilesTable.id, profileId))));
+
+      const [updated] = await tx
+        .update(careerProfilesTable)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(eq(careerProfilesTable.id, profileId))
+        .returning();
+
+      return updated ?? profile;
+    });
+  }
+
+  async getDocumentsForProfile(userId: string, profileId: string) {
+    const profile = await this.getById(userId, profileId);
+    const documentIds = profile.documentIds
+      ?.split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    if (!documentIds?.length) {
+      return [];
+    }
+
+    return this.db
+      .select()
+      .from(documentsTable)
+      .where(and(eq(documentsTable.userId, userId), inArray(documentsTable.id, documentIds)))
+      .orderBy(desc(documentsTable.createdAt));
   }
 
   private buildPrompt(
