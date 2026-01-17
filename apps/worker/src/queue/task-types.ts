@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { ScrapeSourceJob } from '../types/jobs';
+import type { ScrapeSourceJob } from '../types/jobs';
 
 export type TaskName = 'scrape:source';
 

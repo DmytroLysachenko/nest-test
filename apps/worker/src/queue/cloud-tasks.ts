@@ -1,9 +1,9 @@
 import { CloudTasksClient } from '@google-cloud/tasks';
-import { Logger } from 'pino';
+import type { Logger } from 'pino';
 
-import { WorkerEnv } from '../config/env';
+import type { WorkerEnv } from '../config/env';
 
-import { TaskEnvelope } from './task-types';
+import type { TaskEnvelope } from './task-types';
 
 type CloudTasksConfig = {
   projectId: string;

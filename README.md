@@ -420,6 +420,12 @@ Start the worker task server:
 pnpm --filter worker dev
 ```
 
+Health check:
+
+```bash
+curl http://localhost:4000/health
+```
+
 Enqueue a test task (local):
 
 ```bash

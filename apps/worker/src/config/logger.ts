@@ -1,6 +1,6 @@
 import pino from 'pino';
 
-import { WorkerEnv } from './env';
+import type { WorkerEnv } from './env';
 
 export const createLogger = (env: WorkerEnv) => {
   const transport =

@@ -1,10 +1,12 @@
-import { IncomingMessage, ServerResponse, createServer } from 'http';
+import { createServer } from 'http';
+import type { IncomingMessage, ServerResponse } from 'http';
 
-import { Logger } from 'pino';
+import type { Logger } from 'pino';
 
-import { WorkerEnv } from '../config/env';
+import type { WorkerEnv } from '../config/env';
 import { handleTask } from '../queue/task-handler';
-import { TaskEnvelope, taskEnvelopeSchema } from '../queue/task-types';
+import type { TaskEnvelope } from '../queue/task-types';
+import { taskEnvelopeSchema } from '../queue/task-types';
 
 const readJsonBody = async (req: IncomingMessage): Promise<unknown> => {
   return new Promise((resolve, reject) => {
@@ -42,6 +44,11 @@ const verifyAuth = (req: IncomingMessage, env: WorkerEnv) => {
 
 export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
   return createServer(async (req, res) => {
+    if (req.method === 'GET' && req.url === '/health') {
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
     if (req.method !== 'POST' || req.url !== '/tasks') {
       sendJson(res, 404, { error: 'Not Found' });
       return;
@@ -61,6 +68,9 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       }
 
       const task = parsed.data as TaskEnvelope;
+      const requestId = req.headers['x-request-id'];
+      logger.info({ requestId, taskName: task.name, runId: task.payload.runId ?? null }, 'Task received');
+
       const result = await handleTask(task, logger, { headless: env.PLAYWRIGHT_HEADLESS });
       sendJson(res, 200, { ok: true, result });
     } catch (error) {

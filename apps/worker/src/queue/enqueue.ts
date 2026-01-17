@@ -1,7 +1,10 @@
+import { randomUUID } from 'crypto';
+
 import { createLogger } from '../config/logger';
 import { loadEnv } from '../config/env';
+
 import { enqueueCloudTask } from './cloud-tasks';
-import { TaskEnvelope } from './task-types';
+import type { TaskEnvelope } from './task-types';
 
 const env = loadEnv();
 const logger = createLogger(env);
@@ -24,6 +27,7 @@ const run = async () => {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'x-request-id': randomUUID(),
       ...(env.TASKS_AUTH_TOKEN ? { Authorization: `Bearer ${env.TASKS_AUTH_TOKEN}` } : {}),
     },
     body: JSON.stringify(payload),

@@ -1,49 +1,34 @@
-import { chromium } from 'playwright';
-import { Logger } from 'pino';
+import type { Logger } from 'pino';
 
-import { ScrapeSourceJob } from '../types/jobs';
+import type { ScrapeSourceJob } from '../types/jobs';
+import { crawlPracujPl } from '../sources/pracuj-pl/crawl';
+import { parsePracujPl } from '../sources/pracuj-pl/parse';
+import { normalizePracujPl } from '../sources/pracuj-pl/normalize';
 
-type SourceConfig = {
-  url: string;
-};
+export const runScrapeJob = async (payload: ScrapeSourceJob, logger: Logger, options: { headless: boolean }) => {
+  const startedAt = Date.now();
 
-const SOURCES: Record<string, SourceConfig> = {
-  'pracuj-pl': { url: 'https://www.pracuj.pl' },
-};
-
-export const runScrapeJob = async (
-  payload: ScrapeSourceJob,
-  logger: Logger,
-  options: { headless: boolean },
-) => {
-  const sourceConfig = SOURCES[payload.source];
-  if (!sourceConfig) {
+  if (payload.source !== 'pracuj-pl') {
     throw new Error(`Unknown source: ${payload.source}`);
   }
 
-  const startedAt = Date.now();
-  const browser = await chromium.launch({ headless: options.headless });
+  const pages = await crawlPracujPl(options.headless);
+  const parsedJobs = parsePracujPl(pages);
+  const normalized = normalizePracujPl(parsedJobs);
 
-  try {
-    const page = await browser.newPage();
-    await page.goto(sourceConfig.url, { waitUntil: 'domcontentloaded' });
-    const title = await page.title();
+  logger.info(
+    {
+      source: payload.source,
+      runId: payload.runId ?? null,
+      pages: pages.length,
+      jobs: normalized.length,
+      durationMs: Date.now() - startedAt,
+    },
+    'Scrape completed',
+  );
 
-    logger.info(
-      {
-        source: payload.source,
-        runId: payload.runId ?? null,
-        title,
-        durationMs: Date.now() - startedAt,
-      },
-      'Scrape completed',
-    );
-
-    return {
-      title,
-      url: sourceConfig.url,
-    };
-  } finally {
-    await browser.close();
-  }
+  return {
+    count: normalized.length,
+    jobs: normalized.slice(0, 5),
+  };
 };
