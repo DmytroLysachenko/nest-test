@@ -13,6 +13,7 @@ import { ConfirmDocumentDto } from './dto/confirm-document.dto';
 import { ListDocumentsQuery } from './dto/list-documents.query';
 import { ExtractDocumentDto } from './dto/extract-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
+import { SyncDocumentsDto } from './dto/sync-documents.dto';
 
 @Injectable()
 export class DocumentsService {
@@ -177,71 +178,157 @@ export class DocumentsService {
     return updated;
   }
 
-  async syncWithStorage(userId: string) {
+  async syncWithStorage(userId: string, dto: SyncDocumentsDto) {
+    const dryRun = dto.dryRun ?? false;
+    const deleteMissing = dto.deleteMissing ?? false;
+    const missingGraceMinutes = dto.missingGraceMinutes ?? 30;
+    const previewLimit = dto.previewLimit ?? 50;
+
     const prefix = `documents/${userId}/`;
     const files = await this.gcsService.listObjects(prefix);
 
     const dbDocuments = await this.db.select().from(documentsTable).where(eq(documentsTable.userId, userId));
     const dbById = new Map(dbDocuments.map((doc) => [doc.id, doc]));
-    const seenIds = new Set<string>();
+    const storageById = new Map<string, { path: string; file: (typeof files)[number] }>();
 
-    let created = 0;
-    let removed = 0;
-    let updated = 0;
+    const createdItems: Array<{ id: string; path: string; reason: string }> = [];
+    const updatedItems: Array<{ id: string; fields: string[] }> = [];
+    const removedItems: Array<{ id: string; reason: string }> = [];
+    const missingInStorage: Array<{ id: string; storagePath: string; action: string; reason: string }> = [];
+    const conflicts: Array<{ id: string; paths: string[] }> = [];
+    const ignoredObjects: Array<{ path: string; reason: string }> = [];
+
+    const addLimited = <T>(items: T[], entry: T) => {
+      if (items.length < previewLimit) {
+        items.push(entry);
+      }
+    };
+
+    let createdCount = 0;
+    let removedCount = 0;
+    let updatedCount = 0;
+    let skippedRemoval = 0;
 
     for (const file of files) {
       const path = file.name;
       const parsed = this.parseObjectPath(path, userId);
       if (!parsed) {
+        addLimited(ignoredObjects, { path, reason: 'Invalid path for user' });
         continue;
       }
-      const { documentId, filename } = parsed;
-      seenIds.add(documentId);
+      const { documentId } = parsed;
+
+      const existing = storageById.get(documentId);
+      if (existing) {
+        addLimited(conflicts, { id: documentId, paths: [existing.path, path] });
+        continue;
+      }
+
+      storageById.set(documentId, { path, file });
+    }
+
+    for (const [documentId, storageItem] of storageById) {
+      const path = storageItem.path;
+      const parsed = this.parseObjectPath(path, userId);
+      if (!parsed) {
+        addLimited(ignoredObjects, { path, reason: 'Invalid path for user' });
+        continue;
+      }
+      const { filename } = parsed;
 
       const existing = dbById.get(documentId);
       if (!existing) {
-        const [metadata] = await file.getMetadata();
-        const mimeType = metadata.contentType ?? 'application/octet-stream';
-        const size = metadata.size ? Number(metadata.size) : 0;
+        if (!dryRun) {
+          const [metadata] = await storageItem.file.getMetadata();
+          const mimeType = metadata.contentType ?? 'application/octet-stream';
+          const size = metadata.size ? Number(metadata.size) : 0;
 
-        await this.db.insert(documentsTable).values({
-          id: documentId,
-          userId,
-          type: 'OTHER',
-          storagePath: path,
-          originalName: filename,
-          mimeType,
-          size,
-          uploadedAt: new Date(),
-        });
-        created += 1;
+          await this.db.insert(documentsTable).values({
+            id: documentId,
+            userId,
+            type: 'OTHER',
+            storagePath: path,
+            originalName: filename,
+            mimeType,
+            size,
+            uploadedAt: new Date(),
+          });
+        }
+        addLimited(createdItems, { id: documentId, path, reason: 'Missing in DB' });
+        createdCount += 1;
         continue;
       }
 
+      const updateFields: Partial<typeof documentsTable.$inferInsert> = {};
+      const changedFields: string[] = [];
+
       if (existing.storagePath !== path) {
-        await this.db.update(documentsTable).set({ storagePath: path }).where(eq(documentsTable.id, documentId));
-        updated += 1;
+        updateFields.storagePath = path;
+        changedFields.push('storagePath');
       }
 
       if (!existing.uploadedAt) {
-        await this.db.update(documentsTable).set({ uploadedAt: new Date() }).where(eq(documentsTable.id, documentId));
-        updated += 1;
+        updateFields.uploadedAt = new Date();
+        changedFields.push('uploadedAt');
+      }
+
+      if (changedFields.length) {
+        if (!dryRun) {
+          await this.db.update(documentsTable).set(updateFields).where(eq(documentsTable.id, documentId));
+        }
+        addLimited(updatedItems, { id: documentId, fields: changedFields });
+        updatedCount += 1;
       }
     }
 
     for (const doc of dbDocuments) {
-      if (!seenIds.has(doc.id)) {
-        await this.db.delete(documentsTable).where(eq(documentsTable.id, doc.id));
-        removed += 1;
+      if (!storageById.has(doc.id)) {
+        const cutoff = new Date(Date.now() - missingGraceMinutes * 60 * 1000);
+        const isPastGrace = doc.createdAt < cutoff;
+        const shouldDelete = deleteMissing && isPastGrace;
+        const reason = isPastGrace
+          ? 'Missing in storage beyond grace period'
+          : 'Missing in storage within grace period';
+
+        addLimited(missingInStorage, {
+          id: doc.id,
+          storagePath: doc.storagePath,
+          action: shouldDelete ? 'delete' : 'skip',
+          reason,
+        });
+
+        if (shouldDelete) {
+          if (!dryRun) {
+            await this.db.delete(documentsTable).where(eq(documentsTable.id, doc.id));
+          }
+          addLimited(removedItems, { id: doc.id, reason: 'Deleted missing document' });
+          removedCount += 1;
+        } else {
+          skippedRemoval += 1;
+        }
       }
     }
 
     return {
-      created,
-      updated,
-      removed,
-      totalInDb: dbDocuments.length,
-      totalInStorage: files.length,
+      dryRun,
+      deleteMissing,
+      missingGraceMinutes,
+      summary: {
+        created: createdCount,
+        updated: updatedCount,
+        removed: removedCount,
+        skippedRemoval,
+        totalInDb: dbDocuments.length,
+        totalInStorage: files.length,
+      },
+      details: {
+        created: createdItems,
+        updated: updatedItems,
+        removed: removedItems,
+        missingInStorage,
+        conflicts,
+        ignoredObjects,
+      },
     };
   }
 

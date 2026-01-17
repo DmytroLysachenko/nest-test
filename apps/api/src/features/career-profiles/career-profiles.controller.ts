@@ -41,10 +41,7 @@ export class CareerProfilesController {
   @Get(':id')
   @ApiOperation({ summary: 'Get career profile by id' })
   @ApiOkResponse({ type: CareerProfileResponse })
-  async getById(
-    @CurrentUser() user: JwtValidateUser,
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ) {
+  async getById(@CurrentUser() user: JwtValidateUser, @Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.careerProfilesService.getById(user.userId, id);
   }
 

@@ -11,6 +11,7 @@ import { ConfirmDocumentDto } from './dto/confirm-document.dto';
 import { ListDocumentsQuery } from './dto/list-documents.query';
 import { ExtractDocumentDto } from './dto/extract-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
+import { SyncDocumentsDto } from './dto/sync-documents.dto';
 
 @ApiTags('documents')
 @ApiBearerAuth()
@@ -45,8 +46,8 @@ export class DocumentsController {
 
   @Post('sync')
   @ApiOperation({ summary: 'Sync DB documents with GCS objects' })
-  async sync(@CurrentUser() user: JwtValidateUser) {
-    return this.documentsService.syncWithStorage(user.userId);
+  async sync(@CurrentUser() user: JwtValidateUser, @Body() dto: SyncDocumentsDto) {
+    return this.documentsService.syncWithStorage(user.userId, dto);
   }
 
   @Get(':id')
@@ -57,11 +58,7 @@ export class DocumentsController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update document metadata' })
-  async update(
-    @CurrentUser() user: JwtValidateUser,
-    @Param('id') documentId: string,
-    @Body() dto: UpdateDocumentDto,
-  ) {
+  async update(@CurrentUser() user: JwtValidateUser, @Param('id') documentId: string, @Body() dto: UpdateDocumentDto) {
     return this.documentsService.update(user.userId, documentId, dto);
   }
 
