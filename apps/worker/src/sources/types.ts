@@ -9,13 +9,20 @@ export type ParsedJob = {
   location?: string;
   description: string;
   url: string;
+  salary?: string;
+  employmentType?: string;
+  sourceId?: string;
 };
 
 export type NormalizedJob = {
+  source: string;
+  sourceId: string | null;
   title: string;
   company: string | null;
   location: string | null;
   description: string;
   url: string;
   tags: string[];
+  salary: string | null;
+  employmentType: string | null;
 };

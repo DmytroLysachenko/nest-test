@@ -12,7 +12,7 @@ export const runScrapeJob = async (payload: ScrapeSourceJob, logger: Logger, opt
     throw new Error(`Unknown source: ${payload.source}`);
   }
 
-  const pages = await crawlPracujPl(options.headless);
+  const pages = await crawlPracujPl(options.headless, payload.listingUrl, payload.limit);
   const parsedJobs = parsePracujPl(pages);
   const normalized = normalizePracujPl(parsedJobs);
 

@@ -14,6 +14,8 @@ const payload: TaskEnvelope = {
   payload: {
     source: 'pracuj-pl',
     runId: `run-${Date.now()}`,
+    listingUrl: env.PRACUJ_LISTING_URL,
+    limit: env.PRACUJ_LISTING_LIMIT,
   },
 };
 

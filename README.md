@@ -362,6 +362,8 @@ Optional:
 - `DATABASE_URL` (required once jobs are persisted)
 - `WORKER_LOG_LEVEL`
 - `PLAYWRIGHT_HEADLESS`
+- `PRACUJ_LISTING_URL`
+- `PRACUJ_LISTING_LIMIT`
 
 ---
 

@@ -14,6 +14,8 @@ const envSchema = z.object({
   TASKS_SERVICE_ACCOUNT_EMAIL: z.string().optional(),
   DATABASE_URL: z.string().min(1).optional(),
   PLAYWRIGHT_HEADLESS: z.coerce.boolean().default(true),
+  PRACUJ_LISTING_URL: z.string().url().optional(),
+  PRACUJ_LISTING_LIMIT: z.coerce.number().int().min(1).max(100).default(10),
 });
 
 export type WorkerEnv = z.infer<typeof envSchema>;
