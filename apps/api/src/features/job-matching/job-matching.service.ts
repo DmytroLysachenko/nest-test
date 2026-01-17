@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { careerProfilesTable } from '@repo/db';
-import { desc, eq } from 'drizzle-orm';
+import { careerProfilesTable, jobMatchesTable } from '@repo/db';
+import { and, desc, eq, sql } from 'drizzle-orm';
 
 import { Drizzle } from '@/common/decorators';
 
 import { ScoreJobDto } from './dto/score-job.dto';
+import { ListJobMatchesQuery } from './dto/list-job-matches.query';
 
 type ProfileJson = {
   summary?: string;
@@ -24,7 +25,7 @@ export class JobMatchingService {
     const profile = await this.db
       .select()
       .from(careerProfilesTable)
-      .where(eq(careerProfilesTable.userId, userId))
+      .where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true)))
       .orderBy(desc(careerProfilesTable.createdAt))
       .limit(1)
       .then(([result]) => result);
@@ -42,15 +43,77 @@ export class JobMatchingService {
     const minScore = dto.minScore ?? 0;
     const isMatch = score.score >= minScore;
 
+    const [record] = await this.db
+      .insert(jobMatchesTable)
+      .values({
+        userId,
+        careerProfileId: profile.id,
+        profileVersion: profile.version ?? 1,
+        jobDescription: dto.jobDescription,
+        score: score.score,
+        minScore,
+        isMatch,
+        matchedSkills: score.matchedSkills,
+        matchedRoles: score.matchedRoles,
+        matchedStrengths: score.explanation.matchedStrengths,
+        matchedKeywords: score.explanation.matchedKeywords,
+      })
+      .returning();
+
     return {
       score,
       isMatch,
       profileId: profile.id,
+      profileVersion: profile.version ?? 1,
+      matchId: record?.id ?? null,
       matchedSkills: score.matchedSkills,
       matchedRoles: score.matchedRoles,
       explanation: score.explanation,
       gaps: profileJson.gaps ?? [],
     };
+  }
+
+  async listMatches(userId: string, query: ListJobMatchesQuery) {
+    const limit = query.limit ? Number(query.limit) : 20;
+    const offset = query.offset ? Number(query.offset) : 0;
+    const conditions = [eq(jobMatchesTable.userId, userId)];
+
+    if (query.isMatch !== undefined) {
+      conditions.push(eq(jobMatchesTable.isMatch, query.isMatch === 'true'));
+    }
+
+    const items = await this.db
+      .select()
+      .from(jobMatchesTable)
+      .where(and(...conditions))
+      .orderBy(desc(jobMatchesTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const [{ total }] = await this.db
+      .select({ total: sql<number>`count(*)` })
+      .from(jobMatchesTable)
+      .where(and(...conditions));
+
+    return {
+      items,
+      total: Number(total ?? 0),
+    };
+  }
+
+  async getMatchById(userId: string, matchId: string) {
+    const match = await this.db
+      .select()
+      .from(jobMatchesTable)
+      .where(and(eq(jobMatchesTable.userId, userId), eq(jobMatchesTable.id, matchId)))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!match) {
+      throw new NotFoundException('Job match not found');
+    }
+
+    return match;
   }
 
   private calculateScore(jobDescription: string, profile: ProfileJson) {

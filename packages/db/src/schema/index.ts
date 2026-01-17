@@ -6,6 +6,7 @@ import * as otps from './otps';
 import * as profileInputs from './profile-inputs';
 import * as documents from './documents';
 import * as careerProfiles from './career-profiles';
+import * as jobMatches from './job-matches';
 import * as relations from './_relations';
 
 export * from './_enums';
@@ -16,6 +17,7 @@ export * from './otps';
 export * from './profile-inputs';
 export * from './documents';
 export * from './career-profiles';
+export * from './job-matches';
 export * from './_relations';
 
 export type Schema = typeof schema;
@@ -29,6 +31,7 @@ const schema = {
   ...profileInputs,
   ...documents,
   ...careerProfiles,
+  ...jobMatches,
   ...relations,
 };
 export default schema;

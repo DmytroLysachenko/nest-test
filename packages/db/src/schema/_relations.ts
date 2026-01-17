@@ -6,6 +6,7 @@ import { passportTable } from './passport';
 import { profileInputsTable } from './profile-inputs';
 import { documentsTable } from './documents';
 import { careerProfilesTable } from './career-profiles';
+import { jobMatchesTable } from './job-matches';
 
 export const usersRelations = relations(usersTable, ({ one, many }) => ({
   profile: one(profilesTable, {
@@ -16,6 +17,7 @@ export const usersRelations = relations(usersTable, ({ one, many }) => ({
   profileInputs: many(profileInputsTable),
   documents: many(documentsTable),
   careerProfiles: many(careerProfilesTable),
+  jobMatches: many(jobMatchesTable),
 }));
 
 export const profilesRelations = relations(profilesTable, ({ one }) => ({
@@ -55,5 +57,16 @@ export const careerProfilesRelations = relations(careerProfilesTable, ({ one }) 
   profileInput: one(profileInputsTable, {
     fields: [careerProfilesTable.profileInputId],
     references: [profileInputsTable.id],
+  }),
+}));
+
+export const jobMatchesRelations = relations(jobMatchesTable, ({ one }) => ({
+  user: one(usersTable, {
+    fields: [jobMatchesTable.userId],
+    references: [usersTable.id],
+  }),
+  careerProfile: one(careerProfilesTable, {
+    fields: [jobMatchesTable.careerProfileId],
+    references: [careerProfilesTable.id],
   }),
 }));

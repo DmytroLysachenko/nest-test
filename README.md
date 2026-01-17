@@ -71,11 +71,11 @@ Security hardening:
 ## Data Ownership and Boundaries
 
 API-owned tables (source of truth):
-- `users`, `profiles`, `profile_inputs`, `documents`, `career_profiles`
+- `users`, `profiles`, `profile_inputs`, `documents`, `career_profiles`, `job_matches`
 - These are created/updated by API endpoints only.
 
 Worker-owned tables (planned):
-- `jobs`, `job_sources`, `job_ingestion_runs`, `job_matches`
+- `jobs`, `job_sources`, `job_ingestion_runs`
 - These are created/updated by the worker service and consumed by the API.
 
 Cross-service interactions:
@@ -209,6 +209,7 @@ Minimal, LLM-first model:
 - ProfileInput: user intent (target roles + notes)
 - Document: uploaded PDF metadata stored in GCS + extracted text
 - CareerProfile: AI-generated markdown + JSON
+- JobMatch: stored scoring history for job descriptions
 
 Tables (simplified):
 - profile_inputs: user_id, target_roles, notes
@@ -216,6 +217,7 @@ Tables (simplified):
   - includes `extraction_status` and `extraction_error`
 - career_profiles: user_id, profile_input_id, document_ids, status, content, content_json, model, error
   - includes `version` and `is_active` for profile history
+- job_matches: user_id, career_profile_id, profile_version, job_description, score, is_match
 
 ## Database Schema (High-Level)
 
@@ -224,12 +226,13 @@ Current tables (API-owned):
 - `users` → `profile_inputs` (1:many)
 - `users` → `documents` (1:many)
 - `users` → `career_profiles` (1:many)
+- `users` → `job_matches` (1:many)
 - `profile_inputs` → `career_profiles` (1:many)
 
 Planned tables (worker-owned):
 - `job_sources` (1:many) → `jobs`
 - `job_ingestion_runs` (1:many) → `job_sources`
-- `users` (1:many) → `job_matches` → (many:1) `jobs`
+- `job_matches` → `jobs` (future link for stored matches)
 
 Ownership rules:
 - The API owns user/profile data.
@@ -272,6 +275,8 @@ Career profiles:
 
 Job matching:
 - POST `/job-matching/score` (scores job description using profile JSON)
+- GET `/job-matching` (list match history)
+- GET `/job-matching/:id` (match details)
 
 ---
 
@@ -282,7 +287,7 @@ Backend modules (NestJS):
 - ProfileInputsModule: stores target roles + notes
 - DocumentsModule: GCS signed URLs, confirm, extract, sync, delete
 - CareerProfilesModule: Gemini generation + storage
-- JobMatchingModule: score job description using profile JSON
+- JobMatchingModule: score job description + store history
 - GeminiModule: Vertex AI Gemini client
 - GcsModule: GCS client wrapper
 
@@ -418,6 +423,7 @@ JSON schema:
 Job matching notes:
 - Uses weighted scoring (roles 40%, skills 40%, strengths 20% + keyword bonus).
 - Optional `minScore` in request to filter matches.
+- Every score request is stored in `job_matches` for history.
 
 ---
 
@@ -444,132 +450,137 @@ Each task is scoped to ~300–500 LOC to keep changes focused.
 
 ### Phase 1 — Complete V1 Backend + DB
 
-1) **Profile versioning**
+1) **Profile versioning (Done)**
    - Add `version` and `is_active` to `career_profiles`.
    - New profile increments version; previous active is set to false.
    - `GET /career-profiles/latest` returns active only.
 
-2) **Profile JSON schema consistency**
+2) **Profile JSON schema consistency (Done)**
    - Enforce JSON keys: `summary`, `coreSkills`, `preferredRoles`, `strengths`, `gaps`, `topKeywords`.
    - Validate shape and store parse errors in `career_profiles.error`.
    - Add `topKeywords` generation in prompt.
 
-3) **Matching quality pass**
+3) **Matching quality pass (Done)**
    - Weighted scoring (roles 40%, skills 40%, strengths 20%).
    - Add explanation field to response.
    - Optional `minScore` filter in request body.
 
-4) **Document metadata management**
+4) **Job match history (Done)**
+   - Store scoring results for every request.
+   - Add `GET /job-matching` and `GET /job-matching/:id`.
+   - Track profile version used for the score.
+
+5) **Document metadata management (Done)**
    - Add `GET /documents/:id`.
    - Add `PATCH /documents/:id` to update `type` and `originalName`.
    - Keep file immutable; only metadata changes.
 
-5) **Extraction status**
+6) **Extraction status (Done)**
    - Add `extraction_status` enum (PENDING/READY/FAILED).
    - Store parser errors in `documents.extracted_text` or separate `extraction_error`.
 
-6) **Error response consistency**
+7) **Error response consistency (Done)**
    - Map errors to `code + message`.
    - Ensure 400 for validation, 404 for missing records, 500 for internal.
 
-7) **Swagger pass**
+8) **Swagger pass (Done)**
    - Add DTO decorators and endpoint docs for all routes.
    - Include request/response examples.
 
-8) **Security hardening**
+9) **Security hardening (Done)**
    - Ensure JWT guard on all private endpoints.
    - Rate limit auth endpoints.
    - Validate CORS origins.
 
-9) **DB migration cleanup**
+10) **DB migration cleanup**
    - Normalize column naming if needed.
    - Verify migrations are linear and committed.
 
 ### Phase 2 — Frontend (Next.js)
 
-10) **Choose a frontend boilerplate**
+11) **Choose a frontend boilerplate**
     - Find a ready-to-go Next.js boilerplate with TanStack Query.
     - Prefer Tailwind + shadcn/ui.
     - Align structure with monorepo.
 
-11) **Remove current admin app**
+12) **Remove current admin app**
     - Delete `apps/admin`.
     - Update `pnpm-workspace.yaml` and `turbo.json`.
 
-12) **Add Next.js app**
+13) **Add Next.js app**
     - Create `apps/web` from the chosen boilerplate.
     - Keep TanStack Query as the main client state layer.
     - Wire workspace builds in Turbo.
 
-13) **Auth UI (minimal)**
+14) **Auth UI (minimal)**
     - Login/Register screens.
     - JWT storage and session handling.
     - Minimal error states.
 
-14) **Profile input UI**
+15) **Profile input UI**
     - Form for target roles + notes.
     - Show latest input and history.
 
-15) **Document upload UI**
+16) **Document upload UI**
     - Upload via signed URL.
     - Confirm + extract actions.
     - Show status and errors.
 
-16) **Profile generation UI**
+17) **Profile generation UI**
     - Trigger generation.
     - Show markdown and JSON (collapsed).
 
-17) **Job matching UI**
+18) **Job matching UI**
     - Paste job description.
     - Show score + explanation.
 
 ### Phase 3 — CI/CD + GCP
 
-18) **Dockerize API**
+19) **Dockerize API**
     - Dockerfile + .dockerignore for `apps/api`.
     - Cloud Run compatible build.
 
-19) **Dockerize Next.js**
+20) **Dockerize Next.js**
     - Dockerfile for `apps/web`.
     - Production build and runtime config.
 
-20) **Artifact Registry**
+21) **Artifact Registry**
     - Push images for API and Web.
 
-21) **Cloud Run deploy**
+22) **Cloud Run deploy**
     - Deploy API + Web.
     - Configure env vars and secrets.
 
-22) **Managed DB**
+23) **Managed DB**
     - Provision Cloud SQL Postgres.
     - Apply migrations in CI/CD.
 
-23) **CI pipeline**
+24) **CI pipeline**
     - Lint + build + test.
     - Docker build/push.
     - Deploy on main branch.
 
-24) **Monitoring**
+25) **Monitoring**
     - Cloud Logging + basic alerts.
     - Health check endpoints wired to uptime checks.
 
 ### Phase 4 — Production Readiness
 
-25) **Async jobs**
+26) **Async jobs**
     - Move extraction + Gemini to queue (BullMQ).
     - Add job status endpoints.
 
-26) **Profile history**
+27) **Profile history**
     - UI to view and switch active profile version.
 
-27) **Job ingestion**
+28) **Job ingestion**
     - Start with pasted URLs and manual entries.
     - Evaluate crawling/legal approach later.
 
-28) **User account management**
+29) **User account management**
     - Account settings and deletion flow.
 
-29) **Deployment hardening**
+30) **Deployment hardening**
     - Secrets manager usage.
     - Rate limits and abuse protection.
 

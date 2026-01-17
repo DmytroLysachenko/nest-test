@@ -201,3 +201,11 @@ Content-Type: application/json
   "jobDescription": "We are looking for a backend developer with NestJS, PostgreSQL, and REST API experience.",
   "minScore": 60
 }
+
+### List job match history (auth)
+GET {{baseUrl}}/job-matching?isMatch=true&limit=10&offset=0
+Authorization: Bearer {{accessToken}}
+
+### Get job match by id (auth)
+GET {{baseUrl}}/job-matching/replace_with_match_id
+Authorization: Bearer {{accessToken}}
