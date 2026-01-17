@@ -142,7 +142,8 @@ Content-Type: application/json
   "dryRun": false,
   "deleteMissing": false,
   "missingGraceMinutes": 30,
-  "previewLimit": 50
+  "previewLimit": 50,
+  "includeDetails": false
 }
 
 ### Get document by id (auth)
@@ -203,7 +204,7 @@ Content-Type: application/json
 }
 
 ### List job match history (auth)
-GET {{baseUrl}}/job-matching?isMatch=true&limit=10&offset=0
+GET {{baseUrl}}/job-matching
 Authorization: Bearer {{accessToken}}
 
 ### Get job match by id (auth)

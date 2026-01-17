@@ -492,9 +492,9 @@ Each task is scoped to ~300–500 LOC to keep changes focused.
    - Rate limit auth endpoints.
    - Validate CORS origins.
 
-10) **DB migration cleanup**
-   - Normalize column naming if needed.
-   - Verify migrations are linear and committed.
+10) **DB migration cleanup (Done)**
+    - Normalize column naming if needed.
+    - Verify migrations are linear and committed.
 
 ### Phase 2 — Frontend (Next.js)
 

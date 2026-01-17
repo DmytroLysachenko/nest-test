@@ -183,6 +183,7 @@ export class DocumentsService {
     const deleteMissing = dto.deleteMissing ?? false;
     const missingGraceMinutes = dto.missingGraceMinutes ?? 30;
     const previewLimit = dto.previewLimit ?? 50;
+    const includeDetails = dto.includeDetails ?? false;
 
     const prefix = `documents/${userId}/`;
     const files = await this.gcsService.listObjects(prefix);
@@ -198,11 +199,15 @@ export class DocumentsService {
     const conflicts: Array<{ id: string; paths: string[] }> = [];
     const ignoredObjects: Array<{ path: string; reason: string }> = [];
 
-    const addLimited = <T>(items: T[], entry: T) => {
-      if (items.length < previewLimit) {
-        items.push(entry);
-      }
-    };
+    const addLimited = includeDetails
+      ? <T>(items: T[], entry: T) => {
+          if (items.length < previewLimit) {
+            items.push(entry);
+          }
+        }
+      : <T>(_items: T[], _entry: T) => {
+          return;
+        };
 
     let createdCount = 0;
     let removedCount = 0;
@@ -309,7 +314,27 @@ export class DocumentsService {
       }
     }
 
-    return {
+    const response: {
+      dryRun: boolean;
+      deleteMissing: boolean;
+      missingGraceMinutes: number;
+      summary: {
+        created: number;
+        updated: number;
+        removed: number;
+        skippedRemoval: number;
+        totalInDb: number;
+        totalInStorage: number;
+      };
+      details?: {
+        created: Array<{ id: string; path: string; reason: string }>;
+        updated: Array<{ id: string; fields: string[] }>;
+        removed: Array<{ id: string; reason: string }>;
+        missingInStorage: Array<{ id: string; storagePath: string; action: string; reason: string }>;
+        conflicts: Array<{ id: string; paths: string[] }>;
+        ignoredObjects: Array<{ path: string; reason: string }>;
+      };
+    } = {
       dryRun,
       deleteMissing,
       missingGraceMinutes,
@@ -321,15 +346,20 @@ export class DocumentsService {
         totalInDb: dbDocuments.length,
         totalInStorage: files.length,
       },
-      details: {
+    };
+
+    if (includeDetails) {
+      response.details = {
         created: createdItems,
         updated: updatedItems,
         removed: removedItems,
         missingInStorage,
         conflicts,
         ignoredObjects,
-      },
-    };
+      };
+    }
+
+    return response;
   }
 
   async remove(userId: string, documentId: string) {

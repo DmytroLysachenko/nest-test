@@ -34,10 +34,7 @@ export class JobMatchingController {
   @Get(':id')
   @ApiOperation({ summary: 'Get job match by id' })
   @ApiOkResponse({ type: JobMatchResponse })
-  async getById(
-    @CurrentUser() user: JwtValidateUser,
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ) {
+  async getById(@CurrentUser() user: JwtValidateUser, @Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.jobMatchingService.getMatchById(user.userId, id);
   }
 }

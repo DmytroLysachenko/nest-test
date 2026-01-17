@@ -83,7 +83,15 @@ export class JobMatchingService {
     }
 
     const items = await this.db
-      .select()
+      .select({
+        id: jobMatchesTable.id,
+        careerProfileId: jobMatchesTable.careerProfileId,
+        profileVersion: jobMatchesTable.profileVersion,
+        score: jobMatchesTable.score,
+        minScore: jobMatchesTable.minScore,
+        isMatch: jobMatchesTable.isMatch,
+        createdAt: jobMatchesTable.createdAt,
+      })
       .from(jobMatchesTable)
       .where(and(...conditions))
       .orderBy(desc(jobMatchesTable.createdAt))

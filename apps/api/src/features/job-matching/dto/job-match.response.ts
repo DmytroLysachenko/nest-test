@@ -41,9 +41,32 @@ export class JobMatchResponse {
   createdAt!: Date;
 }
 
+export class JobMatchListItemResponse {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  careerProfileId!: string;
+
+  @ApiProperty()
+  profileVersion!: number;
+
+  @ApiProperty()
+  score!: number;
+
+  @ApiProperty({ nullable: true })
+  minScore!: number | null;
+
+  @ApiProperty()
+  isMatch!: boolean;
+
+  @ApiProperty()
+  createdAt!: Date;
+}
+
 export class JobMatchListResponse {
-  @ApiProperty({ type: [JobMatchResponse] })
-  items!: JobMatchResponse[];
+  @ApiProperty({ type: [JobMatchListItemResponse] })
+  items!: JobMatchListItemResponse[];
 
   @ApiProperty()
   total!: number;

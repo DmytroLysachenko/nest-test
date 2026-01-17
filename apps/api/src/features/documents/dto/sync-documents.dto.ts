@@ -25,4 +25,9 @@ export class SyncDocumentsDto {
   @Min(1)
   @Max(500)
   previewLimit?: number;
+
+  @ApiPropertyOptional({ description: 'Include detailed diff items in response', default: false })
+  @IsOptional()
+  @IsBoolean()
+  includeDetails?: boolean;
 }
