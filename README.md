@@ -1,4 +1,4 @@
-﻿# Career Search Assistant Monorepo
+# Career Search Assistant Monorepo
 
 [![Status](https://img.shields.io/badge/status-active-success.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](/LICENSE)
@@ -15,30 +15,31 @@ This README is designed to be the primary source of context for both humans and 
 
 Core services:
 - API (NestJS): auth, profile inputs, documents, extraction, AI profile, matching
-- Worker service (planned): background jobs and scraping/ingestion
+- Worker service (Node + Playwright + Cloud Tasks): background jobs and scraping/ingestion
 - Frontend (planned): Next.js app for user workflows
 
 Scraping note:
-- Job scraping will be a separate worker service, not part of the API monolith.
-- The worker will ingest jobs, normalize them, and store them in the DB for matching.
+- Job scraping is a separate worker service in `apps/worker`.
+- The worker ingests jobs, normalizes them, and stores them in the DB for matching.
 
 ## Service Communication and Data Flow
 
 Architecture approach:
-- **HTTP-driven for user actions** (Frontend → API).
-- **Job/worker-driven for background tasks** (Worker → DB + storage).
+- **HTTP-driven for user actions** (Frontend ? API).
+- **Job/worker-driven for background tasks** (Worker ? DB + storage).
+- Use **Cloud Tasks** in production (no always-on Redis).
 - In early stages, keep it **request/response** for simplicity.
 - As scale grows, move to **event-driven** (queue + jobs) for extraction and AI.
 
 Primary data flow:
-1) Frontend → API (profile input, upload URL, confirm, extract, generate, match).
-2) API ↔ GCS (signed upload URL, confirm, download for extraction).
-3) Worker → External sources (job ingestion).
-4) Worker → DB (normalized jobs).
-5) API → DB (fetch jobs for matching and UI display).
+1) Frontend ? API (profile input, upload URL, confirm, extract, generate, match).
+2) API ? GCS (signed upload URL, confirm, download for extraction).
+3) Worker ? External sources (job ingestion).
+4) Worker ? DB (normalized jobs).
+5) API ? DB (fetch jobs for matching and UI display).
 
 Suggested integration pattern:
-- Use a queue (BullMQ / Cloud Tasks / Pub/Sub) for:
+- Use a queue (Cloud Tasks / Pub/Sub) for:
   - PDF extraction
   - Gemini generation
   - Crawling and job normalization
@@ -49,7 +50,7 @@ Suggested integration pattern:
 User-facing flow:
 1) Login/Register
 2) Submit profile input
-3) Upload PDF → confirm
+3) Upload PDF ? confirm
 4) Extract text
 5) Generate profile (markdown + JSON)
 6) Score a job description or display matches
@@ -125,7 +126,7 @@ Implementation outline:
    - Write to `jobs` table and track in `job_ingestion_runs`.
    - Use `job_sources` to store source metadata (base URL, crawl rules).
 4) **Scheduler**
-   - Run on schedule (Cloud Scheduler → Pub/Sub → Worker).
+   - Run on schedule (Cloud Scheduler ? Pub/Sub ? Worker).
    - Persist run status and failures for monitoring.
 
 Recommended data schema (worker-owned):
@@ -146,10 +147,12 @@ Why Playwright:
 Suggested stack:
 - Node.js + Playwright
 - Cheerio (optional) for HTML parsing
-- BullMQ / PubSub for scheduling and retries
+- Cloud Tasks / PubSub for scheduling and retries
 - Zod for validation of extracted fields
 
 Suggested folder layout:
+Implemented in `apps/worker` with the same shape.
+
 ```
 worker/
   src/
@@ -192,6 +195,7 @@ Per-source workflows:
 apps/
   admin/               # Frontend admin panel (React 19 + Vite)
   api/                 # NestJS backend service
+  worker/              # Node.js worker (Playwright + Cloud Tasks)
 packages/
   db/                  # Drizzle schemas, migrations, seed scripts
   ui/                  # Shared React UI library (shadcn/ui)
@@ -222,17 +226,17 @@ Tables (simplified):
 ## Database Schema (High-Level)
 
 Current tables (API-owned):
-- `users` → `profiles` (1:1)
-- `users` → `profile_inputs` (1:many)
-- `users` → `documents` (1:many)
-- `users` → `career_profiles` (1:many)
-- `users` → `job_matches` (1:many)
-- `profile_inputs` → `career_profiles` (1:many)
+- `users` ? `profiles` (1:1)
+- `users` ? `profile_inputs` (1:many)
+- `users` ? `documents` (1:many)
+- `users` ? `career_profiles` (1:many)
+- `users` ? `job_matches` (1:many)
+- `profile_inputs` ? `career_profiles` (1:many)
 
 Planned tables (worker-owned):
-- `job_sources` (1:many) → `jobs`
-- `job_ingestion_runs` (1:many) → `job_sources`
-- `job_matches` → `jobs` (future link for stored matches)
+- `job_sources` (1:many) ? `jobs`
+- `job_ingestion_runs` (1:many) ? `job_sources`
+- `job_matches` ? `jobs` (future link for stored matches)
 
 Ownership rules:
 - The API owns user/profile data.
@@ -341,6 +345,24 @@ Other:
 ### packages/db/.env
 - `DATABASE_URL`
 
+### apps/worker/.env
+Required:
+- `WORKER_PORT`
+- `QUEUE_PROVIDER` (local | cloud-tasks)
+
+Cloud Tasks (required if QUEUE_PROVIDER=cloud-tasks):
+- `TASKS_PROJECT_ID`
+- `TASKS_LOCATION`
+- `TASKS_QUEUE`
+- `TASKS_URL`
+
+Optional:
+- `TASKS_AUTH_TOKEN` (recommended)
+- `TASKS_SERVICE_ACCOUNT_EMAIL`
+- `DATABASE_URL` (required once jobs are persisted)
+- `WORKER_LOG_LEVEL`
+- `PLAYWRIGHT_HEADLESS`
+
 ---
 
 ## Local Development
@@ -359,6 +381,7 @@ pnpm install
 cp apps/api/.env.example apps/api/.env
 cp apps/admin/.env.example apps/admin/.env
 cp packages/db/.env.example packages/db/.env
+cp apps/worker/.env.example apps/worker/.env
 ```
 
 Set `DATABASE_URL`, `GCP_PROJECT_ID`, `GCP_LOCATION`, and `GCS_BUCKET`.
@@ -381,6 +404,26 @@ pnpm --filter @repo/db build
 
 ```bash
 pnpm --filter api start
+```
+
+### Run worker
+
+Install Playwright browsers once:
+
+```bash
+pnpm --filter worker exec playwright install
+```
+
+Start the worker task server:
+
+```bash
+pnpm --filter worker dev
+```
+
+Enqueue a test task (local):
+
+```bash
+pnpm --filter worker enqueue
 ```
 
 ### Run full dev
@@ -446,9 +489,9 @@ Job matching notes:
 
 ## Roadmap (Step-by-Step, Small Tasks)
 
-Each task is scoped to ~300–500 LOC to keep changes focused.
+Each task is scoped to ~300�500 LOC to keep changes focused.
 
-### Phase 1 — Complete V1 Backend + DB
+### Phase 1 � Complete V1 Backend + DB
 
 1) **Profile versioning (Done)**
    - Add `version` and `is_active` to `career_profiles`.
@@ -496,7 +539,7 @@ Each task is scoped to ~300–500 LOC to keep changes focused.
     - Normalize column naming if needed.
     - Verify migrations are linear and committed.
 
-### Phase 2 — Frontend (Next.js)
+### Phase 2 � Frontend (Next.js)
 
 11) **Choose a frontend boilerplate**
     - Find a ready-to-go Next.js boilerplate with TanStack Query.
@@ -534,7 +577,7 @@ Each task is scoped to ~300–500 LOC to keep changes focused.
     - Paste job description.
     - Show score + explanation.
 
-### Phase 3 — CI/CD + GCP
+### Phase 3 � CI/CD + GCP
 
 19) **Dockerize API**
     - Dockerfile + .dockerignore for `apps/api`.
@@ -564,10 +607,10 @@ Each task is scoped to ~300–500 LOC to keep changes focused.
     - Cloud Logging + basic alerts.
     - Health check endpoints wired to uptime checks.
 
-### Phase 4 — Production Readiness
+### Phase 4 � Production Readiness
 
 26) **Async jobs**
-    - Move extraction + Gemini to queue (BullMQ).
+    - Move extraction + Gemini to queue (Cloud Tasks / PubSub).
     - Add job status endpoints.
 
 27) **Profile history**
@@ -589,3 +632,7 @@ Each task is scoped to ~300–500 LOC to keep changes focused.
 ## License
 
 MIT License. See `LICENSE`.
+
+
+
+
