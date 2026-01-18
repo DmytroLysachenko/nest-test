@@ -12,6 +12,7 @@ export type ParsedJob = {
   salary?: string;
   employmentType?: string;
   sourceId?: string;
+  requirements?: string[];
 };
 
 export type NormalizedJob = {
@@ -25,4 +26,5 @@ export type NormalizedJob = {
   tags: string[];
   salary: string | null;
   employmentType: string | null;
+  requirements: string[];
 };

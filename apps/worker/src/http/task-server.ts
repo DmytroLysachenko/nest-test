@@ -71,7 +71,10 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       const requestId = req.headers['x-request-id'];
       logger.info({ requestId, taskName: task.name, runId: task.payload.runId ?? null }, 'Task received');
 
-      const result = await handleTask(task, logger, { headless: env.PLAYWRIGHT_HEADLESS });
+      const result = await handleTask(task, logger, {
+        headless: env.PLAYWRIGHT_HEADLESS,
+        outputDir: env.WORKER_OUTPUT_DIR,
+      });
       sendJson(res, 200, { ok: true, result });
     } catch (error) {
       logger.error({ error }, 'Task processing failed');

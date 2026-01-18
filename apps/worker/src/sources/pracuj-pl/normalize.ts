@@ -14,5 +14,6 @@ export const normalizePracujPl = (jobs: ParsedJob[]): NormalizedJob[] => {
     tags: [],
     salary: normalizeText(job.salary),
     employmentType: normalizeText(job.employmentType),
+    requirements: job.requirements?.map((item) => item.trim()).filter(Boolean) ?? [],
   }));
 };
