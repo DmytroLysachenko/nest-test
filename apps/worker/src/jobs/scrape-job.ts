@@ -2,6 +2,7 @@ import type { Logger } from 'pino';
 
 import type { ScrapeSourceJob } from '../types/jobs';
 import { saveOutput } from '../output/save-output';
+
 import { crawlPracujPl } from '../sources/pracuj-pl/crawl';
 import { parsePracujPl } from '../sources/pracuj-pl/parse';
 import { normalizePracujPl } from '../sources/pracuj-pl/normalize';
@@ -9,7 +10,14 @@ import { normalizePracujPl } from '../sources/pracuj-pl/normalize';
 export const runScrapeJob = async (
   payload: ScrapeSourceJob,
   logger: Logger,
-  options: { headless: boolean; outputDir?: string },
+  options: {
+    headless: boolean;
+    outputDir?: string;
+    listingDelayMs?: number;
+    detailDelayMs?: number;
+    listingOnly?: boolean;
+    detailHost?: string;
+  },
 ) => {
   const startedAt = Date.now();
 
@@ -17,8 +25,30 @@ export const runScrapeJob = async (
     throw new Error(`Unknown source: ${payload.source}`);
   }
 
-  const pages = await crawlPracujPl(options.headless, payload.listingUrl, payload.limit, logger);
-  const parsedJobs = parsePracujPl(pages);
+  const { pages, blockedUrls, jobLinks, listingHtml, listingData, listingSummaries } = await crawlPracujPl(
+    options.headless,
+    payload.listingUrl,
+    payload.limit,
+    logger,
+    {
+      listingDelayMs: options.listingDelayMs,
+      detailDelayMs: options.detailDelayMs,
+      listingOnly: options.listingOnly,
+      detailHost: options.detailHost,
+    },
+  );
+  const parsedJobs =
+    pages.length > 0
+      ? parsePracujPl(pages)
+      : listingSummaries.map((summary) => ({
+          title: summary.title ?? 'Unknown title',
+          company: summary.company,
+          location: summary.location,
+          description: 'Listing summary only',
+          url: summary.url,
+          sourceId: summary.sourceId,
+          requirements: [],
+        }));
   const normalized = normalizePracujPl(parsedJobs);
   const runId = payload.runId ?? `run-${Date.now()}`;
   const outputPath = await saveOutput(
@@ -30,6 +60,11 @@ export const runScrapeJob = async (
       jobs: normalized,
       raw: parsedJobs,
       pages,
+      blockedUrls,
+      jobLinks,
+      listingHtml,
+      listingData,
+      listingSummaries,
     },
     options.outputDir,
   );
@@ -40,6 +75,8 @@ export const runScrapeJob = async (
       runId,
       pages: pages.length,
       jobs: normalized.length,
+      blockedPages: blockedUrls.length,
+      jobLinks: jobLinks.length,
       outputPath,
       durationMs: Date.now() - startedAt,
     },

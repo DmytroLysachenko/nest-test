@@ -4,6 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import type { Logger } from 'pino';
 
 import type { WorkerEnv } from '../config/env';
+
 import { handleTask } from '../queue/task-handler';
 import type { TaskEnvelope } from '../queue/task-types';
 import { taskEnvelopeSchema } from '../queue/task-types';
@@ -74,6 +75,10 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       const result = await handleTask(task, logger, {
         headless: env.PLAYWRIGHT_HEADLESS,
         outputDir: env.WORKER_OUTPUT_DIR,
+        listingDelayMs: env.PRACUJ_LISTING_DELAY_MS,
+        detailDelayMs: env.PRACUJ_DETAIL_DELAY_MS,
+        listingOnly: env.PRACUJ_LISTING_ONLY,
+        detailHost: env.PRACUJ_DETAIL_HOST,
       });
       sendJson(res, 200, { ok: true, result });
     } catch (error) {

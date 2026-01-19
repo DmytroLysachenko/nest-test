@@ -17,6 +17,10 @@ const envSchema = z.object({
   PRACUJ_LISTING_URL: z.string().url().optional(),
   PRACUJ_LISTING_LIMIT: z.coerce.number().int().min(1).max(100).optional(),
   WORKER_OUTPUT_DIR: z.string().optional(),
+  PRACUJ_LISTING_DELAY_MS: z.coerce.number().int().min(0).max(30000).default(1500),
+  PRACUJ_DETAIL_DELAY_MS: z.coerce.number().int().min(0).max(30000).default(2000),
+  PRACUJ_LISTING_ONLY: z.coerce.boolean().default(false),
+  PRACUJ_DETAIL_HOST: z.string().optional(),
 });
 
 export type WorkerEnv = z.infer<typeof envSchema>;

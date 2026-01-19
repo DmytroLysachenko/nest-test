@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'fs/promises';
 import { isAbsolute, join, resolve } from 'path';
 
-import type { NormalizedJob, ParsedJob, RawPage } from '../sources/types';
+import type { ListingJobSummary, NormalizedJob, ParsedJob, RawPage } from '../sources/types';
 
 type OutputPayload = {
   source: string;
@@ -11,6 +11,11 @@ type OutputPayload = {
   jobs: NormalizedJob[];
   raw?: ParsedJob[];
   pages?: RawPage[];
+  blockedUrls?: string[];
+  jobLinks?: string[];
+  listingHtml?: string;
+  listingData?: unknown;
+  listingSummaries?: ListingJobSummary[];
 };
 
 const toSafeFilename = (value: string) => value.replace(/[^\w.-]+/g, '_');
@@ -38,11 +43,31 @@ const saveRawPages = async (pages: RawPage[], baseDir: string) => {
   return paths;
 };
 
+const saveListingData = async (listingHtml: string | undefined, listingData: unknown, baseDir: string) => {
+  const listingDir = join(baseDir, 'listing');
+  await mkdir(listingDir, { recursive: true });
+
+  let htmlPath: string | undefined;
+  if (listingHtml) {
+    htmlPath = join(listingDir, 'listing.html');
+    await writeFile(htmlPath, listingHtml, 'utf-8');
+  }
+
+  let dataPath: string | undefined;
+  if (listingData) {
+    dataPath = join(listingDir, 'listing-data.json');
+    await writeFile(dataPath, JSON.stringify(listingData, null, 2), 'utf-8');
+  }
+
+  return { htmlPath, dataPath };
+};
+
 export const saveOutput = async (payload: OutputPayload, outputDir?: string) => {
   const baseDir = resolveOutputDir(outputDir);
   await mkdir(baseDir, { recursive: true });
 
   const rawPages = payload.pages ? await saveRawPages(payload.pages, baseDir) : undefined;
+  const listingData = await saveListingData(payload.listingHtml, payload.listingData, baseDir);
   const filename = `${toSafeFilename(payload.source)}-${toSafeFilename(payload.runId)}.json`;
   const path = join(baseDir, filename);
 
@@ -55,6 +80,11 @@ export const saveOutput = async (payload: OutputPayload, outputDir?: string) => 
       jobs: payload.jobs,
       raw: payload.raw,
       rawPages,
+      blockedUrls: payload.blockedUrls ?? [],
+      jobLinks: payload.jobLinks ?? [],
+      listingSummaries: payload.listingSummaries ?? [],
+      listingHtmlPath: listingData.htmlPath,
+      listingDataPath: listingData.dataPath,
     },
     null,
     2,

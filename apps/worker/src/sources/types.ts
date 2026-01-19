@@ -3,6 +3,14 @@ export type RawPage = {
   html: string;
 };
 
+export type ListingJobSummary = {
+  url: string;
+  title?: string;
+  company?: string;
+  location?: string;
+  sourceId?: string;
+};
+
 export type ParsedJob = {
   title: string;
   company?: string;

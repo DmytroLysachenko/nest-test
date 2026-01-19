@@ -2,9 +2,10 @@ import { chromium } from 'playwright';
 
 import type { Logger } from 'pino';
 
-import type { RawPage } from '../types';
+import type { ListingJobSummary, RawPage } from '../types';
 
 import { defaultListingUrl, PRACUJ_DOMAIN, PRACUJ_JOB_PATH } from './constants';
+import { extractListingSummaries } from './listing';
 
 const toAbsoluteUrl = (href: string) => {
   try {
@@ -23,6 +24,19 @@ const normalizeJobUrl = (value: string) => {
     return url.toString();
   } catch {
     return null;
+  }
+};
+
+const swapHost = (value: string, host?: string) => {
+  if (!host) {
+    return value;
+  }
+  try {
+    const url = new URL(value);
+    url.host = host;
+    return url.toString();
+  } catch {
+    return value;
   }
 };
 
@@ -88,13 +102,31 @@ const extractJobLinksFromNextData = (html: string) => {
   return Array.from(results);
 };
 
+const isBlockedPage = (html: string) => {
+  return html.includes('cf_chl') || html.includes('Just a moment...');
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export const crawlPracujPl = async (
   headless: boolean,
   listingUrl = defaultListingUrl,
   limit?: number,
   logger?: Logger,
-): Promise<RawPage[]> => {
+  options?: { listingDelayMs?: number; detailDelayMs?: number; listingOnly?: boolean; detailHost?: string },
+): Promise<{
+  pages: RawPage[];
+  blockedUrls: string[];
+  jobLinks: string[];
+  listingHtml: string;
+  listingData: unknown;
+  listingSummaries: ListingJobSummary[];
+}> => {
   const browser = await chromium.launch({ headless });
+  const listingDelayMs = options?.listingDelayMs ?? 1500;
+  const detailDelayMs = options?.detailDelayMs ?? 2000;
+  const listingOnly = options?.listingOnly ?? false;
+  const detailHost = options?.detailHost;
 
   try {
     const context = await browser.newContext({
@@ -108,7 +140,7 @@ export const crawlPracujPl = async (
 
     const status = response?.status();
     const finalUrl = page.url();
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(listingDelayMs);
 
     const hasNextData = await page.evaluate(() => Boolean(document.querySelector('#__NEXT_DATA__')));
     await page.waitForFunction(
@@ -117,6 +149,8 @@ export const crawlPracujPl = async (
     ).catch(() => undefined);
 
     const html = await page.content();
+    const listingData = extractNextDataJson(html);
+    const listingSummaries = listingData ? extractListingSummaries(listingData) : [];
     logger?.info(
       {
         listingUrl,
@@ -125,6 +159,7 @@ export const crawlPracujPl = async (
         htmlLength: html.length,
         hasNextData,
         title: await page.title(),
+        listingSummaries: listingSummaries.length,
       },
       'Listing page loaded',
     );
@@ -146,18 +181,49 @@ export const crawlPracujPl = async (
       logger?.warn({ listingUrl }, 'No job links found for listing');
     }
 
+    const normalizedLinks = detailHost ? jobLinks.map((link) => swapHost(link, detailHost)) : jobLinks;
     const pages: RawPage[] = [];
+    const blockedUrls: string[] = [];
 
-    for (const url of jobLinks) {
+    if (listingOnly) {
+      await context.close();
+      return {
+        pages,
+        blockedUrls,
+        jobLinks: normalizedLinks,
+        listingHtml: html,
+        listingData,
+        listingSummaries,
+      };
+    }
+
+    for (const url of normalizedLinks) {
       const jobPage = await browser.newPage();
       await jobPage.goto(url, { waitUntil: 'domcontentloaded' });
+      await jobPage.waitForTimeout(detailDelayMs);
       const html = await jobPage.content();
-      pages.push({ url, html });
+      if (isBlockedPage(html)) {
+        blockedUrls.push(url);
+      } else {
+        pages.push({ url, html });
+      }
       await jobPage.close();
+      await sleep(Math.max(500, Math.floor(detailDelayMs / 2)));
     }
 
     await context.close();
-    return pages;
+    if (blockedUrls.length) {
+      logger?.warn({ count: blockedUrls.length }, 'Blocked job pages detected (Cloudflare)');
+    }
+
+    return {
+      pages,
+      blockedUrls,
+      jobLinks,
+      listingHtml: html,
+      listingData,
+      listingSummaries,
+    };
   } finally {
     await browser.close();
   }
