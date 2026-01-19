@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "build": "tsup",
-    "dev": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "enqueue": "tsx src/queue/enqueue.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",

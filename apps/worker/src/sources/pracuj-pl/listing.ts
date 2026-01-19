@@ -24,7 +24,7 @@ const pickString = (value: unknown): string | undefined => {
 };
 
 const extractUrl = (obj: Record<string, unknown>) => {
-  const candidates = ['offerUrl', 'url', 'link', 'jobUrl'];
+  const candidates = ['offerUrl', 'offerAbsoluteUri', 'url', 'link', 'jobUrl'];
   for (const key of candidates) {
     const value = pickString(obj[key]);
     if (value && isJobUrl(value)) {
@@ -72,6 +72,30 @@ export const extractListingSummaries = (data: unknown) => {
     }
     if (typeof node === 'object') {
       const obj = node as Record<string, unknown>;
+      const offers = obj.offers;
+      if (Array.isArray(offers) && typeof obj.jobTitle === 'string') {
+        for (const offer of offers) {
+          if (typeof offer !== 'object' || offer === null) {
+            continue;
+          }
+          const offerObj = offer as Record<string, unknown>;
+          const url = extractUrl(offerObj);
+          if (!url) {
+            continue;
+          }
+          results.push({
+            url,
+            title: extractTitle(obj),
+            company: extractCompany(obj),
+            location: pickString(offerObj.displayWorkplace) ?? extractLocation(offerObj),
+            sourceId: extractSourceId(url),
+            description: pickString(obj.jobDescription),
+            salary: pickString(obj.salaryDisplayText),
+            isRemote: Boolean(obj.isRemoteWorkAllowed),
+          });
+        }
+      }
+
       const url = extractUrl(obj);
       if (url) {
         const summary: ListingJobSummary = {

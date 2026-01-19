@@ -44,8 +44,9 @@ export const runScrapeJob = async (
           title: summary.title ?? 'Unknown title',
           company: summary.company,
           location: summary.location,
-          description: 'Listing summary only',
+          description: summary.description ?? 'Listing summary only',
           url: summary.url,
+          salary: summary.salary,
           sourceId: summary.sourceId,
           requirements: [],
         }));

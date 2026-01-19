@@ -9,6 +9,9 @@ export type ListingJobSummary = {
   company?: string;
   location?: string;
   sourceId?: string;
+  description?: string;
+  salary?: string;
+  isRemote?: boolean;
 };
 
 export type ParsedJob = {
