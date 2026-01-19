@@ -17,6 +17,8 @@ export const runScrapeJob = async (
     detailDelayMs?: number;
     listingOnly?: boolean;
     detailHost?: string;
+    detailCookiesPath?: string;
+    detailHumanize?: boolean;
   },
 ) => {
   const startedAt = Date.now();
@@ -35,6 +37,8 @@ export const runScrapeJob = async (
       detailDelayMs: options.detailDelayMs,
       listingOnly: options.listingOnly,
       detailHost: options.detailHost,
+      detailCookiesPath: options.detailCookiesPath,
+      detailHumanize: options.detailHumanize,
     },
   );
   const parsedJobs =
@@ -49,6 +53,7 @@ export const runScrapeJob = async (
           salary: summary.salary,
           sourceId: summary.sourceId,
           requirements: [],
+          details: summary.details,
         }));
   const normalized = normalizePracujPl(parsedJobs);
   const runId = payload.runId ?? `run-${Date.now()}`;

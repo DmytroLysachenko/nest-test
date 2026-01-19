@@ -14,6 +14,8 @@ export const handleTask = async (
     detailDelayMs?: number;
     listingOnly?: boolean;
     detailHost?: string;
+    detailCookiesPath?: string;
+    detailHumanize?: boolean;
   },
 ) => {
   switch (task.name) {
@@ -25,6 +27,8 @@ export const handleTask = async (
         detailDelayMs: options.detailDelayMs,
         listingOnly: options.listingOnly,
         detailHost: options.detailHost,
+        detailCookiesPath: options.detailCookiesPath,
+        detailHumanize: options.detailHumanize,
       });
     default:
       throw new Error(`Unhandled task type: ${task.name}`);

@@ -47,3 +47,4 @@ packages/db/migrations
 
 # Worker output
 apps/worker/data/
+pracuj-pl-cookies.json

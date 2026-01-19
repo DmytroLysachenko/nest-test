@@ -35,6 +35,13 @@ const sendJson = (res: ServerResponse, status: number, payload: Record<string, u
   res.end(data);
 };
 
+const formatError = (error: unknown) => {
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message, stack: error.stack };
+  }
+  return { value: error };
+};
+
 const verifyAuth = (req: IncomingMessage, env: WorkerEnv) => {
   if (!env.TASKS_AUTH_TOKEN) {
     return true;
@@ -79,10 +86,12 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         detailDelayMs: env.PRACUJ_DETAIL_DELAY_MS,
         listingOnly: env.PRACUJ_LISTING_ONLY,
         detailHost: env.PRACUJ_DETAIL_HOST,
+        detailCookiesPath: env.PRACUJ_DETAIL_COOKIES_PATH,
+        detailHumanize: env.PRACUJ_DETAIL_HUMANIZE,
       });
       sendJson(res, 200, { ok: true, result });
     } catch (error) {
-      logger.error({ error }, 'Task processing failed');
+      logger.error({ error: formatError(error) }, 'Task processing failed');
       sendJson(res, 500, { error: 'Task processing failed' });
     }
   });

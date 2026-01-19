@@ -3,6 +3,22 @@ export type RawPage = {
   html: string;
 };
 
+export type JobDetails = {
+  technologies?: {
+    required?: string[];
+    niceToHave?: string[];
+    all?: string[];
+  };
+  positionLevels?: string[];
+  workModes?: string[];
+  workSchedules?: string[];
+  contractTypes?: string[];
+  workplace?: string;
+  companyLocation?: string;
+  companyDescription?: string;
+  benefits?: string[];
+};
+
 export type ListingJobSummary = {
   url: string;
   title?: string;
@@ -12,6 +28,7 @@ export type ListingJobSummary = {
   description?: string;
   salary?: string;
   isRemote?: boolean;
+  details?: JobDetails;
 };
 
 export type ParsedJob = {
@@ -24,6 +41,7 @@ export type ParsedJob = {
   employmentType?: string;
   sourceId?: string;
   requirements?: string[];
+  details?: JobDetails;
 };
 
 export type NormalizedJob = {
@@ -38,4 +56,5 @@ export type NormalizedJob = {
   salary: string | null;
   employmentType: string | null;
   requirements: string[];
+  details?: JobDetails;
 };

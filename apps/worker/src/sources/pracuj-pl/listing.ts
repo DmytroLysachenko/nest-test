@@ -1,4 +1,4 @@
-import type { ListingJobSummary } from '../types';
+import type { JobDetails, ListingJobSummary } from '../types';
 
 const urlPattern = /,oferta,\d+/;
 
@@ -59,6 +59,43 @@ const extractSourceId = (url: string) => {
   return match?.[1];
 };
 
+const extractStringArray = (value: unknown) => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const items = value.map((item) => pickString(item)).filter(Boolean);
+  return items.length ? (items as string[]) : undefined;
+};
+
+const buildDetails = (obj: Record<string, unknown>, offerObj?: Record<string, unknown>): JobDetails | undefined => {
+  const technologies = extractStringArray(obj.technologies);
+  const positionLevels = extractStringArray(obj.positionLevels);
+  const contractTypes = extractStringArray(obj.typesOfContract);
+  const workSchedules = extractStringArray(obj.workSchedules);
+  const workModes = extractStringArray(obj.workModes);
+  const workplace = pickString(offerObj?.displayWorkplace) ?? extractLocation(obj);
+
+  if (
+    !technologies &&
+    !positionLevels &&
+    !contractTypes &&
+    !workSchedules &&
+    !workModes &&
+    !workplace
+  ) {
+    return undefined;
+  }
+
+  return {
+    technologies: technologies ? { all: technologies } : undefined,
+    positionLevels,
+    contractTypes,
+    workSchedules,
+    workModes,
+    workplace,
+  };
+};
+
 export const extractListingSummaries = (data: unknown) => {
   const results: ListingJobSummary[] = [];
 
@@ -92,6 +129,7 @@ export const extractListingSummaries = (data: unknown) => {
             description: pickString(obj.jobDescription),
             salary: pickString(obj.salaryDisplayText),
             isRemote: Boolean(obj.isRemoteWorkAllowed),
+            details: buildDetails(obj, offerObj),
           });
         }
       }
@@ -104,6 +142,7 @@ export const extractListingSummaries = (data: unknown) => {
           company: extractCompany(obj),
           location: extractLocation(obj),
           sourceId: extractSourceId(url),
+          details: buildDetails(obj),
         };
         results.push(summary);
       }

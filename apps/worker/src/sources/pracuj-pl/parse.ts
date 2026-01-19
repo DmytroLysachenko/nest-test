@@ -1,6 +1,6 @@
 import { load } from 'cheerio';
 
-import type { ParsedJob, RawPage } from '../types';
+import type { JobDetails, ParsedJob, RawPage } from '../types';
 
 type JsonLdJob = {
   '@type'?: string;
@@ -54,6 +54,137 @@ const extractListBySelectors = (html: string, selectors: string[]) => {
     }
   }
   return [];
+};
+
+const extractChipText = (value: string) =>
+  cleanText(value.replace(/[,;]\s*$/, '').replace(/\s*\|\s*/g, ' '));
+
+const extractChips = (html: string, selectors: string[]) => {
+  const $ = load(html);
+  for (const selector of selectors) {
+    const items = $(selector)
+      .find('li, [data-test*="chip"], [class*="chip"], [class*="tag"]')
+      .map((_, el) => extractChipText($(el).text()))
+      .get()
+      .filter(Boolean);
+    if (items.length) {
+      return items;
+    }
+  }
+  return [];
+};
+
+const findSectionByHeading = ($: ReturnType<typeof load>, patterns: RegExp[]) => {
+  const headings = $('h1, h2, h3, h4');
+  for (const heading of headings.toArray()) {
+    const text = cleanText($(heading).text());
+    if (patterns.some((pattern) => pattern.test(text))) {
+      return $(heading).closest('section, div');
+    }
+  }
+  return null;
+};
+
+const extractChipsByHeading = (html: string, headingPatterns: RegExp[], subheadingPatterns?: RegExp[]) => {
+  const $ = load(html);
+  const section = findSectionByHeading($, headingPatterns);
+  if (!section) {
+    return [];
+  }
+  if (!subheadingPatterns?.length) {
+    const items = section
+      .find('li, [data-test*="chip"], [class*="chip"], [class*="tag"]')
+      .map((_, el) => extractChipText($(el).text()))
+      .get()
+      .filter(Boolean);
+    return items;
+  }
+
+  const subheadings = section.find('h3, h4, h5, strong');
+  for (const subheading of subheadings.toArray()) {
+    const text = cleanText($(subheading).text());
+    if (!subheadingPatterns.some((pattern) => pattern.test(text))) {
+      continue;
+    }
+    const container = $(subheading).closest('div, section');
+    const items = container
+      .find('li, [data-test*="chip"], [class*="chip"], [class*="tag"]')
+      .map((_, el) => extractChipText($(el).text()))
+      .get()
+      .filter(Boolean);
+    if (items.length) {
+      return items;
+    }
+  }
+
+  return [];
+};
+
+const extractSectionTextByHeading = (html: string, headingPatterns: RegExp[]) => {
+  const $ = load(html);
+  const section = findSectionByHeading($, headingPatterns);
+  if (!section) {
+    return undefined;
+  }
+  const text = cleanText(
+    section
+      .find('p')
+      .map((_, el) => $(el).text())
+      .get()
+      .join(' '),
+  );
+  return text || undefined;
+};
+
+const collectDetails = (html: string): JobDetails | undefined => {
+  const expectedTech = extractChipsByHeading(html, [/Technologies we use/i, /Technologie/i], [
+    /Expected/i,
+    /Wymagane/i,
+  ]);
+  const optionalTech = extractChipsByHeading(html, [/Technologies we use/i, /Technologie/i], [
+    /Optional/i,
+    /Mile widziane/i,
+  ]);
+  const allTech =
+    expectedTech.length || optionalTech.length
+      ? Array.from(new Set([...expectedTech, ...optionalTech]))
+      : extractChipsByHeading(html, [/Technologies we use/i, /Technologie/i]);
+
+  const workModes = extractChips(html, ['[data-test="offer-work-modes"]', '[data-test="offer-workmode"]']);
+  const contractTypes = extractChips(html, ['[data-test="offer-contracts"]', '[data-test="offer-contracts-types"]']);
+  const positionLevels = extractChips(html, ['[data-test="offer-position-levels"]']);
+  const workSchedules = extractChips(html, ['[data-test="offer-work-schedules"]']);
+  const benefits = extractChips(html, ['[data-test="section-benefits"]', '[data-test="offer-benefits"]']);
+  const companyDescription = extractSectionTextByHeading(html, [/About company/i, /O firmie/i, /O pracodawcy/i]);
+
+  if (
+    !allTech.length &&
+    !workModes.length &&
+    !contractTypes.length &&
+    !positionLevels.length &&
+    !workSchedules.length &&
+    !benefits.length &&
+    !companyDescription
+  ) {
+    return undefined;
+  }
+
+  return {
+    technologies:
+      allTech.length || expectedTech.length || optionalTech.length
+        ? {
+            all: allTech.length ? allTech : undefined,
+            required: expectedTech.length ? expectedTech : undefined,
+            niceToHave: optionalTech.length ? optionalTech : undefined,
+          }
+        : undefined,
+    workModes: workModes.length ? workModes : undefined,
+    contractTypes: contractTypes.length ? contractTypes : undefined,
+    positionLevels: positionLevels.length ? positionLevels : undefined,
+    workSchedules: workSchedules.length ? workSchedules : undefined,
+    benefits: benefits.length ? benefits : undefined,
+    companyDescription,
+  };
 };
 
 const normalizeSalary = (job: JsonLdJob | null) => {
@@ -149,6 +280,7 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
         '[data-test="offer-requirements"]',
         '[data-test="section-offer-expected"]',
       ]) || [];
+    const details = collectDetails(page.html);
 
     return {
       title,
@@ -160,6 +292,7 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
       employmentType: employmentType?.toString(),
       sourceId: extractSourceId(page.url) ?? undefined,
       requirements,
+      details,
     };
   });
 };

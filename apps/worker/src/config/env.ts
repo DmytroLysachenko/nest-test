@@ -21,6 +21,8 @@ const envSchema = z.object({
   PRACUJ_DETAIL_DELAY_MS: z.coerce.number().int().min(0).max(30000).default(2000),
   PRACUJ_LISTING_ONLY: z.coerce.boolean().default(false),
   PRACUJ_DETAIL_HOST: z.string().optional(),
+  PRACUJ_DETAIL_COOKIES_PATH: z.string().optional(),
+  PRACUJ_DETAIL_HUMANIZE: z.coerce.boolean().default(false),
 });
 
 export type WorkerEnv = z.infer<typeof envSchema>;
