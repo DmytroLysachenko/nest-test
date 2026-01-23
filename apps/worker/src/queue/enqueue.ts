@@ -34,6 +34,12 @@ const parseLimit = (value?: string) => {
 
 const listingUrl = readArg('--listingUrl') ?? env.PRACUJ_LISTING_URL;
 const limit = parseLimit(readArg('--limit'));
+const workModes = readArg('--workModes')?.split(',').filter(Boolean);
+const specializations = readArg('--specializations')?.split(',').filter(Boolean);
+const location = readArg('--location');
+const employmentTypes = readArg('--employmentTypes')?.split(',').filter(Boolean);
+const experienceLevels = readArg('--experienceLevels')?.split(',').filter(Boolean);
+const keywords = readArg('--keywords');
 
 const payload: TaskEnvelope = {
   name: 'scrape:source',
@@ -42,6 +48,17 @@ const payload: TaskEnvelope = {
     runId: `run-${Date.now()}`,
     listingUrl,
     limit,
+    filters:
+      workModes || specializations || location || employmentTypes || experienceLevels || keywords
+        ? {
+            workModes,
+            specializations,
+            location,
+            employmentTypes,
+            experienceLevels,
+            keywords,
+          }
+        : undefined,
   },
 };
 

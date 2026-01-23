@@ -1,10 +1,10 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import type { Env } from '@/config/env';
-
 import { EnqueueScrapeDto } from './dto/enqueue-scrape.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
+
+import type { Env } from '@/config/env';
 
 const buildListingUrl = (filters: ScrapeFiltersDto) => {
   const url = new URL('https://it.pracuj.pl/praca');

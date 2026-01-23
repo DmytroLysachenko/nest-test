@@ -20,5 +20,15 @@ export const taskEnvelopeSchema = z.object({
     runId: z.string().optional(),
     listingUrl: z.string().url().optional(),
     limit: z.number().int().min(1).max(100).optional(),
+    filters: z
+      .object({
+        specializations: z.array(z.string()).optional(),
+        workModes: z.array(z.string()).optional(),
+        location: z.string().optional(),
+        employmentTypes: z.array(z.string()).optional(),
+        experienceLevels: z.array(z.string()).optional(),
+        keywords: z.string().optional(),
+      })
+      .optional(),
   }),
 });

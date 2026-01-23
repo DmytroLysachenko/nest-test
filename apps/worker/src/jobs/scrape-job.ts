@@ -4,6 +4,7 @@ import type { ScrapeSourceJob } from '../types/jobs';
 import { saveOutput } from '../output/save-output';
 
 import { crawlPracujPl } from '../sources/pracuj-pl/crawl';
+import { buildPracujListingUrl } from '../sources/pracuj-pl/url-builder';
 import { parsePracujPl } from '../sources/pracuj-pl/parse';
 import { normalizePracujPl } from '../sources/pracuj-pl/normalize';
 
@@ -31,10 +32,15 @@ export const runScrapeJob = async (
     throw new Error(`Unknown source: ${payload.source}`);
   }
 
+  const listingUrl = payload.listingUrl ?? (payload.filters ? buildPracujListingUrl(payload.filters) : undefined);
+  if (!listingUrl) {
+    throw new Error('listingUrl or filters are required');
+  }
+
   const { pages, blockedUrls, jobLinks, listingHtml, listingData, listingSummaries, detailDiagnostics } =
     await crawlPracujPl(
       options.headless,
-      payload.listingUrl,
+      listingUrl,
       payload.limit,
       logger,
       {
@@ -70,7 +76,7 @@ export const runScrapeJob = async (
     {
       source: payload.source,
       runId,
-      listingUrl: payload.listingUrl,
+      listingUrl,
       fetchedAt: new Date().toISOString(),
       jobs: normalized,
       raw: parsedJobs,
