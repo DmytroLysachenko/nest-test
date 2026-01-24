@@ -19,6 +19,8 @@ export const runScrapeJob = async (
     detailHost?: string;
     detailCookiesPath?: string;
     detailHumanize?: boolean;
+    requireDetail?: boolean;
+    outputMode?: 'full' | 'minimal';
   },
 ) => {
   const startedAt = Date.now();
@@ -44,17 +46,19 @@ export const runScrapeJob = async (
   const parsedJobs =
     pages.length > 0
       ? parsePracujPl(pages)
-      : listingSummaries.map((summary) => ({
-          title: summary.title ?? 'Unknown title',
-          company: summary.company,
-          location: summary.location,
-          description: summary.description ?? 'Listing summary only',
-          url: summary.url,
-          salary: summary.salary,
-          sourceId: summary.sourceId,
-          requirements: [],
-          details: summary.details,
-        }));
+      : options.requireDetail
+        ? []
+        : listingSummaries.map((summary) => ({
+            title: summary.title ?? 'Unknown title',
+            company: summary.company,
+            location: summary.location,
+            description: summary.description ?? 'Listing summary only',
+            url: summary.url,
+            salary: summary.salary,
+            sourceId: summary.sourceId,
+            requirements: [],
+            details: summary.details,
+          }));
   const normalized = normalizePracujPl(parsedJobs);
   const runId = payload.runId ?? `run-${Date.now()}`;
   const outputPath = await saveOutput(
@@ -73,6 +77,7 @@ export const runScrapeJob = async (
       listingSummaries,
     },
     options.outputDir,
+    options.outputMode,
   );
 
   logger.info(

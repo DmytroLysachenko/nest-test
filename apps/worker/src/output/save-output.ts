@@ -62,30 +62,39 @@ const saveListingData = async (listingHtml: string | undefined, listingData: unk
   return { htmlPath, dataPath };
 };
 
-export const saveOutput = async (payload: OutputPayload, outputDir?: string) => {
+export const saveOutput = async (payload: OutputPayload, outputDir?: string, mode: 'full' | 'minimal' = 'full') => {
   const baseDir = resolveOutputDir(outputDir);
   await mkdir(baseDir, { recursive: true });
 
-  const rawPages = payload.pages ? await saveRawPages(payload.pages, baseDir) : undefined;
-  const listingData = await saveListingData(payload.listingHtml, payload.listingData, baseDir);
+  const rawPages = mode === 'full' && payload.pages ? await saveRawPages(payload.pages, baseDir) : undefined;
+  const listingData =
+    mode === 'full' ? await saveListingData(payload.listingHtml, payload.listingData, baseDir) : {};
   const filename = `${toSafeFilename(payload.source)}-${toSafeFilename(payload.runId)}.json`;
   const path = join(baseDir, filename);
 
   const data = JSON.stringify(
-    {
-      source: payload.source,
-      runId: payload.runId,
-      listingUrl: payload.listingUrl,
-      fetchedAt: payload.fetchedAt,
-      jobs: payload.jobs,
-      raw: payload.raw,
-      rawPages,
-      blockedUrls: payload.blockedUrls ?? [],
-      jobLinks: payload.jobLinks ?? [],
-      listingSummaries: payload.listingSummaries ?? [],
-      listingHtmlPath: listingData.htmlPath,
-      listingDataPath: listingData.dataPath,
-    },
+    mode === 'full'
+      ? {
+          source: payload.source,
+          runId: payload.runId,
+          listingUrl: payload.listingUrl,
+          fetchedAt: payload.fetchedAt,
+          jobs: payload.jobs,
+          raw: payload.raw,
+          rawPages,
+          blockedUrls: payload.blockedUrls ?? [],
+          jobLinks: payload.jobLinks ?? [],
+          listingSummaries: payload.listingSummaries ?? [],
+          listingHtmlPath: listingData.htmlPath,
+          listingDataPath: listingData.dataPath,
+        }
+      : {
+          source: payload.source,
+          runId: payload.runId,
+          listingUrl: payload.listingUrl,
+          fetchedAt: payload.fetchedAt,
+          jobs: payload.jobs,
+        },
     null,
     2,
   );

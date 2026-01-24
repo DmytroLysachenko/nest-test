@@ -9,6 +9,8 @@ import { handleTask } from '../queue/task-handler';
 import type { TaskEnvelope } from '../queue/task-types';
 import { taskEnvelopeSchema } from '../queue/task-types';
 
+import type { ScrapeSourceJob } from '../types/jobs';
+
 const readJsonBody = async (req: IncomingMessage): Promise<unknown> => {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -50,6 +52,25 @@ const verifyAuth = (req: IncomingMessage, env: WorkerEnv) => {
   return header === `Bearer ${env.TASKS_AUTH_TOKEN}`;
 };
 
+const scrapePayloadSchema = taskEnvelopeSchema.shape.payload;
+
+const parseTask = (body: unknown): TaskEnvelope | null => {
+  const envelopeResult = taskEnvelopeSchema.safeParse(body);
+  if (envelopeResult.success) {
+    return envelopeResult.data as TaskEnvelope;
+  }
+
+  const payloadResult = scrapePayloadSchema.safeParse(body);
+  if (!payloadResult.success) {
+    return null;
+  }
+
+  return {
+    name: 'scrape:source',
+    payload: payloadResult.data as ScrapeSourceJob,
+  };
+};
+
 export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
   return createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/health') {
@@ -57,7 +78,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       return;
     }
 
-    if (req.method !== 'POST' || req.url !== '/tasks') {
+    if (req.method !== 'POST' || (req.url !== '/tasks' && req.url !== '/scrape')) {
       sendJson(res, 404, { error: 'Not Found' });
       return;
     }
@@ -69,13 +90,12 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
 
     try {
       const body = await readJsonBody(req);
-      const parsed = taskEnvelopeSchema.safeParse(body);
-      if (!parsed.success) {
+      const task = parseTask(body);
+      if (!task) {
         sendJson(res, 400, { error: 'Invalid task payload' });
         return;
       }
 
-      const task = parsed.data as TaskEnvelope;
       const requestId = req.headers['x-request-id'];
       logger.info({ requestId, taskName: task.name, runId: task.payload.runId ?? null }, 'Task received');
 
@@ -88,6 +108,8 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         detailHost: env.PRACUJ_DETAIL_HOST,
         detailCookiesPath: env.PRACUJ_DETAIL_COOKIES_PATH,
         detailHumanize: env.PRACUJ_DETAIL_HUMANIZE,
+        requireDetail: env.PRACUJ_REQUIRE_DETAIL,
+        outputMode: env.WORKER_OUTPUT_MODE,
       });
       sendJson(res, 200, { ok: true, result });
     } catch (error) {

@@ -9,13 +9,39 @@ import type { TaskEnvelope } from './task-types';
 const env = loadEnv();
 const logger = createLogger(env);
 
+const readArg = (name: string) => {
+  const index = process.argv.findIndex((arg) => arg === name || arg.startsWith(`${name}=`));
+  if (index === -1) {
+    return undefined;
+  }
+  const token = process.argv[index];
+  if (token.includes('=')) {
+    return token.split('=').slice(1).join('=');
+  }
+  return process.argv[index + 1];
+};
+
+const parseLimit = (value?: string) => {
+  if (!value) {
+    return env.PRACUJ_LISTING_LIMIT;
+  }
+  const parsed = Number(value);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return env.PRACUJ_LISTING_LIMIT;
+  }
+  return parsed;
+};
+
+const listingUrl = readArg('--listingUrl') ?? env.PRACUJ_LISTING_URL;
+const limit = parseLimit(readArg('--limit'));
+
 const payload: TaskEnvelope = {
   name: 'scrape:source',
   payload: {
     source: 'pracuj-pl',
     runId: `run-${Date.now()}`,
-    listingUrl: env.PRACUJ_LISTING_URL,
-    limit: env.PRACUJ_LISTING_LIMIT,
+    listingUrl,
+    limit,
   },
 };
 

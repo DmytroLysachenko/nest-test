@@ -23,6 +23,8 @@ const envSchema = z.object({
   PRACUJ_DETAIL_HOST: z.string().optional(),
   PRACUJ_DETAIL_COOKIES_PATH: z.string().optional(),
   PRACUJ_DETAIL_HUMANIZE: z.coerce.boolean().default(false),
+  PRACUJ_REQUIRE_DETAIL: z.coerce.boolean().default(false),
+  WORKER_OUTPUT_MODE: z.enum(['full', 'minimal']).default('full'),
 });
 
 export type WorkerEnv = z.infer<typeof envSchema>;
