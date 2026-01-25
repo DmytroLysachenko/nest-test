@@ -20,6 +20,11 @@ export type JobDetails = {
     niceToHave?: string[];
     all?: string[];
   };
+  requirements?: {
+    required?: string[];
+    niceToHave?: string[];
+    all?: string[];
+  };
   positionLevels?: string[];
   workModes?: string[];
   workSchedules?: string[];

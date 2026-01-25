@@ -7,13 +7,18 @@ type JsonLdJob = {
   title?: string;
   description?: string;
   employmentType?: string | string[];
-  hiringOrganization?: { name?: string };
-  jobLocation?: Array<{ address?: { addressLocality?: string; addressRegion?: string } }>;
+  hiringOrganization?: { name?: string } | string;
+  jobLocation?:
+    | { address?: { addressLocality?: string; addressRegion?: string; streetAddress?: string } }
+    | Array<{ address?: { addressLocality?: string; addressRegion?: string; streetAddress?: string } }>;
   baseSalary?: {
     value?: { value?: number; minValue?: number; maxValue?: number; unitText?: string };
     currency?: string;
   };
   identifier?: { value?: string };
+  responsibilities?: string;
+  experienceRequirements?: string;
+  jobBenefits?: string;
 };
 
 const extractJsonLdBlocks = (html: string) => {
@@ -29,6 +34,65 @@ const extractJsonLdBlocks = (html: string) => {
 
 const toText = (value?: string) => (value ? value.replace(/<[^>]+>/g, '').trim() : '');
 const cleanText = (value?: string) => (value ? value.replace(/\s+/g, ' ').trim() : '');
+const pickString = (value: unknown) => (typeof value === 'string' && value.trim().length ? value.trim() : undefined);
+
+const extractNextDataJson = (html: string) => {
+  const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (!match) {
+    return null;
+  }
+  try {
+    return JSON.parse(match[1]) as unknown;
+  } catch {
+    return null;
+  }
+};
+
+const findJobOfferData = (html: string) => {
+  const data = extractNextDataJson(html) as
+    | {
+        props?: {
+          pageProps?: {
+            dehydratedState?: {
+              queries?: Array<{
+                queryKey?: unknown[];
+                state?: { data?: Record<string, unknown> };
+              }>;
+            };
+          };
+        };
+      }
+    | null;
+  const queries = data?.props?.pageProps?.dehydratedState?.queries;
+  if (!Array.isArray(queries)) {
+    return null;
+  }
+  for (const query of queries) {
+    const key = query.queryKey;
+    if (Array.isArray(key) && key[0] === 'jobOffer') {
+      return query.state?.data ?? null;
+    }
+  }
+  return null;
+};
+
+const splitList = (value?: string) => {
+  if (!value) {
+    return [];
+  }
+  const parts = value
+    .split(/,\s*/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return parts.length ? parts : [];
+};
+
+const buildDescription = (lines: string[]) => {
+  if (!lines.length) {
+    return '';
+  }
+  return lines.join(' ');
+};
 
 const extractTextBySelectors = (html: string, selectors: string[]) => {
   const $ = load(html);
@@ -136,7 +200,37 @@ const extractSectionTextByHeading = (html: string, headingPatterns: RegExp[]) =>
   return text || undefined;
 };
 
-const collectDetails = (html: string): JobDetails | undefined => {
+const extractJobOfferSections = (jobOffer: Record<string, unknown> | null) => {
+  const sections = Array.isArray(jobOffer?.textSections) ? (jobOffer?.textSections as Array<Record<string, unknown>>) : [];
+  const collect = (type: string) =>
+    sections
+      .filter((section) => section.sectionType === type)
+      .flatMap((section) => (Array.isArray(section.textElements) ? section.textElements : []))
+      .map((item) => cleanText(String(item)))
+      .filter(Boolean);
+
+  const sectionTitle = (type: string) => {
+    const section = sections.find((item) => item.sectionType === type);
+    return section?.title ? cleanText(String(section.title)) : undefined;
+  };
+
+  return {
+    responsibilities: collect('responsibilities'),
+    requirementsExpected: collect('requirements-expected'),
+    requirementsOptional: collect('requirements-optional'),
+    technologiesExpected: collect('technologies-expected'),
+    technologiesOptional: collect('technologies-optional'),
+    benefits: collect('benefits'),
+    offered: collect('offered'),
+    companyDescription: collect('about-us-description'),
+    companyTitle: sectionTitle('about-us-description'),
+  };
+};
+
+const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | undefined => {
+  const jobOffer = findJobOfferData(html);
+  const offerSections = extractJobOfferSections(jobOffer);
+
   const expectedTech = extractChipsByHeading(html, [/Technologies we use/i, /Technologie/i], [
     /Expected/i,
     /Wymagane/i,
@@ -154,8 +248,17 @@ const collectDetails = (html: string): JobDetails | undefined => {
   const contractTypes = extractChips(html, ['[data-test="offer-contracts"]', '[data-test="offer-contracts-types"]']);
   const positionLevels = extractChips(html, ['[data-test="offer-position-levels"]']);
   const workSchedules = extractChips(html, ['[data-test="offer-work-schedules"]']);
-  const benefits = extractChips(html, ['[data-test="section-benefits"]', '[data-test="offer-benefits"]']);
-  const companyDescription = extractSectionTextByHeading(html, [/About company/i, /O firmie/i, /O pracodawcy/i]);
+  const benefits = offerSections.benefits.length
+    ? offerSections.benefits
+    : extractChips(html, ['[data-test="section-benefits"]', '[data-test="offer-benefits"]']);
+  const jsonLdBenefits = splitList(jsonLd?.jobBenefits);
+  const requiredReq = offerSections.requirementsExpected;
+  const optionalReq = offerSections.requirementsOptional;
+  const allReq = requiredReq.length || optionalReq.length ? Array.from(new Set([...requiredReq, ...optionalReq])) : [];
+  const companyDescription =
+    offerSections.companyDescription.length > 0
+      ? buildDescription(offerSections.companyDescription)
+      : extractSectionTextByHeading(html, [/About company/i, /O firmie/i, /O pracodawcy/i]);
 
   if (
     !allTech.length &&
@@ -171,18 +274,26 @@ const collectDetails = (html: string): JobDetails | undefined => {
 
   return {
     technologies:
-      allTech.length || expectedTech.length || optionalTech.length
+      allTech.length || expectedTech.length || optionalTech.length || offerSections.technologiesExpected.length
         ? {
-            all: allTech.length ? allTech : undefined,
-            required: expectedTech.length ? expectedTech : undefined,
-            niceToHave: optionalTech.length ? optionalTech : undefined,
+            all: allTech.length ? allTech : offerSections.technologiesExpected,
+            required: expectedTech.length ? expectedTech : offerSections.technologiesExpected,
+            niceToHave: optionalTech.length ? optionalTech : offerSections.technologiesOptional,
+          }
+        : undefined,
+    requirements:
+      allReq.length
+        ? {
+            all: allReq,
+            required: requiredReq.length ? requiredReq : undefined,
+            niceToHave: optionalReq.length ? optionalReq : undefined,
           }
         : undefined,
     workModes: workModes.length ? workModes : undefined,
     contractTypes: contractTypes.length ? contractTypes : undefined,
     positionLevels: positionLevels.length ? positionLevels : undefined,
     workSchedules: workSchedules.length ? workSchedules : undefined,
-    benefits: benefits.length ? benefits : undefined,
+    benefits: benefits.length ? benefits : jsonLdBenefits.length ? jsonLdBenefits : undefined,
     companyDescription,
   };
 };
@@ -246,17 +357,28 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
       ? jsonLd?.employmentType.join(', ')
       : jsonLd?.employmentType;
 
-    const location = jsonLd?.jobLocation?.[0]?.address?.addressLocality;
-    const region = jsonLd?.jobLocation?.[0]?.address?.addressRegion;
+    const jobLocation = Array.isArray(jsonLd?.jobLocation) ? jsonLd?.jobLocation?.[0] : jsonLd?.jobLocation;
+    const location = jobLocation?.address?.addressLocality;
+    const region = jobLocation?.address?.addressRegion;
     const combinedLocation = [location, region].filter(Boolean).join(', ');
+
+    const hiringOrg =
+      typeof jsonLd?.hiringOrganization === 'string'
+        ? jsonLd?.hiringOrganization
+        : jsonLd?.hiringOrganization?.name;
+
+    const jobOffer = findJobOfferData(page.html);
+    const offerSections = extractJobOfferSections(jobOffer);
 
     const title =
       jsonLd?.title?.trim() ||
       extractTextBySelectors(page.html, ['[data-test="offer-title"]', 'h1']) ||
       fallbackTitle(page.html);
     const company =
-      jsonLd?.hiringOrganization?.name?.trim() ||
+      hiringOrg?.trim() ||
+      pickString((jobOffer as Record<string, unknown> | null)?.employerName) ||
       extractTextBySelectors(page.html, ['[data-test="offer-company"]', '[data-test="text-company-name"]']) ||
+      extractTextBySelectors(page.html, ['[data-test="text-employerName"]']) ||
       undefined;
     const locationText =
       combinedLocation ||
@@ -264,23 +386,20 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
       undefined;
     const description =
       cleanText(toText(jsonLd?.description)) ||
+      cleanText(jsonLd?.responsibilities) ||
+      buildDescription(offerSections.responsibilities) ||
       extractTextBySelectors(page.html, [
         '[data-test="section-offer-description"]',
         '[data-test="offer-description"]',
         '[data-test="text-job-description"]',
       ]) ||
       'No description found';
-    const salary =
-      normalizeSalary(jsonLd) ||
-      extractTextBySelectors(page.html, ['[data-test="offer-salary"]', '[data-test="text-offer-salary"]']) ||
-      undefined;
+    const salary = normalizeSalary(jsonLd) || undefined;
     const requirements =
-      extractListBySelectors(page.html, [
-        '[data-test="section-offer-requirements"]',
-        '[data-test="offer-requirements"]',
-        '[data-test="section-offer-expected"]',
-      ]) || [];
-    const details = collectDetails(page.html);
+      offerSections.requirementsExpected.length || offerSections.requirementsOptional.length
+        ? [...offerSections.requirementsExpected, ...offerSections.requirementsOptional]
+        : splitList(jsonLd?.experienceRequirements);
+    const details = collectDetails(page.html, jsonLd);
 
     return {
       title,
