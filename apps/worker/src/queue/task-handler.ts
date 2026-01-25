@@ -18,6 +18,7 @@ export const handleTask = async (
     detailCookiesPath?: string;
     detailHumanize?: boolean;
     requireDetail?: boolean;
+    profileDir?: string;
     outputMode?: 'full' | 'minimal';
   },
 ) => {
@@ -34,6 +35,7 @@ export const handleTask = async (
         detailCookiesPath: options.detailCookiesPath,
         detailHumanize: options.detailHumanize,
         requireDetail: options.requireDetail,
+        profileDir: options.profileDir,
         outputMode: options.outputMode,
       });
     default:

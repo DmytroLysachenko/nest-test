@@ -110,6 +110,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         detailCookiesPath: env.PRACUJ_DETAIL_COOKIES_PATH,
         detailHumanize: env.PRACUJ_DETAIL_HUMANIZE,
         requireDetail: env.PRACUJ_REQUIRE_DETAIL,
+        profileDir: env.PRACUJ_PROFILE_DIR,
         outputMode: env.WORKER_OUTPUT_MODE,
       });
       sendJson(res, 200, { ok: true, result });

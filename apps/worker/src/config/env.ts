@@ -43,6 +43,7 @@ const envSchema = z.object({
   PRACUJ_DETAIL_COOKIES_PATH: z.string().optional(),
   PRACUJ_DETAIL_HUMANIZE: booleanSchema.default(false),
   PRACUJ_REQUIRE_DETAIL: booleanSchema.default(false),
+  PRACUJ_PROFILE_DIR: z.string().optional(),
   WORKER_OUTPUT_MODE: z.enum(['full', 'minimal']).default('full'),
 });
 

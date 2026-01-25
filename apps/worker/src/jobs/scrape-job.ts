@@ -21,6 +21,7 @@ export const runScrapeJob = async (
     detailCookiesPath?: string;
     detailHumanize?: boolean;
     requireDetail?: boolean;
+    profileDir?: string;
     outputMode?: 'full' | 'minimal';
   },
 ) => {
@@ -44,6 +45,7 @@ export const runScrapeJob = async (
         detailHost: options.detailHost,
         detailCookiesPath: options.detailCookiesPath,
         detailHumanize: options.detailHumanize,
+        profileDir: options.profileDir,
       },
     );
   const parsedJobs =

@@ -201,13 +201,39 @@ const humanizePage = async (page: Page, delayMs: number) => {
   await page.waitForTimeout(randomBetween(jitter, delayMs));
 };
 
+const acceptCookieBanner = async (page: Page, logger?: Logger) => {
+  const selectors = [
+    '#onetrust-accept-btn-handler',
+    'button[id*="cookie"][id*="accept" i]',
+    'button[class*="cookie"][class*="accept" i]',
+    'button[aria-label*="cookie" i]',
+    'button[data-test*="cookie" i]',
+    'button[data-testid*="cookie" i]',
+  ];
+
+  for (const selector of selectors) {
+    try {
+      const locator = page.locator(selector).first();
+      if (await locator.isVisible()) {
+        await locator.click({ timeout: 2000 });
+        logger?.info({ selector }, 'Cookie banner dismissed');
+        return;
+      }
+    } catch {
+      continue;
+    }
+  }
+};
+
 const loadJobPage = async (
   page: Page,
   url: string,
   delayMs: number,
   humanize: boolean,
+  logger?: Logger,
 ) => {
   const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await acceptCookieBanner(page, logger);
   await page.waitForSelector('[data-test="offer-title"], h1', { timeout: 8000 }).catch(() => undefined);
   if (humanize) {
     await humanizePage(page, delayMs);
@@ -237,6 +263,7 @@ export const crawlPracujPl = async (
     detailHost?: string;
     detailCookiesPath?: string;
     detailHumanize?: boolean;
+    profileDir?: string;
   },
 ): Promise<{
   pages: RawPage[];
@@ -247,7 +274,8 @@ export const crawlPracujPl = async (
   listingSummaries: ListingJobSummary[];
   detailDiagnostics: DetailFetchDiagnostics[];
 }> => {
-  const browser = await chromium.launch({ headless });
+  const profileDir = options?.profileDir;
+  const browser = profileDir ? null : await chromium.launch({ headless });
   const listingDelayMs = options?.listingDelayMs ?? 1500;
   const listingCooldownMs = options?.listingCooldownMs ?? 0;
   const detailDelayMs = options?.detailDelayMs ?? 2000;
@@ -256,18 +284,27 @@ export const crawlPracujPl = async (
   const detailHumanize = options?.detailHumanize ?? false;
 
   try {
-    const context = await browser.newContext({
-      userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      locale: 'pl-PL',
-      timezoneId: 'Europe/Warsaw',
-    });
-    const page = await context.newPage();
-    const response = await page.goto(listingUrl, { waitUntil: 'domcontentloaded' });
+    const context = profileDir
+      ? await chromium.launchPersistentContext(profileDir, {
+          headless,
+          userAgent:
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          locale: 'pl-PL',
+          timezoneId: 'Europe/Warsaw',
+        })
+      : await browser.newContext({
+          userAgent:
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          locale: 'pl-PL',
+          timezoneId: 'Europe/Warsaw',
+        });
+  const page = await context.newPage();
+  const response = await page.goto(listingUrl, { waitUntil: 'domcontentloaded' });
 
-    const status = response?.status();
-    const finalUrl = page.url();
-    await page.waitForTimeout(listingDelayMs);
+  const status = response?.status();
+  const finalUrl = page.url();
+  await acceptCookieBanner(page, logger);
+  await page.waitForTimeout(listingDelayMs);
 
     const hasNextData = await page.evaluate(() => Boolean(document.querySelector('#__NEXT_DATA__')));
     await page.waitForFunction(
@@ -342,7 +379,7 @@ export const crawlPracujPl = async (
     for (const url of normalizedLinks) {
       const jobPage = await context.newPage();
       try {
-        let result = await loadJobPage(jobPage, url, detailDelayMs, detailHumanize);
+        let result = await loadJobPage(jobPage, url, detailDelayMs, detailHumanize, logger);
         let blocked = isBlockedPage(result.html);
         detailDiagnostics.push({
           url,
@@ -357,7 +394,7 @@ export const crawlPracujPl = async (
         if (blocked) {
           logger?.warn({ url, status: result.status }, 'Detail page blocked, retrying once');
           await sleep(detailDelayMs + randomBetween(500, 1500));
-          result = await loadJobPage(jobPage, url, detailDelayMs * 2, true);
+          result = await loadJobPage(jobPage, url, detailDelayMs * 2, true, logger);
           blocked = isBlockedPage(result.html);
           detailDiagnostics.push({
             url,
@@ -402,6 +439,8 @@ export const crawlPracujPl = async (
       detailDiagnostics,
     };
   } finally {
-    await browser.close();
+    if (browser) {
+      await browser.close();
+    }
   }
 };
