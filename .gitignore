@@ -46,5 +46,6 @@ storybook-static
 packages/db/migrations
 
 # Worker output
-apps/worker/data/
+apps/worker/data
+apps/worker/.profiles
 pracuj-pl-cookies.json

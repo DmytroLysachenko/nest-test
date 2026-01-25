@@ -1,7 +1,9 @@
 import { readFile } from 'fs/promises';
 import { resolve } from 'path';
 
-import { chromium, type Cookie, type Page } from 'playwright';
+import { type Cookie, type Page } from 'playwright';
+import { chromium } from 'playwright-extra';
+import stealth from 'puppeteer-extra-plugin-stealth';
 
 import type { Logger } from 'pino';
 
@@ -9,6 +11,9 @@ import type { DetailFetchDiagnostics, ListingJobSummary, RawPage } from '../type
 
 import { defaultListingUrl, PRACUJ_DOMAIN, PRACUJ_JOB_PATH } from './constants';
 import { extractListingSummaries } from './listing';
+
+chromium.use(stealth());
+
 
 const toAbsoluteUrl = (href: string) => {
   try {
