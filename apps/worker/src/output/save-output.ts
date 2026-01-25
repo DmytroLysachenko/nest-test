@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'fs/promises';
 import { isAbsolute, join, resolve } from 'path';
 
-import type { ListingJobSummary, NormalizedJob, ParsedJob, RawPage } from '../sources/types';
+import type { DetailFetchDiagnostics, ListingJobSummary, NormalizedJob, ParsedJob, RawPage } from '../sources/types';
 
 type OutputPayload = {
   source: string;
@@ -16,6 +16,7 @@ type OutputPayload = {
   listingHtml?: string;
   listingData?: unknown;
   listingSummaries?: ListingJobSummary[];
+  detailDiagnostics?: DetailFetchDiagnostics[];
 };
 
 const toSafeFilename = (value: string) => value.replace(/[^\w.-]+/g, '_');
@@ -85,6 +86,7 @@ export const saveOutput = async (payload: OutputPayload, outputDir?: string, mod
           blockedUrls: payload.blockedUrls ?? [],
           jobLinks: payload.jobLinks ?? [],
           listingSummaries: payload.listingSummaries ?? [],
+          detailDiagnostics: payload.detailDiagnostics ?? [],
           listingHtmlPath: listingData.htmlPath,
           listingDataPath: listingData.dataPath,
         }

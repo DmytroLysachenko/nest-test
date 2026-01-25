@@ -1,6 +1,24 @@
 import { config } from 'dotenv';
 import { z } from 'zod';
 
+const parseBoolean = (value: unknown) => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+      return true;
+    }
+    if (['false', '0', 'no', 'n', 'off', ''].includes(normalized)) {
+      return false;
+    }
+  }
+  return value;
+};
+
+const booleanSchema = z.preprocess(parseBoolean, z.boolean());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   WORKER_LOG_LEVEL: z.string().default('info'),
@@ -13,17 +31,18 @@ const envSchema = z.object({
   TASKS_URL: z.string().url().optional(),
   TASKS_SERVICE_ACCOUNT_EMAIL: z.string().optional(),
   DATABASE_URL: z.string().min(1).optional(),
-  PLAYWRIGHT_HEADLESS: z.coerce.boolean().default(true),
+  PLAYWRIGHT_HEADLESS: booleanSchema.default(true),
   PRACUJ_LISTING_URL: z.string().url().optional(),
   PRACUJ_LISTING_LIMIT: z.coerce.number().int().min(1).max(100).optional(),
   WORKER_OUTPUT_DIR: z.string().optional(),
   PRACUJ_LISTING_DELAY_MS: z.coerce.number().int().min(0).max(30000).default(1500),
+  PRACUJ_LISTING_COOLDOWN_MS: z.coerce.number().int().min(0).max(30000).default(0),
   PRACUJ_DETAIL_DELAY_MS: z.coerce.number().int().min(0).max(30000).default(2000),
-  PRACUJ_LISTING_ONLY: z.coerce.boolean().default(false),
+  PRACUJ_LISTING_ONLY: booleanSchema.default(false),
   PRACUJ_DETAIL_HOST: z.string().optional(),
   PRACUJ_DETAIL_COOKIES_PATH: z.string().optional(),
-  PRACUJ_DETAIL_HUMANIZE: z.coerce.boolean().default(false),
-  PRACUJ_REQUIRE_DETAIL: z.coerce.boolean().default(false),
+  PRACUJ_DETAIL_HUMANIZE: booleanSchema.default(false),
+  PRACUJ_REQUIRE_DETAIL: booleanSchema.default(false),
   WORKER_OUTPUT_MODE: z.enum(['full', 'minimal']).default('full'),
 });
 

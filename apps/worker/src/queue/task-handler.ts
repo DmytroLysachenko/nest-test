@@ -11,6 +11,7 @@ export const handleTask = async (
     headless: boolean;
     outputDir?: string;
     listingDelayMs?: number;
+    listingCooldownMs?: number;
     detailDelayMs?: number;
     listingOnly?: boolean;
     detailHost?: string;
@@ -26,6 +27,7 @@ export const handleTask = async (
         headless: options.headless,
         outputDir: options.outputDir,
         listingDelayMs: options.listingDelayMs,
+        listingCooldownMs: options.listingCooldownMs,
         detailDelayMs: options.detailDelayMs,
         listingOnly: options.listingOnly,
         detailHost: options.detailHost,

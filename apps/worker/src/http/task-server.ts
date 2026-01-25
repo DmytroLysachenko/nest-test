@@ -103,6 +103,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         headless: env.PLAYWRIGHT_HEADLESS,
         outputDir: env.WORKER_OUTPUT_DIR,
         listingDelayMs: env.PRACUJ_LISTING_DELAY_MS,
+        listingCooldownMs: env.PRACUJ_LISTING_COOLDOWN_MS,
         detailDelayMs: env.PRACUJ_DETAIL_DELAY_MS,
         listingOnly: env.PRACUJ_LISTING_ONLY,
         detailHost: env.PRACUJ_DETAIL_HOST,

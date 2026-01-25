@@ -14,6 +14,7 @@ export const runScrapeJob = async (
     headless: boolean;
     outputDir?: string;
     listingDelayMs?: number;
+    listingCooldownMs?: number;
     detailDelayMs?: number;
     listingOnly?: boolean;
     detailHost?: string;
@@ -29,20 +30,22 @@ export const runScrapeJob = async (
     throw new Error(`Unknown source: ${payload.source}`);
   }
 
-  const { pages, blockedUrls, jobLinks, listingHtml, listingData, listingSummaries } = await crawlPracujPl(
-    options.headless,
-    payload.listingUrl,
-    payload.limit,
-    logger,
-    {
-      listingDelayMs: options.listingDelayMs,
-      detailDelayMs: options.detailDelayMs,
-      listingOnly: options.listingOnly,
-      detailHost: options.detailHost,
-      detailCookiesPath: options.detailCookiesPath,
-      detailHumanize: options.detailHumanize,
-    },
-  );
+  const { pages, blockedUrls, jobLinks, listingHtml, listingData, listingSummaries, detailDiagnostics } =
+    await crawlPracujPl(
+      options.headless,
+      payload.listingUrl,
+      payload.limit,
+      logger,
+      {
+        listingDelayMs: options.listingDelayMs,
+        listingCooldownMs: options.listingCooldownMs,
+        detailDelayMs: options.detailDelayMs,
+        listingOnly: options.listingOnly,
+        detailHost: options.detailHost,
+        detailCookiesPath: options.detailCookiesPath,
+        detailHumanize: options.detailHumanize,
+      },
+    );
   const parsedJobs =
     pages.length > 0
       ? parsePracujPl(pages)
@@ -75,6 +78,7 @@ export const runScrapeJob = async (
       listingHtml,
       listingData,
       listingSummaries,
+      detailDiagnostics,
     },
     options.outputDir,
     options.outputMode,

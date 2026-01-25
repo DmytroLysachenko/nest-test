@@ -5,7 +5,7 @@ import { chromium, type Cookie, type Page } from 'playwright';
 
 import type { Logger } from 'pino';
 
-import type { ListingJobSummary, RawPage } from '../types';
+import type { DetailFetchDiagnostics, ListingJobSummary, RawPage } from '../types';
 
 import { defaultListingUrl, PRACUJ_DOMAIN, PRACUJ_JOB_PATH } from './constants';
 import { extractListingSummaries } from './listing';
@@ -207,14 +207,21 @@ const loadJobPage = async (
   delayMs: number,
   humanize: boolean,
 ) => {
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('[data-test="offer-title"], h1', { timeout: 8000 }).catch(() => undefined);
   if (humanize) {
     await humanizePage(page, delayMs);
   } else {
     await page.waitForTimeout(delayMs);
   }
-  return page.content();
+  const html = await page.content();
+  const title = await page.title();
+  return {
+    html,
+    status: response?.status(),
+    finalUrl: page.url(),
+    title,
+  };
 };
 
 export const crawlPracujPl = async (
@@ -224,6 +231,7 @@ export const crawlPracujPl = async (
   logger?: Logger,
   options?: {
     listingDelayMs?: number;
+    listingCooldownMs?: number;
     detailDelayMs?: number;
     listingOnly?: boolean;
     detailHost?: string;
@@ -237,9 +245,11 @@ export const crawlPracujPl = async (
   listingHtml: string;
   listingData: unknown;
   listingSummaries: ListingJobSummary[];
+  detailDiagnostics: DetailFetchDiagnostics[];
 }> => {
   const browser = await chromium.launch({ headless });
   const listingDelayMs = options?.listingDelayMs ?? 1500;
+  const listingCooldownMs = options?.listingCooldownMs ?? 0;
   const detailDelayMs = options?.detailDelayMs ?? 2000;
   const listingOnly = options?.listingOnly ?? false;
   const detailHost = options?.detailHost;
@@ -301,6 +311,7 @@ export const crawlPracujPl = async (
     const normalizedLinks = detailHost ? jobLinks.map((link) => swapHost(link, detailHost)) : jobLinks;
     const pages: RawPage[] = [];
     const blockedUrls: string[] = [];
+    const detailDiagnostics: DetailFetchDiagnostics[] = [];
     const detailCookies = await loadCookies(options?.detailCookiesPath, logger);
     if (detailCookies?.length) {
       try {
@@ -320,21 +331,57 @@ export const crawlPracujPl = async (
         listingHtml: html,
         listingData,
         listingSummaries,
+        detailDiagnostics,
       };
+    }
+
+    if (listingCooldownMs > 0) {
+      await sleep(listingCooldownMs + randomBetween(500, 1500));
     }
 
     for (const url of normalizedLinks) {
       const jobPage = await context.newPage();
-      let html = await loadJobPage(jobPage, url, detailDelayMs, detailHumanize);
-      if (isBlockedPage(html)) {
-        logger?.warn({ url }, 'Detail page blocked, retrying once');
-        await sleep(detailDelayMs + randomBetween(500, 1500));
-        html = await loadJobPage(jobPage, url, detailDelayMs * 2, true);
-      }
-      if (isBlockedPage(html)) {
-        blockedUrls.push(url);
-      } else {
-        pages.push({ url, html });
+      try {
+        let result = await loadJobPage(jobPage, url, detailDelayMs, detailHumanize);
+        let blocked = isBlockedPage(result.html);
+        detailDiagnostics.push({
+          url,
+          finalUrl: result.finalUrl,
+          status: result.status,
+          title: result.title,
+          htmlLength: result.html.length,
+          blocked,
+          attempt: 1,
+        });
+
+        if (blocked) {
+          logger?.warn({ url, status: result.status }, 'Detail page blocked, retrying once');
+          await sleep(detailDelayMs + randomBetween(500, 1500));
+          result = await loadJobPage(jobPage, url, detailDelayMs * 2, true);
+          blocked = isBlockedPage(result.html);
+          detailDiagnostics.push({
+            url,
+            finalUrl: result.finalUrl,
+            status: result.status,
+            title: result.title,
+            htmlLength: result.html.length,
+            blocked,
+            attempt: 2,
+          });
+        }
+
+        if (blocked) {
+          blockedUrls.push(url);
+        } else {
+          pages.push({ url, html: result.html });
+        }
+      } catch (error) {
+        detailDiagnostics.push({
+          url,
+          attempt: 1,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+        logger?.error({ url, error }, 'Failed to load detail page');
       }
       await jobPage.close();
       await sleep(Math.max(500, Math.floor(detailDelayMs / 2)));
@@ -352,6 +399,7 @@ export const crawlPracujPl = async (
       listingHtml: html,
       listingData,
       listingSummaries,
+      detailDiagnostics,
     };
   } finally {
     await browser.close();

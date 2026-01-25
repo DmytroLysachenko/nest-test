@@ -3,6 +3,17 @@ export type RawPage = {
   html: string;
 };
 
+export type DetailFetchDiagnostics = {
+  url: string;
+  finalUrl?: string;
+  status?: number | null;
+  title?: string;
+  htmlLength?: number;
+  blocked?: boolean;
+  attempt: number;
+  error?: string;
+};
+
 export type JobDetails = {
   technologies?: {
     required?: string[];
