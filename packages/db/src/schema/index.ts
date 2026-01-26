@@ -18,6 +18,8 @@ export * from './profile-inputs';
 export * from './documents';
 export * from './career-profiles';
 export * from './job-matches';
+export * from './job-source-runs';
+export * from './job-offers';
 export * from './_relations';
 
 export type Schema = typeof schema;

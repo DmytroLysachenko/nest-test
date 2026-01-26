@@ -7,6 +7,8 @@ import { profileInputsTable } from './profile-inputs';
 import { documentsTable } from './documents';
 import { careerProfilesTable } from './career-profiles';
 import { jobMatchesTable } from './job-matches';
+import { jobSourceRunsTable } from './job-source-runs';
+import { jobOffersTable } from './job-offers';
 
 export const usersRelations = relations(usersTable, ({ one, many }) => ({
   profile: one(profilesTable, {
@@ -68,5 +70,16 @@ export const jobMatchesRelations = relations(jobMatchesTable, ({ one }) => ({
   careerProfile: one(careerProfilesTable, {
     fields: [jobMatchesTable.careerProfileId],
     references: [careerProfilesTable.id],
+  }),
+}));
+
+export const jobSourceRunsRelations = relations(jobSourceRunsTable, ({ many }) => ({
+  jobOffers: many(jobOffersTable),
+}));
+
+export const jobOffersRelations = relations(jobOffersTable, ({ one }) => ({
+  run: one(jobSourceRunsTable, {
+    fields: [jobOffersTable.runId],
+    references: [jobSourceRunsTable.id],
   }),
 }));
