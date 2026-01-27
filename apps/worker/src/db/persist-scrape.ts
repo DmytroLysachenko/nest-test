@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { NormalizedJob } from '../sources/types';
 
@@ -16,9 +16,37 @@ type PersistInput = {
   source: string;
   listingUrl: string;
   filters?: Record<string, unknown>;
+  userId?: string;
+  careerProfileId?: string;
   jobLinks: string[];
   jobs: NormalizedJob[];
 };
+
+type TextColumn =
+  | typeof jobOffersTable.sourceId
+  | typeof jobOffersTable.title
+  | typeof jobOffersTable.company
+  | typeof jobOffersTable.location
+  | typeof jobOffersTable.salary
+  | typeof jobOffersTable.employmentType
+  | typeof jobOffersTable.description;
+
+type JsonColumn = typeof jobOffersTable.requirements | typeof jobOffersTable.details;
+
+const preferIncomingText = (column: TextColumn, placeholder?: string) =>
+  sql`CASE
+        WHEN excluded.${column} IS NOT NULL
+         AND excluded.${column} != ''
+         ${placeholder ? sql`AND excluded.${column} != ${placeholder}` : sql``}
+        THEN excluded.${column}
+        ELSE ${column}
+      END`;
+
+const preferIncomingJson = (column: JsonColumn) =>
+  sql`CASE
+        WHEN excluded.${column} IS NOT NULL THEN excluded.${column}
+        ELSE ${column}
+      END`;
 
 export const persistScrapeResult = async (databaseUrl: string | undefined, input: PersistInput) => {
   const db = getDb(databaseUrl);
@@ -33,6 +61,8 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
     .insert(jobSourceRunsTable)
     .values({
       source,
+      userId: input.userId,
+      careerProfileId: input.careerProfileId,
       listingUrl: input.listingUrl,
       filters: input.filters ?? null,
       status: 'RUNNING',
@@ -47,22 +77,40 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
   }
 
   if (input.jobs.length) {
-    await db.insert(jobOffersTable).values(
-      input.jobs.map((job) => ({
-        source,
-        sourceId: job.sourceId,
-        runId,
-        url: job.url,
-        title: job.title,
-        company: job.company,
-        location: job.location,
-        salary: job.salary,
-        employmentType: job.employmentType,
-        description: job.description,
-        requirements: job.requirements,
-        details: job.details,
-      })),
-    );
+    await db
+      .insert(jobOffersTable)
+      .values(
+        input.jobs.map((job) => ({
+          source,
+          sourceId: job.sourceId,
+          runId,
+          url: job.url,
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          salary: job.salary,
+          employmentType: job.employmentType,
+          description: job.description,
+          requirements: job.requirements,
+          details: job.details,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [jobOffersTable.source, jobOffersTable.url],
+        set: {
+          sourceId: preferIncomingText(jobOffersTable.sourceId),
+          runId: sql`excluded.${jobOffersTable.runId}`,
+          title: preferIncomingText(jobOffersTable.title, 'Unknown title'),
+          company: preferIncomingText(jobOffersTable.company),
+          location: preferIncomingText(jobOffersTable.location),
+          salary: preferIncomingText(jobOffersTable.salary),
+          employmentType: preferIncomingText(jobOffersTable.employmentType),
+          description: preferIncomingText(jobOffersTable.description, 'No description found'),
+          requirements: preferIncomingJson(jobOffersTable.requirements),
+          details: preferIncomingJson(jobOffersTable.details),
+          fetchedAt: new Date(),
+        },
+      });
   }
 
   await db

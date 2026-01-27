@@ -9,6 +9,32 @@ import { persistScrapeResult } from '../db/persist-scrape';
 import { parsePracujPl } from '../sources/pracuj-pl/parse';
 import { normalizePracujPl } from '../sources/pracuj-pl/normalize';
 
+const notifyCallback = async (
+  url: string,
+  token: string | undefined,
+  payload: Record<string, unknown>,
+  logger: Logger,
+) => {
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      logger.warn({ status: response.status, body: text }, 'Callback rejected');
+      return;
+    }
+    logger.info({ status: response.status }, 'Callback acknowledged');
+  } catch (error) {
+    logger.warn({ error }, 'Failed to notify callback');
+  }
+};
+
 export const runScrapeJob = async (
   payload: ScrapeSourceJob,
   logger: Logger,
@@ -26,6 +52,8 @@ export const runScrapeJob = async (
     profileDir?: string;
     outputMode?: 'full' | 'minimal';
     databaseUrl?: string;
+    callbackUrl?: string;
+    callbackToken?: string;
   },
 ) => {
   const startedAt = Date.now();
@@ -99,11 +127,28 @@ export const runScrapeJob = async (
       source: payload.source,
       listingUrl,
       filters: payload.filters,
+      userId: payload.userId,
+      careerProfileId: payload.careerProfileId,
       jobLinks,
       jobs: normalized,
     });
     if (dbRunId) {
       logger.info({ dbRunId }, 'Scrape results persisted');
+      if (options.callbackUrl) {
+        await notifyCallback(
+          options.callbackUrl,
+          options.callbackToken,
+          {
+            source: payload.source,
+            runId,
+            sourceRunId: dbRunId,
+            listingUrl,
+            jobCount: normalized.length,
+            jobLinkCount: jobLinks.length,
+          },
+          logger,
+        );
+      }
     }
   } catch (error) {
     logger.error({ error }, 'Failed to persist scrape results');

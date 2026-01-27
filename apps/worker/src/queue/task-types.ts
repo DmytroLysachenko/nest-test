@@ -18,6 +18,8 @@ export const taskEnvelopeSchema = z.object({
   payload: z.object({
     source: z.string().min(1),
     runId: z.string().optional(),
+    userId: z.string().uuid().optional(),
+    careerProfileId: z.string().uuid().optional(),
     listingUrl: z.string().url().optional(),
     limit: z.number().int().min(1).max(100).optional(),
     filters: z

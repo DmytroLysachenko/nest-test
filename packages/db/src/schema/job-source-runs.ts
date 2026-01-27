@@ -1,10 +1,14 @@
 import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 import { jobSourceEnum, jobSourceRunStatusEnum } from './_enums';
+import { careerProfilesTable } from './career-profiles';
+import { usersTable } from './users';
 
 export const jobSourceRunsTable = pgTable('job_source_runs', {
   id: uuid('id').primaryKey().defaultRandom(),
   source: jobSourceEnum('source').notNull(),
+  userId: uuid('user_id').references(() => usersTable.id, { onDelete: 'set null' }),
+  careerProfileId: uuid('career_profile_id').references(() => careerProfilesTable.id, { onDelete: 'set null' }),
   listingUrl: text('listing_url').notNull(),
   filters: jsonb('filters'),
   status: jobSourceRunStatusEnum('status').default('PENDING').notNull(),

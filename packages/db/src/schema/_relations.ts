@@ -9,6 +9,7 @@ import { careerProfilesTable } from './career-profiles';
 import { jobMatchesTable } from './job-matches';
 import { jobSourceRunsTable } from './job-source-runs';
 import { jobOffersTable } from './job-offers';
+import { userJobOffersTable } from './user-job-offers';
 
 export const usersRelations = relations(usersTable, ({ one, many }) => ({
   profile: one(profilesTable, {
@@ -20,6 +21,7 @@ export const usersRelations = relations(usersTable, ({ one, many }) => ({
   documents: many(documentsTable),
   careerProfiles: many(careerProfilesTable),
   jobMatches: many(jobMatchesTable),
+  jobOffers: many(userJobOffersTable),
 }));
 
 export const profilesRelations = relations(profilesTable, ({ one }) => ({
@@ -51,7 +53,7 @@ export const documentsRelations = relations(documentsTable, ({ one }) => ({
   }),
 }));
 
-export const careerProfilesRelations = relations(careerProfilesTable, ({ one }) => ({
+export const careerProfilesRelations = relations(careerProfilesTable, ({ one, many }) => ({
   user: one(usersTable, {
     fields: [careerProfilesTable.userId],
     references: [usersTable.id],
@@ -60,6 +62,7 @@ export const careerProfilesRelations = relations(careerProfilesTable, ({ one }) 
     fields: [careerProfilesTable.profileInputId],
     references: [profileInputsTable.id],
   }),
+  jobOffers: many(userJobOffersTable),
 }));
 
 export const jobMatchesRelations = relations(jobMatchesTable, ({ one }) => ({
@@ -73,13 +76,42 @@ export const jobMatchesRelations = relations(jobMatchesTable, ({ one }) => ({
   }),
 }));
 
-export const jobSourceRunsRelations = relations(jobSourceRunsTable, ({ many }) => ({
+export const jobSourceRunsRelations = relations(jobSourceRunsTable, ({ one, many }) => ({
+  user: one(usersTable, {
+    fields: [jobSourceRunsTable.userId],
+    references: [usersTable.id],
+  }),
+  careerProfile: one(careerProfilesTable, {
+    fields: [jobSourceRunsTable.careerProfileId],
+    references: [careerProfilesTable.id],
+  }),
   jobOffers: many(jobOffersTable),
+  userJobOffers: many(userJobOffersTable),
 }));
 
-export const jobOffersRelations = relations(jobOffersTable, ({ one }) => ({
+export const jobOffersRelations = relations(jobOffersTable, ({ one, many }) => ({
   run: one(jobSourceRunsTable, {
     fields: [jobOffersTable.runId],
+    references: [jobSourceRunsTable.id],
+  }),
+  userJobOffers: many(userJobOffersTable),
+}));
+
+export const userJobOffersRelations = relations(userJobOffersTable, ({ one }) => ({
+  user: one(usersTable, {
+    fields: [userJobOffersTable.userId],
+    references: [usersTable.id],
+  }),
+  careerProfile: one(careerProfilesTable, {
+    fields: [userJobOffersTable.careerProfileId],
+    references: [careerProfilesTable.id],
+  }),
+  jobOffer: one(jobOffersTable, {
+    fields: [userJobOffersTable.jobOfferId],
+    references: [jobOffersTable.id],
+  }),
+  sourceRun: one(jobSourceRunsTable, {
+    fields: [userJobOffersTable.sourceRunId],
     references: [jobSourceRunsTable.id],
   }),
 }));

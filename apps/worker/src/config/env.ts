@@ -30,6 +30,8 @@ const envSchema = z.object({
   TASKS_QUEUE: z.string().optional(),
   TASKS_URL: z.string().url().optional(),
   TASKS_SERVICE_ACCOUNT_EMAIL: z.string().optional(),
+  WORKER_CALLBACK_URL: z.string().url().optional(),
+  WORKER_CALLBACK_TOKEN: z.string().optional(),
   DATABASE_URL: z.string().min(1).optional(),
   PLAYWRIGHT_HEADLESS: booleanSchema.default(true),
   PRACUJ_LISTING_URL: z.string().url().optional(),

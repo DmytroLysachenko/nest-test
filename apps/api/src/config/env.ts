@@ -26,6 +26,7 @@ export const EnvSchema = z.object({
   API_PREFIX: z.string().default('api'),
   WORKER_TASK_URL: z.string().url().optional(),
   WORKER_AUTH_TOKEN: z.string().optional(),
+  WORKER_CALLBACK_TOKEN: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

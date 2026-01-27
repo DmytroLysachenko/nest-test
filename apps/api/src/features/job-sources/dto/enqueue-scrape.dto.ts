@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsUrl, Max, Min, ValidateNested } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsUrl, IsUUID, Max, Min, ValidateNested } from 'class-validator';
 
 import { ScrapeFiltersDto } from './scrape-filters.dto';
 
@@ -24,6 +24,11 @@ export class EnqueueScrapeDto {
   @Min(1)
   @Max(100)
   limit?: number;
+
+  @ApiPropertyOptional({ description: 'Career profile id to associate this scrape with' })
+  @IsOptional()
+  @IsUUID('4')
+  careerProfileId?: string;
 
   @ApiPropertyOptional({ type: ScrapeFiltersDto })
   @IsOptional()

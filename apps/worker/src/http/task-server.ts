@@ -113,6 +113,8 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         profileDir: env.PRACUJ_PROFILE_DIR,
         outputMode: env.WORKER_OUTPUT_MODE,
         databaseUrl: env.DATABASE_URL,
+        callbackUrl: env.WORKER_CALLBACK_URL,
+        callbackToken: env.WORKER_CALLBACK_TOKEN,
       });
       sendJson(res, 200, { ok: true, result });
     } catch (error) {
