@@ -112,6 +112,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         requireDetail: env.PRACUJ_REQUIRE_DETAIL,
         profileDir: env.PRACUJ_PROFILE_DIR,
         outputMode: env.WORKER_OUTPUT_MODE,
+        databaseUrl: env.DATABASE_URL,
       });
       sendJson(res, 200, { ok: true, result });
     } catch (error) {

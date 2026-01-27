@@ -5,6 +5,7 @@ import { saveOutput } from '../output/save-output';
 
 import { crawlPracujPl } from '../sources/pracuj-pl/crawl';
 import { buildPracujListingUrl } from '../sources/pracuj-pl/url-builder';
+import { persistScrapeResult } from '../db/persist-scrape';
 import { parsePracujPl } from '../sources/pracuj-pl/parse';
 import { normalizePracujPl } from '../sources/pracuj-pl/normalize';
 
@@ -24,6 +25,7 @@ export const runScrapeJob = async (
     requireDetail?: boolean;
     profileDir?: string;
     outputMode?: 'full' | 'minimal';
+    databaseUrl?: string;
   },
 ) => {
   const startedAt = Date.now();
@@ -92,6 +94,21 @@ export const runScrapeJob = async (
     options.outputMode,
   );
 
+  try {
+    const dbRunId = await persistScrapeResult(options.databaseUrl, {
+      source: payload.source,
+      listingUrl,
+      filters: payload.filters,
+      jobLinks,
+      jobs: normalized,
+    });
+    if (dbRunId) {
+      logger.info({ dbRunId }, 'Scrape results persisted');
+    }
+  } catch (error) {
+    logger.error({ error }, 'Failed to persist scrape results');
+  }
+
   logger.info(
     {
       source: payload.source,
@@ -100,9 +117,9 @@ export const runScrapeJob = async (
       jobs: normalized.length,
       blockedPages: blockedUrls.length,
       jobLinks: jobLinks.length,
-      outputPath,
-      durationMs: Date.now() - startedAt,
-    },
+    outputPath,
+    durationMs: Date.now() - startedAt,
+  },
     'Scrape completed',
   );
 
