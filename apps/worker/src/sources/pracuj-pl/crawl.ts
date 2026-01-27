@@ -269,6 +269,8 @@ export const crawlPracujPl = async (
     detailCookiesPath?: string;
     detailHumanize?: boolean;
     profileDir?: string;
+    skipUrls?: Set<string>;
+    skipResolver?: (urls: string[]) => Promise<Set<string>>;
   },
 ): Promise<{
   pages: RawPage[];
@@ -351,6 +353,13 @@ export const crawlPracujPl = async (
     }
 
     const normalizedLinks = detailHost ? jobLinks.map((link) => swapHost(link, detailHost)) : jobLinks;
+    const skipUrls = options?.skipResolver
+      ? await options.skipResolver(normalizedLinks)
+      : (options?.skipUrls ?? new Set<string>());
+    const detailTargets = normalizedLinks.filter((url) => !skipUrls.has(url));
+    if (skipUrls.size) {
+      logger?.info({ skipped: skipUrls.size, total: normalizedLinks.length }, 'Skipping detail fetch for cached offers');
+    }
     const pages: RawPage[] = [];
     const blockedUrls: string[] = [];
     const detailDiagnostics: DetailFetchDiagnostics[] = [];
@@ -381,7 +390,7 @@ export const crawlPracujPl = async (
       await sleep(listingCooldownMs + randomBetween(500, 1500));
     }
 
-    for (const url of normalizedLinks) {
+    for (const url of detailTargets) {
       const jobPage = await context.newPage();
       try {
         let result = await loadJobPage(jobPage, url, detailDelayMs, detailHumanize, logger);

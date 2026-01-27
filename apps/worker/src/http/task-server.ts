@@ -105,6 +105,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         listingDelayMs: env.PRACUJ_LISTING_DELAY_MS,
         listingCooldownMs: env.PRACUJ_LISTING_COOLDOWN_MS,
         detailDelayMs: env.PRACUJ_DETAIL_DELAY_MS,
+        detailCacheHours: env.PRACUJ_DETAIL_CACHE_HOURS,
         listingOnly: env.PRACUJ_LISTING_ONLY,
         detailHost: env.PRACUJ_DETAIL_HOST,
         detailCookiesPath: env.PRACUJ_DETAIL_COOKIES_PATH,

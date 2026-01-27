@@ -8,6 +8,7 @@ import { buildPracujListingUrl } from '../sources/pracuj-pl/url-builder';
 import { persistScrapeResult } from '../db/persist-scrape';
 import { parsePracujPl } from '../sources/pracuj-pl/parse';
 import { normalizePracujPl } from '../sources/pracuj-pl/normalize';
+import { loadFreshOfferUrls } from '../db/fresh-offers';
 
 const notifyCallback = async (
   url: string,
@@ -44,6 +45,7 @@ export const runScrapeJob = async (
     listingDelayMs?: number;
     listingCooldownMs?: number;
     detailDelayMs?: number;
+    detailCacheHours?: number;
     listingOnly?: boolean;
     detailHost?: string;
     detailCookiesPath?: string;
@@ -82,6 +84,11 @@ export const runScrapeJob = async (
         detailCookiesPath: options.detailCookiesPath,
         detailHumanize: options.detailHumanize,
         profileDir: options.profileDir,
+        skipResolver:
+          options.databaseUrl && options.detailCacheHours && options.detailCacheHours > 0
+            ? async (urls) =>
+                loadFreshOfferUrls(options.databaseUrl, 'PRACUJ_PL', urls, options.detailCacheHours!)
+            : undefined,
       },
     );
   const parsedJobs =

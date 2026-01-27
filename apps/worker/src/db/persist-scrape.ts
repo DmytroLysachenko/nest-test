@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { NormalizedJob } from '../sources/types';
 
@@ -20,6 +20,14 @@ type PersistInput = {
   careerProfileId?: string;
   jobLinks: string[];
   jobs: NormalizedJob[];
+};
+
+const chunk = <T>(items: T[], size: number) => {
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
 };
 
 type TextColumn =
@@ -111,6 +119,15 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
           fetchedAt: new Date(),
         },
       });
+  }
+
+  if (input.jobLinks.length) {
+    for (const batch of chunk(input.jobLinks, 200)) {
+      await db
+        .update(jobOffersTable)
+        .set({ runId })
+        .where(and(eq(jobOffersTable.source, source), inArray(jobOffersTable.url, batch)));
+    }
   }
 
   await db

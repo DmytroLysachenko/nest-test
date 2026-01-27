@@ -40,6 +40,7 @@ const envSchema = z.object({
   PRACUJ_LISTING_DELAY_MS: z.coerce.number().int().min(0).max(30000).default(1500),
   PRACUJ_LISTING_COOLDOWN_MS: z.coerce.number().int().min(0).max(30000).default(0),
   PRACUJ_DETAIL_DELAY_MS: z.coerce.number().int().min(0).max(30000).default(2000),
+  PRACUJ_DETAIL_CACHE_HOURS: z.coerce.number().int().min(0).max(720).default(24),
   PRACUJ_LISTING_ONLY: booleanSchema.default(false),
   PRACUJ_DETAIL_HOST: z.string().optional(),
   PRACUJ_DETAIL_COOKIES_PATH: z.string().optional(),

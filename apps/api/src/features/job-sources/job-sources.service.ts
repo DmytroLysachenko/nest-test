@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, desc, eq } from 'drizzle-orm';
@@ -9,6 +15,7 @@ import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 
 import type { Env } from '@/config/env';
+
 import { Drizzle } from '@/common/decorators';
 
 const buildListingUrl = (filters: ScrapeFiltersDto) => {
@@ -52,8 +59,7 @@ export class JobSourcesService {
       throw new BadRequestException('Provide listingUrl or filters');
     }
 
-    const careerProfileId =
-      dto.careerProfileId ?? (await this.getActiveCareerProfileId(userId));
+    const careerProfileId = dto.careerProfileId ?? (await this.getActiveCareerProfileId(userId));
     if (!careerProfileId) {
       throw new NotFoundException('Active career profile not found');
     }

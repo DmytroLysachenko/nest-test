@@ -13,6 +13,7 @@ export const handleTask = async (
     listingDelayMs?: number;
     listingCooldownMs?: number;
     detailDelayMs?: number;
+    detailCacheHours?: number;
     listingOnly?: boolean;
     detailHost?: string;
     detailCookiesPath?: string;
@@ -33,6 +34,7 @@ export const handleTask = async (
         listingDelayMs: options.listingDelayMs,
         listingCooldownMs: options.listingCooldownMs,
         detailDelayMs: options.detailDelayMs,
+        detailCacheHours: options.detailCacheHours,
         listingOnly: options.listingOnly,
         detailHost: options.detailHost,
         detailCookiesPath: options.detailCookiesPath,
