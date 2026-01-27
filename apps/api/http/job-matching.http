@@ -1,0 +1,22 @@
+@host = {{host}}
+@apiPrefix = {{apiPrefix}}
+@baseUrl = {{host}}/{{apiPrefix}}
+@accessToken = {{accessToken}}
+
+### Score job fit (auth)
+POST {{baseUrl}}/job-matching/score
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "jobDescription": "We are looking for a backend developer with NestJS, PostgreSQL, and REST API experience.",
+  "minScore": 60
+}
+
+### List job match history (auth)
+GET {{baseUrl}}/job-matching
+Authorization: Bearer {{accessToken}}
+
+### Get job match by id (auth)
+GET {{baseUrl}}/job-matching/replace_with_match_id
+Authorization: Bearer {{accessToken}}

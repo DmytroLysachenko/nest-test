@@ -1,0 +1,80 @@
+@host = {{host}}
+@apiPrefix = {{apiPrefix}}
+@baseUrl = {{host}}/{{apiPrefix}}
+@accessToken = {{accessToken}}
+@uploadUrl = {{uploadUrl}}
+
+### Create document upload URL (auth)
+POST {{baseUrl}}/documents/upload-url
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "type": "CV",
+  "originalName": "sample.pdf",
+  "mimeType": "application/pdf",
+  "size": 123456
+}
+
+### Upload PDF to signed URL (public)
+PUT {{uploadUrl}}
+Content-Type: application/pdf
+
+< ./apps/api/test-files/real_pdf.pdf
+
+### Confirm document upload (auth)
+POST {{baseUrl}}/documents/confirm
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "documentId": "replace_with_document_id"
+}
+
+### List documents (auth)
+GET {{baseUrl}}/documents
+Authorization: Bearer {{accessToken}}
+
+### List documents by type (auth)
+GET {{baseUrl}}/documents?type=CV
+Authorization: Bearer {{accessToken}}
+
+### Extract document text (auth)
+POST {{baseUrl}}/documents/extract
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "documentId": "replace_with_document_id"
+}
+
+### Sync documents with storage (auth)
+POST {{baseUrl}}/documents/sync
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "dryRun": false,
+  "deleteMissing": false,
+  "missingGraceMinutes": 30,
+  "previewLimit": 50,
+  "includeDetails": false
+}
+
+### Get document by id (auth)
+GET {{baseUrl}}/documents/replace_with_document_id
+Authorization: Bearer {{accessToken}}
+
+### Update document metadata (auth)
+PATCH {{baseUrl}}/documents/replace_with_document_id
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "type": "CV",
+  "originalName": "updated-name.pdf"
+}
+
+### Delete document (auth)
+DELETE {{baseUrl}}/documents/replace_with_document_id
+Authorization: Bearer {{accessToken}}

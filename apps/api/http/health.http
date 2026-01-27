@@ -1,0 +1,7 @@
+@host = {{host}}
+
+### Health check (public)
+GET {{host}}/health
+
+### Health test (public)
+GET {{host}}/health/test

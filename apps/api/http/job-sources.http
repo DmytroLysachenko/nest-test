@@ -1,0 +1,31 @@
+@host = {{host}}
+@apiPrefix = {{apiPrefix}}
+@baseUrl = {{host}}/{{apiPrefix}}
+@accessToken = {{accessToken}}
+@workerCallbackToken = {{workerCallbackToken}}
+
+### Enqueue scrape (auth)
+POST {{baseUrl}}/job-sources/scrape
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "source": "pracuj-pl",
+  "limit": 20,
+  "filters": {
+    "specializations": ["frontend"],
+    "workModes": ["home-office", "hybrid", "full-office"],
+    "keywords": "angular"
+  }
+}
+
+### Worker completion callback (internal)
+POST {{baseUrl}}/job-sources/complete
+Authorization: Bearer {{workerCallbackToken}}
+Content-Type: application/json
+
+{
+  "sourceRunId": "replace_with_run_id",
+  "runId": "replace_with_worker_run_id",
+  "jobCount": 5
+}

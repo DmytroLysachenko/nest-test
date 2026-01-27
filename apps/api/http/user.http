@@ -1,0 +1,8 @@
+@host = {{host}}
+@apiPrefix = {{apiPrefix}}
+@baseUrl = {{host}}/{{apiPrefix}}
+@accessToken = {{accessToken}}
+
+### Get current user (auth)
+GET {{baseUrl}}/user
+Authorization: Bearer {{accessToken}}

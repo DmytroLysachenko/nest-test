@@ -1,0 +1,18 @@
+@host = {{host}}
+@apiPrefix = {{apiPrefix}}
+@baseUrl = {{host}}/{{apiPrefix}}
+@accessToken = {{accessToken}}
+
+### Create profile input (auth)
+POST {{baseUrl}}/profile-inputs
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "targetRoles": "JavaScript developer, TypeScript developer, Next.js developer",
+  "notes": "Looking for mid-level roles, remote preferred."
+}
+
+### Get latest profile input (auth)
+GET {{baseUrl}}/profile-inputs/latest
+Authorization: Bearer {{accessToken}}
