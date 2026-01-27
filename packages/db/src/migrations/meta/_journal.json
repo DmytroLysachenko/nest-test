@@ -57,6 +57,13 @@
       "when": 1769549766849,
       "tag": "0007_good_nitro",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1769553647927,
+      "tag": "0008_marvelous_agent_zero",
+      "breakpoints": true
     }
   ]
 }
