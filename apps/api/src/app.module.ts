@@ -18,6 +18,7 @@ import { ProfileInputsModule } from '@/features/profile-inputs/profile-inputs.mo
 import { DocumentsModule } from '@/features/documents/documents.module';
 import { CareerProfilesModule } from '@/features/career-profiles/career-profiles.module';
 import { JobMatchingModule } from '@/features/job-matching/job-matching.module';
+import { JobSourcesModule } from '@/features/job-sources/job-sources.module';
 import { RolesGuard } from '@/common/guards';
 
 @Module({
@@ -48,6 +49,7 @@ import { RolesGuard } from '@/common/guards';
     DocumentsModule,
     CareerProfilesModule,
     JobMatchingModule,
+    JobSourcesModule,
   ],
   providers: [
     {

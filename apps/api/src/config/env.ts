@@ -24,6 +24,8 @@ export const EnvSchema = z.object({
   GCP_PRIVATE_KEY: z.string().optional(),
   ALLOWED_ORIGINS: z.string().default('*'),
   API_PREFIX: z.string().default('api'),
+  WORKER_TASK_URL: z.string().url().optional(),
+  WORKER_AUTH_TOKEN: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
