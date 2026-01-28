@@ -1,4 +1,6 @@
-@host = {{host}}
+@host = http://localhost:3000
+@apiPrefix = api
+@baseUrl = {{host}}/{{apiPrefix}}
 
 ### Health check (public)
 GET {{host}}/health

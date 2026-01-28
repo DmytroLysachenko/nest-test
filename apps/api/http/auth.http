@@ -1,10 +1,9 @@
-@host = {{host}}
-@apiPrefix = {{apiPrefix}}
+@host = http://localhost:3000
+@apiPrefix = api
 @baseUrl = {{host}}/{{apiPrefix}}
-@accessToken = {{accessToken}}
+@accessToken = replace_with_access_token
 
-# Tip: run the Login request in this file and copy accessToken into rest-client.env.json
-# so other .http files can reuse it via {{accessToken}}.
+# Tip: run Login request here, then paste accessToken above.
 
 ### Send register code (public)
 POST {{baseUrl}}/auth/send-register-code
@@ -26,7 +25,6 @@ Content-Type: application/json
 }
 
 ### Login (public)
-# @name login
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
 

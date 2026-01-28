@@ -1,7 +1,7 @@
-@host = {{host}}
-@apiPrefix = {{apiPrefix}}
+@host = http://localhost:3000
+@apiPrefix = api
 @baseUrl = {{host}}/{{apiPrefix}}
-@accessToken = {{accessToken}}
+@accessToken = replace_with_access_token
 
 ### Create career profile (auth)
 POST {{baseUrl}}/career-profiles

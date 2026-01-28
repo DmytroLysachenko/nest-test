@@ -1,7 +1,7 @@
-@host = {{host}}
-@apiPrefix = {{apiPrefix}}
+@host = http://localhost:3000
+@apiPrefix = api
 @baseUrl = {{host}}/{{apiPrefix}}
-@accessToken = {{accessToken}}
+@accessToken = replace_with_access_token
 
 ### List job offers (auth)
 GET {{baseUrl}}/job-offers?status=NEW&minScore=0&limit=20&offset=0
