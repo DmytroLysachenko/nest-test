@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 const STATUS_VALUES = ['NEW', 'SEEN', 'SAVED', 'APPLIED', 'DISMISSED'] as const;
+const SOURCE_VALUES = ['PRACUJ_PL'] as const;
 
 export class ListJobOffersQuery {
   @ApiPropertyOptional({ enum: STATUS_VALUES })
@@ -11,8 +12,8 @@ export class ListJobOffersQuery {
 
   @ApiPropertyOptional({ description: 'Source filter (e.g. PRACUJ_PL)' })
   @IsOptional()
-  @IsString()
-  source?: string;
+  @IsIn(SOURCE_VALUES)
+  source?: (typeof SOURCE_VALUES)[number];
 
   @ApiPropertyOptional({ description: 'Minimum match score', default: 0 })
   @IsOptional()

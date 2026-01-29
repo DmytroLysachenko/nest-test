@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, desc, eq, isNull, not, sql } from 'drizzle-orm';
 import { careerProfilesTable, jobOffersTable, userJobOffersTable } from '@repo/db';
+import type { JobOfferStatus, JobSource } from '@repo/db';
 import { z } from 'zod';
 
 import { Drizzle } from '@/common/decorators';
@@ -34,7 +35,7 @@ export class JobOffersService {
       conditions.push(eq(userJobOffersTable.status, query.status));
     }
     if (query.source) {
-      conditions.push(eq(jobOffersTable.source, query.source));
+      conditions.push(eq(jobOffersTable.source, query.source as JobSource));
     }
     if (query.minScore !== undefined) {
       conditions.push(sql`${userJobOffersTable.matchScore} >= ${query.minScore}`);
@@ -82,7 +83,7 @@ export class JobOffersService {
     };
   }
 
-  async updateStatus(userId: string, id: string, status: string) {
+  async updateStatus(userId: string, id: string, status: JobOfferStatus) {
     const [updated] = await this.db
       .update(userJobOffersTable)
       .set({ status, updatedAt: new Date() })
