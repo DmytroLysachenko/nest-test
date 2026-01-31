@@ -1,3 +1,0 @@
-# HTTP request files are now split by feature.
-# See: apps/api/http/*.http
-# Tip: set accessToken in rest-client.env.json after login.
