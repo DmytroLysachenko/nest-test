@@ -48,6 +48,7 @@ const envSchema = z.object({
   PRACUJ_REQUIRE_DETAIL: booleanSchema.default(false),
   PRACUJ_PROFILE_DIR: z.string().optional(),
   WORKER_OUTPUT_MODE: z.enum(['full', 'minimal']).default('full'),
+  WORKER_MAX_CONCURRENT_TASKS: z.coerce.number().int().min(1).max(5).default(1),
 });
 
 export type WorkerEnv = z.infer<typeof envSchema>;

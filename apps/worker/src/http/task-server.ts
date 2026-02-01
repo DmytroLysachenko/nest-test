@@ -5,7 +5,7 @@ import type { Logger } from 'pino';
 
 import type { WorkerEnv } from '../config/env';
 
-import { handleTask } from '../queue/task-handler';
+import { TaskRunner } from '../queue/task-runner';
 import type { TaskEnvelope } from '../queue/task-types';
 import { taskEnvelopeSchema } from '../queue/task-types';
 
@@ -72,6 +72,28 @@ const parseTask = (body: unknown): TaskEnvelope | null => {
 };
 
 export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
+  const runner = new TaskRunner(
+    logger,
+    {
+      headless: env.PLAYWRIGHT_HEADLESS,
+      outputDir: env.WORKER_OUTPUT_DIR,
+      listingDelayMs: env.PRACUJ_LISTING_DELAY_MS,
+      listingCooldownMs: env.PRACUJ_LISTING_COOLDOWN_MS,
+      detailDelayMs: env.PRACUJ_DETAIL_DELAY_MS,
+      detailCacheHours: env.PRACUJ_DETAIL_CACHE_HOURS,
+      listingOnly: env.PRACUJ_LISTING_ONLY,
+      detailHost: env.PRACUJ_DETAIL_HOST,
+      detailCookiesPath: env.PRACUJ_DETAIL_COOKIES_PATH,
+      detailHumanize: env.PRACUJ_DETAIL_HUMANIZE,
+      requireDetail: env.PRACUJ_REQUIRE_DETAIL,
+      profileDir: env.PRACUJ_PROFILE_DIR,
+      outputMode: env.WORKER_OUTPUT_MODE,
+      databaseUrl: env.DATABASE_URL,
+      callbackUrl: env.WORKER_CALLBACK_URL,
+      callbackToken: env.WORKER_CALLBACK_TOKEN,
+    },
+    env.WORKER_MAX_CONCURRENT_TASKS,
+  );
   return createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/health') {
       sendJson(res, 200, { ok: true });
@@ -99,25 +121,8 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       const requestId = req.headers['x-request-id'];
       logger.info({ requestId, taskName: task.name, runId: task.payload.runId ?? null }, 'Task received');
 
-      const result = await handleTask(task, logger, {
-        headless: env.PLAYWRIGHT_HEADLESS,
-        outputDir: env.WORKER_OUTPUT_DIR,
-        listingDelayMs: env.PRACUJ_LISTING_DELAY_MS,
-        listingCooldownMs: env.PRACUJ_LISTING_COOLDOWN_MS,
-        detailDelayMs: env.PRACUJ_DETAIL_DELAY_MS,
-        detailCacheHours: env.PRACUJ_DETAIL_CACHE_HOURS,
-        listingOnly: env.PRACUJ_LISTING_ONLY,
-        detailHost: env.PRACUJ_DETAIL_HOST,
-        detailCookiesPath: env.PRACUJ_DETAIL_COOKIES_PATH,
-        detailHumanize: env.PRACUJ_DETAIL_HUMANIZE,
-        requireDetail: env.PRACUJ_REQUIRE_DETAIL,
-        profileDir: env.PRACUJ_PROFILE_DIR,
-        outputMode: env.WORKER_OUTPUT_MODE,
-        databaseUrl: env.DATABASE_URL,
-        callbackUrl: env.WORKER_CALLBACK_URL,
-        callbackToken: env.WORKER_CALLBACK_TOKEN,
-      });
-      sendJson(res, 200, { ok: true, result });
+      runner.enqueue(task);
+      sendJson(res, 202, { ok: true, status: 'accepted', runId: task.payload.runId ?? null });
     } catch (error) {
       logger.error({ error: formatError(error) }, 'Task processing failed');
       sendJson(res, 500, { error: 'Task processing failed' });
