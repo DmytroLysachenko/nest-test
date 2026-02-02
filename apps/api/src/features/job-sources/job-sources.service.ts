@@ -70,28 +70,46 @@ export class JobSourcesService {
       throw new ServiceUnavailableException('Worker task URL is not configured');
     }
 
-    const response = await fetch(workerUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-      },
-      body: JSON.stringify({
-        source,
-        listingUrl,
-        limit: dto.limit,
-        userId,
-        careerProfileId,
-        filters: dto.filters,
-      }),
-    });
+    const timeoutMs = this.configService.get('WORKER_REQUEST_TIMEOUT_MS', { infer: true });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-    const text = await response.text();
-    if (!response.ok) {
-      throw new ServiceUnavailableException(`Worker rejected request: ${text}`);
+    try {
+      const response = await fetch(workerUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({
+          source,
+          listingUrl,
+          limit: dto.limit,
+          userId,
+          careerProfileId,
+          filters: dto.filters,
+        }),
+        signal: controller.signal,
+      });
+
+      const text = await response.text();
+      if (!response.ok) {
+        throw new ServiceUnavailableException(`Worker rejected request: ${text}`);
+      }
+
+      return text ? JSON.parse(text) : { ok: true };
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return {
+          ok: true,
+          status: 'accepted',
+          warning: 'Worker response timed out. Scrape continues in background.',
+        };
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
     }
-
-    return text ? JSON.parse(text) : { ok: true };
   }
 
   async completeScrape(dto: ScrapeCompleteDto, authorization?: string) {
