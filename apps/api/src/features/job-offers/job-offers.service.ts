@@ -52,6 +52,10 @@ export class JobOffersService {
         status: userJobOffersTable.status,
         matchScore: userJobOffersTable.matchScore,
         matchMeta: userJobOffersTable.matchMeta,
+        notes: userJobOffersTable.notes,
+        tags: userJobOffersTable.tags,
+        statusHistory: userJobOffersTable.statusHistory,
+        lastStatusAt: userJobOffersTable.lastStatusAt,
         source: jobOffersTable.source,
         url: jobOffersTable.url,
         title: jobOffersTable.title,
@@ -84,9 +88,55 @@ export class JobOffersService {
   }
 
   async updateStatus(userId: string, id: string, status: JobOfferStatus) {
+    return this.db.transaction(async (tx) => {
+      const current = await tx
+        .select({
+          id: userJobOffersTable.id,
+          status: userJobOffersTable.status,
+          statusHistory: userJobOffersTable.statusHistory,
+        })
+        .from(userJobOffersTable)
+        .where(and(eq(userJobOffersTable.id, id), eq(userJobOffersTable.userId, userId)))
+        .limit(1)
+        .then(([result]) => result);
+
+      if (!current) {
+        throw new NotFoundException('Job offer not found');
+      }
+
+      if (current.status === status) {
+        return current;
+      }
+
+      const history = Array.isArray(current.statusHistory) ? current.statusHistory : [];
+      const nextHistory = [
+        ...history,
+        { status, changedAt: new Date().toISOString() },
+      ];
+
+      const [updated] = await tx
+        .update(userJobOffersTable)
+        .set({
+          status,
+          statusHistory: nextHistory,
+          lastStatusAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(userJobOffersTable.id, id))
+        .returning();
+
+      return updated ?? current;
+    });
+  }
+
+  async updateMeta(userId: string, id: string, input: { notes?: string; tags?: string[] }) {
     const [updated] = await this.db
       .update(userJobOffersTable)
-      .set({ status, updatedAt: new Date() })
+      .set({
+        ...(input.notes !== undefined ? { notes: input.notes } : {}),
+        ...(input.tags !== undefined ? { tags: input.tags } : {}),
+        updatedAt: new Date(),
+      })
       .where(and(eq(userJobOffersTable.id, id), eq(userJobOffersTable.userId, userId)))
       .returning();
 

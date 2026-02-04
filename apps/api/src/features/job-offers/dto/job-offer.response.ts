@@ -30,6 +30,18 @@ export class JobOfferItem {
   @ApiProperty({ required: false })
   matchMeta!: unknown | null;
 
+  @ApiProperty({ required: false })
+  notes!: string | null;
+
+  @ApiProperty({ required: false, type: [String] })
+  tags!: string[] | null;
+
+  @ApiProperty({ required: false })
+  statusHistory!: unknown | null;
+
+  @ApiProperty({ required: false })
+  lastStatusAt!: string | null;
+
   @ApiProperty()
   source!: string;
 

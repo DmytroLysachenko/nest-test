@@ -156,6 +156,8 @@ export class JobSourcesService {
           careerProfileId: run.careerProfileId!,
           jobOfferId: offer.id,
           sourceRunId: run.id,
+          statusHistory: [{ status: 'NEW', changedAt: new Date().toISOString() }],
+          lastStatusAt: new Date(),
         })),
       )
       .onConflictDoNothing();

@@ -16,6 +16,6 @@ This project is the NestJS API application within the monorepo, named `api`.
 
 ## Common Commands
 
-* **`npm run build`**: Creates a production build for the API.
-* **`npm run lint`**: Lints and fixes the code in the project.
-* **`npm run test`**: Runs the unit tests.
+- **`npm run build`**: Creates a production build for the API.
+- **`npm run lint`**: Lints and fixes the code in the project.
+- **`npm run test`**: Runs the unit tests.

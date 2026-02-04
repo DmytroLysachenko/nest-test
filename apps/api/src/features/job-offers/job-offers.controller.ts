@@ -10,6 +10,7 @@ import { ListJobOffersQuery } from './dto/list-job-offers.query';
 import { UpdateJobOfferStatusDto } from './dto/update-job-offer-status.dto';
 import { ScoreJobOfferDto } from './dto/score-job-offer.dto';
 import { JobOfferListResponse } from './dto/job-offer.response';
+import { UpdateJobOfferMetaDto } from './dto/update-job-offer-meta.dto';
 
 @ApiTags('job-offers')
 @ApiBearerAuth()
@@ -33,6 +34,16 @@ export class JobOffersController {
     @Body() dto: UpdateJobOfferStatusDto,
   ) {
     return this.jobOffersService.updateStatus(user.userId, id, dto.status);
+  }
+
+  @Patch(':id/meta')
+  @ApiOperation({ summary: 'Update job offer notes/tags' })
+  async updateMeta(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: UpdateJobOfferMetaDto,
+  ) {
+    return this.jobOffersService.updateMeta(user.userId, id, dto);
   }
 
   @Post(':id/score')

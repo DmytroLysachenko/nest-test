@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 import { jobOfferStatusEnum } from './_enums';
 import { careerProfilesTable } from './career-profiles';
@@ -23,6 +23,10 @@ export const userJobOffersTable = pgTable(
     status: jobOfferStatusEnum('status').default('NEW').notNull(),
     matchScore: integer('match_score'),
     matchMeta: jsonb('match_meta'),
+    notes: text('notes'),
+    tags: jsonb('tags'),
+    statusHistory: jsonb('status_history'),
+    lastStatusAt: timestamp('last_status_at', { withTimezone: true }).defaultNow(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
