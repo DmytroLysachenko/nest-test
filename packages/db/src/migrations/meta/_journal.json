@@ -64,6 +64,13 @@
       "when": 1769553647927,
       "tag": "0008_marvelous_agent_zero",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1770219129785,
+      "tag": "0009_short_stone_men",
+      "breakpoints": true
     }
   ]
 }
