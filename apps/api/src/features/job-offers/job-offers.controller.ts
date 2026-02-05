@@ -11,6 +11,7 @@ import { UpdateJobOfferStatusDto } from './dto/update-job-offer-status.dto';
 import { ScoreJobOfferDto } from './dto/score-job-offer.dto';
 import { JobOfferListResponse } from './dto/job-offer.response';
 import { UpdateJobOfferMetaDto } from './dto/update-job-offer-meta.dto';
+import { ListStatusHistoryQuery } from './dto/list-status-history.query';
 
 @ApiTags('job-offers')
 @ApiBearerAuth()
@@ -24,6 +25,26 @@ export class JobOffersController {
   @ApiOkResponse({ type: JobOfferListResponse })
   async list(@CurrentUser() user: JwtValidateUser, @Query() query: ListJobOffersQuery) {
     return this.jobOffersService.list(user.userId, query);
+  }
+
+  @Get('status-history')
+  @ApiOperation({ summary: 'List status change history for user offers' })
+  async listStatusHistory(
+    @CurrentUser() user: JwtValidateUser,
+    @Query() query: ListStatusHistoryQuery,
+  ) {
+    const limit = query.limit ? Number(query.limit) : 20;
+    const offset = query.offset ? Number(query.offset) : 0;
+    return this.jobOffersService.listStatusHistory(user.userId, limit, offset);
+  }
+
+  @Get(':id/history')
+  @ApiOperation({ summary: 'Get status history for a single offer' })
+  async getHistory(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.jobOffersService.getHistory(user.userId, id);
   }
 
   @Patch(':id/status')

@@ -460,6 +460,18 @@ Job matching:
 
 - GET `/job-matching/:id` (match details)
 
+Job offers (feed + notebook):
+- GET /job-offers (list offers with filters + tag/search)
+- GET /job-offers/status-history (audit list)
+- GET /job-offers/:id/history (single offer history)
+- PATCH /job-offers/:id/status (update status: seen/saved/applied/dismissed)
+- PATCH /job-offers/:id/meta (update notes/tags)
+- POST /job-offers/:id/score (LLM scoring, stores match_score + match_meta)
+
+Job source runs:
+- POST /job-sources/scrape (enqueue worker scrape)
+- POST /job-sources/complete (worker callback)
+
 ---
 
 ## Services and Modules

@@ -44,6 +44,19 @@ export class JobOffersService {
       const wantsScore = query.hasScore === 'true';
       conditions.push(wantsScore ? not(isNull(userJobOffersTable.matchScore)) : isNull(userJobOffersTable.matchScore));
     }
+    const tagFilters = [
+      ...(query.tag ? [query.tag] : []),
+      ...(query.tags ?? []),
+    ].filter(Boolean);
+    if (tagFilters.length) {
+      conditions.push(sql`${userJobOffersTable.tags} ?| ${sql.array(tagFilters, 'text')}`);
+    }
+    if (query.search) {
+      const term = `%${query.search}%`;
+      conditions.push(
+        sql`(${userJobOffersTable.notes} ILIKE ${term} OR ${userJobOffersTable.tags}::text ILIKE ${term})`,
+      );
+    }
 
     const items = await this.db
       .select({
@@ -145,6 +158,59 @@ export class JobOffersService {
     }
 
     return updated;
+  }
+
+  async getHistory(userId: string, id: string) {
+    const item = await this.db
+      .select({
+        id: userJobOffersTable.id,
+        status: userJobOffersTable.status,
+        statusHistory: userJobOffersTable.statusHistory,
+        lastStatusAt: userJobOffersTable.lastStatusAt,
+        jobOfferId: jobOffersTable.id,
+        title: jobOffersTable.title,
+        company: jobOffersTable.company,
+        url: jobOffersTable.url,
+      })
+      .from(userJobOffersTable)
+      .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .where(and(eq(userJobOffersTable.id, id), eq(userJobOffersTable.userId, userId)))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!item) {
+      throw new NotFoundException('Job offer not found');
+    }
+
+    return item;
+  }
+
+  async listStatusHistory(userId: string, limit = 20, offset = 0) {
+    const items = await this.db
+      .select({
+        id: userJobOffersTable.id,
+        status: userJobOffersTable.status,
+        statusHistory: userJobOffersTable.statusHistory,
+        lastStatusAt: userJobOffersTable.lastStatusAt,
+        jobOfferId: jobOffersTable.id,
+        title: jobOffersTable.title,
+        company: jobOffersTable.company,
+        url: jobOffersTable.url,
+        updatedAt: userJobOffersTable.updatedAt,
+      })
+      .from(userJobOffersTable)
+      .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .where(eq(userJobOffersTable.userId, userId))
+      .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.updatedAt))
+      .limit(limit)
+      .offset(offset);
+
+    const [{ total }] = await this.db
+      .select({ total: sql<number>`count(*)` })
+      .from(userJobOffersTable)
+      .where(eq(userJobOffersTable.userId, userId));
+
+    return { items, total: Number(total ?? 0) };
   }
 
   async scoreOffer(userId: string, id: string, minScore = 0) {
