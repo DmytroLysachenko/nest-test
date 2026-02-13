@@ -18,18 +18,25 @@ export class OptsService {
       receiver: email,
       code: code,
       type: type,
-      expiresAt: new Date(now.getTime() + 1000 * 60 * 60 * 10), // 10 min
+      expiresAt: new Date(now.getTime() + 1000 * 60 * 10), // 10 min
       createdAt: now,
     });
 
     return code;
   }
 
-  async verifyOtp(email: string, code: string) {
+  async verifyOtp(email: string, code: string, type: OTPType) {
     const record = await this.db
       .select()
       .from(otpsTable)
-      .where(and(eq(otpsTable.receiver, email), eq(otpsTable.code, code), eq(otpsTable.type, 'EMAIL_REGISTER')))
+      .where(
+        and(
+          eq(otpsTable.receiver, email),
+          eq(otpsTable.code, code),
+          eq(otpsTable.type, type),
+          eq(otpsTable.isUsed, false),
+        ),
+      )
       .limit(1)
       .then((res) => res[0]);
 

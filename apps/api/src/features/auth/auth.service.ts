@@ -18,6 +18,11 @@ import { ChangePasswordDto } from './dto/change-password-dto';
 import { User } from './auth.interface';
 import { TokenService } from './token.service';
 
+type UserWithProfile = {
+  users: typeof usersTable.$inferSelect;
+  profiles: typeof profilesTable.$inferSelect | null;
+};
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -64,8 +69,11 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
-    const { email, password, code } = dto;
-    const optRecord = await this.optsService.verifyOtp(email, code);
+    const { email, password, confirmPassword, code } = dto;
+    if (password !== confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
+    const optRecord = await this.optsService.verifyOtp(email, code, 'EMAIL_REGISTER');
 
     if (!optRecord) {
       throw new BadRequestException('Verification code error');
@@ -116,7 +124,7 @@ export class AuthService {
       throw new BadRequestException('Passwords do not match');
     }
 
-    const optRecord = await this.optsService.verifyOtp(email, code);
+    const optRecord = await this.optsService.verifyOtp(email, code, 'PASSWORD_RESET');
 
     if (!optRecord) {
       throw new BadRequestException('Verification code error');
@@ -172,10 +180,7 @@ export class AuthService {
     }
   }
 
-  async findUserByEmail(email: string): Promise<{
-    users: typeof usersTable.$inferSelect;
-    profiles: typeof profilesTable.$inferSelect;
-  }> {
+  async findUserByEmail(email: string): Promise<UserWithProfile | undefined> {
     const result = await this.db
       .select()
       .from(usersTable)
@@ -183,13 +188,10 @@ export class AuthService {
       .where(eq(usersTable.email, email))
       .limit(1)
       .then((res) => res[0]);
-    return result;
+    return result as UserWithProfile | undefined;
   }
 
-  async findUserById(userId: string): Promise<{
-    users: typeof usersTable.$inferSelect;
-    profiles: typeof profilesTable.$inferSelect;
-  }> {
+  async findUserById(userId: string): Promise<UserWithProfile | undefined> {
     const result = await this.db
       .select()
       .from(usersTable)
@@ -197,6 +199,6 @@ export class AuthService {
       .where(eq(usersTable.id, userId))
       .limit(1)
       .then((res) => res[0]);
-    return result;
+    return result as UserWithProfile | undefined;
   }
 }
