@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 import { jobOfferStatusEnum } from './_enums';
 import { careerProfilesTable } from './career-profiles';
@@ -36,5 +36,11 @@ export const userJobOffersTable = pgTable(
       table.careerProfileId,
       table.jobOfferId,
     ),
+    userStatusLastStatusAtIdx: index('user_job_offers_user_status_last_status_at_idx').on(
+      table.userId,
+      table.status,
+      table.lastStatusAt.desc(),
+    ),
+    tagsGinIdx: index('user_job_offers_tags_gin_idx').using('gin', table.tags),
   }),
 );

@@ -1,4 +1,4 @@
-import { jsonb, pgTable, text, timestamp, uuid, uniqueIndex } from 'drizzle-orm/pg-core';
+import { index, jsonb, pgTable, text, timestamp, uuid, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { jobSourceEnum } from './_enums';
 import { jobSourceRunsTable } from './job-source-runs';
@@ -23,5 +23,6 @@ export const jobOffersTable = pgTable(
   },
   (table) => ({
     uniqueSourceUrl: uniqueIndex('job_offers_source_url_unique').on(table.source, table.url),
+    sourceFetchedAtIdx: index('job_offers_source_fetched_at_idx').on(table.source, table.fetchedAt.desc()),
   }),
 );
