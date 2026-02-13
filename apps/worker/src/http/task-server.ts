@@ -1,14 +1,13 @@
+import { randomUUID } from 'crypto';
 import { createServer } from 'http';
 import type { IncomingMessage, ServerResponse } from 'http';
 
 import type { Logger } from 'pino';
 
 import type { WorkerEnv } from '../config/env';
-
 import { TaskRunner } from '../queue/task-runner';
-import type { TaskEnvelope } from '../queue/task-types';
 import { taskEnvelopeSchema } from '../queue/task-types';
-
+import type { TaskEnvelope } from '../queue/task-types';
 import type { ScrapeSourceJob } from '../types/jobs';
 
 const readJsonBody = async (req: IncomingMessage): Promise<unknown> => {
@@ -71,6 +70,14 @@ const parseTask = (body: unknown): TaskEnvelope | null => {
   };
 };
 
+const resolveRequestId = (req: IncomingMessage) => {
+  const header = req.headers['x-request-id'];
+  if (Array.isArray(header)) {
+    return header[0] || randomUUID();
+  }
+  return header || randomUUID();
+};
+
 export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
   const runner = new TaskRunner(
     logger,
@@ -94,9 +101,10 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
     },
     env.WORKER_MAX_CONCURRENT_TASKS,
   );
+
   return createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/health') {
-      sendJson(res, 200, { ok: true });
+      sendJson(res, 200, { ok: true, queue: runner.getStats() });
       return;
     }
 
@@ -110,6 +118,9 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       return;
     }
 
+    const requestId = resolveRequestId(req);
+    res.setHeader('x-request-id', requestId);
+
     try {
       const body = await readJsonBody(req);
       const task = parseTask(body);
@@ -118,14 +129,31 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         return;
       }
 
-      const requestId = req.headers['x-request-id'];
-      logger.info({ requestId, taskName: task.name, runId: task.payload.runId ?? null }, 'Task received');
+      if (!task.payload.requestId) {
+        task.payload.requestId = requestId;
+      }
+
+      logger.info(
+        {
+          requestId,
+          taskName: task.name,
+          runId: task.payload.runId ?? null,
+          sourceRunId: task.payload.sourceRunId ?? null,
+        },
+        'Task received',
+      );
 
       runner.enqueue(task);
-      sendJson(res, 202, { ok: true, status: 'accepted', runId: task.payload.runId ?? null });
+      sendJson(res, 202, {
+        ok: true,
+        status: 'accepted',
+        requestId,
+        runId: task.payload.runId ?? null,
+        sourceRunId: task.payload.sourceRunId ?? null,
+      });
     } catch (error) {
-      logger.error({ error: formatError(error) }, 'Task processing failed');
-      sendJson(res, 500, { error: 'Task processing failed' });
+      logger.error({ requestId, error: formatError(error) }, 'Task processing failed');
+      sendJson(res, 500, { error: 'Task processing failed', requestId });
     }
   });
 };

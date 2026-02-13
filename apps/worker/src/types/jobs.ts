@@ -1,6 +1,8 @@
 export type ScrapeSourceJob = {
   source: string;
   runId?: string;
+  sourceRunId?: string;
+  requestId?: string;
   userId?: string;
   careerProfileId?: string;
   listingUrl?: string;

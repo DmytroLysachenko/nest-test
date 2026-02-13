@@ -1,7 +1,7 @@
 import type { Logger } from 'pino';
 
-import type { TaskEnvelope } from './task-types';
 import { handleTask } from './task-handler';
+import type { TaskEnvelope } from './task-types';
 
 type TaskOptions = Parameters<typeof handleTask>[2];
 
@@ -18,10 +18,18 @@ export class TaskRunner {
   enqueue(task: TaskEnvelope) {
     this.queue.push(task);
     this.logger.info(
-      { taskName: task.name, runId: task.payload.runId ?? null, queued: this.queue.length },
+      { taskName: task.name, runId: task.payload.runId ?? null, sourceRunId: task.payload.sourceRunId ?? null, queued: this.queue.length },
       'Task queued',
     );
     this.pump();
+  }
+
+  getStats() {
+    return {
+      queued: this.queue.length,
+      active: this.active,
+      maxConcurrent: this.maxConcurrent,
+    };
   }
 
   private pump() {
@@ -46,7 +54,12 @@ export class TaskRunner {
     const start = Date.now();
     const result = await handleTask(task, this.logger, this.options);
     this.logger.info(
-      { taskName: task.name, runId: task.payload.runId ?? null, durationMs: Date.now() - start },
+      {
+        taskName: task.name,
+        runId: task.payload.runId ?? null,
+        sourceRunId: task.payload.sourceRunId ?? null,
+        durationMs: Date.now() - start,
+      },
       'Task completed',
     );
     return result;

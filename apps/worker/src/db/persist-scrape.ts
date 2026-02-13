@@ -1,9 +1,9 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
+import { jobOffersTable, jobSourceRunsTable } from '@repo/db';
 
 import type { NormalizedJob } from '../sources/types';
 
 import { getDb } from './client';
-import { jobOffersTable, jobSourceRunsTable } from '@repo/db';
 
 const mapSource = (source: string) => {
   if (source === 'pracuj-pl') {
@@ -14,6 +14,7 @@ const mapSource = (source: string) => {
 
 type PersistInput = {
   source: string;
+  sourceRunId?: string;
   listingUrl: string;
   filters?: Record<string, unknown>;
   userId?: string;
@@ -56,7 +57,10 @@ const preferIncomingJson = (column: JsonColumn) =>
         ELSE ${column}
       END`;
 
-export const persistScrapeResult = async (databaseUrl: string | undefined, input: PersistInput) => {
+const ensureRun = async (
+  databaseUrl: string | undefined,
+  input: Omit<PersistInput, 'jobs'> & { jobs?: NormalizedJob[] },
+) => {
   const db = getDb(databaseUrl);
   if (!db) {
     return null;
@@ -65,7 +69,34 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
   const source = mapSource(input.source);
   const now = new Date();
 
-  const run = await db
+  if (input.sourceRunId) {
+    const updateValues: Partial<typeof jobSourceRunsTable.$inferInsert> = {
+      source,
+      listingUrl: input.listingUrl,
+      filters: input.filters ?? null,
+      status: 'RUNNING',
+      startedAt: now,
+      totalFound: input.jobLinks.length,
+    };
+    if (input.userId) {
+      updateValues.userId = input.userId;
+    }
+    if (input.careerProfileId) {
+      updateValues.careerProfileId = input.careerProfileId;
+    }
+
+    const [updated] = await db
+      .update(jobSourceRunsTable)
+      .set(updateValues)
+      .where(eq(jobSourceRunsTable.id, input.sourceRunId))
+      .returning({ id: jobSourceRunsTable.id });
+
+    if (updated?.id) {
+      return updated.id;
+    }
+  }
+
+  const [created] = await db
     .insert(jobSourceRunsTable)
     .values({
       source,
@@ -79,10 +110,64 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
     })
     .returning({ id: jobSourceRunsTable.id });
 
-  const runId = run[0]?.id;
+  return created?.id ?? null;
+};
+
+export const markRunRunning = async (
+  databaseUrl: string | undefined,
+  input: {
+    source: string;
+    sourceRunId?: string;
+    listingUrl: string;
+    filters?: Record<string, unknown>;
+    userId?: string;
+    careerProfileId?: string;
+    jobLinks?: string[];
+  },
+) => {
+  if (!input.sourceRunId) {
+    return null;
+  }
+
+  return ensureRun(databaseUrl, {
+    ...input,
+    jobLinks: input.jobLinks ?? [],
+    jobs: [],
+  });
+};
+
+export const markRunFailed = async (
+  databaseUrl: string | undefined,
+  sourceRunId: string | undefined,
+  error: string,
+) => {
+  const db = getDb(databaseUrl);
+  if (!db || !sourceRunId) {
+    return;
+  }
+
+  await db
+    .update(jobSourceRunsTable)
+    .set({
+      status: 'FAILED',
+      error,
+      completedAt: new Date(),
+    })
+    .where(eq(jobSourceRunsTable.id, sourceRunId));
+};
+
+export const persistScrapeResult = async (databaseUrl: string | undefined, input: PersistInput) => {
+  const db = getDb(databaseUrl);
+  if (!db) {
+    return null;
+  }
+
+  const runId = await ensureRun(databaseUrl, input);
   if (!runId) {
     return null;
   }
+
+  const source = mapSource(input.source);
 
   if (input.jobs.length) {
     await db
@@ -134,7 +219,9 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
     .update(jobSourceRunsTable)
     .set({
       status: 'COMPLETED',
+      totalFound: input.jobLinks.length,
       scrapedCount: input.jobs.length,
+      error: null,
       completedAt: new Date(),
     })
     .where(eq(jobSourceRunsTable.id, runId));
