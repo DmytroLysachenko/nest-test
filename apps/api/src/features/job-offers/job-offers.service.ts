@@ -19,6 +19,8 @@ type ProfileJson = {
   topKeywords?: string[];
 };
 
+const LLM_SCORE_TIMEOUT_MS = 20000;
+
 @Injectable()
 export class JobOffersService {
   constructor(
@@ -49,7 +51,11 @@ export class JobOffersService {
       ...(query.tags ?? []),
     ].filter(Boolean);
     if (tagFilters.length) {
-      conditions.push(sql`${userJobOffersTable.tags} ?| ${sql.array(tagFilters, 'text')}`);
+      const tagsSql = sql.join(
+        tagFilters.map((tag) => sql`${tag}`),
+        sql`, `,
+      );
+      conditions.push(sql`${userJobOffersTable.tags} ?| ARRAY[${tagsSql}]`);
     }
     if (query.search) {
       const term = `%${query.search}%`;
@@ -255,7 +261,12 @@ export class JobOffersService {
 
     const profileJson = profile.contentJson as ProfileJson;
     const prompt = this.buildScorePrompt(profileJson, offer);
-    const content = await this.geminiService.generateText(prompt);
+    const content = await Promise.race([
+      this.geminiService.generateText(prompt),
+      new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error('LLM scoring request timed out')), LLM_SCORE_TIMEOUT_MS),
+      ),
+    ]);
     const parsed = this.parseScoreJson(content);
 
     if (!parsed) {
@@ -264,12 +275,18 @@ export class JobOffersService {
 
     const score = Math.max(0, Math.min(100, Math.round(parsed.score)));
     const isMatch = score >= minScore;
+    const scoredAt = new Date().toISOString();
+    const matchMeta = {
+      ...parsed,
+      model: 'gemini',
+      scoredAt,
+    };
 
     await this.db
       .update(userJobOffersTable)
       .set({
         matchScore: score,
-        matchMeta: parsed,
+        matchMeta,
         updatedAt: new Date(),
       })
       .where(eq(userJobOffersTable.id, offer.id));
@@ -277,7 +294,7 @@ export class JobOffersService {
     return {
       score,
       isMatch,
-      matchMeta: parsed,
+      matchMeta,
     };
   }
 

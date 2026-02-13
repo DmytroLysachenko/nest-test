@@ -14,7 +14,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const { error, message, details } = this.normalizeError(exception);
 
-    const traceId = request.headers['x-request-id'] || request.headers['x-correlation-id'] || request.id || request.url;
+    const traceId =
+      request.requestId ||
+      request.headers['x-request-id'] ||
+      request.headers['x-correlation-id'] ||
+      request.id ||
+      request.url;
 
     this.logger.error({
       traceId,
