@@ -20,15 +20,14 @@ Core services:
 
 - Worker service (Node + Playwright + Cloud Tasks): background jobs and scraping/ingestion
 
-- Frontend (planned): Next.js app for user workflows
+- Frontend (current): React 19 + Vite admin app in `apps/admin`
+- Frontend (planned): Next.js user-facing app in `apps/web`
 
 Scraping note:
 
 - Job scraping is a separate worker service in `apps/worker`.
 
 - The worker ingests jobs, normalizes them, and stores them in the DB for matching.
-- The worker caches previously scraped offers and can skip detail pages if data is fresh.
-- The worker responds immediately to enqueue requests and processes scrapes asynchronously.
 - The worker caches previously scraped offers and can skip detail pages if data is fresh.
 - The worker responds immediately to enqueue requests and processes scrapes asynchronously.
 
@@ -118,15 +117,15 @@ API-owned tables (source of truth):
 
 - These are created/updated by API endpoints only.
 
-Worker-owned tables (planned):
+Worker-owned tables:
 
-- `jobs`, `job_sources`, `job_ingestion_runs`
+- `job_source_runs`, `job_offers`, `user_job_offers` (materialized for user notebook)
 
 - These are created/updated by the worker service and consumed by the API.
 
 Cross-service interactions:
 
-- API reads `jobs` to show results and enable matching.
+- API reads `job_offers`/`user_job_offers` to show results and enable matching.
 
 - Worker never modifies user/auth tables.
 
@@ -470,6 +469,8 @@ Job offers (feed + notebook):
 
 Job source runs:
 - POST /job-sources/scrape (enqueue worker scrape)
+- GET /job-sources/runs (list current user scrape runs)
+- GET /job-sources/runs/:id (get scrape run details)
 - POST /job-sources/complete (worker callback)
 
 ---
@@ -688,7 +689,7 @@ Health check:
 
 ```bash
 
-curl http://localhost:4000/health
+curl http://localhost:4001/health
 
 ```
 
@@ -720,7 +721,7 @@ pnpm start
 
 4. `POST /documents/extract`
 
-Use `apps/api/api.http` for sample requests.
+Use files in `apps/api/http/` for sample requests.
 
 ---
 
@@ -778,7 +779,7 @@ Job matching notes:
 
 ## Testing and Debugging
 
-- API examples: `apps/api/api.http`
+- API examples: `apps/api/http/*.http`
 
 - Swagger (non-production): `/docs`
 
@@ -789,6 +790,14 @@ Job matching notes:
 ## Roadmap (Step-by-Step, Small Tasks)
 
 Each task is scoped to ~300–500 LOC to keep changes focused.
+
+Current execution focus:
+- **Phase 1B — BE + Worker Hardening (In Progress)**
+  - API build/type stabilization
+  - Scrape run lifecycle reliability (`PENDING -> RUNNING -> COMPLETED/FAILED`)
+  - Job source run observability endpoints
+  - OTP correctness and validation hardening
+  - Indexes for hot job-search query paths
 
 ### Phase 1 — Complete V1 Backend + DB
 
