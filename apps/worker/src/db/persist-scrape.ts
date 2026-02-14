@@ -42,20 +42,8 @@ type TextColumn =
 
 type JsonColumn = typeof jobOffersTable.requirements | typeof jobOffersTable.details;
 
-const preferIncomingText = (column: TextColumn, placeholder?: string) =>
-  sql`CASE
-        WHEN excluded.${column} IS NOT NULL
-         AND excluded.${column} != ''
-         ${placeholder ? sql`AND excluded.${column} != ${placeholder}` : sql``}
-        THEN excluded.${column}
-        ELSE ${column}
-      END`;
-
-const preferIncomingJson = (column: JsonColumn) =>
-  sql`CASE
-        WHEN excluded.${column} IS NOT NULL THEN excluded.${column}
-        ELSE ${column}
-      END`;
+const _ensureTypes = (_text: TextColumn, _json: JsonColumn) => undefined;
+_ensureTypes(jobOffersTable.sourceId, jobOffersTable.requirements);
 
 const ensureRun = async (
   databaseUrl: string | undefined,
@@ -191,16 +179,50 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
       .onConflictDoUpdate({
         target: [jobOffersTable.source, jobOffersTable.url],
         set: {
-          sourceId: preferIncomingText(jobOffersTable.sourceId),
-          runId: sql`excluded.${jobOffersTable.runId}`,
-          title: preferIncomingText(jobOffersTable.title, 'Unknown title'),
-          company: preferIncomingText(jobOffersTable.company),
-          location: preferIncomingText(jobOffersTable.location),
-          salary: preferIncomingText(jobOffersTable.salary),
-          employmentType: preferIncomingText(jobOffersTable.employmentType),
-          description: preferIncomingText(jobOffersTable.description, 'No description found'),
-          requirements: preferIncomingJson(jobOffersTable.requirements),
-          details: preferIncomingJson(jobOffersTable.details),
+          sourceId: sql`CASE
+            WHEN excluded."source_id" IS NOT NULL AND excluded."source_id" != ''
+            THEN excluded."source_id"
+            ELSE "job_offers"."source_id"
+          END`,
+          runId: sql`excluded."run_id"`,
+          title: sql`CASE
+            WHEN excluded."title" IS NOT NULL AND excluded."title" != '' AND excluded."title" != 'Unknown title'
+            THEN excluded."title"
+            ELSE "job_offers"."title"
+          END`,
+          company: sql`CASE
+            WHEN excluded."company" IS NOT NULL AND excluded."company" != ''
+            THEN excluded."company"
+            ELSE "job_offers"."company"
+          END`,
+          location: sql`CASE
+            WHEN excluded."location" IS NOT NULL AND excluded."location" != ''
+            THEN excluded."location"
+            ELSE "job_offers"."location"
+          END`,
+          salary: sql`CASE
+            WHEN excluded."salary" IS NOT NULL AND excluded."salary" != ''
+            THEN excluded."salary"
+            ELSE "job_offers"."salary"
+          END`,
+          employmentType: sql`CASE
+            WHEN excluded."employment_type" IS NOT NULL AND excluded."employment_type" != ''
+            THEN excluded."employment_type"
+            ELSE "job_offers"."employment_type"
+          END`,
+          description: sql`CASE
+            WHEN excluded."description" IS NOT NULL AND excluded."description" != '' AND excluded."description" != 'No description found'
+            THEN excluded."description"
+            ELSE "job_offers"."description"
+          END`,
+          requirements: sql`CASE
+            WHEN excluded."requirements" IS NOT NULL THEN excluded."requirements"
+            ELSE "job_offers"."requirements"
+          END`,
+          details: sql`CASE
+            WHEN excluded."details" IS NOT NULL THEN excluded."details"
+            ELSE "job_offers"."details"
+          END`,
           fetchedAt: new Date(),
         },
       });
