@@ -140,6 +140,7 @@ export class JobSourcesService {
       }
 
       const payload = text ? JSON.parse(text) : { ok: true };
+      await this.markRunRunning(run.id);
       this.logger.log({ requestId, sourceRunId: run.id, userId }, 'Scrape run accepted by worker');
 
       return {
@@ -150,6 +151,7 @@ export class JobSourcesService {
       };
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
+        await this.markRunRunning(run.id);
         this.logger.warn({ requestId, sourceRunId: run.id, userId }, 'Worker response timed out');
         return {
           ok: true,
@@ -194,6 +196,17 @@ export class JobSourcesService {
     }
 
     const status = normalizeCompletionStatus(dto);
+    const isTerminal = run.status === 'COMPLETED' || run.status === 'FAILED';
+    if (isTerminal && run.status !== status) {
+      return {
+        ok: true,
+        status: run.status,
+        inserted: 0,
+        idempotent: true,
+        warning: `Run already finalized as ${run.status}`,
+      };
+    }
+
     const scrapedCount = dto.scrapedCount ?? dto.jobCount ?? run.scrapedCount ?? 0;
     const totalFound = dto.totalFound ?? run.totalFound ?? null;
 
@@ -344,6 +357,16 @@ export class JobSourcesService {
         status: 'FAILED',
         error,
         completedAt: new Date(),
+      })
+      .where(eq(jobSourceRunsTable.id, runId));
+  }
+
+  private async markRunRunning(runId: string) {
+    await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        status: 'RUNNING',
+        error: null,
       })
       .where(eq(jobSourceRunsTable.id, runId));
   }

@@ -194,6 +194,50 @@ describe('JobSourcesService', () => {
     });
   });
 
+  it('does not downgrade finalized run state when callback status conflicts', async () => {
+    const db = {
+      select: jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-4',
+                      userId: 'user-4',
+                      careerProfileId: 'profile-4',
+                      status: 'COMPLETED',
+                      totalFound: 3,
+                      scrapedCount: 3,
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn(),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const result = await service.completeScrape({
+      sourceRunId: 'run-4',
+      status: 'FAILED',
+      error: 'late failure callback',
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'COMPLETED',
+      inserted: 0,
+      idempotent: true,
+    });
+    expect(db.update).not.toHaveBeenCalled();
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+
   it('handles completed callback and inserts new user offers', async () => {
     const db = {
       select: jest

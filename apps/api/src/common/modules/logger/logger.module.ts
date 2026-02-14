@@ -6,6 +6,9 @@ const redactFields = [
   'req.headers.authorization',
   'req.body.password',
   'req.body.confirmPassword',
+  'req.body.code',
+  'req.body.accessToken',
+  'req.body.refreshToken',
   'req.headers.cookie',
 ];
 const basePinoOptions = {

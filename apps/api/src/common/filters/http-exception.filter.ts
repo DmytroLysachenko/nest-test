@@ -37,7 +37,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message,
         details,
       },
-      mate: {
+      meta: {
         traceId,
         timestamp: new Date().toISOString(),
       },
