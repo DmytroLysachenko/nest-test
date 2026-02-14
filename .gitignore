@@ -51,3 +51,7 @@ packages/db/migrations
 apps/worker/data
 apps/worker/.profiles
 pracuj-pl-cookies.json
+
+# Local smoke/runtime logs
+.tmp-test-logs/
+*.tmp.log

@@ -720,6 +720,31 @@ This starts:
 
 `apps/admin` remains available for temporary dual-run validation and can be started separately.
 
+### Seed minimal e2e fixtures
+
+```bash
+
+pnpm --filter @repo/db seed:e2e
+
+```
+
+This prepares fixture users (`admin@example.com`, `user@example.com`) and creates a READY active career profile per user so scrape endpoints can be tested without manual setup.
+
+### Run one-command e2e smoke check
+
+```bash
+
+pnpm smoke:e2e
+
+```
+
+This command will:
+- seed minimal e2e fixtures,
+- verify API/Worker/Web health endpoints,
+- login with fixture credentials,
+- call `GET /api/job-sources/runs`,
+- enqueue a scrape job via `POST /api/job-sources/scrape`.
+
 ---
 
 ## GCS Upload Flow (Details)
