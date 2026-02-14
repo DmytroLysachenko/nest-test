@@ -20,7 +20,39 @@ type CallbackPayload = {
   error?: string;
 };
 
+export type ScrapeFailureType = 'validation' | 'network' | 'parse' | 'callback' | 'timeout' | 'unknown';
+
 const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const toError = (error: unknown) => (error instanceof Error ? error : new Error('Unknown error'));
+
+export const classifyScrapeError = (error: unknown): ScrapeFailureType => {
+  const normalized = toError(error);
+  const message = normalized.message.toLowerCase();
+
+  if (normalized.name === 'ScrapeTimeoutError' || message.includes('timed out')) {
+    return 'timeout';
+  }
+  if (message.includes('callback')) {
+    return 'callback';
+  }
+  if (message.includes('parse') || message.includes('invalid json') || message.includes('schema')) {
+    return 'parse';
+  }
+  if (message.includes('required') || message.includes('invalid') || message.includes('unsupported')) {
+    return 'validation';
+  }
+  if (
+    message.includes('fetch') ||
+    message.includes('network') ||
+    message.includes('ecconn') ||
+    message.includes('cloudflare') ||
+    message.includes('navigation')
+  ) {
+    return 'network';
+  }
+
+  return 'unknown';
+};
 
 const notifyCallback = async (
   url: string,
@@ -115,6 +147,7 @@ export const runScrapeJob = async (
     callbackRetryAttempts?: number;
     callbackRetryBackoffMs?: number;
     callbackDeadLetterDir?: string;
+    scrapeTimeoutMs?: number;
   },
 ) => {
   const startedAt = Date.now();
@@ -130,7 +163,7 @@ export const runScrapeJob = async (
     const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
     const callbackToken = payload.callbackToken ?? options.callbackToken;
 
-    const { crawlResult, parsedJobs, normalized } = await runPipeline(payload.source, {
+    const pipelinePromise = runPipeline(payload.source, {
       headless: options.headless,
       listingUrl,
       limit: payload.limit,
@@ -146,6 +179,19 @@ export const runScrapeJob = async (
         profileDir: options.profileDir,
       },
     });
+    const timeoutMs = options.scrapeTimeoutMs ?? 180000;
+    let timeoutRef: NodeJS.Timeout | null = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      const timeoutError = new Error(`Scrape timed out after ${timeoutMs}ms`);
+      timeoutError.name = 'ScrapeTimeoutError';
+      timeoutRef = setTimeout(() => reject(timeoutError), timeoutMs);
+      timeoutRef?.unref?.();
+    });
+
+    const { crawlResult, parsedJobs, normalized } = await Promise.race([pipelinePromise, timeoutPromise]);
+    if (timeoutRef) {
+      clearTimeout(timeoutRef);
+    }
     const {
       pages,
       blockedUrls,
@@ -226,6 +272,7 @@ export const runScrapeJob = async (
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown scrape failure';
+    const failureType = classifyScrapeError(error);
     const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
     const callbackToken = payload.callbackToken ?? options.callbackToken;
     if (callbackUrl) {
@@ -239,7 +286,7 @@ export const runScrapeJob = async (
           sourceRunId,
           listingUrl,
           status: 'FAILED',
-          error: errorMessage,
+          error: `[${failureType}] ${errorMessage}`,
         }),
         {
           retryAttempts: options.callbackRetryAttempts ?? 3,
@@ -256,6 +303,7 @@ export const runScrapeJob = async (
         source: payload.source,
         runId,
         sourceRunId,
+        failureType,
         error: errorMessage,
         durationMs: Date.now() - startedAt,
       },

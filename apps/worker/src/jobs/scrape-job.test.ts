@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildScrapeCallbackPayload } from './scrape-job';
+import { buildScrapeCallbackPayload, classifyScrapeError } from './scrape-job';
 
 test('buildScrapeCallbackPayload emits completed callback fields', () => {
   const payload = buildScrapeCallbackPayload({
@@ -35,4 +35,18 @@ test('buildScrapeCallbackPayload emits failure callback fields', () => {
   assert.equal(payload.status, 'FAILED');
   assert.equal(payload.error, 'Cloudflare blocked request');
   assert.equal(payload.scrapedCount, undefined);
+});
+
+test('classifyScrapeError maps timeout errors', () => {
+  const timeoutError = new Error('Scrape timed out after 120000ms');
+  timeoutError.name = 'ScrapeTimeoutError';
+  assert.equal(classifyScrapeError(timeoutError), 'timeout');
+});
+
+test('classifyScrapeError maps callback errors', () => {
+  assert.equal(classifyScrapeError(new Error('Callback rejected (401): unauthorized')), 'callback');
+});
+
+test('classifyScrapeError maps network errors', () => {
+  assert.equal(classifyScrapeError(new Error('Cloudflare blocked request')), 'network');
 });

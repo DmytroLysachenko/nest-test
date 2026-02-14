@@ -53,20 +53,25 @@ const verifyAuth = (req: IncomingMessage, env: WorkerEnv) => {
 
 const scrapePayloadSchema = taskEnvelopeSchema.shape.payload;
 
-const parseTask = (body: unknown): TaskEnvelope | null => {
+const parseTask = (body: unknown): { task: TaskEnvelope | null; error?: string } => {
   const envelopeResult = taskEnvelopeSchema.safeParse(body);
   if (envelopeResult.success) {
-    return envelopeResult.data as TaskEnvelope;
+    return { task: envelopeResult.data as TaskEnvelope };
   }
 
   const payloadResult = scrapePayloadSchema.safeParse(body);
   if (!payloadResult.success) {
-    return null;
+    const issues = [...envelopeResult.error.issues, ...payloadResult.error.issues]
+      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+      .join('; ');
+    return { task: null, error: issues || 'Invalid payload' };
   }
 
   return {
-    name: 'scrape:source',
-    payload: payloadResult.data as ScrapeSourceJob,
+    task: {
+      name: 'scrape:source',
+      payload: payloadResult.data as ScrapeSourceJob,
+    },
   };
 };
 
@@ -100,8 +105,10 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       callbackRetryAttempts: env.WORKER_CALLBACK_RETRY_ATTEMPTS,
       callbackRetryBackoffMs: env.WORKER_CALLBACK_RETRY_BACKOFF_MS,
       callbackDeadLetterDir: env.WORKER_DEAD_LETTER_DIR,
+      scrapeTimeoutMs: env.WORKER_TASK_TIMEOUT_MS,
     },
     env.WORKER_MAX_CONCURRENT_TASKS,
+    env.WORKER_TASK_TIMEOUT_MS,
   );
 
   return createServer(async (req, res) => {
@@ -125,11 +132,12 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
 
     try {
       const body = await readJsonBody(req);
-      const task = parseTask(body);
-      if (!task) {
-        sendJson(res, 400, { error: 'Invalid task payload' });
+      const parsed = parseTask(body);
+      if (!parsed.task) {
+        sendJson(res, 400, { error: 'Invalid task payload', details: parsed.error, requestId });
         return;
       }
+      const task = parsed.task;
 
       if (!task.payload.requestId) {
         task.payload.requestId = requestId;

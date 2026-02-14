@@ -4,21 +4,32 @@ import { handleTask } from './task-handler';
 import type { TaskEnvelope } from './task-types';
 
 type TaskOptions = Parameters<typeof handleTask>[2];
+type QueueItem = {
+  task: TaskEnvelope;
+  enqueuedAt: number;
+};
 
 export class TaskRunner {
-  private readonly queue: TaskEnvelope[] = [];
+  private readonly queue: QueueItem[] = [];
   private active = 0;
 
   constructor(
     private readonly logger: Logger,
     private readonly options: TaskOptions,
     private readonly maxConcurrent: number,
+    private readonly taskTimeoutMs: number,
   ) {}
 
   enqueue(task: TaskEnvelope) {
-    this.queue.push(task);
+    this.queue.push({ task, enqueuedAt: Date.now() });
     this.logger.info(
-      { taskName: task.name, runId: task.payload.runId ?? null, sourceRunId: task.payload.sourceRunId ?? null, queued: this.queue.length },
+      {
+        taskName: task.name,
+        runId: task.payload.runId ?? null,
+        sourceRunId: task.payload.sourceRunId ?? null,
+        requestId: task.payload.requestId ?? null,
+        queued: this.queue.length,
+      },
       'Task queued',
     );
     this.pump();
@@ -34,7 +45,7 @@ export class TaskRunner {
 
   private pump() {
     while (this.active < this.maxConcurrent && this.queue.length > 0) {
-      const next = this.queue.shift();
+      const next = this.queue.shift() as QueueItem | undefined;
       if (!next) {
         return;
       }
@@ -50,18 +61,34 @@ export class TaskRunner {
     }
   }
 
-  private async run(task: TaskEnvelope) {
+  private async run(item: QueueItem) {
+    const task = item.task;
     const start = Date.now();
-    const result = await handleTask(task, this.logger, this.options);
-    this.logger.info(
-      {
-        taskName: task.name,
-        runId: task.payload.runId ?? null,
-        sourceRunId: task.payload.sourceRunId ?? null,
-        durationMs: Date.now() - start,
-      },
-      'Task completed',
-    );
-    return result;
+    let timeoutRef: NodeJS.Timeout | null = null;
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutRef = setTimeout(() => {
+          reject(new Error(`Task timed out after ${this.taskTimeoutMs}ms`));
+        }, this.taskTimeoutMs);
+        timeoutRef?.unref?.();
+      });
+      const result = await Promise.race([handleTask(task, this.logger, this.options), timeoutPromise]);
+      this.logger.info(
+        {
+          taskName: task.name,
+          runId: task.payload.runId ?? null,
+          sourceRunId: task.payload.sourceRunId ?? null,
+          requestId: task.payload.requestId ?? null,
+          queueWaitMs: start - item.enqueuedAt,
+          durationMs: Date.now() - start,
+        },
+        'Task completed',
+      );
+      return result;
+    } finally {
+      if (timeoutRef) {
+        clearTimeout(timeoutRef);
+      }
+    }
   }
 }
