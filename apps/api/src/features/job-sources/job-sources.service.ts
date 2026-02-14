@@ -101,6 +101,28 @@ const mapSource = (source: string) => {
 };
 
 const normalizeCompletionStatus = (dto: ScrapeCompleteDto) => dto.status ?? 'COMPLETED';
+const deriveFailureType = (error?: string | null) => {
+  const normalized = (error ?? '').toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  if (normalized.includes('[timeout]') || normalized.includes('timed out')) {
+    return 'timeout';
+  }
+  if (normalized.includes('[network]') || normalized.includes('cloudflare') || normalized.includes('fetch')) {
+    return 'network';
+  }
+  if (normalized.includes('[validation]') || normalized.includes('invalid') || normalized.includes('required')) {
+    return 'validation';
+  }
+  if (normalized.includes('[parse]') || normalized.includes('parse')) {
+    return 'parse';
+  }
+  if (normalized.includes('[callback]') || normalized.includes('callback')) {
+    return 'callback';
+  }
+  return 'unknown';
+};
 
 @Injectable()
 export class JobSourcesService {
@@ -217,7 +239,7 @@ export class JobSourcesService {
     }
   }
 
-  async completeScrape(dto: ScrapeCompleteDto, authorization?: string) {
+  async completeScrape(dto: ScrapeCompleteDto, authorization?: string, requestId?: string) {
     const token = this.configService.get('WORKER_CALLBACK_TOKEN', { infer: true });
     if (token) {
       const header = authorization ?? '';
@@ -235,6 +257,7 @@ export class JobSourcesService {
         status: jobSourceRunsTable.status,
         totalFound: jobSourceRunsTable.totalFound,
         scrapedCount: jobSourceRunsTable.scrapedCount,
+        startedAt: jobSourceRunsTable.startedAt,
       })
       .from(jobSourceRunsTable)
       .where(eq(jobSourceRunsTable.id, dto.sourceRunId))
@@ -246,8 +269,13 @@ export class JobSourcesService {
     }
 
     const status = normalizeCompletionStatus(dto);
+    const statusFrom = run.status;
     const isTerminal = run.status === 'COMPLETED' || run.status === 'FAILED';
     if (isTerminal && run.status === status) {
+      this.logger.log(
+        { requestId, sourceRunId: run.id, statusFrom, statusTo: status, idempotent: true },
+        'Scrape callback ignored because run is already finalized',
+      );
       return {
         ok: true,
         status: run.status,
@@ -256,6 +284,10 @@ export class JobSourcesService {
       };
     }
     if (isTerminal && run.status !== status) {
+      this.logger.warn(
+        { requestId, sourceRunId: run.id, statusFrom, statusTo: status, idempotent: true },
+        'Scrape callback attempted conflicting terminal status',
+      );
       return {
         ok: true,
         status: run.status,
@@ -269,6 +301,7 @@ export class JobSourcesService {
     const totalFound = dto.totalFound ?? dto.jobLinkCount ?? run.totalFound ?? null;
 
     if (status === 'FAILED') {
+      const completedAt = new Date();
       await this.db
         .update(jobSourceRunsTable)
         .set({
@@ -276,9 +309,22 @@ export class JobSourcesService {
           scrapedCount,
           totalFound,
           error: dto.error ?? 'Scrape failed in worker',
-          completedAt: new Date(),
+          completedAt,
         })
         .where(eq(jobSourceRunsTable.id, run.id));
+      this.logger.warn(
+        {
+          requestId,
+          sourceRunId: run.id,
+          statusFrom,
+          statusTo: 'FAILED',
+          failureType: deriveFailureType(dto.error),
+          totalFound,
+          scrapedCount,
+          durationMs: this.resolveRunDurationMs(run.startedAt ?? null, completedAt),
+        },
+        'Scrape run finalized as FAILED',
+      );
 
       return {
         ok: true,
@@ -377,6 +423,19 @@ export class JobSourcesService {
       .onConflictDoNothing()
       .returning({ id: userJobOffersTable.id });
 
+    this.logger.log(
+      {
+        requestId,
+        sourceRunId: run.id,
+        statusFrom,
+        statusTo: 'COMPLETED',
+        totalFound,
+        scrapedCount,
+        offersInserted: inserted.length,
+      },
+      'Scrape run finalized as COMPLETED',
+    );
+
     return {
       ok: true,
       status: 'COMPLETED',
@@ -426,7 +485,11 @@ export class JobSourcesService {
       throw new NotFoundException('Job source run not found');
     }
 
-    return run;
+    return {
+      ...run,
+      finalizedAt: run.completedAt,
+      failureType: deriveFailureType(run.error),
+    };
   }
 
   private async getActiveCareerProfileId(userId: string) {
@@ -467,7 +530,7 @@ export class JobSourcesService {
         error,
         completedAt: new Date(),
       })
-      .where(eq(jobSourceRunsTable.id, runId));
+      .where(and(eq(jobSourceRunsTable.id, runId), eq(jobSourceRunsTable.status, 'PENDING')));
   }
 
   private async markRunRunning(runId: string) {
@@ -477,6 +540,13 @@ export class JobSourcesService {
         status: 'RUNNING',
         error: null,
       })
-      .where(eq(jobSourceRunsTable.id, runId));
+      .where(and(eq(jobSourceRunsTable.id, runId), eq(jobSourceRunsTable.status, 'PENDING')));
+  }
+
+  private resolveRunDurationMs(startedAt: Date | null, completedAt: Date) {
+    if (!startedAt) {
+      return null;
+    }
+    return Math.max(0, completedAt.getTime() - startedAt.getTime());
   }
 }
