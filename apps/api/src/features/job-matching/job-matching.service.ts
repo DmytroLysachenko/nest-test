@@ -1,9 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { careerProfilesTable, jobMatchesTable } from '@repo/db';
+import { careerProfilesTable, jobMatchesTable, profileInputsTable } from '@repo/db';
 import { and, desc, eq, sql } from 'drizzle-orm';
 
 import { Drizzle } from '@/common/decorators';
+import type { NormalizedProfileInput } from '@/features/profile-inputs/normalization/schema';
 
 import { ScoreJobDto } from './dto/score-job.dto';
 import { ListJobMatchesQuery } from './dto/list-job-matches.query';
@@ -22,13 +23,17 @@ export class JobMatchingService {
   constructor(@Drizzle() private readonly db: NodePgDatabase) {}
 
   async scoreJob(userId: string, dto: ScoreJobDto) {
-    const profile = await this.db
+    const row = await this.db
       .select()
       .from(careerProfilesTable)
+      .leftJoin(profileInputsTable, eq(profileInputsTable.id, careerProfilesTable.profileInputId))
       .where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true)))
       .orderBy(desc(careerProfilesTable.createdAt))
       .limit(1)
       .then(([result]) => result);
+
+    const profile = row?.career_profiles;
+    const profileInput = row?.profile_inputs;
 
     if (!profile) {
       throw new NotFoundException('Career profile not found');
@@ -39,7 +44,8 @@ export class JobMatchingService {
     }
 
     const profileJson = profile.contentJson as ProfileJson;
-    const score = this.calculateScore(dto.jobDescription, profileJson);
+    const normalizedInput = (profileInput?.normalizedInput as NormalizedProfileInput | null | undefined) ?? null;
+    const score = this.calculateScore(dto.jobDescription, profileJson, normalizedInput);
     const minScore = dto.minScore ?? 0;
     const isMatch = score.score >= minScore;
 
@@ -124,12 +130,26 @@ export class JobMatchingService {
     return match;
   }
 
-  private calculateScore(jobDescription: string, profile: ProfileJson) {
+  private calculateScore(jobDescription: string, profile: ProfileJson, normalizedInput?: NormalizedProfileInput | null) {
     const jobTokens = this.tokenize(jobDescription);
-    const skills = this.tokenizeList(profile.coreSkills ?? []);
-    const roles = this.tokenizeList(profile.preferredRoles ?? []);
+    const canonicalSkills = [
+      ...(normalizedInput?.technologies ?? []),
+      ...(normalizedInput?.specializations ?? []),
+      ...(profile.coreSkills ?? []),
+    ];
+    const canonicalRoles = [
+      ...(normalizedInput?.roles?.map((role) => role.name) ?? []),
+      ...(normalizedInput?.seniority ?? []),
+      ...(profile.preferredRoles ?? []),
+    ];
+    const skills = this.tokenizeList(canonicalSkills);
+    const roles = this.tokenizeList(canonicalRoles);
     const strengths = this.tokenizeList(profile.strengths ?? []);
-    const keywords = this.tokenizeList(profile.topKeywords ?? []);
+    const keywords = this.tokenizeList([
+      ...(profile.topKeywords ?? []),
+      ...(normalizedInput?.specializations ?? []),
+      ...(normalizedInput?.technologies ?? []),
+    ]);
 
     const matchedSkills = this.intersect(jobTokens, skills);
     const matchedRoles = this.intersect(jobTokens, roles);
