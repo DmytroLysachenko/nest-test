@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
 
 import { logout } from '@/features/auth/api/auth-api';
@@ -9,7 +10,10 @@ import { DocumentsPanel } from '@/features/documents/ui/documents-panel';
 import { JobMatchingPanel } from '@/features/job-matching/ui/job-matching-panel';
 import { JobSourcesPanel } from '@/features/job-sources/ui/job-sources-panel';
 import { ProfileInputPanel } from '@/features/profile-inputs/ui/profile-input-panel';
+import { env } from '@/shared/config/env';
 import { Button } from '@/shared/ui/button';
+
+const testerEnabled = process.env.NODE_ENV !== 'production' && env.NEXT_PUBLIC_ENABLE_TESTER;
 
 export default function AppDashboardPage() {
   const auth = useRequireAuth();
@@ -41,6 +45,18 @@ export default function AppDashboardPage() {
           {logoutMutation.isPending ? 'Signing out...' : 'Sign out'}
         </Button>
       </header>
+
+      {testerEnabled ? (
+        <section className="rounded-xl border border-sky-200 bg-sky-50 p-4">
+          <p className="text-sm text-slate-700">
+            Internal testing is enabled. Open{' '}
+            <Link className="font-semibold text-sky-700 underline" href="/app/tester">
+              /app/tester
+            </Link>{' '}
+            to test API and worker endpoints.
+          </p>
+        </section>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <ProfileInputPanel token={auth.token} />
