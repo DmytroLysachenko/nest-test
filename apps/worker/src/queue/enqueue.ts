@@ -34,29 +34,80 @@ const parseLimit = (value?: string) => {
 
 const listingUrl = readArg('--listingUrl') ?? env.PRACUJ_LISTING_URL;
 const limit = parseLimit(readArg('--limit'));
+const source = readArg('--source') ?? 'pracuj-pl-it';
 const workModes = readArg('--workModes')?.split(',').filter(Boolean);
+const workDimensions = readArg('--workDimensions')?.split(',').filter(Boolean);
 const specializations = readArg('--specializations')?.split(',').filter(Boolean);
+const technologies = readArg('--technologies')?.split(',').filter(Boolean);
+const categories = readArg('--categories')?.split(',').filter(Boolean);
 const location = readArg('--location');
+const radiusKm = readArg('--radiusKm');
+const publishedWithinDays = readArg('--publishedWithinDays');
 const employmentTypes = readArg('--employmentTypes')?.split(',').filter(Boolean);
 const experienceLevels = readArg('--experienceLevels')?.split(',').filter(Boolean);
+const positionLevels = readArg('--positionLevels')?.split(',').filter(Boolean);
+const contractTypes = readArg('--contractTypes')?.split(',').filter(Boolean);
+const salaryMin = readArg('--salaryMin');
 const keywords = readArg('--keywords');
+const onlyWithProjectDescription = readArg('--onlyWithProjectDescription');
+const onlyEmployerOffers = readArg('--onlyEmployerOffers');
+const ukrainiansWelcome = readArg('--ukrainiansWelcome');
+const noPolishRequired = readArg('--noPolishRequired');
+
+const parseBoolean = (value?: string) => (value ? ['1', 'true', 'yes', 'y'].includes(value.toLowerCase()) : undefined);
+const parseNumber = (value?: string) => {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
 
 const payload: TaskEnvelope = {
   name: 'scrape:source',
   payload: {
-    source: 'pracuj-pl',
+    source,
     runId: `run-${Date.now()}`,
     listingUrl,
     limit,
     filters:
-      workModes || specializations || location || employmentTypes || experienceLevels || keywords
+      workModes ||
+      workDimensions ||
+      specializations ||
+      technologies ||
+      categories ||
+      location ||
+      radiusKm ||
+      publishedWithinDays ||
+      employmentTypes ||
+      experienceLevels ||
+      positionLevels ||
+      contractTypes ||
+      salaryMin ||
+      keywords ||
+      onlyWithProjectDescription ||
+      onlyEmployerOffers ||
+      ukrainiansWelcome ||
+      noPolishRequired
         ? {
             workModes,
+            workDimensions,
             specializations,
+            technologies,
+            categories,
             location,
+            radiusKm: parseNumber(radiusKm),
+            publishedWithinDays: parseNumber(publishedWithinDays),
             employmentTypes,
             experienceLevels,
+            positionLevels,
+            contractTypes,
+            salaryMin: parseNumber(salaryMin),
             keywords,
+            onlyWithProjectDescription: parseBoolean(onlyWithProjectDescription),
+            onlyEmployerOffers: parseBoolean(onlyEmployerOffers),
+            ukrainiansWelcome: parseBoolean(ukrainiansWelcome),
+            noPolishRequired: parseBoolean(noPolishRequired),
           }
         : undefined,
   },

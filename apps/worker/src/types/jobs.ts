@@ -12,7 +12,19 @@ export type ScrapeSourceJob = {
   filters?: {
     specializations?: string[];
     workModes?: string[];
+    workDimensions?: string[];
     location?: string;
+    radiusKm?: number;
+    publishedWithinDays?: number;
+    positionLevels?: string[];
+    contractTypes?: string[];
+    technologies?: string[];
+    salaryMin?: number;
+    onlyWithProjectDescription?: boolean;
+    onlyEmployerOffers?: boolean;
+    ukrainiansWelcome?: boolean;
+    noPolishRequired?: boolean;
+    categories?: string[];
     employmentTypes?: string[];
     experienceLevels?: string[];
     keywords?: string;

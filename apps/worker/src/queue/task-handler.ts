@@ -23,6 +23,9 @@ export const handleTask = async (
     outputMode?: 'full' | 'minimal';
     callbackUrl?: string;
     callbackToken?: string;
+    callbackRetryAttempts?: number;
+    callbackRetryBackoffMs?: number;
+    callbackDeadLetterDir?: string;
   },
 ) => {
   switch (task.name) {
@@ -43,6 +46,9 @@ export const handleTask = async (
         outputMode: options.outputMode,
         callbackUrl: options.callbackUrl,
         callbackToken: options.callbackToken,
+        callbackRetryAttempts: options.callbackRetryAttempts,
+        callbackRetryBackoffMs: options.callbackRetryBackoffMs,
+        callbackDeadLetterDir: options.callbackDeadLetterDir,
       });
     default:
       throw new Error(`Unhandled task type: ${task.name}`);

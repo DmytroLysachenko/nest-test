@@ -59,9 +59,9 @@ const normalizeDetails = (details?: JobDetails): JobDetails | undefined => {
   return normalized;
 };
 
-export const normalizePracujPl = (jobs: ParsedJob[]): NormalizedJob[] => {
+export const normalizePracujPl = (jobs: ParsedJob[], source = 'pracuj-pl'): NormalizedJob[] => {
   return jobs.map((job) => ({
-    source: 'pracuj-pl',
+    source,
     sourceId: job.sourceId ? job.sourceId.trim() : null,
     title: job.title.trim(),
     company: normalizeText(job.company),

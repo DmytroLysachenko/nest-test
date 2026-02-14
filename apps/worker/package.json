@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "build": "tsup",
+    "callbacks:replay": "tsx src/jobs/replay-dead-letters.ts",
     "dev": "tsx watch src/index.ts",
     "enqueue": "tsx src/queue/enqueue.ts",
     "lint": "eslint . --ext .ts",

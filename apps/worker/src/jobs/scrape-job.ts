@@ -1,10 +1,8 @@
 import type { Logger } from 'pino';
 
+import { persistDeadLetter } from './callback-dead-letter';
+import { resolvePipeline, runPipeline } from './scrape-pipelines';
 import { saveOutput } from '../output/save-output';
-import { crawlPracujPl } from '../sources/pracuj-pl/crawl';
-import { normalizePracujPl } from '../sources/pracuj-pl/normalize';
-import { parsePracujPl } from '../sources/pracuj-pl/parse';
-import { buildPracujListingUrl } from '../sources/pracuj-pl/url-builder';
 import type { ScrapeSourceJob } from '../types/jobs';
 
 type CallbackPayload = {
@@ -29,22 +27,27 @@ const notifyCallback = async (
   token: string | undefined,
   requestId: string | undefined,
   payload: CallbackPayload,
+  options: {
+    retryAttempts: number;
+    retryBackoffMs: number;
+    deadLetterDir?: string;
+  },
   logger: Logger,
 ) => {
   let lastError: unknown;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  for (let attempt = 1; attempt <= options.retryAttempts; attempt += 1) {
     try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(requestId ? { 'x-request-id': requestId } : {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) {
-      const text = await response.text();
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(requestId ? { 'x-request-id': requestId } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const text = await response.text();
         lastError = new Error(`Callback rejected (${response.status}): ${text}`);
         logger.warn({ requestId, status: response.status, body: text, attempt }, 'Callback rejected');
       } else {
@@ -55,10 +58,23 @@ const notifyCallback = async (
       lastError = error;
       logger.warn({ requestId, error, attempt }, 'Failed to notify callback');
     }
-    if (attempt < 3) {
-      await sleep(attempt * 1000);
+    if (attempt < options.retryAttempts) {
+      await sleep(attempt * options.retryBackoffMs);
     }
   }
+
+  await persistDeadLetter(
+    {
+      callbackUrl: url,
+      callbackToken: token,
+      requestId,
+      payload: buildScrapeCallbackPayload(payload),
+      reason: lastError instanceof Error ? lastError.message : 'Unknown callback failure',
+      createdAt: new Date().toISOString(),
+    },
+    options.deadLetterDir,
+    logger,
+  );
   logger.error({ requestId, error: lastError }, 'Callback failed after retries');
 };
 
@@ -96,17 +112,16 @@ export const runScrapeJob = async (
     outputMode?: 'full' | 'minimal';
     callbackUrl?: string;
     callbackToken?: string;
+    callbackRetryAttempts?: number;
+    callbackRetryBackoffMs?: number;
+    callbackDeadLetterDir?: string;
   },
 ) => {
   const startedAt = Date.now();
   const runId = payload.runId ?? `run-${Date.now()}`;
   const sourceRunId = payload.sourceRunId;
-
-  if (payload.source !== 'pracuj-pl') {
-    throw new Error(`Unknown source: ${payload.source}`);
-  }
-
-  const listingUrl = payload.listingUrl ?? (payload.filters ? buildPracujListingUrl(payload.filters) : undefined);
+  const pipeline = resolvePipeline(payload.source);
+  const listingUrl = payload.listingUrl ?? (payload.filters ? pipeline.buildListingUrl(payload.filters) : undefined);
   if (!listingUrl) {
     throw new Error('listingUrl or filters are required');
   }
@@ -115,8 +130,12 @@ export const runScrapeJob = async (
     const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
     const callbackToken = payload.callbackToken ?? options.callbackToken;
 
-    const { pages, blockedUrls, jobLinks, listingHtml, listingData, listingSummaries, detailDiagnostics } =
-      await crawlPracujPl(options.headless, listingUrl, payload.limit, logger, {
+    const { crawlResult, parsedJobs, normalized } = await runPipeline(payload.source, {
+      headless: options.headless,
+      listingUrl,
+      limit: payload.limit,
+      logger,
+      options: {
         listingDelayMs: options.listingDelayMs,
         listingCooldownMs: options.listingCooldownMs,
         detailDelayMs: options.detailDelayMs,
@@ -125,25 +144,17 @@ export const runScrapeJob = async (
         detailCookiesPath: options.detailCookiesPath,
         detailHumanize: options.detailHumanize,
         profileDir: options.profileDir,
-      });
-
-    const parsedJobs =
-      pages.length > 0
-        ? parsePracujPl(pages)
-        : options.requireDetail
-          ? []
-          : listingSummaries.map((summary) => ({
-              title: summary.title ?? 'Unknown title',
-              company: summary.company,
-              location: summary.location,
-              description: summary.description ?? 'Listing summary only',
-              url: summary.url,
-              salary: summary.salary,
-              sourceId: summary.sourceId,
-              requirements: [],
-              details: summary.details,
-            }));
-    const normalized = normalizePracujPl(parsedJobs);
+      },
+    });
+    const {
+      pages,
+      blockedUrls,
+      jobLinks,
+      listingHtml,
+      listingData,
+      listingSummaries,
+      detailDiagnostics,
+    } = crawlResult;
     const outputPath = await saveOutput(
       {
         source: payload.source,
@@ -182,6 +193,11 @@ export const runScrapeJob = async (
           jobs: normalized,
           outputPath,
         }),
+        {
+          retryAttempts: options.callbackRetryAttempts ?? 3,
+          retryBackoffMs: options.callbackRetryBackoffMs ?? 1000,
+          deadLetterDir: options.callbackDeadLetterDir,
+        },
         logger,
       );
     }
@@ -225,6 +241,11 @@ export const runScrapeJob = async (
           status: 'FAILED',
           error: errorMessage,
         }),
+        {
+          retryAttempts: options.callbackRetryAttempts ?? 3,
+          retryBackoffMs: options.callbackRetryBackoffMs ?? 1000,
+          deadLetterDir: options.callbackDeadLetterDir,
+        },
         logger,
       );
     }

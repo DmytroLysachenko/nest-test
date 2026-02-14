@@ -97,6 +97,9 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       outputMode: env.WORKER_OUTPUT_MODE,
       callbackUrl: env.WORKER_CALLBACK_URL,
       callbackToken: env.WORKER_CALLBACK_TOKEN,
+      callbackRetryAttempts: env.WORKER_CALLBACK_RETRY_ATTEMPTS,
+      callbackRetryBackoffMs: env.WORKER_CALLBACK_RETRY_BACKOFF_MS,
+      callbackDeadLetterDir: env.WORKER_DEAD_LETTER_DIR,
     },
     env.WORKER_MAX_CONCURRENT_TASKS,
   );
