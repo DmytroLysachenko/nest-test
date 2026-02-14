@@ -1,0 +1,29 @@
+{
+  "extends": "@repo/ts-config/tsconfig.base.react.json",
+  "compilerOptions": {
+    "strict": true,
+    "skipLibCheck": true,
+    "allowArbitraryExtensions": true,
+    "baseUrl": ".",
+    "resolveJsonModule": true,
+    "incremental": true,
+    "types": ["vitest/globals"],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@repo/ui/*": ["../../packages/ui/src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}
