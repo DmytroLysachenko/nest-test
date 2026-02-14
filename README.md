@@ -12,6 +12,8 @@ This repository is a full-stack monorepo for a career search assistant. The back
 
 This README is designed to be the primary source of context for both humans and LLMs. It describes the current workflow, data model, endpoints, and development setup.
 
+Engineering standards and contribution rules are defined in `CONTRIBUTING.md`.
+
 ## System Architecture (High Level)
 
 Core services:
@@ -21,7 +23,7 @@ Core services:
 - Worker service (Node + Playwright + Cloud Tasks): background jobs and scraping/ingestion
 
 - Frontend (current): React 19 + Vite admin app in `apps/admin`
-- Frontend (planned): Next.js user-facing app in `apps/web`
+- Frontend (new): Next.js user-facing app in `apps/web`
 
 Scraping note:
 
@@ -631,6 +633,8 @@ cp apps/api/.env.example apps/api/.env
 
 cp apps/admin/.env.example apps/admin/.env
 
+cp apps/web/.env.example apps/web/.env
+
 cp packages/db/.env.example packages/db/.env
 
 cp apps/worker/.env.example apps/worker/.env
@@ -701,13 +705,20 @@ pnpm --filter worker enqueue
 
 ```
 
-### Run full dev
+### Run full dev stack (API + Worker + Web)
 
 ```bash
 
 pnpm start
 
 ```
+
+This starts:
+- API: `http://localhost:3000`
+- Web: `http://localhost:3002`
+- Worker task server (from `apps/worker`)
+
+`apps/admin` remains available for temporary dual-run validation and can be started separately.
 
 ---
 
@@ -798,6 +809,10 @@ Current execution focus:
   - Job source run observability endpoints
   - OTP correctness and validation hardening
   - Indexes for hot job-search query paths
+- **Phase 2 — Frontend Migration (In Progress)**
+  - New Next.js app scaffolded in `apps/web` with feature-sliced structure
+  - Core user flows wired (auth, profile input, documents, career profiles, matching)
+  - `apps/admin` kept temporarily for dual-run validation
 
 ### Phase 1 — Complete V1 Backend + DB
 

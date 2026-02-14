@@ -27,6 +27,13 @@ This file tracks milestones for the career search assistant build.
 - Wire auth/profile/document/matching workflows
 - Add notebook UX for status, notes, tags, and score explanations
 
+Current status:
+- `apps/web` scaffolded with Next.js and strict feature-sliced folders
+- Core flows implemented for auth/profile input/documents/career profiles/job matching
+- Shared shadcn-style UI primitives integrated via `@repo/ui`
+- Worker integration panel added for enqueue/runs lifecycle testing in web app
+- `apps/admin` remains in place for temporary dual-run validation
+
 ## Milestone 5: Automation + Cloud Readiness (Planned)
 - Scheduled crawlers and source expansion
 - Async extraction/profile generation jobs

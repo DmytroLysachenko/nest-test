@@ -23,12 +23,20 @@
   "license": "MIT",
   "packageManager": "pnpm@10.11.0",
   "private": true,
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@swc/core"
+    ]
+  },
   "scripts": {
     "build": "turbo run build --log-order=grouped",
     "check-types": "turbo run check-types",
+    "dev:stack": "turbo run dev --filter=api --filter=worker --filter=web",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
-    "start": "turbo run start"
+    "start": "pnpm dev:stack",
+    "start:all": "turbo run start"
   }
 }
