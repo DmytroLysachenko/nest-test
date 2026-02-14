@@ -9,6 +9,7 @@ import { GeminiService } from '@/common/modules/gemini/gemini.service';
 
 import { CreateCareerProfileDto } from './dto/create-career-profile.dto';
 import { ListCareerProfilesQuery } from './dto/list-career-profiles.query';
+import type { NormalizationMeta, NormalizedProfileInput } from '../profile-inputs/normalization/schema';
 
 @Injectable()
 export class CareerProfilesService {
@@ -55,7 +56,14 @@ export class CareerProfilesService {
       .returning();
 
     try {
-      const prompt = this.buildPrompt(profileInput.targetRoles, profileInput.notes, documents, dto.instructions);
+      const prompt = this.buildPrompt(
+        profileInput.targetRoles,
+        profileInput.notes,
+        documents,
+        dto.instructions,
+        (profileInput.normalizedInput as NormalizedProfileInput | null | undefined) ?? null,
+        (profileInput.normalizationMeta as NormalizationMeta | null | undefined) ?? null,
+      );
       const content = await this.geminiService.generateText(prompt);
       const { data: contentJson, error: jsonError } = this.parseProfileJson(content);
 
@@ -222,6 +230,8 @@ export class CareerProfilesService {
       extractedAt: Date | null;
     }>,
     instructions?: string,
+    normalizedInput?: NormalizedProfileInput | null,
+    normalizationMeta?: NormalizationMeta | null,
   ) {
     const documentList = documents
       .map((doc) => `- ${doc.originalName} (${doc.mimeType}) at ${doc.storagePath}`)
@@ -246,6 +256,12 @@ export class CareerProfilesService {
       'The JSON must be the last section, wrapped in a ```json code fence.',
       'JSON shape:',
       '{ "summary": string, "coreSkills": string[], "preferredRoles": string[], "strengths": string[], "gaps": string[], "topKeywords": string[] }',
+      '',
+      normalizedInput ? 'Normalized profile input (canonical, deterministic):' : '',
+      normalizedInput ? JSON.stringify(normalizedInput, null, 2) : '',
+      normalizationMeta ? `Normalization status: ${normalizationMeta.status} (${normalizationMeta.mapperVersion})` : '',
+      normalizationMeta?.warnings?.length ? `Normalization warnings: ${JSON.stringify(normalizationMeta.warnings)}` : '',
+      normalizationMeta?.errors?.length ? `Normalization errors: ${JSON.stringify(normalizationMeta.errors)}` : '',
       '',
       `Target roles: ${targetRoles}`,
       notes ? `Notes: ${notes}` : 'Notes: none',

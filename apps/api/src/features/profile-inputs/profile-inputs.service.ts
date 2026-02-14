@@ -6,18 +6,27 @@ import { profileInputsTable } from '@repo/db';
 import { Drizzle } from '@/common/decorators';
 
 import { CreateProfileInputDto } from './dto/create-profile-input.dto';
+import { normalizeProfileInput } from './normalization/mapper';
 
 @Injectable()
 export class ProfileInputsService {
   constructor(@Drizzle() private readonly db: NodePgDatabase) {}
 
   async create(userId: string, dto: CreateProfileInputDto) {
+    const { normalizedInput, normalizationMeta } = normalizeProfileInput({
+      targetRoles: dto.targetRoles,
+      notes: dto.notes,
+    });
+
     const [profileInput] = await this.db
       .insert(profileInputsTable)
       .values({
         userId,
         targetRoles: dto.targetRoles,
         notes: dto.notes ?? null,
+        normalizedInput,
+        normalizationMeta,
+        normalizationVersion: normalizationMeta.mapperVersion,
       })
       .returning();
 

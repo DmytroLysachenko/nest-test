@@ -78,6 +78,13 @@
       "when": 1770931374635,
       "tag": "0010_needy_mentallo",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1771079400000,
+      "tag": "0011_breezy_profile_input_normalization",
+      "breakpoints": true
     }
   ]
 }
