@@ -618,6 +618,7 @@ Optional:
 - `WORKER_CALLBACK_RETRY_BACKOFF_MS`
 
 - `WORKER_DEAD_LETTER_DIR`
+- `WORKER_TASK_TIMEOUT_MS`
 
 ---
 
@@ -759,6 +760,7 @@ pnpm smoke:e2e
 This command will:
 - seed minimal e2e fixtures,
 - verify API/Worker/Web health endpoints,
+- create and fetch `profile-inputs/latest` for fixture user,
 - login with fixture credentials,
 - call `GET /api/job-sources/runs`,
 - enqueue a scrape job via `POST /api/job-sources/scrape`,
