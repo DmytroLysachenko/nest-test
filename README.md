@@ -29,7 +29,7 @@ Scraping note:
 
 - Job scraping is a separate worker service in `apps/worker`.
 
-- The worker ingests jobs, normalizes them, and stores them in the DB for matching.
+- The worker ingests jobs and normalizes them; API persists callback results in the DB for matching.
 - The worker caches previously scraped offers and can skip detail pages if data is fresh.
 - The worker responds immediately to enqueue requests and processes scrapes asynchronously.
 
@@ -69,7 +69,7 @@ Suggested integration pattern:
 
   - Crawling and job normalization
 
-- API enqueues jobs; worker processes and updates DB.
+- API enqueues jobs; worker processes and calls back API; API persists and materializes user offers.
 
 ## Operational Workflow
 
@@ -609,6 +609,16 @@ Optional:
 
 - `PRACUJ_DETAIL_HOST`
 
+- `WORKER_CALLBACK_URL`
+
+- `WORKER_CALLBACK_TOKEN`
+
+- `WORKER_CALLBACK_RETRY_ATTEMPTS`
+
+- `WORKER_CALLBACK_RETRY_BACKOFF_MS`
+
+- `WORKER_DEAD_LETTER_DIR`
+
 ---
 
 ## Local Development
@@ -705,6 +715,14 @@ pnpm --filter worker enqueue
 
 ```
 
+Replay failed callback dead letters:
+
+```bash
+
+pnpm --filter worker callbacks:replay
+
+```
+
 ### Run full dev stack (API + Worker + Web)
 
 ```bash
@@ -743,7 +761,9 @@ This command will:
 - verify API/Worker/Web health endpoints,
 - login with fixture credentials,
 - call `GET /api/job-sources/runs`,
-- enqueue a scrape job via `POST /api/job-sources/scrape`.
+- enqueue a scrape job via `POST /api/job-sources/scrape`,
+- wait for completion callback,
+- verify persisted `job-offers` entries for the run.
 
 ---
 

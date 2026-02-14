@@ -71,4 +71,39 @@ if ([string]::IsNullOrWhiteSpace($sourceRunId)) {
   throw 'Scrape enqueue did not return sourceRunId.'
 }
 
-Write-Host "Smoke test passed. sourceRunId=$sourceRunId"
+Write-Host '6) Waiting for scrape run completion callback...'
+$deadline = (Get-Date).AddMinutes(3)
+$finalStatus = $null
+while ((Get-Date) -lt $deadline) {
+  Start-Sleep -Seconds 5
+  try {
+    $run = Invoke-WebRequest -Uri "http://localhost:3000/api/job-sources/runs/$sourceRunId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+  } catch {
+    if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 429) {
+      Write-Host 'Rate limited while polling run status, retrying...'
+      continue
+    }
+    throw
+  }
+  Assert-StatusCode -Actual $run.StatusCode -Allowed @(200) -Context 'Get scrape run'
+  $runPayload = $run.Content | ConvertFrom-Json
+  $finalStatus = $runPayload.data.status
+  if ($finalStatus -eq 'COMPLETED' -or $finalStatus -eq 'FAILED') {
+    break
+  }
+}
+
+if ($finalStatus -ne 'COMPLETED') {
+  throw "Scrape run did not complete successfully. status=$finalStatus sourceRunId=$sourceRunId"
+}
+
+Write-Host '7) Verifying persisted user job offers for this run...'
+$offers = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-offers?limit=100' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $offers.StatusCode -Allowed @(200) -Context 'List job offers'
+$offersPayload = $offers.Content | ConvertFrom-Json
+$matched = @($offersPayload.data.items | Where-Object { $_.sourceRunId -eq $sourceRunId })
+if ($matched.Count -lt 1) {
+  throw "No persisted user job offers found for sourceRunId=$sourceRunId"
+}
+
+Write-Host "Smoke test passed. sourceRunId=$sourceRunId offers=$($matched.Count)"
