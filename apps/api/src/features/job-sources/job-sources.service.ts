@@ -23,26 +23,67 @@ import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
 
 const buildListingUrl = (filters: ScrapeFiltersDto) => {
-  const url = new URL('https://it.pracuj.pl/praca');
+  const resolvePublishedPath = (days: number) => {
+    if (days === 1) {
+      return 'ostatnich 24h;p,1';
+    }
+    return `ostatnich ${days} dni;p,${days}`;
+  };
+
+  const segments: string[] = [];
+  if (filters.keywords) {
+    segments.push(`${encodeURIComponent(filters.keywords)};kw`);
+  } else if (filters.location) {
+    segments.push(`${encodeURIComponent(filters.location)};wp`);
+  }
+
+  if (filters.publishedWithinDays) {
+    segments.push(resolvePublishedPath(filters.publishedWithinDays));
+  }
+
+  const base = `https://it.pracuj.pl/praca${segments.length ? `/${segments.join('/')}` : ''}`;
+  const url = new URL(base);
   const params = url.searchParams;
 
   if (filters.specializations?.length) {
     params.set('its', filters.specializations.join(','));
   }
+  if (filters.technologies?.length) {
+    params.set('itth', filters.technologies.join(','));
+  }
   if (filters.workModes?.length) {
     params.set('wm', filters.workModes.join(','));
   }
-  if (filters.location) {
+  if (filters.workDimensions?.length) {
+    params.set('ws', filters.workDimensions.join(','));
+  }
+  const positionLevels = filters.positionLevels ?? filters.employmentTypes ?? filters.experienceLevels;
+  if (positionLevels?.length) {
+    params.set('et', positionLevels.join(','));
+  }
+  if (filters.contractTypes?.length) {
+    params.set('tc', filters.contractTypes.join(','));
+  }
+  if (filters.salaryMin) {
+    params.set('sal', String(filters.salaryMin));
+  }
+  if (filters.radiusKm) {
+    params.set('rd', String(filters.radiusKm));
+  }
+  if (filters.onlyWithProjectDescription) {
+    params.set('ap', 'true');
+  }
+  if (filters.onlyEmployerOffers) {
+    params.set('ao', 'false');
+  }
+  if (filters.ukrainiansWelcome) {
+    params.set('ua', 'true');
+  }
+  if (filters.noPolishRequired) {
+    params.set('wpl', 'true');
+  }
+  if (filters.keywords && filters.location) {
     params.set('wp', filters.location);
-  }
-  if (filters.employmentTypes?.length) {
-    params.set('et', filters.employmentTypes.join(','));
-  }
-  if (filters.experienceLevels?.length) {
-    params.set('exp', filters.experienceLevels.join(','));
-  }
-  if (filters.keywords) {
-    params.set('q', filters.keywords);
   }
 
   return url.toString();
@@ -102,6 +143,8 @@ export class JobSourcesService {
 
     const workerUrl = this.configService.get('WORKER_TASK_URL', { infer: true });
     const authToken = this.configService.get('WORKER_AUTH_TOKEN', { infer: true });
+    const callbackUrl = this.resolveWorkerCallbackUrl();
+    const callbackToken = this.configService.get('WORKER_CALLBACK_TOKEN', { infer: true });
     if (!workerUrl) {
       await this.markRunFailed(run.id, 'Worker task URL is not configured');
       throw new ServiceUnavailableException('Worker task URL is not configured');
@@ -123,6 +166,8 @@ export class JobSourcesService {
           source,
           sourceRunId: run.id,
           requestId,
+          callbackUrl,
+          callbackToken,
           listingUrl,
           limit: dto.limit,
           userId,
@@ -180,6 +225,7 @@ export class JobSourcesService {
     const run = await this.db
       .select({
         id: jobSourceRunsTable.id,
+        source: jobSourceRunsTable.source,
         userId: jobSourceRunsTable.userId,
         careerProfileId: jobSourceRunsTable.careerProfileId,
         status: jobSourceRunsTable.status,
@@ -207,8 +253,8 @@ export class JobSourcesService {
       };
     }
 
-    const scrapedCount = dto.scrapedCount ?? dto.jobCount ?? run.scrapedCount ?? 0;
-    const totalFound = dto.totalFound ?? run.totalFound ?? null;
+    const scrapedCount = dto.scrapedCount ?? dto.jobCount ?? dto.jobs?.length ?? run.scrapedCount ?? 0;
+    const totalFound = dto.totalFound ?? dto.jobLinkCount ?? run.totalFound ?? null;
 
     if (status === 'FAILED') {
       await this.db
@@ -228,6 +274,44 @@ export class JobSourcesService {
         inserted: 0,
         idempotent: run.status === 'FAILED',
       };
+    }
+
+    if (dto.jobs?.length) {
+      await this.db
+        .insert(jobOffersTable)
+        .values(
+          dto.jobs.map((job) => ({
+            source: run.source,
+            sourceId: job.sourceId ?? null,
+            runId: run.id,
+            url: job.url,
+            title: job.title,
+            company: job.company ?? null,
+            location: job.location ?? null,
+            salary: job.salary ?? null,
+            employmentType: job.employmentType ?? null,
+            description: job.description,
+            requirements: job.requirements ?? null,
+            details: job.details ?? null,
+            fetchedAt: new Date(),
+          })),
+        )
+        .onConflictDoUpdate({
+          target: [jobOffersTable.source, jobOffersTable.url],
+          set: {
+            runId: run.id,
+            sourceId: sql`excluded."source_id"`,
+            title: sql`excluded."title"`,
+            company: sql`excluded."company"`,
+            location: sql`excluded."location"`,
+            salary: sql`excluded."salary"`,
+            employmentType: sql`excluded."employment_type"`,
+            description: sql`excluded."description"`,
+            requirements: sql`excluded."requirements"`,
+            details: sql`excluded."details"`,
+            fetchedAt: new Date(),
+          },
+        });
     }
 
     await this.db
@@ -348,6 +432,19 @@ export class JobSourcesService {
       .limit(1);
 
     return profile?.id ?? null;
+  }
+
+  private resolveWorkerCallbackUrl() {
+    const configured = this.configService.get('WORKER_CALLBACK_URL', { infer: true });
+    if (configured) {
+      return configured;
+    }
+
+    const host = this.configService.get('HOST', { infer: true }) ?? 'localhost';
+    const port = this.configService.get('PORT', { infer: true }) ?? 3000;
+    const prefix = this.configService.get('API_PREFIX', { infer: true }) ?? 'api';
+    const normalizedPrefix = prefix.replace(/^\/+|\/+$/g, '');
+    return `http://${host}:${port}/${normalizedPrefix}/job-sources/complete`;
   }
 
   private async markRunFailed(runId: string, error: string) {
