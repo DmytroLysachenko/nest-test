@@ -1,4 +1,4 @@
-import { jobSourceRunsTable, userJobOffersTable } from '@repo/db';
+import { jobOffersTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
 
 import { JobSourcesService } from './job-sources.service';
 
@@ -128,11 +128,9 @@ describe('JobSourcesService', () => {
     expect(updatePayloads.at(-1)?.status).toBe('FAILED');
   });
 
-  it('handles completed callback idempotently when offers already materialized', async () => {
+  it('short-circuits repeated completed callback idempotently', async () => {
     const db = {
-      select: jest
-        .fn()
-        .mockReturnValueOnce({
+      select: jest.fn().mockReturnValue({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
               limit: jest.fn().mockReturnValue({
@@ -152,29 +150,9 @@ describe('JobSourcesService', () => {
               }),
             }),
           }),
-        })
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockResolvedValue([{ id: 'offer-1' }, { id: 'offer-2' }]),
-          }),
         }),
-      update: jest.fn().mockReturnValue({
-        set: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValue(undefined),
-        }),
-      }),
-      insert: jest.fn().mockImplementation((table) => {
-        if (table !== userJobOffersTable) {
-          throw new Error('Unexpected insert table');
-        }
-        return {
-          values: jest.fn().mockReturnValue({
-            onConflictDoNothing: jest.fn().mockReturnValue({
-              returning: jest.fn().mockResolvedValue([]),
-            }),
-          }),
-        };
-      }),
+      update: jest.fn(),
+      insert: jest.fn(),
     } as any;
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
@@ -189,9 +167,10 @@ describe('JobSourcesService', () => {
       ok: true,
       status: 'COMPLETED',
       inserted: 0,
-      totalOffers: 2,
       idempotent: true,
     });
+    expect(db.update).not.toHaveBeenCalled();
+    expect(db.insert).not.toHaveBeenCalled();
   });
 
   it('does not downgrade finalized run state when callback status conflicts', async () => {
@@ -302,5 +281,87 @@ describe('JobSourcesService', () => {
       totalOffers: 1,
       idempotent: false,
     });
+  });
+
+  it('upserts job_offers when completed callback contains jobs payload', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) =>
+                  Promise.resolve(
+                    cb([
+                      {
+                        id: 'run-5',
+                        source: 'PRACUJ_PL',
+                        userId: 'user-5',
+                        careerProfileId: 'profile-5',
+                        status: 'RUNNING',
+                        totalFound: null,
+                        scrapedCount: null,
+                      },
+                    ]),
+                  ),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ id: 'offer-51' }]),
+          }),
+        }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+      insert: jest.fn().mockImplementation((table) => {
+        if (table === jobOffersTable) {
+          return {
+            values: jest.fn().mockReturnValue({
+              onConflictDoUpdate: jest.fn().mockResolvedValue(undefined),
+            }),
+          };
+        }
+        if (table === userJobOffersTable) {
+          return {
+            values: jest.fn().mockReturnValue({
+              onConflictDoNothing: jest.fn().mockReturnValue({
+                returning: jest.fn().mockResolvedValue([{ id: 'ujo-51' }]),
+              }),
+            }),
+          };
+        }
+        throw new Error('Unexpected insert table');
+      }),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const result = await service.completeScrape({
+      sourceRunId: 'run-5',
+      status: 'COMPLETED',
+      jobs: [
+        {
+          url: 'https://it.pracuj.pl/praca/test,oferta,123',
+          title: 'Frontend Developer',
+          description: 'React + TypeScript',
+          sourceId: '123',
+        },
+      ],
+      scrapedCount: 1,
+      totalFound: 1,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'COMPLETED',
+      inserted: 1,
+      totalOffers: 1,
+    });
+    expect(db.insert).toHaveBeenCalledWith(jobOffersTable);
   });
 });

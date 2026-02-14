@@ -68,6 +68,7 @@ export class JobOffersService {
       .select({
         id: userJobOffersTable.id,
         jobOfferId: jobOffersTable.id,
+        sourceRunId: userJobOffersTable.sourceRunId,
         status: userJobOffersTable.status,
         matchScore: userJobOffersTable.matchScore,
         matchMeta: userJobOffersTable.matchMeta,

@@ -22,7 +22,7 @@ import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
 
-const buildListingUrl = (filters: ScrapeFiltersDto) => {
+const buildListingUrl = (filters: ScrapeFiltersDto, source: string) => {
   const resolvePublishedPath = (days: number) => {
     if (days === 1) {
       return 'ostatnich 24h;p,1';
@@ -41,7 +41,8 @@ const buildListingUrl = (filters: ScrapeFiltersDto) => {
     segments.push(resolvePublishedPath(filters.publishedWithinDays));
   }
 
-  const base = `https://it.pracuj.pl/praca${segments.length ? `/${segments.join('/')}` : ''}`;
+  const baseHost = source === 'pracuj-pl-general' ? 'https://www.pracuj.pl/praca' : 'https://it.pracuj.pl/praca';
+  const base = `${baseHost}${segments.length ? `/${segments.join('/')}` : ''}`;
   const url = new URL(base);
   const params = url.searchParams;
 
@@ -50,6 +51,9 @@ const buildListingUrl = (filters: ScrapeFiltersDto) => {
   }
   if (filters.technologies?.length) {
     params.set('itth', filters.technologies.join(','));
+  }
+  if (filters.categories?.length) {
+    params.set('cc', filters.categories.join(','));
   }
   if (filters.workModes?.length) {
     params.set('wm', filters.workModes.join(','));
@@ -90,7 +94,7 @@ const buildListingUrl = (filters: ScrapeFiltersDto) => {
 };
 
 const mapSource = (source: string) => {
-  if (source === 'pracuj-pl') {
+  if (source === 'pracuj-pl' || source === 'pracuj-pl-it' || source === 'pracuj-pl-general') {
     return 'PRACUJ_PL' as const;
   }
   throw new BadRequestException(`Unsupported source: ${source}`);
@@ -108,9 +112,9 @@ export class JobSourcesService {
 
   async enqueueScrape(userId: string, dto: EnqueueScrapeDto, incomingRequestId?: string) {
     const requestId = incomingRequestId?.trim() || randomUUID();
-    const source = dto.source ?? 'pracuj-pl';
+    const source = dto.source ?? 'pracuj-pl-it';
     const sourceEnum = mapSource(source);
-    const listingUrl = dto.listingUrl ?? (dto.filters ? buildListingUrl(dto.filters) : undefined);
+    const listingUrl = dto.listingUrl ?? (dto.filters ? buildListingUrl(dto.filters, source) : undefined);
 
     if (!listingUrl) {
       throw new BadRequestException('Provide listingUrl or filters');
@@ -243,6 +247,14 @@ export class JobSourcesService {
 
     const status = normalizeCompletionStatus(dto);
     const isTerminal = run.status === 'COMPLETED' || run.status === 'FAILED';
+    if (isTerminal && run.status === status) {
+      return {
+        ok: true,
+        status: run.status,
+        inserted: 0,
+        idempotent: true,
+      };
+    }
     if (isTerminal && run.status !== status) {
       return {
         ok: true,

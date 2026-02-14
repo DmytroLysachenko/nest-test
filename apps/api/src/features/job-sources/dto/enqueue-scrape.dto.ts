@@ -5,9 +5,9 @@ import { IsIn, IsInt, IsOptional, IsUrl, IsUUID, Max, Min, ValidateNested } from
 import { ScrapeFiltersDto } from './scrape-filters.dto';
 
 export class EnqueueScrapeDto {
-  @ApiPropertyOptional({ enum: ['pracuj-pl'], default: 'pracuj-pl' })
+  @ApiPropertyOptional({ enum: ['pracuj-pl', 'pracuj-pl-it', 'pracuj-pl-general'], default: 'pracuj-pl-it' })
   @IsOptional()
-  @IsIn(['pracuj-pl'])
+  @IsIn(['pracuj-pl', 'pracuj-pl-it', 'pracuj-pl-general'])
   source?: string;
 
   @ApiPropertyOptional({

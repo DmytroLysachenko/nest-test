@@ -21,6 +21,9 @@ export class JobOfferItem {
   @ApiProperty()
   jobOfferId!: string;
 
+  @ApiProperty({ required: false })
+  sourceRunId!: string | null;
+
   @ApiProperty()
   status!: string;
 

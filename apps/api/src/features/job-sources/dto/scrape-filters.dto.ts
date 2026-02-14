@@ -88,6 +88,15 @@ export class ScrapeFiltersDto {
   technologies?: string[];
 
   @ApiPropertyOptional({
+    description: 'Category ids for generic pracuj.pl (maps to `cc` query param)',
+    example: ['5015', '5014'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  categories?: string[];
+
+  @ApiPropertyOptional({
     description: 'Minimum salary (maps to `sal` query param)',
     example: 500,
   })
