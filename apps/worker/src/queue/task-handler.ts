@@ -21,7 +21,6 @@ export const handleTask = async (
     requireDetail?: boolean;
     profileDir?: string;
     outputMode?: 'full' | 'minimal';
-    databaseUrl?: string;
     callbackUrl?: string;
     callbackToken?: string;
   },
@@ -42,7 +41,6 @@ export const handleTask = async (
         requireDetail: options.requireDetail,
         profileDir: options.profileDir,
         outputMode: options.outputMode,
-        databaseUrl: options.databaseUrl,
         callbackUrl: options.callbackUrl,
         callbackToken: options.callbackToken,
       });

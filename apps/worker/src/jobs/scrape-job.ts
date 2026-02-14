@@ -1,7 +1,5 @@
 import type { Logger } from 'pino';
 
-import { loadFreshOfferUrls } from '../db/fresh-offers';
-import { markRunFailed, markRunRunning, persistScrapeResult } from '../db/persist-scrape';
 import { saveOutput } from '../output/save-output';
 import { crawlPracujPl } from '../sources/pracuj-pl/crawl';
 import { normalizePracujPl } from '../sources/pracuj-pl/normalize';
@@ -19,8 +17,12 @@ type CallbackPayload = {
   totalFound?: number;
   jobCount?: number;
   jobLinkCount?: number;
+  jobs?: NormalizedJob[];
+  outputPath?: string;
   error?: string;
 };
+
+const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const notifyCallback = async (
   url: string,
@@ -29,7 +31,9 @@ const notifyCallback = async (
   payload: CallbackPayload,
   logger: Logger,
 ) => {
-  try {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -41,13 +45,21 @@ const notifyCallback = async (
     });
     if (!response.ok) {
       const text = await response.text();
-      logger.warn({ requestId, status: response.status, body: text }, 'Callback rejected');
-      return;
+        lastError = new Error(`Callback rejected (${response.status}): ${text}`);
+        logger.warn({ requestId, status: response.status, body: text, attempt }, 'Callback rejected');
+      } else {
+        logger.info({ requestId, status: response.status, attempt }, 'Callback acknowledged');
+        return;
+      }
+    } catch (error) {
+      lastError = error;
+      logger.warn({ requestId, error, attempt }, 'Failed to notify callback');
     }
-    logger.info({ requestId, status: response.status }, 'Callback acknowledged');
-  } catch (error) {
-    logger.warn({ requestId, error }, 'Failed to notify callback');
+    if (attempt < 3) {
+      await sleep(attempt * 1000);
+    }
   }
+  logger.error({ requestId, error: lastError }, 'Callback failed after retries');
 };
 
 export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
@@ -60,6 +72,8 @@ export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
   totalFound: input.totalFound,
   jobCount: input.jobCount,
   jobLinkCount: input.jobLinkCount,
+  jobs: input.jobs,
+  outputPath: input.outputPath,
   error: input.error,
 });
 
@@ -80,14 +94,13 @@ export const runScrapeJob = async (
     requireDetail?: boolean;
     profileDir?: string;
     outputMode?: 'full' | 'minimal';
-    databaseUrl?: string;
     callbackUrl?: string;
     callbackToken?: string;
   },
 ) => {
   const startedAt = Date.now();
   const runId = payload.runId ?? `run-${Date.now()}`;
-  let sourceRunId = payload.sourceRunId;
+  const sourceRunId = payload.sourceRunId;
 
   if (payload.source !== 'pracuj-pl') {
     throw new Error(`Unknown source: ${payload.source}`);
@@ -98,16 +111,10 @@ export const runScrapeJob = async (
     throw new Error('listingUrl or filters are required');
   }
 
-  await markRunRunning(options.databaseUrl, {
-    source: payload.source,
-    sourceRunId,
-    userId: payload.userId,
-    careerProfileId: payload.careerProfileId,
-    listingUrl,
-    filters: payload.filters,
-  });
-
   try {
+    const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
+    const callbackToken = payload.callbackToken ?? options.callbackToken;
+
     const { pages, blockedUrls, jobLinks, listingHtml, listingData, listingSummaries, detailDiagnostics } =
       await crawlPracujPl(options.headless, listingUrl, payload.limit, logger, {
         listingDelayMs: options.listingDelayMs,
@@ -118,10 +125,6 @@ export const runScrapeJob = async (
         detailCookiesPath: options.detailCookiesPath,
         detailHumanize: options.detailHumanize,
         profileDir: options.profileDir,
-        skipResolver:
-          options.databaseUrl && options.detailCacheHours && options.detailCacheHours > 0
-            ? async (urls) => loadFreshOfferUrls(options.databaseUrl, 'PRACUJ_PL', urls, options.detailCacheHours!)
-            : undefined,
       });
 
     const parsedJobs =
@@ -161,30 +164,10 @@ export const runScrapeJob = async (
       options.outputMode,
     );
 
-    try {
-      const dbRunId = await persistScrapeResult(options.databaseUrl, {
-        source: payload.source,
-        sourceRunId,
-        listingUrl,
-        filters: payload.filters,
-        userId: payload.userId,
-        careerProfileId: payload.careerProfileId,
-        jobLinks,
-        jobs: normalized,
-      });
-      if (dbRunId) {
-        sourceRunId = dbRunId;
-        logger.info({ sourceRunId: dbRunId }, 'Scrape results persisted');
-      }
-    } catch (error) {
-      logger.error({ error, sourceRunId }, 'Failed to persist scrape results');
-      throw error;
-    }
-
-    if (options.callbackUrl) {
+    if (callbackUrl) {
       await notifyCallback(
-        options.callbackUrl,
-        options.callbackToken,
+        callbackUrl,
+        callbackToken,
         payload.requestId,
         buildScrapeCallbackPayload({
           source: payload.source,
@@ -196,6 +179,8 @@ export const runScrapeJob = async (
           totalFound: jobLinks.length,
           jobCount: normalized.length,
           jobLinkCount: jobLinks.length,
+          jobs: normalized,
+          outputPath,
         }),
         logger,
       );
@@ -206,9 +191,9 @@ export const runScrapeJob = async (
         requestId: payload.requestId,
         source: payload.source,
         runId,
-        sourceRunId,
-        pages: pages.length,
-        jobs: normalized.length,
+      sourceRunId,
+      pages: pages.length,
+      jobs: normalized.length,
         blockedPages: blockedUrls.length,
         jobLinks: jobLinks.length,
         outputPath,
@@ -225,12 +210,12 @@ export const runScrapeJob = async (
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown scrape failure';
-    await markRunFailed(options.databaseUrl, sourceRunId, errorMessage);
-
-    if (options.callbackUrl) {
+    const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
+    const callbackToken = payload.callbackToken ?? options.callbackToken;
+    if (callbackUrl) {
       await notifyCallback(
-        options.callbackUrl,
-        options.callbackToken,
+        callbackUrl,
+        callbackToken,
         payload.requestId,
         buildScrapeCallbackPayload({
           source: payload.source,

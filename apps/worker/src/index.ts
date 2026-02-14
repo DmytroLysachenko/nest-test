@@ -5,10 +5,6 @@ import { createTaskServer } from './http/task-server';
 const env = loadEnv();
 const logger = createLogger(env);
 
-if (!env.DATABASE_URL) {
-  logger.warn('DATABASE_URL is not set; DB features are disabled until configured');
-}
-
 const server = createTaskServer(env, logger);
 
 server.listen(env.WORKER_PORT, () => {

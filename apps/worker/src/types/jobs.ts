@@ -3,6 +3,8 @@ export type ScrapeSourceJob = {
   runId?: string;
   sourceRunId?: string;
   requestId?: string;
+  callbackUrl?: string;
+  callbackToken?: string;
   userId?: string;
   careerProfileId?: string;
   listingUrl?: string;
