@@ -426,7 +426,7 @@ export class JobSourcesService {
       .onConflictDoNothing()
       .returning({ id: userJobOffersTable.id });
 
-    void this.autoScoreIngestedOffers(run.userId, inserted.map((entry) => entry.id));
+    void this.autoScoreIngestedOffers(run.userId, run.id, inserted.map((entry) => entry.id));
 
     this.logger.log(
       {
@@ -555,7 +555,7 @@ export class JobSourcesService {
     return Math.max(0, completedAt.getTime() - startedAt.getTime());
   }
 
-  private async autoScoreIngestedOffers(userId: string, userOfferIds: string[]) {
+  private async autoScoreIngestedOffers(userId: string, sourceRunId: string, userOfferIds: string[]) {
     if (!userOfferIds.length) {
       return;
     }
@@ -571,6 +571,11 @@ export class JobSourcesService {
 
     const concurrency = this.configService.get('AUTO_SCORE_CONCURRENCY', { infer: true });
     const minScore = this.configService.get('AUTO_SCORE_MIN_SCORE', { infer: true });
+    const retryAttempts = this.configService.get('AUTO_SCORE_RETRY_ATTEMPTS', { infer: true });
+    let attempted = 0;
+    let scored = 0;
+    let failed = 0;
+    let retried = 0;
     const queue = [...userOfferIds];
     const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
       while (queue.length) {
@@ -578,20 +583,53 @@ export class JobSourcesService {
         if (!nextId) {
           continue;
         }
-        try {
-          await this.jobOffersService.scoreOffer(userId, nextId, minScore);
-        } catch (error) {
-          this.logger.warn(
-            { userId, userOfferId: nextId, error: error instanceof Error ? error.message : String(error) },
-            'Auto-score failed for ingested offer',
-          );
+        attempted += 1;
+
+        let success = false;
+        for (let attempt = 1; attempt <= retryAttempts; attempt += 1) {
+          try {
+            await this.jobOffersService.scoreOffer(userId, nextId, minScore);
+            scored += 1;
+            success = true;
+            break;
+          } catch (error) {
+            if (attempt < retryAttempts) {
+              retried += 1;
+            }
+            this.logger.warn(
+              {
+                userId,
+                sourceRunId,
+                userOfferId: nextId,
+                attempt,
+                retryAttempts,
+                error: error instanceof Error ? error.message : String(error),
+              },
+              'Auto-score attempt failed for ingested offer',
+            );
+          }
+        }
+
+        if (!success) {
+          failed += 1;
         }
       }
     });
 
     await Promise.all(workers);
     this.logger.log(
-      { userId, userOfferCount: userOfferIds.length, concurrency, minScore },
+      {
+        userId,
+        sourceRunId,
+        userOfferCount: userOfferIds.length,
+        attempted,
+        scored,
+        failed,
+        retried,
+        concurrency,
+        minScore,
+        retryAttempts,
+      },
       'Auto-score completed for ingested offers',
     );
   }
