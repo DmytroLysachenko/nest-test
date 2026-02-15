@@ -88,6 +88,12 @@ const buildUrl = (baseUrl: string, path: string) => {
   return `${normalizedBase}${normalizedPath}`;
 };
 
+const resolveApiRootUrl = (apiBaseUrl: string, path: string) => {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const parsed = new URL(apiBaseUrl);
+  return `${parsed.origin}${normalizedPath}`;
+};
+
 const responseToBody = async (response: Response): Promise<unknown> => {
   const text = await response.text();
   if (!text) {
@@ -110,7 +116,17 @@ const responseHeaders = (response: Response) => {
 };
 
 export const runTesterRequest = async (input: TesterRequestInput): Promise<TesterRequestResult> => {
-  const url = buildUrl(input.service === 'api' ? input.apiBaseUrl : input.workerBaseUrl, input.path);
+  const url = (() => {
+    if (/^https?:\/\//i.test(input.path)) {
+      return input.path;
+    }
+
+    if (input.service === 'api' && /^\/health(?:\/|$)/.test(input.path)) {
+      return resolveApiRootUrl(input.apiBaseUrl, input.path);
+    }
+
+    return buildUrl(input.service === 'api' ? input.apiBaseUrl : input.workerBaseUrl, input.path);
+  })();
 
   const parsedBody = parseBody(input.bodyText);
   const extraHeaders = parseJsonObject(input.extraHeadersText ?? '', 'Extra headers');

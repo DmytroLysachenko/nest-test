@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Label } from '@repo/ui/components/label';
 
@@ -40,6 +40,11 @@ export const TesterPage = ({ token }: TesterPageProps) => {
   const [headersText, setHeadersText] = useState('');
   const [bodyText, setBodyText] = useState(selectedPreset.defaultBody ? formatJson(selectedPreset.defaultBody) : '');
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const mutation = useMutation({
     mutationFn: async () =>
@@ -85,6 +90,10 @@ export const TesterPage = ({ token }: TesterPageProps) => {
     setHeadersText('');
     setError(null);
   };
+
+  if (!mounted) {
+    return <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 md:py-8" />;
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 md:py-8">

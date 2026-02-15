@@ -17,4 +17,4 @@ export const getLatestCareerProfile = (token: string) =>
   apiRequest<CareerProfileDto | null>('/career-profiles/latest', {
     method: 'GET',
     token,
-  });
+  }).then((data) => data ?? null);

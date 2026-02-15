@@ -18,4 +18,4 @@ export const getLatestProfileInput = (token: string) =>
   apiRequest<ProfileInputDto | null>('/profile-inputs/latest', {
     method: 'GET',
     token,
-  });
+  }).then((data) => data ?? null);
