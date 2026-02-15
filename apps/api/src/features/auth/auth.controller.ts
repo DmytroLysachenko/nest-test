@@ -19,6 +19,7 @@ import { RegisterDto } from './dto/register-dto';
 import { ChangePasswordDto } from './dto/change-password-dto';
 import { ResetPasswordDto } from './dto/rest-password';
 import { User } from './auth.interface';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -36,10 +37,15 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async login(@Body() body: LoginDto, @Device() device: DeviceType, @Req() request: Request) {
     const user = request.user as User;
-    return {
-      ...(await this.authService.login(user, device)),
-      user: user,
-    };
+    return this.authService.login(user, device);
+  }
+
+  @Public()
+  @Post('refresh')
+  @ApiOperation({ summary: 'Refresh access token using refresh token' })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async refresh(@Body() body: RefreshTokenDto) {
+    return this.authService.refresh(body.refreshToken);
   }
 
   @Public()

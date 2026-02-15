@@ -65,6 +65,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
+      user: this.toUserResponse(user),
     };
   }
 
@@ -153,6 +154,39 @@ export class AuthService {
     await this.tokenService.removeToken(id);
   }
 
+  async refresh(refreshToken: string) {
+    let payload: { sub: string; role: string };
+    try {
+      payload = await this.tokenService.verifyRefreshToken(refreshToken);
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const session = await this.tokenService.findSessionByRefreshToken(payload.sub, refreshToken);
+    if (!session) {
+      throw new UnauthorizedException('Refresh session not found');
+    }
+
+    const user = await this.db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, payload.sub))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const tokens = await this.tokenService.createJwtToken(user);
+    await this.tokenService.rotateRefreshToken(session.id, tokens.refreshToken);
+
+    return {
+      ...tokens,
+      user: this.toUserResponse(user),
+    };
+  }
+
   async changePassword(userId: string, dto: ChangePasswordDto) {
     const { oldPassword, password, confirmPassword } = dto;
     const result = await this.findUserById(userId);
@@ -200,5 +234,14 @@ export class AuthService {
       .limit(1)
       .then((res) => res[0]);
     return result as UserWithProfile | undefined;
+  }
+
+  private toUserResponse(user: User | typeof usersTable.$inferSelect) {
+    return {
+      id: user.id,
+      email: user.email,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 }

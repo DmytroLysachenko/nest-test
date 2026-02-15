@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { passportTable } from '@repo/db';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { Drizzle } from '@/common/decorators';
 import { AuthTokensInterface, JwtPayload } from '@/types/interface/jwt';
@@ -59,5 +59,32 @@ export class TokenService {
 
   async removeToken(id: string) {
     await this.db.delete(passportTable).where(eq(passportTable.userId, id));
+  }
+
+  async verifyRefreshToken(refreshToken: string): Promise<JwtPayload> {
+    return this.jwtService.verifyAsync<JwtPayload>(refreshToken, {
+      secret: this.config.get('REFRESH_TOKEN_SECRET'),
+    });
+  }
+
+  async findSessionByRefreshToken(userId: string, refreshToken: string) {
+    return this.db
+      .select({
+        id: passportTable.id,
+      })
+      .from(passportTable)
+      .where(and(eq(passportTable.userId, userId), eq(passportTable.refreshToken, refreshToken)))
+      .limit(1)
+      .then(([session]) => session ?? null);
+  }
+
+  async rotateRefreshToken(sessionId: string, refreshToken: string) {
+    await this.db
+      .update(passportTable)
+      .set({
+        refreshToken,
+        updatedAt: new Date(),
+      })
+      .where(eq(passportTable.id, sessionId));
   }
 }
