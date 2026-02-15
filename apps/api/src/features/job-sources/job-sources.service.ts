@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import type { JobSourceRunStatus } from '@repo/db';
 
 import type { Env } from '@/config/env';
 import { Drizzle } from '@/common/decorators';
+import { JobOffersService } from '@/features/job-offers/job-offers.service';
 
 import { EnqueueScrapeDto } from './dto/enqueue-scrape.dto';
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
@@ -130,6 +132,7 @@ export class JobSourcesService {
     private readonly configService: ConfigService<Env, true>,
     private readonly logger: Logger,
     @Drizzle() private readonly db: NodePgDatabase,
+    @Optional() private readonly jobOffersService?: JobOffersService,
   ) {}
 
   async enqueueScrape(userId: string, dto: EnqueueScrapeDto, incomingRequestId?: string) {
@@ -423,6 +426,8 @@ export class JobSourcesService {
       .onConflictDoNothing()
       .returning({ id: userJobOffersTable.id });
 
+    void this.autoScoreIngestedOffers(run.userId, inserted.map((entry) => entry.id));
+
     this.logger.log(
       {
         requestId,
@@ -548,5 +553,46 @@ export class JobSourcesService {
       return null;
     }
     return Math.max(0, completedAt.getTime() - startedAt.getTime());
+  }
+
+  private async autoScoreIngestedOffers(userId: string, userOfferIds: string[]) {
+    if (!userOfferIds.length) {
+      return;
+    }
+
+    const enabled = this.configService.get('AUTO_SCORE_ON_INGEST', { infer: true });
+    if (!enabled) {
+      return;
+    }
+    if (!this.jobOffersService) {
+      this.logger.warn({ userId, userOfferCount: userOfferIds.length }, 'JobOffersService unavailable, skipping auto-score');
+      return;
+    }
+
+    const concurrency = this.configService.get('AUTO_SCORE_CONCURRENCY', { infer: true });
+    const minScore = this.configService.get('AUTO_SCORE_MIN_SCORE', { infer: true });
+    const queue = [...userOfferIds];
+    const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
+      while (queue.length) {
+        const nextId = queue.shift();
+        if (!nextId) {
+          continue;
+        }
+        try {
+          await this.jobOffersService.scoreOffer(userId, nextId, minScore);
+        } catch (error) {
+          this.logger.warn(
+            { userId, userOfferId: nextId, error: error instanceof Error ? error.message : String(error) },
+            'Auto-score failed for ingested offer',
+          );
+        }
+      }
+    });
+
+    await Promise.all(workers);
+    this.logger.log(
+      { userId, userOfferCount: userOfferIds.length, concurrency, minScore },
+      'Auto-score completed for ingested offers',
+    );
   }
 }

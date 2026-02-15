@@ -9,5 +9,6 @@ import { JobOffersService } from './job-offers.service';
   imports: [GeminiModule],
   controllers: [JobOffersController],
   providers: [JobOffersService],
+  exports: [JobOffersService],
 })
 export class JobOffersModule {}
