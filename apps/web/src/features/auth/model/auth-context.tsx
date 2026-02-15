@@ -19,6 +19,7 @@ type AuthContextValue = {
   token: string | null;
   user: UserDto | null;
   isLoading: boolean;
+  isHydrated: boolean;
   isAuthenticated: boolean;
   setSession: (accessToken: string, refreshToken: string, user: UserDto) => void;
   clearSession: () => void;
@@ -29,6 +30,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [sessionUser, setSessionUser] = useState<UserDto | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     const syncTokens = () => {
@@ -37,6 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!tokens.accessToken) {
         setSessionUser(null);
       }
+      setIsHydrated(true);
     };
     syncTokens();
     return onStoredTokensChanged(syncTokens);
@@ -84,11 +87,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       token,
       user: sessionUser,
       isLoading: userQuery.isLoading,
+      isHydrated,
       isAuthenticated: Boolean(token),
       setSession,
       clearSession,
     }),
-    [sessionUser, token, userQuery.isLoading],
+    [isHydrated, sessionUser, token, userQuery.isLoading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -107,10 +111,10 @@ export const useRequireAuth = () => {
   const auth = useAuth();
 
   useEffect(() => {
-    if (!auth.isLoading && !auth.isAuthenticated) {
+    if (auth.isHydrated && !auth.isLoading && !auth.isAuthenticated) {
       router.replace('/login');
     }
-  }, [auth.isAuthenticated, auth.isLoading, router]);
+  }, [auth.isAuthenticated, auth.isHydrated, auth.isLoading, router]);
 
   return auth;
 };
