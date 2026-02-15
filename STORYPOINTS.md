@@ -32,7 +32,7 @@ Current status:
 - Core flows implemented for auth/profile input/documents/career profiles/job matching
 - Shared shadcn-style UI primitives integrated via `@repo/ui`
 - Worker integration panel added for enqueue/runs lifecycle testing in web app
-- `apps/admin` remains in place for temporary dual-run validation
+- `apps/web` is the single frontend app
 
 ## Milestone 5: Automation + Cloud Readiness (Planned)
 - Scheduled crawlers and source expansion

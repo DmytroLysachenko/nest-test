@@ -8,7 +8,7 @@
 
 ## Purpose
 
-This repository is a full-stack monorepo for a career search assistant. The backend (NestJS) handles authentication, user intake, document uploads to Google Cloud Storage (GCS), PDF text extraction, AI profile generation (Gemini via Vertex AI), and job matching. The admin frontend is React 19 + Vite. Shared packages include Drizzle ORM schemas, UI components, and lint/TS configs.
+This repository is a full-stack monorepo for a career search assistant. The backend (NestJS) handles authentication, user intake, document uploads to Google Cloud Storage (GCS), PDF text extraction, AI profile generation (Gemini via Vertex AI), and job matching. The frontend is Next.js in `apps/web`. Shared packages include Drizzle ORM schemas, UI components, and lint/TS configs.
 
 This README is designed to be the primary source of context for both humans and LLMs. It describes the current workflow, data model, endpoints, and development setup.
 
@@ -22,8 +22,7 @@ Core services:
 
 - Worker service (Node + Playwright + Cloud Tasks): background jobs and scraping/ingestion
 
-- Frontend (current): React 19 + Vite admin app in `apps/admin`
-- Frontend (new): Next.js user-facing app in `apps/web`
+- Frontend: Next.js user-facing app in `apps/web`
 
 Scraping note:
 
@@ -309,9 +308,9 @@ Per-source workflows:
 
 apps/
 
-  admin/               # Frontend admin panel (React 19 + Vite)
-
   api/                 # NestJS backend service
+
+  web/                 # Next.js frontend app
 
   worker/              # Node.js worker (Playwright + Cloud Tasks)
 
@@ -642,8 +641,6 @@ pnpm install
 
 cp apps/api/.env.example apps/api/.env
 
-cp apps/admin/.env.example apps/admin/.env
-
 cp apps/web/.env.example apps/web/.env
 
 cp packages/db/.env.example packages/db/.env
@@ -737,8 +734,6 @@ This starts:
 - Web: `http://localhost:3002`
 - Worker task server (from `apps/worker`)
 
-`apps/admin` remains available for temporary dual-run validation and can be started separately.
-
 ### Seed minimal e2e fixtures
 
 ```bash
@@ -760,12 +755,14 @@ pnpm smoke:e2e
 This command will:
 - seed minimal e2e fixtures,
 - verify API/Worker/Web health endpoints,
-- create and fetch `profile-inputs/latest` for fixture user,
 - login with fixture credentials,
+- validate refresh-token rotation and invalid refresh rejection,
+- create and fetch `profile-inputs/latest` for fixture user,
 - call `GET /api/job-sources/runs`,
 - enqueue a scrape job via `POST /api/job-sources/scrape`,
 - wait for completion callback,
-- verify persisted `job-offers` entries for the run.
+- verify persisted `job-offers` entries for the run,
+- validate notebook actions (`status`, `meta`, `history`, `score`) on one persisted offer.
 
 ---
 
@@ -859,7 +856,7 @@ Current execution focus:
 - **Phase 2 — Frontend Migration (In Progress)**
   - New Next.js app scaffolded in `apps/web` with feature-sliced structure
   - Core user flows wired (auth, profile input, documents, career profiles, matching)
-  - `apps/admin` kept temporarily for dual-run validation
+  - Consolidated on `apps/web` as the only frontend app
 
 ### Phase 1 — Complete V1 Backend + DB
 
@@ -945,11 +942,11 @@ Current execution focus:
 
     - Align structure with monorepo.
 
-12. **Remove current admin app**
+12. **Consolidate frontend app (Done)**
 
-    - Delete `apps/admin`.
+    - `apps/admin` removed.
 
-    - Update `pnpm-workspace.yaml` and `turbo.json`.
+    - `apps/web` is the single frontend app.
 
 13. **Add Next.js app**
 
@@ -1070,3 +1067,4 @@ Current execution focus:
 ## License
 
 MIT License. See `LICENSE`.
+
