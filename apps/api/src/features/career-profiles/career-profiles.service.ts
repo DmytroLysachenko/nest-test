@@ -98,13 +98,14 @@ export class CareerProfilesService {
   }
 
   async getLatest(userId: string) {
-    return this.db
+    const latest = await this.db
       .select()
       .from(careerProfilesTable)
       .where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true)))
       .orderBy(desc(careerProfilesTable.createdAt))
       .limit(1)
       .then(([result]) => result);
+    return latest ?? null;
   }
 
   async listVersions(userId: string, query: ListCareerProfilesQuery) {

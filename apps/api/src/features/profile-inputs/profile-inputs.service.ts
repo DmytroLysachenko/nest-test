@@ -34,12 +34,13 @@ export class ProfileInputsService {
   }
 
   async getLatest(userId: string) {
-    return this.db
+    const latest = await this.db
       .select()
       .from(profileInputsTable)
       .where(eq(profileInputsTable.userId, userId))
       .orderBy(desc(profileInputsTable.createdAt))
       .limit(1)
       .then(([profileInput]) => profileInput);
+    return latest ?? null;
   }
 }
