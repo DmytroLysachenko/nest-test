@@ -41,9 +41,14 @@ export default function AppDashboardPage() {
           <h1 className="text-lg font-semibold text-slate-900">Career Assistant Workspace</h1>
           <p className="text-sm text-slate-700">Signed in as {auth.user?.email ?? 'unknown user'}</p>
         </div>
-        <Button variant="secondary" onClick={() => logoutMutation.mutate()} disabled={logoutMutation.isPending}>
-          {logoutMutation.isPending ? 'Signing out...' : 'Sign out'}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700" href="/app/notebook">
+            Open notebook
+          </Link>
+          <Button variant="secondary" onClick={() => logoutMutation.mutate()} disabled={logoutMutation.isPending}>
+            {logoutMutation.isPending ? 'Signing out...' : 'Sign out'}
+          </Button>
+        </div>
       </header>
 
       {testerEnabled ? (

@@ -120,6 +120,8 @@ export type JobSourceRunDto = {
   error: string | null;
   startedAt: string | null;
   completedAt: string | null;
+  finalizedAt?: string | null;
+  failureType?: 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown' | null;
   createdAt: string;
 };
 
@@ -134,4 +136,52 @@ export type EnqueueScrapeResponseDto = {
   status: string;
   acceptedAt?: string;
   warning?: string;
+};
+
+export type JobOfferStatus = 'NEW' | 'SEEN' | 'SAVED' | 'APPLIED' | 'DISMISSED';
+
+export type JobOfferListItemDto = {
+  id: string;
+  jobOfferId: string;
+  sourceRunId: string | null;
+  status: JobOfferStatus;
+  matchScore: number | null;
+  matchMeta: Record<string, unknown> | null;
+  notes: string | null;
+  tags: string[] | null;
+  statusHistory: Array<{ status: JobOfferStatus; changedAt: string }> | null;
+  lastStatusAt: string | null;
+  source: 'PRACUJ_PL' | string;
+  url: string;
+  title: string;
+  company: string | null;
+  location: string | null;
+  salary: string | null;
+  employmentType: string | null;
+  description: string;
+  requirements: unknown | null;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type JobOffersListDto = {
+  items: JobOfferListItemDto[];
+  total: number;
+};
+
+export type JobOfferHistoryDto = {
+  id: string;
+  status: JobOfferStatus;
+  statusHistory: Array<{ status: JobOfferStatus; changedAt: string }> | null;
+  lastStatusAt: string | null;
+  jobOfferId: string;
+  title: string;
+  company: string | null;
+  url: string;
+};
+
+export type JobOfferScoreResultDto = {
+  score: number;
+  isMatch: boolean;
+  matchMeta: Record<string, unknown>;
 };
