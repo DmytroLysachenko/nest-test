@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import { Label } from '@repo/ui/components/label';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { login } from '@/features/auth/api/auth-api';
 import { useAuth } from '@/features/auth/model/auth-context';
@@ -18,11 +18,16 @@ export const LoginForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const mutation = useMutation({
     mutationFn: login,
     onSuccess: (response) => {
-      auth.setSession(response.accessToken, response.user);
+      auth.setSession(response.accessToken, response.refreshToken, response.user);
       router.push('/app');
     },
     onError: (err: unknown) => {
@@ -33,6 +38,10 @@ export const LoginForm = () => {
       setError('Login failed');
     },
   });
+
+  if (!mounted) {
+    return <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm" />;
+  }
 
   return (
     <form
@@ -67,7 +76,7 @@ export const LoginForm = () => {
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="••••••••"
+          placeholder="********"
           required
         />
       </Label>

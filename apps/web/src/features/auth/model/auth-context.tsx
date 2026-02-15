@@ -5,35 +5,41 @@ import { createContext, type ReactNode, useContext, useEffect, useMemo, useState
 import { useQuery } from '@tanstack/react-query';
 
 import { getCurrentUser } from '@/features/auth/api/auth-api';
+import {
+  clearStoredTokens,
+  onStoredTokensChanged,
+  readStoredTokens,
+  writeStoredTokens,
+} from '@/features/auth/model/token-storage';
+import { ApiError } from '@/shared/lib/http/api-error';
 
 import type { UserDto } from '@/shared/types/api';
-
-const ACCESS_TOKEN_KEY = 'career_assistant_access_token';
 
 type AuthContextValue = {
   token: string | null;
   user: UserDto | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  setSession: (accessToken: string, user: UserDto) => void;
+  setSession: (accessToken: string, refreshToken: string, user: UserDto) => void;
   clearSession: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-const readToken = () => {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  return window.localStorage.getItem(ACCESS_TOKEN_KEY);
-};
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [sessionUser, setSessionUser] = useState<UserDto | null>(null);
 
   useEffect(() => {
-    setToken(readToken());
+    const syncTokens = () => {
+      const tokens = readStoredTokens();
+      setToken(tokens.accessToken);
+      if (!tokens.accessToken) {
+        setSessionUser(null);
+      }
+    };
+    syncTokens();
+    return onStoredTokensChanged(syncTokens);
   }, []);
 
   const userQuery = useQuery({
@@ -53,14 +59,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [userQuery.data]);
 
-  const setSession = (accessToken: string, user: UserDto) => {
-    window.localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  useEffect(() => {
+    if (userQuery.error instanceof ApiError && userQuery.error.status === 401) {
+      clearStoredTokens();
+      setToken(null);
+      setSessionUser(null);
+    }
+  }, [userQuery.error]);
+
+  const setSession = (accessToken: string, refreshToken: string, user: UserDto) => {
+    writeStoredTokens({ accessToken, refreshToken });
     setToken(accessToken);
     setSessionUser(user);
   };
 
   const clearSession = () => {
-    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+    clearStoredTokens();
     setToken(null);
     setSessionUser(null);
   };
