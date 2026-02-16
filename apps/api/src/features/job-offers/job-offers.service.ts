@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, desc, eq, isNull, not, sql } from 'drizzle-orm';
 import { careerProfilesTable, jobOffersTable, userJobOffersTable } from '@repo/db';
@@ -7,6 +8,7 @@ import { z } from 'zod';
 
 import { Drizzle } from '@/common/decorators';
 import { GeminiService } from '@/common/modules/gemini/gemini.service';
+import type { Env } from '@/config/env';
 
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
 
@@ -23,10 +25,15 @@ const LLM_SCORE_TIMEOUT_MS = 20000;
 
 @Injectable()
 export class JobOffersService {
+  private readonly scoringModel: string;
+
   constructor(
     @Drizzle() private readonly db: NodePgDatabase,
     private readonly geminiService: GeminiService,
-  ) {}
+    private readonly configService: ConfigService<Env, true>,
+  ) {
+    this.scoringModel = this.configService.get('GEMINI_MODEL', { infer: true }) ?? 'gemini-1.5-flash';
+  }
 
   async list(userId: string, query: ListJobOffersQuery) {
     const limit = query.limit ? Number(query.limit) : 20;
@@ -129,8 +136,12 @@ export class JobOffersService {
       }
 
       const history = Array.isArray(current.statusHistory) ? current.statusHistory : [];
+      const ensuredHistory =
+        history.length > 0
+          ? history
+          : [{ status: current.status, changedAt: new Date().toISOString() }];
       const nextHistory = [
-        ...history,
+        ...ensuredHistory,
         { status, changedAt: new Date().toISOString() },
       ];
 
@@ -262,12 +273,21 @@ export class JobOffersService {
 
     const profileJson = profile.contentJson as ProfileJson;
     const prompt = this.buildScorePrompt(profileJson, offer);
-    const content = await Promise.race([
-      this.geminiService.generateText(prompt),
-      new Promise<string>((_, reject) =>
-        setTimeout(() => reject(new Error('LLM scoring request timed out')), LLM_SCORE_TIMEOUT_MS),
-      ),
-    ]);
+    let content = '';
+    try {
+      content = await Promise.race([
+        this.geminiService.generateText(prompt, { model: this.scoringModel }),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error('LLM scoring request timed out')), LLM_SCORE_TIMEOUT_MS),
+        ),
+      ]);
+    } catch (error) {
+      throw new ServiceUnavailableException({
+        message: 'LLM scoring is temporarily unavailable. Please retry.',
+        reason: error instanceof Error ? error.message : 'Unknown LLM scoring error',
+      });
+    }
+
     const parsed = this.parseScoreJson(content);
 
     if (!parsed) {
@@ -279,8 +299,12 @@ export class JobOffersService {
     const scoredAt = new Date().toISOString();
     const matchMeta = {
       ...parsed,
-      model: 'gemini',
-      scoredAt,
+      audit: {
+        provider: 'vertex-ai',
+        model: this.scoringModel,
+        scoredAt,
+        timeoutMs: LLM_SCORE_TIMEOUT_MS,
+      },
     };
 
     await this.db
