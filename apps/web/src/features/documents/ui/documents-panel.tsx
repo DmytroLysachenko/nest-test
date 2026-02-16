@@ -16,6 +16,8 @@ import { Card } from '@/shared/ui/card';
 
 type DocumentsPanelProps = {
   token: string;
+  disabled?: boolean;
+  disabledReason?: string;
 };
 
 const detectDocumentType = (fileName: string): 'CV' | 'LINKEDIN' | 'OTHER' => {
@@ -29,7 +31,7 @@ const detectDocumentType = (fileName: string): 'CV' | 'LINKEDIN' | 'OTHER' => {
   return 'OTHER';
 };
 
-export const DocumentsPanel = ({ token }: DocumentsPanelProps) => {
+export const DocumentsPanel = ({ token, disabled = false, disabledReason }: DocumentsPanelProps) => {
   const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,11 +85,16 @@ export const DocumentsPanel = ({ token }: DocumentsPanelProps) => {
           type="file"
           accept="application/pdf"
           onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+          disabled={disabled}
           className="rounded-md border border-slate-300 p-2 text-sm"
         />
-        <Button onClick={() => uploadMutation.mutate()} disabled={uploadMutation.isPending || !selectedFile}>
+        <Button
+          onClick={() => uploadMutation.mutate()}
+          disabled={disabled || uploadMutation.isPending || !selectedFile}
+        >
           {uploadMutation.isPending ? 'Processing...' : 'Upload + confirm + extract'}
         </Button>
+        {disabled && disabledReason ? <p className="text-sm text-amber-700">{disabledReason}</p> : null}
         {status ? <p className="text-sm text-emerald-700">{status}</p> : null}
         {error ? <p className="text-sm text-rose-600">{error}</p> : null}
       </div>

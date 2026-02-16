@@ -13,9 +13,11 @@ import { Textarea } from '@/shared/ui/textarea';
 
 type JobMatchingPanelProps = {
   token: string;
+  disabled?: boolean;
+  disabledReason?: string;
 };
 
-export const JobMatchingPanel = ({ token }: JobMatchingPanelProps) => {
+export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: JobMatchingPanelProps) => {
   const queryClient = useQueryClient();
   const [jobDescription, setJobDescription] = useState('');
   const [minScore, setMinScore] = useState('60');
@@ -47,6 +49,9 @@ export const JobMatchingPanel = ({ token }: JobMatchingPanelProps) => {
         className="flex flex-col gap-3"
         onSubmit={(event) => {
           event.preventDefault();
+          if (disabled) {
+            return;
+          }
           setError(null);
           scoreMutation.mutate();
         }}
@@ -75,9 +80,10 @@ export const JobMatchingPanel = ({ token }: JobMatchingPanelProps) => {
           />
         </Label>
         {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-        <Button type="submit" disabled={scoreMutation.isPending}>
+        <Button type="submit" disabled={disabled || scoreMutation.isPending}>
           {scoreMutation.isPending ? 'Scoring...' : 'Score job'}
         </Button>
+        {disabled && disabledReason ? <p className="text-sm text-amber-700">{disabledReason}</p> : null}
       </form>
 
       {scoreMutation.data ? (

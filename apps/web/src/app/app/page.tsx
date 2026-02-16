@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 
 import { logout } from '@/features/auth/api/auth-api';
@@ -10,6 +11,8 @@ import { DocumentsPanel } from '@/features/documents/ui/documents-panel';
 import { JobMatchingPanel } from '@/features/job-matching/ui/job-matching-panel';
 import { JobSourcesPanel } from '@/features/job-sources/ui/job-sources-panel';
 import { ProfileInputPanel } from '@/features/profile-inputs/ui/profile-input-panel';
+import { useWorkflowState } from '@/features/workflow/model/use-workflow-state';
+import { WorkflowOverviewCard } from '@/features/workflow/ui/workflow-overview-card';
 import { env } from '@/shared/config/env';
 import { Button } from '@/shared/ui/button';
 
@@ -17,6 +20,8 @@ const testerEnabled = process.env.NODE_ENV !== 'production' && env.NEXT_PUBLIC_E
 
 export default function AppDashboardPage() {
   const auth = useRequireAuth();
+  const searchParams = useSearchParams();
+  const workflow = useWorkflowState(auth.token);
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
@@ -42,9 +47,18 @@ export default function AppDashboardPage() {
           <p className="text-sm text-slate-700">Signed in as {auth.user?.email ?? 'unknown user'}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700" href="/app/notebook">
-            Open notebook
-          </Link>
+          {workflow.allowNotebook ? (
+            <Link
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700"
+              href="/app/notebook"
+            >
+              Open notebook
+            </Link>
+          ) : (
+            <span className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-400">
+              Notebook locked
+            </span>
+          )}
           <Button variant="secondary" onClick={() => logoutMutation.mutate()} disabled={logoutMutation.isPending}>
             {logoutMutation.isPending ? 'Signing out...' : 'Sign out'}
           </Button>
@@ -63,17 +77,46 @@ export default function AppDashboardPage() {
         </section>
       ) : null}
 
+      {searchParams.get('blocked') === 'notebook' ? (
+        <section className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          Notebook access requires at least one completed scrape run or existing materialized offers.
+        </section>
+      ) : null}
+
+      <WorkflowOverviewCard
+        completedSteps={workflow.completedSteps}
+        totalSteps={workflow.totalSteps}
+        isLoading={workflow.isLoading}
+        steps={workflow.steps}
+      />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <ProfileInputPanel token={auth.token} />
-        <DocumentsPanel token={auth.token} />
+        <DocumentsPanel
+          token={auth.token}
+          disabled={!workflow.allowDocumentsActions}
+          disabledReason="Save profile input first, then upload and extract documents."
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <CareerProfilePanel token={auth.token} />
-        <JobMatchingPanel token={auth.token} />
+        <CareerProfilePanel
+          token={auth.token}
+          disabled={!workflow.allowProfileGeneration}
+          disabledReason="At least one document must be extracted (READY) before profile generation."
+        />
+        <JobMatchingPanel
+          token={auth.token}
+          disabled={!workflow.allowJobMatching}
+          disabledReason="Generate a READY career profile before deterministic job matching."
+        />
       </div>
 
-      <JobSourcesPanel token={auth.token} />
+      <JobSourcesPanel
+        token={auth.token}
+        disabled={!workflow.allowScrapeEnqueue}
+        disabledReason="Generate a READY career profile before enqueuing scrape runs."
+      />
     </main>
   );
 }

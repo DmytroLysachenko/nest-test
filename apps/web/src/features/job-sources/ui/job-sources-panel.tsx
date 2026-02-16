@@ -12,11 +12,13 @@ import { Input } from '@/shared/ui/input';
 
 type JobSourcesPanelProps = {
   token: string;
+  disabled?: boolean;
+  disabledReason?: string;
 };
 
 const DEFAULT_LISTING_URL = 'https://it.pracuj.pl/praca?wm=home-office&its=frontend';
 
-export const JobSourcesPanel = ({ token }: JobSourcesPanelProps) => {
+export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: JobSourcesPanelProps) => {
   const queryClient = useQueryClient();
   const [listingUrl, setListingUrl] = useState(DEFAULT_LISTING_URL);
   const [limit, setLimit] = useState('20');
@@ -25,6 +27,7 @@ export const JobSourcesPanel = ({ token }: JobSourcesPanelProps) => {
   const runsQuery = useQuery({
     queryKey: ['job-sources', 'runs', token],
     queryFn: () => listJobSourceRuns(token),
+    refetchInterval: 15000,
   });
 
   const enqueueMutation = useMutation({
@@ -49,6 +52,9 @@ export const JobSourcesPanel = ({ token }: JobSourcesPanelProps) => {
         className="flex flex-col gap-3"
         onSubmit={(event) => {
           event.preventDefault();
+          if (disabled) {
+            return;
+          }
           setError(null);
           enqueueMutation.mutate();
         }}
@@ -77,9 +83,10 @@ export const JobSourcesPanel = ({ token }: JobSourcesPanelProps) => {
         </div>
 
         {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-        <Button type="submit" disabled={enqueueMutation.isPending}>
+        <Button type="submit" disabled={disabled || enqueueMutation.isPending}>
           {enqueueMutation.isPending ? 'Enqueuing...' : 'Enqueue scrape run'}
         </Button>
+        {disabled && disabledReason ? <p className="text-sm text-amber-700">{disabledReason}</p> : null}
       </form>
 
       <div className="mt-5 space-y-2">

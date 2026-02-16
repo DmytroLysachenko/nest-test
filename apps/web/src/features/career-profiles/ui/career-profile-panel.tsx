@@ -12,9 +12,11 @@ import { Textarea } from '@/shared/ui/textarea';
 
 type CareerProfilePanelProps = {
   token: string;
+  disabled?: boolean;
+  disabledReason?: string;
 };
 
-export const CareerProfilePanel = ({ token }: CareerProfilePanelProps) => {
+export const CareerProfilePanel = ({ token, disabled = false, disabledReason }: CareerProfilePanelProps) => {
   const queryClient = useQueryClient();
   const [instructions, setInstructions] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +43,9 @@ export const CareerProfilePanel = ({ token }: CareerProfilePanelProps) => {
         className="flex flex-col gap-3"
         onSubmit={(event) => {
           event.preventDefault();
+          if (disabled) {
+            return;
+          }
           setError(null);
           generateMutation.mutate();
         }}
@@ -56,9 +61,10 @@ export const CareerProfilePanel = ({ token }: CareerProfilePanelProps) => {
           />
         </Label>
         {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-        <Button type="submit" disabled={generateMutation.isPending}>
+        <Button type="submit" disabled={disabled || generateMutation.isPending}>
           {generateMutation.isPending ? 'Generating...' : 'Generate profile'}
         </Button>
+        {disabled && disabledReason ? <p className="text-sm text-amber-700">{disabledReason}</p> : null}
       </form>
 
       {latestQuery.data ? (
