@@ -23,4 +23,23 @@ describe('OptsService', () => {
     expect(expiresAt).toBeGreaterThan(minExpected);
     expect(expiresAt).toBeLessThan(maxExpected);
   });
+
+  it('verifies OTP with type and non-expired constraint', async () => {
+    const then = jest.fn((cb: (rows: unknown[]) => unknown) => Promise.resolve(cb([{ id: 'otp-1' }])));
+    const limit = jest.fn().mockReturnValue({ then });
+    const orderBy = jest.fn().mockReturnValue({ limit });
+    const where = jest.fn().mockReturnValue({ orderBy });
+    const from = jest.fn().mockReturnValue({ where });
+    const select = jest.fn().mockReturnValue({ from });
+    const db = { select } as any;
+
+    const service = new OptsService(db);
+    const result = await service.verifyOtp('user@example.com', '123456', 'PASSWORD_RESET');
+
+    expect(select).toHaveBeenCalled();
+    expect(where).toHaveBeenCalledTimes(1);
+    expect(orderBy).toHaveBeenCalledTimes(1);
+    expect(limit).toHaveBeenCalledWith(1);
+    expect(result).toEqual({ id: 'otp-1' });
+  });
 });

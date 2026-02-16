@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { otpsTable, OTPType } from '@repo/db';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq, gt } from 'drizzle-orm';
 
 import { Drizzle } from '@/common/decorators';
 
@@ -26,6 +26,7 @@ export class OptsService {
   }
 
   async verifyOtp(email: string, code: string, type: OTPType) {
+    const now = new Date();
     const record = await this.db
       .select()
       .from(otpsTable)
@@ -35,8 +36,10 @@ export class OptsService {
           eq(otpsTable.code, code),
           eq(otpsTable.type, type),
           eq(otpsTable.isUsed, false),
+          gt(otpsTable.expiresAt, now),
         ),
       )
+      .orderBy(desc(otpsTable.createdAt))
       .limit(1)
       .then((res) => res[0]);
 
