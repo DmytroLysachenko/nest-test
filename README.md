@@ -36,9 +36,9 @@ Scraping note:
 
 Architecture approach:
 
-- **HTTP-driven for user actions** (Frontend ? API).
+- **HTTP-driven for user actions** (Frontend -> API).
 
-- **Job/worker-driven for background tasks** (Worker ? DB + storage).
+- **Job/worker-driven for background tasks** (Worker -> API callback + DB).
 
 - Use **Cloud Tasks** in production (no always-on Redis).
 
@@ -48,15 +48,15 @@ Architecture approach:
 
 Primary data flow:
 
-1. Frontend ? API (profile input, upload URL, confirm, extract, generate, match).
+1. Frontend -> API (profile input, upload URL, confirm, extract, generate, match).
 
-2. API ? GCS (signed upload URL, confirm, download for extraction).
+2. API -> GCS (signed upload URL, confirm, download for extraction).
 
-3. Worker ? External sources (job ingestion).
+3. Worker -> External sources (job ingestion).
 
-4. Worker ? DB (normalized jobs).
+4. Worker -> DB (normalized jobs and run artifacts).
 
-5. API ? DB (fetch jobs for matching and UI display).
+5. API -> DB (fetch jobs for matching and UI display).
 
 Suggested integration pattern:
 
@@ -78,7 +78,7 @@ User-facing flow:
 
 2. Submit profile input
 
-3. Upload PDF ? confirm
+3. Upload PDF -> confirm
 
 4. Extract text
 
@@ -118,11 +118,11 @@ API-owned tables (source of truth):
 
 - These are created/updated by API endpoints only.
 
-Worker-owned tables:
+Job-ingestion domain tables (shared boundary):
 
 - `job_source_runs`, `job_offers`, `user_job_offers` (materialized for user notebook)
 
-- These are created/updated by the worker service and consumed by the API.
+- Worker creates scrape outputs and callback payloads; API finalizes run state and materializes notebook rows from callbacks.
 
 Cross-service interactions:
 
@@ -200,17 +200,15 @@ Implementation outline:
 
 4. **Scheduler**
 
-   - Run on schedule (Cloud Scheduler ? Pub/Sub ? Worker).
+   - Run on schedule (Cloud Scheduler -> Cloud Tasks/PubSub -> Worker).
 
    - Persist run status and failures for monitoring.
 
-Recommended data schema (worker-owned):
+Current ingestion schema (implemented):
 
-- `jobs`: id, source_id, title, company, location, salary, description, url, tags, created_at, updated_at
-
-- `job_sources`: id, name, base_url, crawl_rules, enabled
-
-- `job_ingestion_runs`: id, source_id, started_at, finished_at, status, error
+- `job_source_runs`: id, source, listing_url, filters, status, total_found, scraped_count, error, started_at, completed_at
+- `job_offers`: source, source_id, run_id, url, title, company, location, salary, description, requirements, details, fetched_at
+- `user_job_offers`: user_id, career_profile_id, job_offer_id, source_run_id, status, status_history, notes, tags, match_score, match_meta
 
 Notes:
 
@@ -368,27 +366,25 @@ Tables (simplified):
 
 Current tables (API-owned):
 
-- `users` ? `profiles` (1:1)
+- `users` -> `profiles` (1:1)
 
-- `users` ? `profile_inputs` (1:many)
+- `users` -> `profile_inputs` (1:many)
 
-- `users` ? `documents` (1:many)
+- `users` -> `documents` (1:many)
 
-- `users` ? `career_profiles` (1:many)
+- `users` -> `career_profiles` (1:many)
 
-- `users` ? `job_matches` (1:many)
+- `users` -> `job_matches` (1:many)
 
-- `profile_inputs` ? `career_profiles` (1:many)
-- `users` ? `user_job_offers` (1:many)
-- `career_profiles` ? `user_job_offers` (1:many)
+- `profile_inputs` -> `career_profiles` (1:many)
+- `users` -> `user_job_offers` (1:many)
+- `career_profiles` -> `user_job_offers` (1:many)
 
-Planned tables (worker-owned):
+Ingestion tables (current):
 
-- `job_sources` (1:many) ? `jobs`
+- `job_source_runs` -> `job_offers`
 
-- `job_ingestion_runs` (1:many) ? `job_sources`
-
-- `job_matches` ? `jobs` (future link for stored matches)
+- `job_source_runs` -> `user_job_offers`
 
 Ownership rules:
 
@@ -402,7 +398,7 @@ Ownership rules:
 
 ## API Overview
 
-All API routes are prefixed by `/api` (see `API_PREFIX`). Examples are in `apps/api/api.http`.
+All API routes are prefixed by `/api` (see `API_PREFIX`). Examples are in `apps/api/http`.
 
 Auth:
 
@@ -1067,4 +1063,5 @@ Current execution focus:
 ## License
 
 MIT License. See `LICENSE`.
+
 
