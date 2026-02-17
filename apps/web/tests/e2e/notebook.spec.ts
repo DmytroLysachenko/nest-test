@@ -20,6 +20,71 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
     });
   });
 
+  await page.route('**/api/profile-inputs/latest', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          id: 'pi-1',
+          targetRoles: 'Backend Developer',
+          notes: 'Focus on TypeScript/NestJS',
+          createdAt: '2026-02-01T00:00:00.000Z',
+        },
+      }),
+    });
+  });
+
+  await page.route('**/api/documents', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: [
+          {
+            id: 'doc-1',
+            extractionStatus: 'READY',
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route('**/api/career-profiles/latest', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          id: 'cp-1',
+          status: 'READY',
+        },
+      }),
+    });
+  });
+
+  await page.route('**/api/job-sources/runs*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          items: [
+            {
+              id: 'run-1',
+              status: 'COMPLETED',
+            },
+          ],
+          total: 1,
+        },
+      }),
+    });
+  });
+
   await page.route('**/api/job-offers?**', async (route) => {
     await route.fulfill({
       status: 200,

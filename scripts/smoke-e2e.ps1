@@ -28,7 +28,7 @@ Assert-StatusCode -Actual $apiHealth.StatusCode -Allowed @(200) -Context 'API he
 $workerHealth = Invoke-WebRequest -Uri 'http://localhost:4001/health' -UseBasicParsing -TimeoutSec 15
 Assert-StatusCode -Actual $workerHealth.StatusCode -Allowed @(200) -Context 'Worker health'
 
-$webHome = Invoke-WebRequest -Uri 'http://localhost:3002' -UseBasicParsing -TimeoutSec 15
+$webHome = Invoke-WebRequest -Uri 'http://localhost:3002/health' -UseBasicParsing -TimeoutSec 15
 Assert-StatusCode -Actual $webHome.StatusCode -Allowed @(200) -Context 'Web health'
 
 Write-Host '3) Authenticating fixture user...'
