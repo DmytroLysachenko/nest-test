@@ -102,12 +102,14 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       outputMode: env.WORKER_OUTPUT_MODE,
       callbackUrl: env.WORKER_CALLBACK_URL,
       callbackToken: env.WORKER_CALLBACK_TOKEN,
+      callbackSigningSecret: env.WORKER_CALLBACK_SIGNING_SECRET,
       callbackRetryAttempts: env.WORKER_CALLBACK_RETRY_ATTEMPTS,
       callbackRetryBackoffMs: env.WORKER_CALLBACK_RETRY_BACKOFF_MS,
       callbackDeadLetterDir: env.WORKER_DEAD_LETTER_DIR,
       scrapeTimeoutMs: env.WORKER_TASK_TIMEOUT_MS,
     },
     env.WORKER_MAX_CONCURRENT_TASKS,
+    env.WORKER_MAX_QUEUE_SIZE,
     env.WORKER_TASK_TIMEOUT_MS,
   );
 
@@ -153,7 +155,18 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         'Task received',
       );
 
-      runner.enqueue(task);
+      const accepted = runner.enqueue(task);
+      if (!accepted) {
+        sendJson(res, 429, {
+          ok: false,
+          status: 'rejected',
+          reason: 'Queue is full',
+          requestId,
+          queue: runner.getStats(),
+        });
+        return;
+      }
+
       sendJson(res, 202, {
         ok: true,
         status: 'accepted',

@@ -48,9 +48,11 @@ export class JobSourcesController {
   @ApiOperation({ summary: 'Worker callback for completed scrape runs' })
   async completeScrape(
     @Headers('authorization') authorization: string | undefined,
+    @Headers('x-worker-signature') workerSignature: string | undefined,
+    @Headers('x-worker-timestamp') workerTimestamp: string | undefined,
     @Headers('x-request-id') requestId: string | undefined,
     @Body() dto: ScrapeCompleteDto,
   ) {
-    return this.jobSourcesService.completeScrape(dto, authorization, requestId);
+    return this.jobSourcesService.completeScrape(dto, authorization, requestId, workerSignature, workerTimestamp);
   }
 }

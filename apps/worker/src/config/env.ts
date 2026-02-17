@@ -32,6 +32,7 @@ const envSchema = z.object({
   TASKS_SERVICE_ACCOUNT_EMAIL: z.string().optional(),
   WORKER_CALLBACK_URL: z.string().url().optional(),
   WORKER_CALLBACK_TOKEN: z.string().optional(),
+  WORKER_CALLBACK_SIGNING_SECRET: z.string().optional(),
   WORKER_CALLBACK_RETRY_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
   WORKER_CALLBACK_RETRY_BACKOFF_MS: z.coerce.number().int().min(100).max(10000).default(1000),
   WORKER_DEAD_LETTER_DIR: z.string().optional(),
@@ -52,6 +53,7 @@ const envSchema = z.object({
   PRACUJ_PROFILE_DIR: z.string().optional(),
   WORKER_OUTPUT_MODE: z.enum(['full', 'minimal']).default('full'),
   WORKER_MAX_CONCURRENT_TASKS: z.coerce.number().int().min(1).max(5).default(1),
+  WORKER_MAX_QUEUE_SIZE: z.coerce.number().int().min(1).max(1000).default(100),
   WORKER_TASK_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600000).default(180000),
 });
 

@@ -53,10 +53,11 @@ export class AuthService {
 
   async login(user: User, device: DeviceType) {
     const { accessToken, refreshToken } = await this.tokenService.createJwtToken(user);
+    const refreshTokenHash = await this.tokenService.hashRefreshToken(refreshToken);
     const now = new Date();
     await this.db.insert(passportTable).values({
       userId: user.id,
-      refreshToken: refreshToken,
+      refreshToken: refreshTokenHash,
       userAgent: device.userAgent,
       createdAt: now,
       updatedAt: now,

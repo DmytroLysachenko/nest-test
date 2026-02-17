@@ -23,6 +23,7 @@ export const handleTask = async (
     outputMode?: 'full' | 'minimal';
     callbackUrl?: string;
     callbackToken?: string;
+    callbackSigningSecret?: string;
     callbackRetryAttempts?: number;
     callbackRetryBackoffMs?: number;
     callbackDeadLetterDir?: string;
@@ -47,6 +48,7 @@ export const handleTask = async (
         outputMode: options.outputMode,
         callbackUrl: options.callbackUrl,
         callbackToken: options.callbackToken,
+        callbackSigningSecret: options.callbackSigningSecret,
         callbackRetryAttempts: options.callbackRetryAttempts,
         callbackRetryBackoffMs: options.callbackRetryBackoffMs,
         callbackDeadLetterDir: options.callbackDeadLetterDir,

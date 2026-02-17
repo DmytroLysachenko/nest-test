@@ -1,9 +1,11 @@
+import { createHmac } from 'crypto';
 import type { Logger } from 'pino';
 
 import { persistDeadLetter } from './callback-dead-letter';
 import { resolvePipeline, runPipeline } from './scrape-pipelines';
 import { saveOutput } from '../output/save-output';
 import type { ScrapeSourceJob } from '../types/jobs';
+import type { NormalizedJob } from '../sources/types';
 
 type CallbackPayload = {
   source: string;
@@ -24,6 +26,57 @@ export type ScrapeFailureType = 'validation' | 'network' | 'parse' | 'callback' 
 
 const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const toError = (error: unknown) => (error instanceof Error ? error : new Error('Unknown error'));
+const normalizeString = (value: string | null | undefined) => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+};
+
+const sanitizeStringArray = (value: string[] | undefined) =>
+  Array.from(
+    new Set(
+      (value ?? [])
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  );
+
+export const sanitizeCallbackJobs = (jobs: NormalizedJob[] | undefined) => {
+  if (!jobs?.length) {
+    return [];
+  }
+
+  const dedupByUrl = new Map<string, NormalizedJob>();
+  for (const job of jobs) {
+    const url = normalizeString(job.url);
+    const title = normalizeString(job.title);
+    const description = normalizeString(job.description);
+    if (!url || !title || !description) {
+      continue;
+    }
+
+    const dedupeKey = url.toLowerCase();
+    if (dedupByUrl.has(dedupeKey)) {
+      continue;
+    }
+
+    dedupByUrl.set(dedupeKey, {
+      ...job,
+      source: normalizeString(job.source) ?? 'unknown',
+      sourceId: normalizeString(job.sourceId),
+      title,
+      company: normalizeString(job.company),
+      location: normalizeString(job.location),
+      description,
+      url,
+      tags: sanitizeStringArray(job.tags),
+      salary: normalizeString(job.salary),
+      employmentType: normalizeString(job.employmentType),
+      requirements: sanitizeStringArray(job.requirements),
+    });
+  }
+
+  return Array.from(dedupByUrl.values());
+};
 
 export const classifyScrapeError = (error: unknown): ScrapeFailureType => {
   const normalized = toError(error);
@@ -54,9 +107,16 @@ export const classifyScrapeError = (error: unknown): ScrapeFailureType => {
   return 'unknown';
 };
 
+export const buildWorkerCallbackSignaturePayload = (
+  payload: CallbackPayload,
+  requestId: string | undefined,
+  timestampSec: number,
+) => `${timestampSec}.${payload.sourceRunId ?? ''}.${payload.status}.${payload.runId}.${requestId ?? ''}`;
+
 const notifyCallback = async (
   url: string,
   token: string | undefined,
+  signingSecret: string | undefined,
   requestId: string | undefined,
   payload: CallbackPayload,
   options: {
@@ -69,12 +129,16 @@ const notifyCallback = async (
   let lastError: unknown;
   for (let attempt = 1; attempt <= options.retryAttempts; attempt += 1) {
     try {
+      const timestampSec = Math.floor(Date.now() / 1000);
+      const signaturePayload = buildWorkerCallbackSignaturePayload(payload, requestId, timestampSec);
+      const signature = signingSecret ? createHmac('sha256', signingSecret).update(signaturePayload).digest('hex') : null;
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(requestId ? { 'x-request-id': requestId } : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(signature ? { 'x-worker-signature': signature, 'x-worker-timestamp': String(timestampSec) } : {}),
         },
         body: JSON.stringify(payload),
       });
@@ -144,6 +208,7 @@ export const runScrapeJob = async (
     outputMode?: 'full' | 'minimal';
     callbackUrl?: string;
     callbackToken?: string;
+    callbackSigningSecret?: string;
     callbackRetryAttempts?: number;
     callbackRetryBackoffMs?: number;
     callbackDeadLetterDir?: string;
@@ -162,6 +227,7 @@ export const runScrapeJob = async (
   try {
     const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
     const callbackToken = payload.callbackToken ?? options.callbackToken;
+    const callbackSigningSecret = options.callbackSigningSecret;
 
     const pipelinePromise = runPipeline(payload.source, {
       headless: options.headless,
@@ -189,6 +255,7 @@ export const runScrapeJob = async (
     });
 
     const { crawlResult, parsedJobs, normalized } = await Promise.race([pipelinePromise, timeoutPromise]);
+    const sanitizedJobs = sanitizeCallbackJobs(normalized);
     if (timeoutRef) {
       clearTimeout(timeoutRef);
     }
@@ -207,7 +274,7 @@ export const runScrapeJob = async (
         runId,
         listingUrl,
         fetchedAt: new Date().toISOString(),
-        jobs: normalized,
+        jobs: sanitizedJobs,
         raw: parsedJobs,
         pages,
         blockedUrls,
@@ -225,6 +292,7 @@ export const runScrapeJob = async (
       await notifyCallback(
         callbackUrl,
         callbackToken,
+        callbackSigningSecret,
         payload.requestId,
         buildScrapeCallbackPayload({
           source: payload.source,
@@ -232,11 +300,11 @@ export const runScrapeJob = async (
           sourceRunId,
           listingUrl,
           status: 'COMPLETED',
-          scrapedCount: normalized.length,
+          scrapedCount: sanitizedJobs.length,
           totalFound: jobLinks.length,
-          jobCount: normalized.length,
+          jobCount: sanitizedJobs.length,
           jobLinkCount: jobLinks.length,
-          jobs: normalized,
+          jobs: sanitizedJobs,
           outputPath,
         }),
         {
@@ -255,7 +323,7 @@ export const runScrapeJob = async (
         runId,
       sourceRunId,
       pages: pages.length,
-      jobs: normalized.length,
+      jobs: sanitizedJobs.length,
         blockedPages: blockedUrls.length,
         jobLinks: jobLinks.length,
         outputPath,
@@ -265,8 +333,8 @@ export const runScrapeJob = async (
     );
 
     return {
-      count: normalized.length,
-      jobs: normalized.slice(0, 5),
+      count: sanitizedJobs.length,
+      jobs: sanitizedJobs.slice(0, 5),
       outputPath,
       sourceRunId,
     };
@@ -275,10 +343,12 @@ export const runScrapeJob = async (
     const failureType = classifyScrapeError(error);
     const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
     const callbackToken = payload.callbackToken ?? options.callbackToken;
+    const callbackSigningSecret = options.callbackSigningSecret;
     if (callbackUrl) {
       await notifyCallback(
         callbackUrl,
         callbackToken,
+        callbackSigningSecret,
         payload.requestId,
         buildScrapeCallbackPayload({
           source: payload.source,

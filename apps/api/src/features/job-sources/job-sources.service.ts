@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 import {
   BadRequestException,
@@ -23,6 +24,8 @@ import { EnqueueScrapeDto } from './dto/enqueue-scrape.dto';
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
+
+type CallbackJobPayload = NonNullable<ScrapeCompleteDto['jobs']>[number];
 
 const buildListingUrl = (filters: ScrapeFiltersDto, source: string) => {
   const resolvePublishedPath = (days: number) => {
@@ -103,6 +106,53 @@ const mapSource = (source: string) => {
 };
 
 const normalizeCompletionStatus = (dto: ScrapeCompleteDto) => dto.status ?? 'COMPLETED';
+
+const normalizeString = (value: string | undefined | null) => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+};
+
+const sanitizeStringArray = (value: string[] | undefined | null) =>
+  Array.from(
+    new Set(
+      (value ?? [])
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  );
+
+const sanitizeCallbackJobs = (jobs: ScrapeCompleteDto['jobs']) => {
+  if (!jobs?.length) {
+    return [];
+  }
+
+  const dedupByUrl = new Map<string, CallbackJobPayload>();
+  for (const job of jobs) {
+    const url = normalizeString(job.url);
+    const title = normalizeString(job.title);
+    const description = normalizeString(job.description);
+    if (!url || !title || !description) {
+      continue;
+    }
+    dedupByUrl.set(url.toLowerCase(), {
+      ...job,
+      url,
+      title,
+      description,
+      source: normalizeString(job.source) ?? undefined,
+      sourceId: normalizeString(job.sourceId) ?? undefined,
+      company: normalizeString(job.company) ?? undefined,
+      location: normalizeString(job.location) ?? undefined,
+      salary: normalizeString(job.salary) ?? undefined,
+      employmentType: normalizeString(job.employmentType) ?? undefined,
+      requirements: sanitizeStringArray(job.requirements),
+      tags: sanitizeStringArray(job.tags),
+    });
+  }
+
+  return Array.from(dedupByUrl.values());
+};
+
 const deriveFailureType = (error?: string | null) => {
   const normalized = (error ?? '').toLowerCase();
   if (!normalized) {
@@ -242,7 +292,15 @@ export class JobSourcesService {
     }
   }
 
-  async completeScrape(dto: ScrapeCompleteDto, authorization?: string, requestId?: string) {
+  async completeScrape(
+    dto: ScrapeCompleteDto,
+    authorization?: string,
+    requestId?: string,
+    workerSignature?: string,
+    workerTimestamp?: string,
+  ) {
+    this.verifyWorkerCallbackSignature(dto, requestId, workerSignature, workerTimestamp);
+
     const token = this.configService.get('WORKER_CALLBACK_TOKEN', { infer: true });
     if (token) {
       const header = authorization ?? '';
@@ -272,6 +330,24 @@ export class JobSourcesService {
     }
 
     const status = normalizeCompletionStatus(dto);
+    if (status === 'FAILED' && !dto.error?.trim()) {
+      throw new BadRequestException('Failed callback must include error');
+    }
+    if (status === 'FAILED' && dto.jobs?.length) {
+      throw new BadRequestException('Failed callback cannot include jobs payload');
+    }
+    if (status === 'COMPLETED' && dto.error?.trim()) {
+      throw new BadRequestException('Completed callback cannot include error');
+    }
+    if (dto.scrapedCount !== undefined && dto.jobCount !== undefined && dto.scrapedCount !== dto.jobCount) {
+      throw new BadRequestException('scrapedCount and jobCount mismatch');
+    }
+    if (dto.jobs?.length && dto.scrapedCount !== undefined && dto.jobs.length !== dto.scrapedCount) {
+      throw new BadRequestException('scrapedCount must match jobs payload length');
+    }
+
+    const sanitizedJobs = sanitizeCallbackJobs(dto.jobs);
+
     const statusFrom = run.status;
     const isTerminal = run.status === 'COMPLETED' || run.status === 'FAILED';
     if (isTerminal && run.status === status) {
@@ -300,7 +376,12 @@ export class JobSourcesService {
       };
     }
 
-    const scrapedCount = dto.scrapedCount ?? dto.jobCount ?? dto.jobs?.length ?? run.scrapedCount ?? 0;
+    const scrapedCount =
+      (sanitizedJobs.length ? sanitizedJobs.length : undefined) ??
+      dto.scrapedCount ??
+      dto.jobCount ??
+      run.scrapedCount ??
+      0;
     const totalFound = dto.totalFound ?? dto.jobLinkCount ?? run.totalFound ?? null;
 
     if (status === 'FAILED') {
@@ -337,11 +418,11 @@ export class JobSourcesService {
       };
     }
 
-    if (dto.jobs?.length) {
+    if (sanitizedJobs.length) {
       await this.db
         .insert(jobOffersTable)
         .values(
-          dto.jobs.map((job) => ({
+          sanitizedJobs.map((job) => ({
             source: run.source,
             sourceId: job.sourceId ?? null,
             runId: run.id,
@@ -352,7 +433,7 @@ export class JobSourcesService {
             salary: job.salary ?? null,
             employmentType: job.employmentType ?? null,
             description: job.description,
-            requirements: job.requirements ?? null,
+            requirements: job.requirements?.length ? job.requirements : null,
             details: job.details ?? null,
             fetchedAt: new Date(),
           })),
@@ -448,6 +529,49 @@ export class JobSourcesService {
       totalOffers: offers.length,
       idempotent: inserted.length === 0,
     };
+  }
+
+  private verifyWorkerCallbackSignature(
+    dto: ScrapeCompleteDto,
+    requestId: string | undefined,
+    signatureHeader: string | undefined,
+    timestampHeader: string | undefined,
+  ) {
+    const signingSecret = this.configService.get('WORKER_CALLBACK_SIGNING_SECRET', { infer: true });
+    if (!signingSecret) {
+      return;
+    }
+
+    if (!signatureHeader || !timestampHeader) {
+      throw new UnauthorizedException('Missing worker callback signature headers');
+    }
+
+    const timestampSec = Number(timestampHeader);
+    if (!Number.isFinite(timestampSec)) {
+      throw new UnauthorizedException('Invalid worker callback signature timestamp');
+    }
+
+    const tolerance = this.configService.get('WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC', { infer: true });
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (Math.abs(nowSec - timestampSec) > tolerance) {
+      throw new UnauthorizedException('Expired worker callback signature timestamp');
+    }
+
+    const status = dto.status ?? 'COMPLETED';
+    const base = `${timestampSec}.${dto.sourceRunId}.${status}.${dto.runId ?? ''}.${requestId ?? ''}`;
+    const expected = createHmac('sha256', signingSecret).update(base).digest('hex');
+    if (!this.constantTimeEqual(signatureHeader, expected)) {
+      throw new UnauthorizedException('Invalid worker callback signature');
+    }
+  }
+
+  private constantTimeEqual(a: string, b: string) {
+    const left = Buffer.from(a);
+    const right = Buffer.from(b);
+    if (left.length !== right.length) {
+      return false;
+    }
+    return timingSafeEqual(left, right);
   }
 
   async listRuns(userId: string, query: ListJobSourceRunsQuery) {
