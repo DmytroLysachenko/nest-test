@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildScrapeCallbackPayload, classifyScrapeError } from './scrape-job';
+import {
+  buildScrapeCallbackPayload,
+  buildWorkerCallbackSignaturePayload,
+  classifyScrapeError,
+  sanitizeCallbackJobs,
+} from './scrape-job';
 
 test('buildScrapeCallbackPayload emits completed callback fields', () => {
   const payload = buildScrapeCallbackPayload({
@@ -49,4 +54,66 @@ test('classifyScrapeError maps callback errors', () => {
 
 test('classifyScrapeError maps network errors', () => {
   assert.equal(classifyScrapeError(new Error('Cloudflare blocked request')), 'network');
+});
+
+test('sanitizeCallbackJobs removes invalid entries and deduplicates by url', () => {
+  const sanitized = sanitizeCallbackJobs([
+    {
+      source: 'pracuj-pl-it',
+      sourceId: '1',
+      title: ' Backend Developer ',
+      company: ' ACME ',
+      location: ' Gdynia ',
+      description: ' Build APIs ',
+      url: ' https://it.pracuj.pl/praca/test,oferta,1 ',
+      tags: [' backend ', 'backend', ''],
+      salary: ' 10k ',
+      employmentType: ' B2B ',
+      requirements: [' TypeScript ', 'TypeScript', ''],
+    },
+    {
+      source: 'pracuj-pl-it',
+      sourceId: '2',
+      title: 'Backend Dev Duplicate',
+      company: null,
+      location: null,
+      description: 'Duplicate by URL should be ignored',
+      url: 'https://it.pracuj.pl/praca/test,oferta,1',
+      tags: [],
+      salary: null,
+      employmentType: null,
+      requirements: [],
+    },
+    {
+      source: 'pracuj-pl-it',
+      sourceId: null,
+      title: 'Missing URL',
+      company: null,
+      location: null,
+      description: 'invalid',
+      url: '',
+      tags: [],
+      salary: null,
+      employmentType: null,
+      requirements: [],
+    },
+  ]);
+
+  assert.equal(sanitized.length, 1);
+  assert.equal(sanitized[0]?.url, 'https://it.pracuj.pl/praca/test,oferta,1');
+  assert.deepEqual(sanitized[0]?.tags, ['backend']);
+  assert.deepEqual(sanitized[0]?.requirements, ['TypeScript']);
+});
+
+test('buildWorkerCallbackSignaturePayload is deterministic', () => {
+  const payload = buildScrapeCallbackPayload({
+    source: 'pracuj-pl',
+    runId: 'run-1',
+    sourceRunId: 'source-run-1',
+    listingUrl: 'https://it.pracuj.pl/praca',
+    status: 'COMPLETED',
+  });
+
+  const result = buildWorkerCallbackSignaturePayload(payload, 'req-1', 1700000000);
+  assert.equal(result, '1700000000.source-run-1.COMPLETED.run-1.req-1');
 });

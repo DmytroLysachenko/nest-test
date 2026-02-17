@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsIn, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsIn, IsInt, IsObject, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested } from 'class-validator';
 
 const SCRAPE_COMPLETE_STATUS = ['COMPLETED', 'FAILED'] as const;
 
@@ -49,15 +49,20 @@ class ScrapeResultJobDto {
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
-  requirements?: unknown;
+  @IsArray()
+  @IsString({ each: true })
+  requirements?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
-  details?: unknown;
+  @IsObject()
+  details?: Record<string, unknown>;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
-  tags?: unknown;
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }
 
 export class ScrapeCompleteDto {

@@ -17,10 +17,26 @@ export class TaskRunner {
     private readonly logger: Logger,
     private readonly options: TaskOptions,
     private readonly maxConcurrent: number,
+    private readonly maxQueueSize: number,
     private readonly taskTimeoutMs: number,
   ) {}
 
   enqueue(task: TaskEnvelope) {
+    if (this.queue.length >= this.maxQueueSize) {
+      this.logger.warn(
+        {
+          taskName: task.name,
+          runId: task.payload.runId ?? null,
+          sourceRunId: task.payload.sourceRunId ?? null,
+          requestId: task.payload.requestId ?? null,
+          queued: this.queue.length,
+          maxQueueSize: this.maxQueueSize,
+        },
+        'Task rejected because queue is full',
+      );
+      return false;
+    }
+
     this.queue.push({ task, enqueuedAt: Date.now() });
     this.logger.info(
       {
@@ -33,6 +49,7 @@ export class TaskRunner {
       'Task queued',
     );
     this.pump();
+    return true;
   }
 
   getStats() {

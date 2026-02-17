@@ -364,4 +364,140 @@ describe('JobSourcesService', () => {
     });
     expect(db.insert).toHaveBeenCalledWith(jobOffersTable);
   });
+
+  it('rejects failed callback without error details', async () => {
+    const db = {
+      select: jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-6',
+                      source: 'PRACUJ_PL',
+                      userId: 'user-6',
+                      careerProfileId: 'profile-6',
+                      status: 'RUNNING',
+                      totalFound: null,
+                      scrapedCount: null,
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn(),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+
+    await expect(
+      service.completeScrape({
+        sourceRunId: 'run-6',
+        status: 'FAILED',
+      }),
+    ).rejects.toThrow('Failed callback must include error');
+  });
+
+  it('rejects completed callback when scrapedCount mismatches jobs payload length', async () => {
+    const db = {
+      select: jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-7',
+                      source: 'PRACUJ_PL',
+                      userId: 'user-7',
+                      careerProfileId: 'profile-7',
+                      status: 'RUNNING',
+                      totalFound: null,
+                      scrapedCount: null,
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn(),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+
+    await expect(
+      service.completeScrape({
+        sourceRunId: 'run-7',
+        status: 'COMPLETED',
+        scrapedCount: 5,
+        jobs: [
+          {
+            url: 'https://it.pracuj.pl/praca/test,oferta,777',
+            title: 'Backend Developer',
+            description: 'TypeScript + NestJS',
+          },
+        ],
+      }),
+    ).rejects.toThrow('scrapedCount must match jobs payload length');
+  });
+
+  it('rejects callback when signature secret is configured but signature headers are missing', async () => {
+    const db = {
+      select: jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-8',
+                      source: 'PRACUJ_PL',
+                      userId: 'user-8',
+                      careerProfileId: 'profile-8',
+                      status: 'RUNNING',
+                      totalFound: null,
+                      scrapedCount: null,
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn(),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(
+      createConfigService({
+        WORKER_CALLBACK_SIGNING_SECRET: 'secret',
+        WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC: 300,
+      }),
+      createLogger(),
+      db,
+    );
+
+    await expect(
+      service.completeScrape(
+        {
+          sourceRunId: 'run-8',
+          status: 'FAILED',
+          error: 'network',
+        },
+        undefined,
+        'request-1',
+        undefined,
+        undefined,
+      ),
+    ).rejects.toThrow('Missing worker callback signature headers');
+  });
 });
