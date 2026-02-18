@@ -298,7 +298,16 @@ export class JobOffersService {
     const isMatch = score >= minScore;
     const scoredAt = new Date().toISOString();
     const matchMeta = {
-      ...parsed,
+      engine: 'llm-v1',
+      score,
+      minScore,
+      matched: {
+        skills: parsed.matchedSkills,
+        roles: parsed.matchedRoles,
+        strengths: parsed.matchedStrengths,
+        keywords: parsed.matchedKeywords,
+        summary: parsed.summary,
+      },
       audit: {
         provider: 'vertex-ai',
         model: this.scoringModel,

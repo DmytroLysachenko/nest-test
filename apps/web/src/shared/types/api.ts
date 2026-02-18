@@ -89,6 +89,7 @@ export type JobScoreResponseDto = {
   matchedSkills: string[];
   matchedRoles: string[];
   explanation: JobScoreResultDto['explanation'];
+  matchMeta?: Record<string, unknown>;
   gaps: string[];
 };
 
@@ -136,6 +137,7 @@ export type EnqueueScrapeResponseDto = {
   status: string;
   acceptedAt?: string;
   warning?: string;
+  droppedFilters?: Record<string, string[]>;
 };
 
 export type JobOfferStatus = 'NEW' | 'SEEN' | 'SAVED' | 'APPLIED' | 'DISMISSED';

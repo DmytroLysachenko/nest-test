@@ -18,6 +18,8 @@ type ProfileJson = {
   topKeywords?: string[];
 };
 
+const DETERMINISTIC_ENGINE = 'deterministic-v2';
+
 @Injectable()
 export class JobMatchingService {
   constructor(@Drizzle() private readonly db: NodePgDatabase) {}
@@ -48,6 +50,24 @@ export class JobMatchingService {
     const score = this.calculateScore(dto.jobDescription, profileJson, normalizedInput);
     const minScore = dto.minScore ?? 0;
     const isMatch = score.score >= minScore;
+    const scoredAt = new Date().toISOString();
+    const matchMeta = {
+      engine: DETERMINISTIC_ENGINE,
+      score: score.score,
+      minScore,
+      matched: score.explanation,
+      audit: {
+        provider: 'internal',
+        model: DETERMINISTIC_ENGINE,
+        scoredAt,
+        weights: {
+          roles: 0.4,
+          skills: 0.4,
+          strengths: 0.2,
+          keywordBonus: 0.1,
+        },
+      },
+    };
 
     const [record] = await this.db
       .insert(jobMatchesTable)
@@ -75,6 +95,7 @@ export class JobMatchingService {
       matchedSkills: score.matchedSkills,
       matchedRoles: score.matchedRoles,
       explanation: score.explanation,
+      matchMeta,
       gaps: profileJson.gaps ?? [],
     };
   }
