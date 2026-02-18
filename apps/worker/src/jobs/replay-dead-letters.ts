@@ -7,7 +7,7 @@ const env = loadEnv();
 const logger = createLogger(env);
 
 const run = async () => {
-  const result = await replayDeadLetters(env.WORKER_DEAD_LETTER_DIR, logger);
+  const result = await replayDeadLetters(env.WORKER_DEAD_LETTER_DIR, logger, env.WORKER_CALLBACK_SIGNING_SECRET);
   logger.info(result, 'Dead-letter replay finished');
 };
 
@@ -15,4 +15,3 @@ run().catch((error) => {
   logger.error({ error }, 'Dead-letter replay failed');
   process.exit(1);
 });
-

@@ -1,3 +1,4 @@
+import { createHmac } from 'crypto';
 import { mkdir, readdir, readFile, rm, writeFile } from 'fs/promises';
 import { isAbsolute, join, resolve } from 'path';
 
@@ -10,6 +11,14 @@ type DeadLetterPayload = {
   payload: Record<string, unknown>;
   reason: string;
   createdAt: string;
+};
+
+const buildSignaturePayload = (entry: DeadLetterPayload, timestampSec: number) => {
+  const sourceRunId = typeof entry.payload.sourceRunId === 'string' ? entry.payload.sourceRunId : '';
+  const status = typeof entry.payload.status === 'string' ? entry.payload.status : '';
+  const runId = typeof entry.payload.runId === 'string' ? entry.payload.runId : '';
+  const eventId = typeof entry.payload.eventId === 'string' ? entry.payload.eventId : '';
+  return `${timestampSec}.${sourceRunId}.${status}.${runId}.${entry.requestId ?? ''}.${eventId}`;
 };
 
 const toSafeFilename = (value: string) => value.replace(/[^\w.-]+/g, '_');
@@ -36,7 +45,11 @@ export const persistDeadLetter = async (
   logger.error({ path, requestId: entry.requestId }, 'Callback moved to dead letter');
 };
 
-export const replayDeadLetters = async (deadLetterDir: string | undefined, logger: Logger) => {
+export const replayDeadLetters = async (
+  deadLetterDir: string | undefined,
+  logger: Logger,
+  callbackSigningSecret?: string,
+) => {
   const dir = resolveDeadLetterDir(deadLetterDir);
   const filenames = await readdir(dir).catch(() => []);
   const results = {
@@ -50,12 +63,17 @@ export const replayDeadLetters = async (deadLetterDir: string | undefined, logge
     try {
       const raw = await readFile(path, 'utf-8');
       const entry = JSON.parse(raw) as DeadLetterPayload;
+      const timestampSec = Math.floor(Date.now() / 1000);
+      const signature = callbackSigningSecret
+        ? createHmac('sha256', callbackSigningSecret).update(buildSignaturePayload(entry, timestampSec)).digest('hex')
+        : null;
       const response = await fetch(entry.callbackUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(entry.requestId ? { 'x-request-id': entry.requestId } : {}),
           ...(entry.callbackToken ? { Authorization: `Bearer ${entry.callbackToken}` } : {}),
+          ...(signature ? { 'x-worker-signature': signature, 'x-worker-timestamp': String(timestampSec) } : {}),
         },
         body: JSON.stringify(entry.payload),
       });
@@ -76,4 +94,3 @@ export const replayDeadLetters = async (deadLetterDir: string | undefined, logge
 
   return results;
 };
-

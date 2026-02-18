@@ -5,6 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import type { Logger } from 'pino';
 
 import type { WorkerEnv } from '../config/env';
+import { replayDeadLetters } from '../jobs/callback-dead-letter';
 import { TaskRunner } from '../queue/task-runner';
 import { taskEnvelopeSchema } from '../queue/task-types';
 import type { TaskEnvelope } from '../queue/task-types';
@@ -120,6 +121,25 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
     }
 
     if (req.method !== 'POST' || (req.url !== '/tasks' && req.url !== '/scrape')) {
+      if (req.method === 'POST' && req.url === '/callbacks/replay') {
+        if (!verifyAuth(req, env)) {
+          sendJson(res, 401, { error: 'Unauthorized' });
+          return;
+        }
+        try {
+          const result = await replayDeadLetters(
+            env.WORKER_DEAD_LETTER_DIR,
+            logger,
+            env.WORKER_CALLBACK_SIGNING_SECRET,
+          );
+          sendJson(res, 200, { ok: true, ...result });
+        } catch (error) {
+          logger.error({ error: formatError(error) }, 'Dead-letter callback replay failed');
+          sendJson(res, 500, { error: 'Dead-letter callback replay failed' });
+        }
+        return;
+      }
+
       sendJson(res, 404, { error: 'Not Found' });
       return;
     }

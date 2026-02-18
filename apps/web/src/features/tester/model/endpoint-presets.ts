@@ -430,4 +430,12 @@ export const testerEndpointPresets: TesterEndpointPreset[] = [
       limit: 5,
     },
   },
+  {
+    id: 'worker-callback-replay',
+    label: 'Worker: replay callback dead letters',
+    service: 'worker',
+    method: 'POST',
+    path: '/callbacks/replay',
+    notes: 'Replays files from WORKER_DEAD_LETTER_DIR to API callback endpoint.',
+  },
 ];
