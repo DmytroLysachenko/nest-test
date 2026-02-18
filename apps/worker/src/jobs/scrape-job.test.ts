@@ -10,6 +10,7 @@ import {
 
 test('buildScrapeCallbackPayload emits completed callback fields', () => {
   const payload = buildScrapeCallbackPayload({
+    eventId: 'event-1',
     source: 'pracuj-pl',
     runId: 'run-1',
     sourceRunId: 'run-source-1',
@@ -29,6 +30,7 @@ test('buildScrapeCallbackPayload emits completed callback fields', () => {
 
 test('buildScrapeCallbackPayload emits failure callback fields', () => {
   const payload = buildScrapeCallbackPayload({
+    eventId: 'event-2',
     source: 'pracuj-pl',
     runId: 'run-2',
     sourceRunId: 'run-source-2',
@@ -107,6 +109,7 @@ test('sanitizeCallbackJobs removes invalid entries and deduplicates by url', () 
 
 test('buildWorkerCallbackSignaturePayload is deterministic', () => {
   const payload = buildScrapeCallbackPayload({
+    eventId: 'event-1',
     source: 'pracuj-pl',
     runId: 'run-1',
     sourceRunId: 'source-run-1',
@@ -115,5 +118,5 @@ test('buildWorkerCallbackSignaturePayload is deterministic', () => {
   });
 
   const result = buildWorkerCallbackSignaturePayload(payload, 'req-1', 1700000000);
-  assert.equal(result, '1700000000.source-run-1.COMPLETED.run-1.req-1');
+  assert.equal(result, '1700000000.source-run-1.COMPLETED.run-1.req-1.event-1');
 });

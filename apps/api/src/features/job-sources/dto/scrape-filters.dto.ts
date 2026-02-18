@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class ScrapeFiltersDto {
   @ApiPropertyOptional({
@@ -47,8 +47,7 @@ export class ScrapeFiltersDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1)
-  @Max(30)
+  @IsIn([1, 3, 7, 14, 30])
   publishedWithinDays?: number;
 
   @ApiPropertyOptional({

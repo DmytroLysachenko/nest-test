@@ -1,4 +1,4 @@
-import { jobOffersTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
+import { jobOffersTable, jobSourceCallbackEventsTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
 
 import { JobSourcesService } from './job-sources.service';
 
@@ -499,5 +499,61 @@ describe('JobSourcesService', () => {
         undefined,
       ),
     ).rejects.toThrow('Missing worker callback signature headers');
+  });
+
+  it('ignores duplicate callback event idempotently', async () => {
+    const db = {
+      select: jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-9',
+                      source: 'PRACUJ_PL',
+                      userId: 'user-9',
+                      careerProfileId: 'profile-9',
+                      status: 'RUNNING',
+                      totalFound: null,
+                      scrapedCount: null,
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn(),
+      insert: jest.fn().mockImplementation((table) => {
+        if (table === jobSourceCallbackEventsTable) {
+          return {
+            values: jest.fn().mockReturnValue({
+              onConflictDoNothing: jest.fn().mockReturnValue({
+                returning: jest.fn().mockResolvedValue([]),
+              }),
+            }),
+          };
+        }
+        throw new Error('Unexpected insert table');
+      }),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const result = await service.completeScrape({
+      sourceRunId: 'run-9',
+      eventId: 'event-9',
+      status: 'COMPLETED',
+      scrapedCount: 1,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'RUNNING',
+      inserted: 0,
+      idempotent: true,
+    });
+    expect(db.update).not.toHaveBeenCalled();
   });
 });

@@ -33,7 +33,7 @@ export const taskEnvelopeSchema = z.object({
         workDimensions: z.array(z.string()).optional(),
         location: z.string().optional(),
         radiusKm: z.number().int().min(1).max(200).optional(),
-        publishedWithinDays: z.number().int().min(1).max(30).optional(),
+        publishedWithinDays: z.union([z.literal(1), z.literal(3), z.literal(7), z.literal(14), z.literal(30)]).optional(),
         positionLevels: z.array(z.string()).optional(),
         contractTypes: z.array(z.string()).optional(),
         technologies: z.array(z.string()).optional(),

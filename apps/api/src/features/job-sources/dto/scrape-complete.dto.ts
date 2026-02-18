@@ -80,6 +80,12 @@ export class ScrapeCompleteDto {
   @IsString()
   runId?: string;
 
+  @ApiPropertyOptional({ description: 'Worker callback event id for replay protection' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  eventId?: string;
+
   @ApiPropertyOptional({ description: 'Worker terminal status', enum: SCRAPE_COMPLETE_STATUS, default: 'COMPLETED' })
   @IsOptional()
   @IsIn(SCRAPE_COMPLETE_STATUS)

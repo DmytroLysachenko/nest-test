@@ -13,8 +13,9 @@ import { ConfigService } from '@nestjs/config';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Logger } from 'nestjs-pino';
-import { careerProfilesTable, jobOffersTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
+import { careerProfilesTable, jobOffersTable, jobSourceCallbackEventsTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
 import type { JobSourceRunStatus } from '@repo/db';
+import { buildPracujListingUrl, normalizePracujFilters, type PracujSourceKind } from '@repo/db';
 
 import type { Env } from '@/config/env';
 import { Drizzle } from '@/common/decorators';
@@ -26,77 +27,6 @@ import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
 
 type CallbackJobPayload = NonNullable<ScrapeCompleteDto['jobs']>[number];
-
-const buildListingUrl = (filters: ScrapeFiltersDto, source: string) => {
-  const resolvePublishedPath = (days: number) => {
-    if (days === 1) {
-      return 'ostatnich 24h;p,1';
-    }
-    return `ostatnich ${days} dni;p,${days}`;
-  };
-
-  const segments: string[] = [];
-  if (filters.keywords) {
-    segments.push(`${encodeURIComponent(filters.keywords)};kw`);
-  } else if (filters.location) {
-    segments.push(`${encodeURIComponent(filters.location)};wp`);
-  }
-
-  if (filters.publishedWithinDays) {
-    segments.push(resolvePublishedPath(filters.publishedWithinDays));
-  }
-
-  const baseHost = source === 'pracuj-pl-general' ? 'https://www.pracuj.pl/praca' : 'https://it.pracuj.pl/praca';
-  const base = `${baseHost}${segments.length ? `/${segments.join('/')}` : ''}`;
-  const url = new URL(base);
-  const params = url.searchParams;
-
-  if (filters.specializations?.length) {
-    params.set('its', filters.specializations.join(','));
-  }
-  if (filters.technologies?.length) {
-    params.set('itth', filters.technologies.join(','));
-  }
-  if (filters.categories?.length) {
-    params.set('cc', filters.categories.join(','));
-  }
-  if (filters.workModes?.length) {
-    params.set('wm', filters.workModes.join(','));
-  }
-  if (filters.workDimensions?.length) {
-    params.set('ws', filters.workDimensions.join(','));
-  }
-  const positionLevels = filters.positionLevels ?? filters.employmentTypes ?? filters.experienceLevels;
-  if (positionLevels?.length) {
-    params.set('et', positionLevels.join(','));
-  }
-  if (filters.contractTypes?.length) {
-    params.set('tc', filters.contractTypes.join(','));
-  }
-  if (filters.salaryMin) {
-    params.set('sal', String(filters.salaryMin));
-  }
-  if (filters.radiusKm) {
-    params.set('rd', String(filters.radiusKm));
-  }
-  if (filters.onlyWithProjectDescription) {
-    params.set('ap', 'true');
-  }
-  if (filters.onlyEmployerOffers) {
-    params.set('ao', 'false');
-  }
-  if (filters.ukrainiansWelcome) {
-    params.set('ua', 'true');
-  }
-  if (filters.noPolishRequired) {
-    params.set('wpl', 'true');
-  }
-  if (filters.keywords && filters.location) {
-    params.set('wp', filters.location);
-  }
-
-  return url.toString();
-};
 
 const mapSource = (source: string) => {
   if (source === 'pracuj-pl' || source === 'pracuj-pl-it' || source === 'pracuj-pl-general') {
@@ -187,9 +117,13 @@ export class JobSourcesService {
 
   async enqueueScrape(userId: string, dto: EnqueueScrapeDto, incomingRequestId?: string) {
     const requestId = incomingRequestId?.trim() || randomUUID();
-    const source = dto.source ?? 'pracuj-pl-it';
+    const source = (dto.source ?? 'pracuj-pl-it') as PracujSourceKind;
     const sourceEnum = mapSource(source);
-    const listingUrl = dto.listingUrl ?? (dto.filters ? buildListingUrl(dto.filters, source) : undefined);
+    const normalizedFiltersResult = normalizePracujFilters(source, (dto.filters as ScrapeFiltersDto | undefined) ?? undefined);
+    const normalizedFilters = Object.keys(normalizedFiltersResult.filters).length
+      ? normalizedFiltersResult.filters
+      : undefined;
+    const listingUrl = dto.listingUrl ?? (normalizedFilters ? buildPracujListingUrl(source, normalizedFilters) : undefined);
 
     if (!listingUrl) {
       throw new BadRequestException('Provide listingUrl or filters');
@@ -207,7 +141,7 @@ export class JobSourcesService {
         userId,
         careerProfileId,
         listingUrl,
-        filters: dto.filters ?? null,
+        filters: normalizedFilters ?? null,
         status: 'PENDING',
         startedAt: new Date(),
       })
@@ -251,7 +185,7 @@ export class JobSourcesService {
           limit: dto.limit,
           userId,
           careerProfileId,
-          filters: dto.filters,
+          filters: normalizedFilters,
         }),
         signal: controller.signal,
       });
@@ -266,12 +200,19 @@ export class JobSourcesService {
       const payload = text ? JSON.parse(text) : { ok: true };
       await this.markRunRunning(run.id);
       this.logger.log({ requestId, sourceRunId: run.id, userId }, 'Scrape run accepted by worker');
+      if (Object.keys(normalizedFiltersResult.dropped).length > 0) {
+        this.logger.warn(
+          { requestId, sourceRunId: run.id, droppedFilters: normalizedFiltersResult.dropped },
+          'Some scrape filters were dropped because they are unsupported for this source',
+        );
+      }
 
       return {
         ...payload,
         sourceRunId: run.id,
         status: 'accepted',
         acceptedAt: (run.createdAt ?? new Date()).toISOString(),
+        droppedFilters: normalizedFiltersResult.dropped,
       };
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -300,6 +241,7 @@ export class JobSourcesService {
     workerTimestamp?: string,
   ) {
     this.verifyWorkerCallbackSignature(dto, requestId, workerSignature, workerTimestamp);
+    const callbackEventId = dto.eventId?.trim() || null;
 
     const token = this.configService.get('WORKER_CALLBACK_TOKEN', { infer: true });
     if (token) {
@@ -327,6 +269,23 @@ export class JobSourcesService {
 
     if (!run) {
       throw new NotFoundException('Job source run not found');
+    }
+
+    if (callbackEventId) {
+      const accepted = await this.registerCallbackEvent(run.id, callbackEventId, dto, requestId);
+      if (!accepted) {
+        this.logger.log(
+          { requestId, sourceRunId: run.id, eventId: callbackEventId, idempotent: true },
+          'Duplicate callback event ignored',
+        );
+        return {
+          ok: true,
+          status: run.status,
+          inserted: 0,
+          idempotent: true,
+          warning: 'Duplicate callback event ignored',
+        };
+      }
     }
 
     const status = normalizeCompletionStatus(dto);
@@ -545,6 +504,9 @@ export class JobSourcesService {
     if (!signatureHeader || !timestampHeader) {
       throw new UnauthorizedException('Missing worker callback signature headers');
     }
+    if (!dto.eventId?.trim()) {
+      throw new UnauthorizedException('Missing worker callback event id');
+    }
 
     const timestampSec = Number(timestampHeader);
     if (!Number.isFinite(timestampSec)) {
@@ -558,7 +520,8 @@ export class JobSourcesService {
     }
 
     const status = dto.status ?? 'COMPLETED';
-    const base = `${timestampSec}.${dto.sourceRunId}.${status}.${dto.runId ?? ''}.${requestId ?? ''}`;
+    const eventId = dto.eventId ?? '';
+    const base = `${timestampSec}.${dto.sourceRunId}.${status}.${dto.runId ?? ''}.${requestId ?? ''}.${eventId}`;
     const expected = createHmac('sha256', signingSecret).update(base).digest('hex');
     if (!this.constantTimeEqual(signatureHeader, expected)) {
       throw new UnauthorizedException('Invalid worker callback signature');
@@ -677,6 +640,35 @@ export class JobSourcesService {
       return null;
     }
     return Math.max(0, completedAt.getTime() - startedAt.getTime());
+  }
+
+  private async registerCallbackEvent(
+    sourceRunId: string,
+    eventId: string,
+    dto: ScrapeCompleteDto,
+    requestId?: string,
+  ) {
+    const status = dto.status ?? 'COMPLETED';
+    const payload = JSON.stringify({
+      status,
+      runId: dto.runId,
+      error: dto.error,
+      jobCount: dto.jobs?.length ?? dto.scrapedCount ?? dto.jobCount ?? 0,
+    });
+
+    const inserted = await this.db
+      .insert(jobSourceCallbackEventsTable)
+      .values({
+        sourceRunId,
+        eventId,
+        requestId: requestId ?? null,
+        status,
+        payload,
+      })
+      .onConflictDoNothing()
+      .returning({ id: jobSourceCallbackEventsTable.id });
+
+    return inserted.length > 0;
   }
 
   private async autoScoreIngestedOffers(userId: string, sourceRunId: string, userOfferIds: string[]) {

@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHmac, randomUUID } from 'crypto';
 import type { Logger } from 'pino';
 
 import { persistDeadLetter } from './callback-dead-letter';
@@ -8,6 +8,7 @@ import type { ScrapeSourceJob } from '../types/jobs';
 import type { NormalizedJob } from '../sources/types';
 
 type CallbackPayload = {
+  eventId?: string;
   source: string;
   runId: string;
   sourceRunId?: string;
@@ -111,7 +112,7 @@ export const buildWorkerCallbackSignaturePayload = (
   payload: CallbackPayload,
   requestId: string | undefined,
   timestampSec: number,
-) => `${timestampSec}.${payload.sourceRunId ?? ''}.${payload.status}.${payload.runId}.${requestId ?? ''}`;
+) => `${timestampSec}.${payload.sourceRunId ?? ''}.${payload.status}.${payload.runId}.${requestId ?? ''}.${payload.eventId ?? ''}`;
 
 const notifyCallback = async (
   url: string,
@@ -175,6 +176,7 @@ const notifyCallback = async (
 };
 
 export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
+  eventId: input.eventId,
   source: input.source,
   runId: input.runId,
   sourceRunId: input.sourceRunId,
@@ -217,6 +219,7 @@ export const runScrapeJob = async (
 ) => {
   const startedAt = Date.now();
   const runId = payload.runId ?? `run-${Date.now()}`;
+  const callbackEventId = randomUUID();
   const sourceRunId = payload.sourceRunId;
   const pipeline = resolvePipeline(payload.source);
   const listingUrl = payload.listingUrl ?? (payload.filters ? pipeline.buildListingUrl(payload.filters) : undefined);
@@ -295,6 +298,7 @@ export const runScrapeJob = async (
         callbackSigningSecret,
         payload.requestId,
         buildScrapeCallbackPayload({
+          eventId: callbackEventId,
           source: payload.source,
           runId,
           sourceRunId,
@@ -351,6 +355,7 @@ export const runScrapeJob = async (
         callbackSigningSecret,
         payload.requestId,
         buildScrapeCallbackPayload({
+          eventId: callbackEventId,
           source: payload.source,
           runId,
           sourceRunId,
