@@ -13,6 +13,7 @@ This repository is a full-stack monorepo for a career search assistant. The back
 This README is designed to be the primary source of context for both humans and LLMs. It describes the current workflow, data model, endpoints, and development setup.
 
 Engineering standards and contribution rules are defined in `CONTRIBUTING.md`.
+Operational recovery and incident guidance is in `docs/operations-runbook.md`.
 
 ## System Architecture (High Level)
 
@@ -207,6 +208,7 @@ Implementation outline:
 Current ingestion schema (implemented):
 
 - `job_source_runs`: id, source, listing_url, filters, status, total_found, scraped_count, error, started_at, completed_at
+- `job_source_callback_events`: source_run_id, event_id, status, request_id, received_at (callback replay/idempotency log)
 - `job_offers`: source, source_id, run_id, url, title, company, location, salary, description, requirements, details, fetched_at
 - `user_job_offers`: user_id, career_profile_id, job_offer_id, source_run_id, status, status_history, notes, tags, match_score, match_meta
 
@@ -215,6 +217,11 @@ Notes:
 - Start with manual job URLs or a single source for MVP.
 
 - Only expand crawling after legal/ToS validation.
+
+Scrape filter contract:
+- API and worker use a shared source-aware Pracuj filter mapper.
+- Invalid/unsupported filter values are dropped before enqueue and returned as `droppedFilters`.
+- `publishedWithinDays` accepts only: `1`, `3`, `7`, `14`, `30`.
 
 ## Scraper Worker Starter Template (Node + Playwright)
 
@@ -469,6 +476,8 @@ Job source runs:
 - GET /job-sources/runs (list current user scrape runs)
 - GET /job-sources/runs/:id (get scrape run details)
 - POST /job-sources/complete (worker callback)
+  - supports optional `eventId` for callback replay protection
+  - validates HMAC signature headers when `WORKER_CALLBACK_SIGNING_SECRET` is configured
 
 ---
 
@@ -608,6 +617,8 @@ Optional:
 
 - `WORKER_CALLBACK_TOKEN`
 
+- `WORKER_CALLBACK_SIGNING_SECRET`
+
 - `WORKER_CALLBACK_RETRY_ATTEMPTS`
 
 - `WORKER_CALLBACK_RETRY_BACKOFF_MS`
@@ -715,6 +726,13 @@ Replay failed callback dead letters:
 
 pnpm --filter worker callbacks:replay
 
+```
+
+Replay dead-letter callbacks over HTTP:
+
+```bash
+curl -X POST http://localhost:4001/callbacks/replay \
+  -H "Authorization: Bearer <TASKS_AUTH_TOKEN>"
 ```
 
 ### Run full dev stack (API + Worker + Web)
