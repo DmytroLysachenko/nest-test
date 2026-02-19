@@ -28,6 +28,7 @@ export const handleTask = async (
     callbackRetryBackoffMs?: number;
     callbackDeadLetterDir?: string;
     scrapeTimeoutMs?: number;
+    databaseUrl?: string;
   },
 ) => {
   switch (task.name) {
@@ -53,6 +54,7 @@ export const handleTask = async (
         callbackRetryBackoffMs: options.callbackRetryBackoffMs,
         callbackDeadLetterDir: options.callbackDeadLetterDir,
         scrapeTimeoutMs: options.scrapeTimeoutMs,
+        databaseUrl: options.databaseUrl,
       });
     default:
       throw new Error(`Unhandled task type: ${task.name}`);

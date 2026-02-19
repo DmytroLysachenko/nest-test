@@ -4,6 +4,7 @@ import type { Logger } from 'pino';
 import { persistDeadLetter } from './callback-dead-letter';
 import { resolvePipeline, runPipeline } from './scrape-pipelines';
 import { saveOutput } from '../output/save-output';
+import { loadFreshOfferUrls } from '../db/fresh-offers';
 import type { ScrapeSourceJob } from '../types/jobs';
 import type { NormalizedJob } from '../sources/types';
 
@@ -215,6 +216,7 @@ export const runScrapeJob = async (
     callbackRetryBackoffMs?: number;
     callbackDeadLetterDir?: string;
     scrapeTimeoutMs?: number;
+    databaseUrl?: string;
   },
 ) => {
   const startedAt = Date.now();
@@ -246,6 +248,13 @@ export const runScrapeJob = async (
         detailCookiesPath: options.detailCookiesPath,
         detailHumanize: options.detailHumanize,
         profileDir: options.profileDir,
+        skipResolver: (urls: string[]) =>
+          loadFreshOfferUrls(
+            options.databaseUrl,
+            'PRACUJ_PL',
+            urls,
+            options.detailCacheHours ?? 24,
+          ),
       },
     });
     const timeoutMs = options.scrapeTimeoutMs ?? 180000;
@@ -329,6 +338,7 @@ export const runScrapeJob = async (
       pages: pages.length,
       jobs: sanitizedJobs.length,
         blockedPages: blockedUrls.length,
+        skippedFreshUrls: Math.max(0, jobLinks.length - pages.length - blockedUrls.length),
         jobLinks: jobLinks.length,
         outputPath,
         durationMs: Date.now() - startedAt,

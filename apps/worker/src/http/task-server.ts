@@ -108,6 +108,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       callbackRetryBackoffMs: env.WORKER_CALLBACK_RETRY_BACKOFF_MS,
       callbackDeadLetterDir: env.WORKER_DEAD_LETTER_DIR,
       scrapeTimeoutMs: env.WORKER_TASK_TIMEOUT_MS,
+      databaseUrl: env.DATABASE_URL,
     },
     env.WORKER_MAX_CONCURRENT_TASKS,
     env.WORKER_MAX_QUEUE_SIZE,
