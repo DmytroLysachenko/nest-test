@@ -10,7 +10,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Logger } from 'nestjs-pino';
 import { careerProfilesTable, jobOffersTable, jobSourceCallbackEventsTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
@@ -106,6 +106,23 @@ const deriveFailureType = (error?: string | null) => {
   return 'unknown';
 };
 
+const canonicalize = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((item) => canonicalize(item));
+  }
+  if (value && typeof value === 'object') {
+    return Object.keys(value as Record<string, unknown>)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = canonicalize((value as Record<string, unknown>)[key]);
+        return acc;
+      }, {});
+  }
+  return value;
+};
+
+const stableJson = (value: unknown) => JSON.stringify(canonicalize(value ?? null));
+
 @Injectable()
 export class JobSourcesService {
   constructor(
@@ -132,6 +149,41 @@ export class JobSourcesService {
     const careerProfileId = dto.careerProfileId ?? (await this.getActiveCareerProfileId(userId));
     if (!careerProfileId) {
       throw new NotFoundException('Active career profile not found');
+    }
+
+    if (!dto.forceRefresh) {
+      const reuse = await this.tryReuseFromDatabase({
+        userId,
+        careerProfileId,
+        source: sourceEnum,
+        listingUrl,
+        normalizedFilters: normalizedFilters ?? null,
+        limit: dto.limit,
+      });
+
+      if (reuse) {
+        this.logger.log(
+          {
+            requestId,
+            sourceRunId: reuse.sourceRunId,
+            reusedFromRunId: reuse.reusedFromRunId,
+            linkedOffers: reuse.inserted,
+            totalOffers: reuse.totalOffers,
+          },
+          'Scrape request served from database cache',
+        );
+
+        return {
+          ok: true,
+          sourceRunId: reuse.sourceRunId,
+          status: 'reused',
+          acceptedAt: reuse.acceptedAt,
+          inserted: reuse.inserted,
+          totalOffers: reuse.totalOffers,
+          reusedFromRunId: reuse.reusedFromRunId,
+          droppedFilters: normalizedFiltersResult.dropped,
+        };
+      }
     }
 
     const [run] = await this.db
@@ -213,6 +265,7 @@ export class JobSourcesService {
         status: 'accepted',
         acceptedAt: (run.createdAt ?? new Date()).toISOString(),
         droppedFilters: normalizedFiltersResult.dropped,
+        acceptedFilters: normalizedFilters ?? null,
       };
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -224,6 +277,7 @@ export class JobSourcesService {
           status: 'accepted',
           acceptedAt: (run.createdAt ?? new Date()).toISOString(),
           warning: 'Worker response timed out. Scrape continues in background.',
+          acceptedFilters: normalizedFilters ?? null,
         };
       }
 
@@ -401,15 +455,52 @@ export class JobSourcesService {
           target: [jobOffersTable.source, jobOffersTable.url],
           set: {
             runId: run.id,
-            sourceId: sql`excluded."source_id"`,
-            title: sql`excluded."title"`,
-            company: sql`excluded."company"`,
-            location: sql`excluded."location"`,
-            salary: sql`excluded."salary"`,
-            employmentType: sql`excluded."employment_type"`,
-            description: sql`excluded."description"`,
-            requirements: sql`excluded."requirements"`,
-            details: sql`excluded."details"`,
+            sourceId: sql`CASE
+              WHEN excluded."source_id" IS NOT NULL AND excluded."source_id" != ''
+              THEN excluded."source_id"
+              ELSE "job_offers"."source_id"
+            END`,
+            title: sql`CASE
+              WHEN excluded."title" IS NOT NULL AND excluded."title" != '' AND excluded."title" != 'Unknown title'
+              THEN excluded."title"
+              ELSE "job_offers"."title"
+            END`,
+            company: sql`CASE
+              WHEN excluded."company" IS NOT NULL AND excluded."company" != ''
+              THEN excluded."company"
+              ELSE "job_offers"."company"
+            END`,
+            location: sql`CASE
+              WHEN excluded."location" IS NOT NULL AND excluded."location" != ''
+              THEN excluded."location"
+              ELSE "job_offers"."location"
+            END`,
+            salary: sql`CASE
+              WHEN excluded."salary" IS NOT NULL AND excluded."salary" != ''
+              THEN excluded."salary"
+              ELSE "job_offers"."salary"
+            END`,
+            employmentType: sql`CASE
+              WHEN excluded."employment_type" IS NOT NULL AND excluded."employment_type" != ''
+              THEN excluded."employment_type"
+              ELSE "job_offers"."employment_type"
+            END`,
+            description: sql`CASE
+              WHEN excluded."description" IS NOT NULL
+               AND excluded."description" != ''
+               AND excluded."description" != 'No description found'
+               AND excluded."description" != 'Listing summary only'
+              THEN excluded."description"
+              ELSE "job_offers"."description"
+            END`,
+            requirements: sql`CASE
+              WHEN excluded."requirements" IS NOT NULL THEN excluded."requirements"
+              ELSE "job_offers"."requirements"
+            END`,
+            details: sql`CASE
+              WHEN excluded."details" IS NOT NULL THEN excluded."details"
+              ELSE "job_offers"."details"
+            END`,
             fetchedAt: new Date(),
           },
         });
@@ -581,6 +672,104 @@ export class JobSourcesService {
       ...run,
       finalizedAt: run.completedAt,
       failureType: deriveFailureType(run.error),
+    };
+  }
+
+  private async tryReuseFromDatabase(input: {
+    userId: string;
+    careerProfileId: string;
+    source: 'PRACUJ_PL';
+    listingUrl: string;
+    normalizedFilters: Record<string, unknown> | null;
+    limit?: number;
+  }) {
+    const reuseHours = this.configService.get('SCRAPE_DB_REUSE_HOURS', { infer: true });
+    const cutoff = new Date(Date.now() - reuseHours * 60 * 60 * 1000);
+    const recentRuns = await this.db
+      .select({
+        id: jobSourceRunsTable.id,
+        listingUrl: jobSourceRunsTable.listingUrl,
+        filters: jobSourceRunsTable.filters,
+        completedAt: jobSourceRunsTable.completedAt,
+      })
+      .from(jobSourceRunsTable)
+      .where(
+        and(
+          eq(jobSourceRunsTable.source, input.source),
+          eq(jobSourceRunsTable.status, 'COMPLETED'),
+          gte(jobSourceRunsTable.completedAt, cutoff),
+        ),
+      )
+      .orderBy(desc(jobSourceRunsTable.completedAt))
+      .limit(30);
+
+    const targetFilters = stableJson(input.normalizedFilters);
+    const reusedRun = recentRuns.find((run) => {
+      if (input.normalizedFilters) {
+        return stableJson(run.filters) === targetFilters;
+      }
+      return run.listingUrl === input.listingUrl;
+    });
+    if (!reusedRun) {
+      return null;
+    }
+
+    const baseOffersQuery = this.db
+      .select({ id: jobOffersTable.id })
+      .from(jobOffersTable)
+      .where(eq(jobOffersTable.runId, reusedRun.id))
+      .orderBy(desc(jobOffersTable.fetchedAt));
+    const offersQuery = input.limit ? baseOffersQuery.limit(input.limit) : baseOffersQuery;
+    const offers = await offersQuery;
+    if (!offers.length) {
+      return null;
+    }
+
+    const now = new Date();
+    const [reuseRun] = await this.db
+      .insert(jobSourceRunsTable)
+      .values({
+        source: input.source,
+        userId: input.userId,
+        careerProfileId: input.careerProfileId,
+        listingUrl: input.listingUrl,
+        filters: input.normalizedFilters,
+        status: 'COMPLETED',
+        startedAt: now,
+        completedAt: now,
+        totalFound: offers.length,
+        scrapedCount: 0,
+      })
+      .returning({ id: jobSourceRunsTable.id, createdAt: jobSourceRunsTable.createdAt });
+    if (!reuseRun?.id) {
+      return null;
+    }
+
+    const inserted = await this.db
+      .insert(userJobOffersTable)
+      .values(
+        offers.map((offer) => ({
+          userId: input.userId,
+          careerProfileId: input.careerProfileId,
+          jobOfferId: offer.id,
+          sourceRunId: reuseRun.id,
+          statusHistory: [{ status: 'NEW', changedAt: now.toISOString() }],
+          lastStatusAt: now,
+        })),
+      )
+      .onConflictDoNothing()
+      .returning({ id: userJobOffersTable.id });
+
+    if (inserted.length) {
+      void this.autoScoreIngestedOffers(input.userId, reuseRun.id, inserted.map((row) => row.id));
+    }
+
+    return {
+      sourceRunId: reuseRun.id,
+      acceptedAt: (reuseRun.createdAt ?? now).toISOString(),
+      inserted: inserted.length,
+      totalOffers: offers.length,
+      reusedFromRunId: reusedRun.id,
     };
   }
 

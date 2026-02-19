@@ -70,6 +70,7 @@ describe('JobSourcesService', () => {
         source: 'pracuj-pl',
         filters: { keywords: 'react' },
         limit: 10,
+        forceRefresh: true,
       },
       'request-id',
     );
@@ -77,6 +78,100 @@ describe('JobSourcesService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.sourceRunId).toBe('run-uuid');
     expect(result.status).toBe('accepted');
+  });
+
+  it('reuses completed run offers from db before enqueueing worker scrape', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([{ id: 'profile-id' }]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'cached-run-1',
+                    listingUrl: 'https://it.pracuj.pl/praca/frontend%20developer;kw',
+                    filters: { keywords: 'frontend developer' },
+                    completedAt: new Date(),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([{ id: 'offer-1' }, { id: 'offer-2' }]),
+              }),
+            }),
+          }),
+        }),
+      insert: jest.fn().mockImplementation((table) => {
+        if (table === jobSourceRunsTable) {
+          return {
+            values: jest.fn().mockReturnValue({
+              returning: jest.fn().mockResolvedValue([
+                { id: 'reused-run-uuid', createdAt: new Date('2026-02-20T00:00:00.000Z') },
+              ]),
+            }),
+          };
+        }
+
+        if (table === userJobOffersTable) {
+          return {
+            values: jest.fn().mockReturnValue({
+              onConflictDoNothing: jest.fn().mockReturnValue({
+                returning: jest.fn().mockResolvedValue([{ id: 'ujo-1' }, { id: 'ujo-2' }]),
+              }),
+            }),
+          };
+        }
+
+        throw new Error('Unexpected insert table');
+      }),
+      update: jest.fn(),
+    } as any;
+
+    const fetchMock = jest.spyOn(global, 'fetch' as any);
+    const service = new JobSourcesService(
+      createConfigService({
+        SCRAPE_DB_REUSE_HOURS: 24,
+      }),
+      createLogger(),
+      db,
+    );
+
+    const result = await service.enqueueScrape(
+      'user-id',
+      {
+        source: 'pracuj-pl-it',
+        filters: { keywords: 'frontend developer' },
+        limit: 10,
+      },
+      'request-id',
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      sourceRunId: 'reused-run-uuid',
+      status: 'reused',
+      inserted: 2,
+      totalOffers: 2,
+      reusedFromRunId: 'cached-run-1',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('handles failed callback without creating user offers', async () => {

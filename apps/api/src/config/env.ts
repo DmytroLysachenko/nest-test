@@ -31,6 +31,7 @@ export const EnvSchema = z.object({
   WORKER_CALLBACK_SIGNING_SECRET: z.string().optional(),
   WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC: z.coerce.number().int().min(30).max(3600).default(300),
   WORKER_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600000).default(5000),
+  SCRAPE_DB_REUSE_HOURS: z.coerce.number().int().min(1).max(720).default(24),
   AUTO_SCORE_ON_INGEST: z.coerce.boolean().default(true),
   AUTO_SCORE_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(1),
   AUTO_SCORE_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(0),

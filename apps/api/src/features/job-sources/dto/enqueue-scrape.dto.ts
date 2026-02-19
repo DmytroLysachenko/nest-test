@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsUrl, IsUUID, Max, Min, ValidateNested } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsUrl, IsUUID, Max, Min, ValidateNested } from 'class-validator';
 
 import { ScrapeFiltersDto } from './scrape-filters.dto';
 
@@ -35,4 +35,13 @@ export class EnqueueScrapeDto {
   @ValidateNested()
   @Type(() => ScrapeFiltersDto)
   filters?: ScrapeFiltersDto;
+
+  @ApiPropertyOptional({
+    description: 'When true, always enqueue worker scrape and skip DB-first cache reuse.',
+    default: false,
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  forceRefresh?: boolean;
 }

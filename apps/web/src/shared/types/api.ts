@@ -137,7 +137,11 @@ export type EnqueueScrapeResponseDto = {
   status: string;
   acceptedAt?: string;
   warning?: string;
+  inserted?: number;
+  totalOffers?: number;
+  reusedFromRunId?: string;
   droppedFilters?: Record<string, string[]>;
+  acceptedFilters?: Record<string, unknown> | null;
 };
 
 export type JobOfferStatus = 'NEW' | 'SEEN' | 'SAVED' | 'APPLIED' | 'DISMISSED';
