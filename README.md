@@ -31,6 +31,7 @@ Scraping note:
 
 - The worker ingests jobs and normalizes them; API persists callback results in the DB for matching.
 - The worker caches previously scraped offers and can skip detail pages if data is fresh.
+- The API performs DB-first reuse for recent matching scrape filters before enqueueing a new worker job.
 - The worker responds immediately to enqueue requests and processes scrapes asynchronously.
 
 ## Service Communication and Data Flow
@@ -473,6 +474,7 @@ Job offers (feed + notebook):
 
 Job source runs:
 - POST /job-sources/scrape (enqueue worker scrape)
+  - DB-first behavior: reuses recent completed run offers for matching filters unless `forceRefresh=true`
 - GET /job-sources/runs (list current user scrape runs)
 - GET /job-sources/runs/:id (get scrape run details)
 - POST /job-sources/complete (worker callback)
@@ -625,6 +627,7 @@ Optional:
 
 - `WORKER_DEAD_LETTER_DIR`
 - `WORKER_TASK_TIMEOUT_MS`
+- `SCRAPE_DB_REUSE_HOURS` (API; cache window for DB-first scrape reuse)
 
 ---
 
