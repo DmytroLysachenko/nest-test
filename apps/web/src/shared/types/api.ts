@@ -33,6 +33,19 @@ export type ProfileInputDto = {
   userId: string;
   targetRoles: string;
   notes: string | null;
+  normalizedInput?: {
+    searchPreferences?: {
+      sourceKind?: 'it' | 'general';
+      seniority?: string[];
+      workModes?: string[];
+      employmentTypes?: string[];
+      timeModes?: string[];
+      salaryMin?: number | null;
+      city?: string | null;
+      radiusKm?: number | null;
+      keywords?: string[];
+    };
+  } | null;
   createdAt: string;
 };
 
@@ -89,6 +102,18 @@ export type JobScoreResponseDto = {
   matchedSkills: string[];
   matchedRoles: string[];
   explanation: JobScoreResultDto['explanation'];
+  breakdown?: {
+    skills: number;
+    roles: number;
+    strengths: number;
+    keywords: number;
+    seniority: number;
+    workMode: number;
+    employmentType: number;
+    salary: number;
+    location: number;
+  };
+  missingPreferences?: string[];
   matchMeta?: Record<string, unknown>;
   gaps: string[];
 };
@@ -142,6 +167,8 @@ export type EnqueueScrapeResponseDto = {
   reusedFromRunId?: string;
   droppedFilters?: Record<string, string[]>;
   acceptedFilters?: Record<string, unknown> | null;
+  intentFingerprint?: string;
+  resolvedFromProfile?: boolean;
 };
 
 export type JobOfferStatus = 'NEW' | 'SEEN' | 'SAVED' | 'APPLIED' | 'DISMISSED';

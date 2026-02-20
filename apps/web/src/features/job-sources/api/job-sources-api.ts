@@ -3,9 +3,10 @@ import { apiRequest } from '@/shared/lib/http/api-client';
 import type { EnqueueScrapeResponseDto, JobSourceRunsListDto } from '@/shared/types/api';
 
 type EnqueueScrapePayload = {
-  listingUrl: string;
+  listingUrl?: string;
   limit?: number;
-  source?: 'pracuj-pl';
+  source?: 'pracuj-pl' | 'pracuj-pl-it' | 'pracuj-pl-general';
+  filters?: Record<string, unknown>;
 };
 
 export const enqueueScrape = (token: string, payload: EnqueueScrapePayload) =>

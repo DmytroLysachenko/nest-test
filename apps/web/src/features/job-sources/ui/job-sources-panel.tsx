@@ -20,6 +20,7 @@ const DEFAULT_LISTING_URL = 'https://it.pracuj.pl/praca?wm=home-office&its=front
 
 export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: JobSourcesPanelProps) => {
   const queryClient = useQueryClient();
+  const [mode, setMode] = useState<'profile' | 'custom'>('profile');
   const [listingUrl, setListingUrl] = useState(DEFAULT_LISTING_URL);
   const [limit, setLimit] = useState('20');
   const [error, setError] = useState<string | null>(null);
@@ -33,9 +34,9 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
   const enqueueMutation = useMutation({
     mutationFn: () =>
       enqueueScrape(token, {
-        listingUrl,
+        listingUrl: mode === 'custom' ? listingUrl : undefined,
         limit: Number(limit),
-        source: 'pracuj-pl',
+        source: mode === 'custom' ? 'pracuj-pl' : undefined,
       }),
     onSuccess: async () => {
       setError(null);
@@ -60,13 +61,27 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         }}
       >
         <div className="space-y-1">
+          <Label htmlFor="scrape-mode">Mode</Label>
+          <select
+            id="scrape-mode"
+            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+            value={mode}
+            onChange={(event) => setMode(event.target.value as 'profile' | 'custom')}
+          >
+            <option value="profile">Use profile-derived filters</option>
+            <option value="custom">Use custom listing URL</option>
+          </select>
+        </div>
+
+        <div className="space-y-1">
           <Label htmlFor="listing-url">Listing URL</Label>
           <Input
             id="listing-url"
             value={listingUrl}
             onChange={(event) => setListingUrl(event.target.value)}
             placeholder="https://it.pracuj.pl/praca?..."
-            required
+            required={mode === 'custom'}
+            disabled={mode !== 'custom'}
           />
         </div>
 
@@ -88,6 +103,23 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         </Button>
         {disabled && disabledReason ? <p className="text-sm text-amber-700">{disabledReason}</p> : null}
       </form>
+
+      {enqueueMutation.data ? (
+        <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">Latest enqueue metadata</p>
+          <p>Status: {enqueueMutation.data.status}</p>
+          {enqueueMutation.data.resolvedFromProfile ? <p>Resolved from active profile: yes</p> : null}
+          {enqueueMutation.data.intentFingerprint ? <p>Intent fingerprint: {enqueueMutation.data.intentFingerprint}</p> : null}
+          {enqueueMutation.data.acceptedFilters ? (
+            <details className="mt-2">
+              <summary className="cursor-pointer font-medium text-slate-800">Accepted filters</summary>
+              <pre className="mt-2 whitespace-pre-wrap rounded-md bg-white p-2 text-xs">
+                {JSON.stringify(enqueueMutation.data.acceptedFilters, null, 2)}
+              </pre>
+            </details>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-5 space-y-2">
         <p className="text-sm font-semibold text-slate-800">Recent runs</p>

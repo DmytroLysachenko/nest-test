@@ -92,6 +92,14 @@ export const ProfileInputPanel = ({ token }: ProfileInputPanelProps) => {
             <p>
               <span className="font-medium">Notes:</span> {latestQuery.data.notes || 'n/a'}
             </p>
+            {latestQuery.data.normalizedInput?.searchPreferences ? (
+              <details className="mt-2">
+                <summary className="cursor-pointer font-medium text-slate-800">Normalized search preferences</summary>
+                <pre className="mt-2 whitespace-pre-wrap rounded-md bg-white p-2 text-xs text-slate-700">
+                  {JSON.stringify(latestQuery.data.normalizedInput.searchPreferences, null, 2)}
+                </pre>
+              </details>
+            ) : null}
           </div>
         ) : (
           <p className="mt-2 text-slate-500">No profile input yet.</p>

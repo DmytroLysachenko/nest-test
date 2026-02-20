@@ -90,6 +90,22 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
         <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
           <p className="font-semibold text-slate-900">Latest score: {scoreMutation.data.score.score}</p>
           <p className="text-slate-700">Match: {scoreMutation.data.isMatch ? 'Yes' : 'No'}</p>
+          {scoreMutation.data.breakdown ? (
+            <div className="mt-2 space-y-1">
+              <p className="font-medium text-slate-800">Score breakdown</p>
+              {Object.entries(scoreMutation.data.breakdown).map(([key, value]) => (
+                <div key={key} className="flex items-center justify-between rounded bg-white px-2 py-1 text-xs text-slate-700">
+                  <span>{key}</span>
+                  <span>{value}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {scoreMutation.data.missingPreferences?.length ? (
+            <p className="mt-2 text-xs text-amber-700">
+              Missing preferences: {scoreMutation.data.missingPreferences.join(', ')}
+            </p>
+          ) : null}
           <details className="mt-2">
             <summary className="cursor-pointer font-medium text-slate-800">Explanation</summary>
             <pre className="mt-2 whitespace-pre-wrap text-slate-700">
