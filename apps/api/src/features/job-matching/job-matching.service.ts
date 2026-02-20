@@ -19,6 +19,17 @@ type ProfileJson = {
 };
 
 const DETERMINISTIC_ENGINE = 'deterministic-v2';
+const SCORE_WEIGHTS = {
+  skills: 35,
+  roles: 25,
+  strengths: 15,
+  keywords: 10,
+  seniority: 5,
+  workMode: 3,
+  employmentType: 3,
+  salary: 2,
+  location: 2,
+} as const;
 
 @Injectable()
 export class JobMatchingService {
@@ -60,13 +71,10 @@ export class JobMatchingService {
         provider: 'internal',
         model: DETERMINISTIC_ENGINE,
         scoredAt,
-        weights: {
-          roles: 0.4,
-          skills: 0.4,
-          strengths: 0.2,
-          keywordBonus: 0.1,
-        },
+        weights: SCORE_WEIGHTS,
       },
+      breakdown: score.breakdown,
+      missingPreferences: score.missingPreferences,
     };
 
     const [record] = await this.db
@@ -96,6 +104,8 @@ export class JobMatchingService {
       matchedRoles: score.matchedRoles,
       explanation: score.explanation,
       matchMeta,
+      breakdown: score.breakdown,
+      missingPreferences: score.missingPreferences,
       gaps: profileJson.gaps ?? [],
     };
   }
@@ -177,17 +187,41 @@ export class JobMatchingService {
     const matchedStrengths = this.intersect(jobTokens, strengths);
     const matchedKeywords = this.intersect(jobTokens, keywords);
 
-    const skillsScore = this.weightedRatio(matchedSkills.length, skills.length, 0.4);
-    const rolesScore = this.weightedRatio(matchedRoles.length, roles.length, 0.4);
-    const strengthsScore = this.weightedRatio(matchedStrengths.length, strengths.length, 0.2);
-    const keywordBonus = this.weightedRatio(matchedKeywords.length, keywords.length, 0.1);
-    const totalScore = skillsScore + rolesScore + strengthsScore + keywordBonus;
+    const seniorityMatch = this.matchSeniority(jobTokens, normalizedInput);
+    const workModeMatch = this.matchWorkMode(jobTokens, normalizedInput);
+    const employmentTypeMatch = this.matchEmploymentType(jobTokens, normalizedInput);
+    const salaryMatch = this.matchSalary(jobDescription, normalizedInput);
+    const locationMatch = this.matchLocation(jobDescription, normalizedInput);
+
+    const breakdown = {
+      skills: this.weightedPercent(matchedSkills.length, skills.length, SCORE_WEIGHTS.skills),
+      roles: this.weightedPercent(matchedRoles.length, roles.length, SCORE_WEIGHTS.roles),
+      strengths: this.weightedPercent(matchedStrengths.length, strengths.length, SCORE_WEIGHTS.strengths),
+      keywords: this.weightedPercent(matchedKeywords.length, keywords.length, SCORE_WEIGHTS.keywords),
+      seniority: seniorityMatch ? SCORE_WEIGHTS.seniority : 0,
+      workMode: workModeMatch ? SCORE_WEIGHTS.workMode : 0,
+      employmentType: employmentTypeMatch ? SCORE_WEIGHTS.employmentType : 0,
+      salary: salaryMatch ? SCORE_WEIGHTS.salary : 0,
+      location: locationMatch ? SCORE_WEIGHTS.location : 0,
+    };
+
+    const missingPreferences = this.collectMissingPreferences({
+      normalizedInput,
+      seniorityMatch,
+      workModeMatch,
+      employmentTypeMatch,
+      salaryMatch,
+      locationMatch,
+    });
+    const totalScore = Object.values(breakdown).reduce((acc, value) => acc + value, 0);
 
     return {
-      score: Math.min(100, Math.round(totalScore * 100)),
+      score: Math.min(100, Math.round(totalScore)),
       matchedSkills,
       matchedRoles,
       explanation: this.buildExplanation(matchedSkills, matchedRoles, matchedStrengths, matchedKeywords),
+      breakdown,
+      missingPreferences,
     };
   }
 
@@ -207,11 +241,106 @@ export class JobMatchingService {
     return Array.from(new Set(a.filter((token) => setB.has(token))));
   }
 
-  private weightedRatio(matched: number, total: number, weight: number) {
+  private weightedPercent(matched: number, total: number, maxPoints: number) {
     if (!total) {
       return 0;
     }
-    return (matched / total) * weight;
+    return Math.round((matched / total) * maxPoints);
+  }
+
+  private matchSeniority(jobTokens: string[], normalizedInput?: NormalizedProfileInput | null) {
+    const expected = normalizedInput?.searchPreferences?.seniority ?? [];
+    if (!expected.length) {
+      return false;
+    }
+    return expected.some((item) => jobTokens.includes(item));
+  }
+
+  private matchWorkMode(jobTokens: string[], normalizedInput?: NormalizedProfileInput | null) {
+    const expected = normalizedInput?.searchPreferences?.workModes ?? [];
+    if (!expected.length) {
+      return false;
+    }
+    const aliases: Record<string, string[]> = {
+      remote: ['remote', 'zdal', 'home', 'office'],
+      hybrid: ['hybrid', 'hybryd'],
+      onsite: ['onsite', 'office', 'stacjon'],
+      mobile: ['mobile'],
+    };
+    return expected.some((mode) => (aliases[mode] ?? []).some((token) => jobTokens.some((jobToken) => jobToken.includes(token))));
+  }
+
+  private matchEmploymentType(jobTokens: string[], normalizedInput?: NormalizedProfileInput | null) {
+    const expected = normalizedInput?.searchPreferences?.employmentTypes ?? [];
+    if (!expected.length) {
+      return false;
+    }
+    const aliases: Record<string, string[]> = {
+      uop: ['uop', 'employment', 'prac'],
+      b2b: ['b2b'],
+      mandate: ['zlecenie', 'mandate'],
+      'specific-task': ['dzielo', 'specific'],
+      internship: ['intern', 'staz', 'prakty'],
+    };
+    return expected.some((contract) =>
+      (aliases[contract] ?? []).some((token) => jobTokens.some((jobToken) => jobToken.includes(token))),
+    );
+  }
+
+  private matchSalary(jobDescription: string, normalizedInput?: NormalizedProfileInput | null) {
+    const expectedMin = normalizedInput?.searchPreferences?.salaryMin;
+    if (!expectedMin) {
+      return false;
+    }
+    const salaryNumbers = [...jobDescription.matchAll(/\d{2,3}(?:[ .]?\d{3})?/g)]
+      .map((match) => Number(match[0].replace(/[ .]/g, '')))
+      .filter((value) => Number.isFinite(value));
+    if (!salaryNumbers.length) {
+      return false;
+    }
+    return Math.max(...salaryNumbers) >= expectedMin;
+  }
+
+  private matchLocation(jobDescription: string, normalizedInput?: NormalizedProfileInput | null) {
+    const expectedCity = normalizedInput?.searchPreferences?.city?.trim().toLowerCase();
+    if (!expectedCity) {
+      return false;
+    }
+    const normalizedDescription = jobDescription.toLowerCase();
+    return normalizedDescription.includes(expectedCity);
+  }
+
+  private collectMissingPreferences(input: {
+    normalizedInput?: NormalizedProfileInput | null;
+    seniorityMatch: boolean;
+    workModeMatch: boolean;
+    employmentTypeMatch: boolean;
+    salaryMatch: boolean;
+    locationMatch: boolean;
+  }) {
+    const missing: string[] = [];
+    const preferences = input.normalizedInput?.searchPreferences;
+    if (!preferences) {
+      return missing;
+    }
+
+    if (preferences.seniority?.length && !input.seniorityMatch) {
+      missing.push('seniority');
+    }
+    if (preferences.workModes?.length && !input.workModeMatch) {
+      missing.push('workMode');
+    }
+    if (preferences.employmentTypes?.length && !input.employmentTypeMatch) {
+      missing.push('employmentType');
+    }
+    if (preferences.salaryMin && !input.salaryMatch) {
+      missing.push('salary');
+    }
+    if (preferences.city && !input.locationMatch) {
+      missing.push('location');
+    }
+
+    return missing;
   }
 
   private buildExplanation(

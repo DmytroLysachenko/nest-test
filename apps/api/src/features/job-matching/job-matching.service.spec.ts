@@ -29,6 +29,17 @@ describe('JobMatchingService scoring', () => {
           onlyEmployerOffers: false,
           onlyWithProjectDescription: false,
         },
+        searchPreferences: {
+          sourceKind: 'it',
+          seniority: ['senior'],
+          workModes: ['remote'],
+          employmentTypes: ['b2b'],
+          timeModes: [],
+          salaryMin: 20000,
+          city: null,
+          radiusKm: null,
+          keywords: ['Frontend Developer', 'react', 'typescript'],
+        },
         freeText: '',
       },
     );
@@ -36,6 +47,7 @@ describe('JobMatchingService scoring', () => {
     expect(result.score).toBeGreaterThan(0);
     expect(result.matchedSkills).toEqual(expect.arrayContaining(['react', 'typescript', 'frontend']));
     expect(result.matchedRoles).toEqual(expect.arrayContaining(['senior', 'frontend', 'developer']));
+    expect(result.breakdown).toBeDefined();
+    expect(Array.isArray(result.missingPreferences)).toBe(true);
   });
 });
-
