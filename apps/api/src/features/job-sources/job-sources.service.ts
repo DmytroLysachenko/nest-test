@@ -1,5 +1,4 @@
-import { randomUUID } from 'crypto';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'crypto';
 
 import {
   BadRequestException,
@@ -10,10 +9,17 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Logger } from 'nestjs-pino';
-import { careerProfilesTable, jobOffersTable, jobSourceCallbackEventsTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
+import {
+  careerProfilesTable,
+  jobOffersTable,
+  jobSourceCallbackEventsTable,
+  jobSourceRunsTable,
+  profileInputsTable,
+  userJobOffersTable,
+} from '@repo/db';
 import type { JobSourceRunStatus } from '@repo/db';
 import { buildPracujListingUrl, normalizePracujFilters, type PracujSourceKind } from '@repo/db';
 
@@ -25,6 +31,7 @@ import { EnqueueScrapeDto } from './dto/enqueue-scrape.dto';
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
+import { buildFiltersFromProfile, inferPracujSource } from './scrape-request-resolver';
 
 type CallbackJobPayload = NonNullable<ScrapeCompleteDto['jobs']>[number];
 
@@ -134,22 +141,31 @@ export class JobSourcesService {
 
   async enqueueScrape(userId: string, dto: EnqueueScrapeDto, incomingRequestId?: string) {
     const requestId = incomingRequestId?.trim() || randomUUID();
-    const source = (dto.source ?? 'pracuj-pl-it') as PracujSourceKind;
+    const profileContext = await this.getCareerProfileContext(userId, dto.careerProfileId);
+    if (!profileContext?.careerProfileId) {
+      throw new NotFoundException('Active career profile not found');
+    }
+    const careerProfileId = profileContext.careerProfileId;
+    const inferredSource = profileContext.normalizedInput ? inferPracujSource(profileContext.normalizedInput) : 'pracuj-pl-it';
+    const source = (dto.source ?? inferredSource) as PracujSourceKind;
     const sourceEnum = mapSource(source);
-    const normalizedFiltersResult = normalizePracujFilters(source, (dto.filters as ScrapeFiltersDto | undefined) ?? undefined);
-    const normalizedFilters = Object.keys(normalizedFiltersResult.filters).length
-      ? normalizedFiltersResult.filters
-      : undefined;
+
+    const profileDerivedFilters = dto.filters
+      ? undefined
+      : profileContext.normalizedInput
+        ? buildFiltersFromProfile(profileContext.normalizedInput)
+        : undefined;
+    const rawFilters = (dto.filters as ScrapeFiltersDto | undefined) ?? profileDerivedFilters;
+    const normalizedFiltersResult = normalizePracujFilters(source, rawFilters);
+    const normalizedFilters = Object.keys(normalizedFiltersResult.filters).length ? normalizedFiltersResult.filters : undefined;
     const listingUrl = dto.listingUrl ?? (normalizedFilters ? buildPracujListingUrl(source, normalizedFilters) : undefined);
 
     if (!listingUrl) {
-      throw new BadRequestException('Provide listingUrl or filters');
+      throw new BadRequestException('Provide listingUrl, explicit filters, or profile input preferences');
     }
 
-    const careerProfileId = dto.careerProfileId ?? (await this.getActiveCareerProfileId(userId));
-    if (!careerProfileId) {
-      throw new NotFoundException('Active career profile not found');
-    }
+    const intentFingerprint = this.computeIntentFingerprint(source, listingUrl, normalizedFilters ?? null);
+    const resolvedFromProfile = !dto.filters && !dto.source && Boolean(profileContext.normalizedInput);
 
     if (!dto.forceRefresh) {
       const reuse = await this.tryReuseFromDatabase({
@@ -158,6 +174,7 @@ export class JobSourcesService {
         source: sourceEnum,
         listingUrl,
         normalizedFilters: normalizedFilters ?? null,
+        intentFingerprint,
         limit: dto.limit,
       });
 
@@ -181,7 +198,10 @@ export class JobSourcesService {
           inserted: reuse.inserted,
           totalOffers: reuse.totalOffers,
           reusedFromRunId: reuse.reusedFromRunId,
+          intentFingerprint,
+          resolvedFromProfile,
           droppedFilters: normalizedFiltersResult.dropped,
+          acceptedFilters: normalizedFilters ?? null,
         };
       }
     }
@@ -266,6 +286,8 @@ export class JobSourcesService {
         acceptedAt: (run.createdAt ?? new Date()).toISOString(),
         droppedFilters: normalizedFiltersResult.dropped,
         acceptedFilters: normalizedFilters ?? null,
+        intentFingerprint,
+        resolvedFromProfile,
       };
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -278,6 +300,8 @@ export class JobSourcesService {
           acceptedAt: (run.createdAt ?? new Date()).toISOString(),
           warning: 'Worker response timed out. Scrape continues in background.',
           acceptedFilters: normalizedFilters ?? null,
+          intentFingerprint,
+          resolvedFromProfile,
         };
       }
 
@@ -432,10 +456,11 @@ export class JobSourcesService {
     }
 
     if (sanitizedJobs.length) {
+      const jobsToPersist = await this.reuseExistingUrlsBySourceId(run.source, sanitizedJobs);
       await this.db
         .insert(jobOffersTable)
         .values(
-          sanitizedJobs.map((job) => ({
+          jobsToPersist.map((job) => ({
             source: run.source,
             sourceId: job.sourceId ?? null,
             runId: run.id,
@@ -681,6 +706,7 @@ export class JobSourcesService {
     source: 'PRACUJ_PL';
     listingUrl: string;
     normalizedFilters: Record<string, unknown> | null;
+    intentFingerprint: string;
     limit?: number;
   }) {
     const reuseHours = this.configService.get('SCRAPE_DB_REUSE_HOURS', { infer: true });
@@ -705,6 +731,10 @@ export class JobSourcesService {
 
     const targetFilters = stableJson(input.normalizedFilters);
     const reusedRun = recentRuns.find((run) => {
+      const fingerprint = this.computeIntentFingerprint('pracuj-pl', run.listingUrl, (run.filters as Record<string, unknown> | null) ?? null);
+      if (fingerprint === input.intentFingerprint) {
+        return true;
+      }
       if (input.normalizedFilters) {
         return stableJson(run.filters) === targetFilters;
       }
@@ -773,21 +803,44 @@ export class JobSourcesService {
     };
   }
 
-  private async getActiveCareerProfileId(userId: string) {
-    const [profile] = await this.db
-      .select({ id: careerProfilesTable.id })
-      .from(careerProfilesTable)
-      .where(
-        and(
+  private async getCareerProfileContext(userId: string, requestedCareerProfileId?: string | null) {
+    const conditions = requestedCareerProfileId
+      ? and(
+          eq(careerProfilesTable.id, requestedCareerProfileId),
+          eq(careerProfilesTable.userId, userId),
+          eq(careerProfilesTable.status, 'READY'),
+        )
+      : and(
           eq(careerProfilesTable.userId, userId),
           eq(careerProfilesTable.isActive, true),
           eq(careerProfilesTable.status, 'READY'),
-        ),
-      )
-      .orderBy(desc(careerProfilesTable.createdAt))
-      .limit(1);
+        );
 
-    return profile?.id ?? null;
+    const row = await this.db
+      .select({
+        careerProfileId: careerProfilesTable.id,
+        normalizedInput: profileInputsTable.normalizedInput,
+      })
+      .from(careerProfilesTable)
+      .leftJoin(profileInputsTable, eq(profileInputsTable.id, careerProfilesTable.profileInputId))
+      .where(conditions)
+      .orderBy(desc(careerProfilesTable.createdAt))
+      .limit(1)
+      .then(([result]) => result);
+
+    return {
+      careerProfileId: row?.careerProfileId ?? null,
+      normalizedInput: (row?.normalizedInput as Parameters<typeof buildFiltersFromProfile>[0] | null | undefined) ?? null,
+    };
+  }
+
+  private computeIntentFingerprint(source: PracujSourceKind, listingUrl: string, normalizedFilters: Record<string, unknown> | null) {
+    const payload = stableJson({
+      source,
+      listingUrl,
+      normalizedFilters,
+    });
+    return createHash('sha256').update(payload).digest('hex');
   }
 
   private resolveWorkerCallbackUrl() {
@@ -937,5 +990,44 @@ export class JobSourcesService {
       },
       'Auto-score completed for ingested offers',
     );
+  }
+
+  private async reuseExistingUrlsBySourceId(source: 'PRACUJ_PL', jobs: CallbackJobPayload[]) {
+    const sourceIds = Array.from(new Set(jobs.map((job) => job.sourceId).filter((value): value is string => Boolean(value))));
+    if (!sourceIds.length) {
+      return jobs;
+    }
+
+    const existing = await this.db
+      .select({
+        sourceId: jobOffersTable.sourceId,
+        url: jobOffersTable.url,
+      })
+      .from(jobOffersTable)
+      .where(and(eq(jobOffersTable.source, source), inArray(jobOffersTable.sourceId, sourceIds)));
+
+    if (!existing.length) {
+      return jobs;
+    }
+
+    const urlBySourceId = new Map(
+      existing
+        .filter((row) => row.sourceId && row.url)
+        .map((row) => [row.sourceId!, row.url]),
+    );
+
+    return jobs.map((job) => {
+      if (!job.sourceId) {
+        return job;
+      }
+      const canonicalUrl = urlBySourceId.get(job.sourceId);
+      if (!canonicalUrl) {
+        return job;
+      }
+      return {
+        ...job,
+        url: canonicalUrl,
+      };
+    });
   }
 }

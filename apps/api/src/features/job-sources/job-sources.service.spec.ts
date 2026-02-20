@@ -24,9 +24,20 @@ describe('JobSourcesService', () => {
     const db = {
       select: jest.fn().mockReturnValue({
         from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            orderBy: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([{ id: 'profile-id' }]),
+          leftJoin: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    careerProfileId: 'profile-id',
+                    normalizedInput: {
+                      searchPreferences: {
+                        sourceKind: 'it',
+                      },
+                    },
+                  },
+                ]),
+              }),
             }),
           }),
         }),
@@ -80,15 +91,132 @@ describe('JobSourcesService', () => {
     expect(result.status).toBe('accepted');
   });
 
+  it('synthesizes scrape source and filters from active profile when request omits them', async () => {
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          leftJoin: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    careerProfileId: 'profile-id',
+                    normalizedInput: {
+                      roles: [{ name: 'Frontend Developer', aliases: [], priority: 1 }],
+                      seniority: ['senior'],
+                      specializations: ['frontend'],
+                      technologies: ['react'],
+                      workModes: ['remote'],
+                      workTime: ['full-time'],
+                      contractTypes: ['b2b'],
+                      locations: [{ city: 'Gdynia', radiusKm: 20, country: 'PL' }],
+                      salary: { min: 18000, currency: 'PLN', period: 'month' },
+                      languages: [],
+                      constraints: {
+                        noPolishRequired: false,
+                        ukrainiansWelcome: false,
+                        onlyEmployerOffers: false,
+                        onlyWithProjectDescription: false,
+                      },
+                      searchPreferences: {
+                        sourceKind: 'it',
+                        seniority: ['senior'],
+                        workModes: ['remote'],
+                        employmentTypes: ['b2b'],
+                        timeModes: ['full-time'],
+                        salaryMin: 18000,
+                        city: 'Gdynia',
+                        radiusKm: 20,
+                        keywords: ['Frontend Developer', 'react'],
+                      },
+                      freeText: '',
+                    },
+                  },
+                ]),
+              }),
+            }),
+          }),
+        }),
+      }),
+      insert: jest.fn().mockImplementation((table) => {
+        if (table === jobSourceRunsTable) {
+          return {
+            values: jest.fn().mockReturnValue({
+              returning: jest.fn().mockResolvedValue([
+                { id: 'run-uuid-derived', createdAt: new Date('2026-02-12T00:00:00.000Z') },
+              ]),
+            }),
+          };
+        }
+        throw new Error('Unexpected insert table');
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+    } as any;
+
+    const fetchMock = jest.spyOn(global, 'fetch' as any).mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ ok: true }),
+    } as any);
+
+    const service = new JobSourcesService(
+      createConfigService({
+        WORKER_TASK_URL: 'http://localhost:4001/tasks',
+        WORKER_REQUEST_TIMEOUT_MS: 5000,
+      }),
+      createLogger(),
+      db,
+    );
+
+    const result = await service.enqueueScrape(
+      'user-id',
+      {
+        limit: 10,
+        forceRefresh: true,
+      },
+      'request-id',
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const body = JSON.parse(String(request.body)) as Record<string, unknown>;
+    expect(body.source).toBe('pracuj-pl-it');
+    expect(body.filters).toMatchObject({
+      specializations: ['frontend'],
+      workModes: ['home-office'],
+      contractTypes: ['3'],
+      workDimensions: ['0'],
+      salaryMin: 18000,
+      location: 'Gdynia',
+      radiusKm: 20,
+    });
+    expect(result.resolvedFromProfile).toBe(true);
+    expect(result.intentFingerprint).toBeDefined();
+  });
+
   it('reuses completed run offers from db before enqueueing worker scrape', async () => {
     const db = {
       select: jest
         .fn()
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              orderBy: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue([{ id: 'profile-id' }]),
+            leftJoin: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                orderBy: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([
+                    {
+                      careerProfileId: 'profile-id',
+                      normalizedInput: {
+                        searchPreferences: {
+                          sourceKind: 'it',
+                        },
+                      },
+                    },
+                  ]),
+                }),
               }),
             }),
           }),
@@ -402,6 +530,11 @@ describe('JobSourcesService', () => {
                   ),
               }),
             }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
           }),
         })
         .mockReturnValueOnce({
