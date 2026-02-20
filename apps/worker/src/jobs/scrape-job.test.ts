@@ -58,7 +58,7 @@ test('classifyScrapeError maps network errors', () => {
   assert.equal(classifyScrapeError(new Error('Cloudflare blocked request')), 'network');
 });
 
-test('sanitizeCallbackJobs removes invalid entries and deduplicates by url', () => {
+test('sanitizeCallbackJobs removes invalid entries and deduplicates by canonical identity', () => {
   const sanitized = sanitizeCallbackJobs([
     {
       source: 'pracuj-pl-it',
@@ -75,12 +75,12 @@ test('sanitizeCallbackJobs removes invalid entries and deduplicates by url', () 
     },
     {
       source: 'pracuj-pl-it',
-      sourceId: '2',
+      sourceId: '1',
       title: 'Backend Dev Duplicate',
       company: null,
       location: null,
       description: 'Duplicate by URL should be ignored',
-      url: 'https://it.pracuj.pl/praca/test,oferta,1',
+      url: 'https://it.pracuj.pl/praca/test?ref=feed,oferta,1',
       tags: [],
       salary: null,
       employmentType: null,

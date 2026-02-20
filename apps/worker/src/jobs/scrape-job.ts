@@ -42,12 +42,31 @@ const sanitizeStringArray = (value: string[] | undefined) =>
     ),
   );
 
+const canonicalOfferKey = (job: Pick<NormalizedJob, 'sourceId' | 'url'>) => {
+  const sourceId = normalizeString(job.sourceId);
+  if (sourceId) {
+    return `source:${sourceId.toLowerCase()}`;
+  }
+  const url = normalizeString(job.url);
+  if (!url) {
+    return null;
+  }
+  try {
+    const normalized = new URL(url);
+    normalized.search = '';
+    normalized.hash = '';
+    return `url:${normalized.toString().toLowerCase()}`;
+  } catch {
+    return `url:${url.toLowerCase()}`;
+  }
+};
+
 export const sanitizeCallbackJobs = (jobs: NormalizedJob[] | undefined) => {
   if (!jobs?.length) {
     return [];
   }
 
-  const dedupByUrl = new Map<string, NormalizedJob>();
+  const dedupByCanonical = new Map<string, NormalizedJob>();
   for (const job of jobs) {
     const url = normalizeString(job.url);
     const title = normalizeString(job.title);
@@ -56,12 +75,16 @@ export const sanitizeCallbackJobs = (jobs: NormalizedJob[] | undefined) => {
       continue;
     }
 
-    const dedupeKey = url.toLowerCase();
-    if (dedupByUrl.has(dedupeKey)) {
+    const dedupeKey =
+      canonicalOfferKey({
+        sourceId: job.sourceId,
+        url,
+      }) ?? url.toLowerCase();
+    if (dedupByCanonical.has(dedupeKey)) {
       continue;
     }
 
-    dedupByUrl.set(dedupeKey, {
+    dedupByCanonical.set(dedupeKey, {
       ...job,
       source: normalizeString(job.source) ?? 'unknown',
       sourceId: normalizeString(job.sourceId),
@@ -77,7 +100,7 @@ export const sanitizeCallbackJobs = (jobs: NormalizedJob[] | undefined) => {
     });
   }
 
-  return Array.from(dedupByUrl.values());
+  return Array.from(dedupByCanonical.values());
 };
 
 export const classifyScrapeError = (error: unknown): ScrapeFailureType => {
@@ -268,6 +291,7 @@ export const runScrapeJob = async (
 
     const { crawlResult, parsedJobs, normalized } = await Promise.race([pipelinePromise, timeoutPromise]);
     const sanitizedJobs = sanitizeCallbackJobs(normalized);
+    const dedupedInRunCount = Math.max(0, normalized.length - sanitizedJobs.length);
     if (timeoutRef) {
       clearTimeout(timeoutRef);
     }
@@ -338,6 +362,7 @@ export const runScrapeJob = async (
       pages: pages.length,
       jobs: sanitizedJobs.length,
         blockedPages: blockedUrls.length,
+        dedupedInRunCount,
         skippedFreshUrls: Math.max(0, jobLinks.length - pages.length - blockedUrls.length),
         jobLinks: jobLinks.length,
         outputPath,
