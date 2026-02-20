@@ -34,10 +34,21 @@ describe('CareerProfilesService prompt builder', () => {
           onlyEmployerOffers: false,
           onlyWithProjectDescription: false,
         },
+        searchPreferences: {
+          sourceKind: 'it',
+          seniority: ['mid'],
+          workModes: ['remote'],
+          employmentTypes: ['b2b'],
+          timeModes: ['full-time'],
+          salaryMin: null,
+          city: null,
+          radiusKm: null,
+          keywords: ['Frontend Developer', 'frontend', 'typescript', 'react'],
+        },
         freeText: 'note',
       },
       {
-        mapperVersion: 'v1.0.0',
+        mapperVersion: 'v1.1.0',
         status: 'ok',
         warnings: [],
         errors: [],
@@ -50,7 +61,6 @@ describe('CareerProfilesService prompt builder', () => {
 
     expect(prompt).toContain('Normalized profile input (canonical, deterministic):');
     expect(prompt).toContain('"specializations": [');
-    expect(prompt).toContain('Normalization status: ok (v1.0.0)');
+    expect(prompt).toContain('Normalization status: ok (v1.1.0)');
   });
 });
-

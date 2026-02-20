@@ -17,6 +17,7 @@ const ContractTypeEnum = z.enum(['uop', 'b2b', 'mandate', 'specific-task', 'inte
 const LanguageLevelEnum = z.enum(['a1', 'a2', 'b1', 'b2', 'c1', 'c2', 'native']);
 const CurrencyEnum = z.enum(['PLN', 'EUR', 'USD']);
 const SalaryPeriodEnum = z.enum(['month', 'year', 'hour']);
+const SearchSourceKindEnum = z.enum(['it', 'general']);
 
 export const normalizedRoleSchema = z.object({
   name: z.string().min(1),
@@ -48,6 +49,18 @@ export const normalizedConstraintsSchema = z.object({
   onlyWithProjectDescription: z.boolean().default(false),
 });
 
+export const normalizedSearchPreferencesSchema = z.object({
+  sourceKind: SearchSourceKindEnum.default('it'),
+  seniority: z.array(SeniorityEnum).default([]),
+  workModes: z.array(WorkModeEnum).default([]),
+  employmentTypes: z.array(ContractTypeEnum).default([]),
+  timeModes: z.array(WorkTimeEnum).default([]),
+  salaryMin: z.number().int().positive().nullable().default(null),
+  city: z.string().min(1).nullable().default(null),
+  radiusKm: z.number().int().min(1).max(200).nullable().default(null),
+  keywords: z.array(z.string().min(1)).default([]),
+});
+
 export const normalizedProfileInputSchema = z.object({
   roles: z.array(normalizedRoleSchema).default([]),
   seniority: z.array(SeniorityEnum).default([]),
@@ -64,6 +77,17 @@ export const normalizedProfileInputSchema = z.object({
     ukrainiansWelcome: false,
     onlyEmployerOffers: false,
     onlyWithProjectDescription: false,
+  }),
+  searchPreferences: normalizedSearchPreferencesSchema.default({
+    sourceKind: 'it',
+    seniority: [],
+    workModes: [],
+    employmentTypes: [],
+    timeModes: [],
+    salaryMin: null,
+    city: null,
+    radiusKm: null,
+    keywords: [],
   }),
   freeText: z.string().default(''),
 });
@@ -86,4 +110,3 @@ export const normalizationMetaSchema = z.object({
 
 export type NormalizedProfileInput = z.infer<typeof normalizedProfileInputSchema>;
 export type NormalizationMeta = z.infer<typeof normalizationMetaSchema>;
-

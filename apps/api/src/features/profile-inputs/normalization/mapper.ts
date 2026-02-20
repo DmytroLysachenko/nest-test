@@ -30,6 +30,7 @@ const normalizeAscii = (value: string) =>
     .toLowerCase();
 
 const compact = <T>(values: Array<T | null | undefined>) => values.filter((value): value is T => value != null);
+const unique = <T>(values: T[]) => Array.from(new Set(values));
 
 const parseCommaSeparated = (value: string) =>
   value
@@ -116,6 +117,40 @@ const detectLocations = (text: string) => {
   }));
 };
 
+const buildSearchPreferences = (input: {
+  seniority: NormalizedProfileInput['seniority'];
+  workModes: NormalizedProfileInput['workModes'];
+  workTime: NormalizedProfileInput['workTime'];
+  contractTypes: NormalizedProfileInput['contractTypes'];
+  specializations: NormalizedProfileInput['specializations'];
+  technologies: NormalizedProfileInput['technologies'];
+  locations: NormalizedProfileInput['locations'];
+  salary: NormalizedProfileInput['salary'];
+  roles: NormalizedProfileInput['roles'];
+}) => {
+  const sourceKind = input.specializations.some((item) =>
+    ['frontend', 'backend', 'fullstack', 'devops', 'data', 'qa', 'security'].includes(item),
+  )
+    ? 'it'
+    : 'general';
+
+  return {
+    sourceKind,
+    seniority: input.seniority,
+    workModes: input.workModes,
+    employmentTypes: input.contractTypes,
+    timeModes: input.workTime,
+    salaryMin: input.salary?.min ?? null,
+    city: input.locations[0]?.city ?? null,
+    radiusKm: input.locations[0]?.radiusKm ?? null,
+    keywords: unique(
+      [...input.roles.map((role) => role.name), ...input.specializations, ...input.technologies]
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ).slice(0, 12),
+  };
+};
+
 const buildUnknownTokenWarnings = (
   normalizedText: string,
   knownTokenPool: Set<string>,
@@ -189,6 +224,17 @@ export const normalizeProfileInput = ({
     salary,
     languages,
     constraints,
+    searchPreferences: buildSearchPreferences({
+      roles,
+      seniority,
+      specializations,
+      technologies,
+      workModes,
+      workTime,
+      contractTypes,
+      locations,
+      salary,
+    }),
     freeText: notesValue ?? '',
   });
 

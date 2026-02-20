@@ -17,6 +17,13 @@ describe('normalizeProfileInput', () => {
     expect(result.normalizedInput.salary).toMatchObject({ min: 20000, currency: 'PLN', period: 'month' });
     expect(result.normalizedInput.languages).toEqual(expect.arrayContaining([{ code: 'en', level: 'c1' }]));
     expect(result.normalizedInput.constraints.noPolishRequired).toBe(true);
+    expect(result.normalizedInput.searchPreferences).toMatchObject({
+      sourceKind: 'it',
+      city: 'Warszawa',
+      radiusKm: 30,
+      salaryMin: 20000,
+    });
+    expect(result.normalizedInput.searchPreferences.keywords.length).toBeGreaterThan(0);
     expect(result.normalizationMeta.status).toBe('ok');
   });
 

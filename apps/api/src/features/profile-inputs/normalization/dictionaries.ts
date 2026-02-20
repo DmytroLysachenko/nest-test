@@ -1,4 +1,4 @@
-export const NORMALIZATION_MAPPER_VERSION = 'v1.0.0';
+export const NORMALIZATION_MAPPER_VERSION = 'v1.1.0';
 
 export const SENIORITY_MAP: Record<string, 'intern' | 'junior' | 'mid' | 'senior' | 'lead' | 'manager'> = {
   intern: 'intern',
@@ -23,7 +23,10 @@ export const SENIORITY_MAP: Record<string, 'intern' | 'junior' | 'mid' | 'senior
   kierownik: 'manager',
 };
 
-export const SPECIALIZATION_MAP: Record<string, string> = {
+export const SPECIALIZATION_MAP: Record<
+  string,
+  'frontend' | 'backend' | 'fullstack' | 'devops' | 'data' | 'qa' | 'security' | 'product'
+> = {
   frontend: 'frontend',
   backend: 'backend',
   fullstack: 'fullstack',
@@ -123,4 +126,3 @@ export const STOPWORDS = new Set([
   'na',
   'do',
 ]);
-

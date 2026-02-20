@@ -30,7 +30,6 @@ describe('ProfileInputsService', () => {
     expect(insertValues).toHaveLength(1);
     expect(insertValues[0].normalizedInput).toBeDefined();
     expect(insertValues[0].normalizationMeta).toBeDefined();
-    expect(insertValues[0].normalizationVersion).toBe('v1.0.0');
+    expect(insertValues[0].normalizationVersion).toBe('v1.1.0');
   });
 });
-
