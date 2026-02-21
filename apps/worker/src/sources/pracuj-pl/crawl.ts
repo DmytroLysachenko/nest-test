@@ -1,6 +1,7 @@
 import { readFile } from 'fs/promises';
 import { resolve } from 'path';
 
+import { load } from 'cheerio';
 import { type Cookie, type Page } from 'playwright';
 import { chromium } from 'playwright-extra';
 import stealth from 'puppeteer-extra-plugin-stealth';
@@ -64,6 +65,36 @@ const extractJobLinks = (hrefs: string[]) => {
     .filter((value): value is string => Boolean(value));
 
   return Array.from(new Set(urls));
+};
+
+export const extractListingDomSignalsFromHtml = (html: string) => {
+  const $ = load(html);
+  const allHrefs = $('a[href*=",oferta,"]')
+    .map((_, element) => $(element).attr('href') ?? '')
+    .get()
+    .filter(Boolean);
+  const recommendedHrefs = $('[data-test="section-recommended-offers"] a[href*=",oferta,"]')
+    .map((_, element) => $(element).attr('href') ?? '')
+    .get()
+    .filter(Boolean);
+  const primarySectionHrefs = $('[data-test="section-offers"] a[href*=",oferta,"]')
+    .map((_, element) => $(element).attr('href') ?? '')
+    .get()
+    .filter(Boolean);
+
+  const hasZeroOffers = $('[data-test="zero-offers-section"]').length > 0;
+  const recommendedSet = new Set(extractJobLinks(recommendedHrefs));
+  const primarySectionLinks = extractJobLinks(primarySectionHrefs);
+  const primaryLinks =
+    primarySectionLinks.length > 0
+      ? primarySectionLinks
+      : extractJobLinks(allHrefs).filter((href) => !recommendedSet.has(href));
+
+  return {
+    hasZeroOffers,
+    primaryLinks,
+    recommendedLinks: Array.from(recommendedSet),
+  };
 };
 
 const extractNextDataJson = (html: string) => {
@@ -276,6 +307,8 @@ export const crawlPracujPl = async (
   pages: RawPage[];
   blockedUrls: string[];
   jobLinks: string[];
+  recommendedJobLinks: string[];
+  hasZeroOffers: boolean;
   listingHtml: string;
   listingData: unknown;
   listingSummaries: ListingJobSummary[];
@@ -335,11 +368,24 @@ export const crawlPracujPl = async (
       'Listing page loaded',
     );
 
-    const jobLinksFromData = extractJobLinksFromNextData(html);
-    logger?.info({ count: jobLinksFromData.length }, 'Listing links from NEXT_DATA');
-    let jobLinks = limit ? jobLinksFromData.slice(0, limit) : jobLinksFromData;
+    const domLinks = extractListingDomSignalsFromHtml(html);
+    logger?.info(
+      {
+        primaryCount: domLinks.primaryLinks.length,
+        recommendedCount: domLinks.recommendedLinks.length,
+        hasZeroOffers: domLinks.hasZeroOffers,
+      },
+      'Listing links from DOM sections',
+    );
+    let jobLinks = limit ? domLinks.primaryLinks.slice(0, limit) : domLinks.primaryLinks;
 
-    if (!jobLinks.length) {
+    if (!jobLinks.length && !domLinks.hasZeroOffers) {
+      const jobLinksFromData = extractJobLinksFromNextData(html);
+      logger?.info({ count: jobLinksFromData.length }, 'Listing links from NEXT_DATA');
+      jobLinks = limit ? jobLinksFromData.slice(0, limit) : jobLinksFromData;
+    }
+
+    if (!jobLinks.length && !domLinks.hasZeroOffers) {
       const hrefs = await page.$$eval('a[href]', (anchors) =>
         anchors.map((anchor) => (anchor instanceof HTMLAnchorElement ? anchor.href : '')),
       );
@@ -349,13 +395,13 @@ export const crawlPracujPl = async (
     }
 
     if (!jobLinks.length) {
-      logger?.warn({ listingUrl }, 'No job links found for listing');
+      logger?.warn({ listingUrl, hasZeroOffers: domLinks.hasZeroOffers }, 'No primary job links found for listing');
     }
 
     const normalizedLinks = detailHost ? jobLinks.map((link) => swapHost(link, detailHost)) : jobLinks;
-    const skipUrls = options?.skipResolver
-      ? await options.skipResolver(normalizedLinks)
-      : (options?.skipUrls ?? new Set<string>());
+    const localSkipUrls = options?.skipUrls ?? new Set<string>();
+    const resolvedSkipUrls = options?.skipResolver ? await options.skipResolver(normalizedLinks) : new Set<string>();
+    const skipUrls = new Set<string>([...localSkipUrls, ...resolvedSkipUrls]);
     const detailTargets = normalizedLinks.filter((url) => !skipUrls.has(url));
     if (skipUrls.size) {
       logger?.info({ skipped: skipUrls.size, total: normalizedLinks.length }, 'Skipping detail fetch for cached offers');
@@ -379,6 +425,8 @@ export const crawlPracujPl = async (
         pages,
         blockedUrls,
         jobLinks: normalizedLinks,
+        recommendedJobLinks: domLinks.recommendedLinks,
+        hasZeroOffers: domLinks.hasZeroOffers,
         listingHtml: html,
         listingData,
         listingSummaries,
@@ -447,6 +495,8 @@ export const crawlPracujPl = async (
       pages,
       blockedUrls,
       jobLinks: normalizedLinks,
+      recommendedJobLinks: domLinks.recommendedLinks,
+      hasZeroOffers: domLinks.hasZeroOffers,
       listingHtml: html,
       listingData,
       listingSummaries,

@@ -1,12 +1,14 @@
 import { createHmac, randomUUID } from 'crypto';
 import type { Logger } from 'pino';
+import type { PracujSourceKind, ScrapeFilters } from '@repo/db';
 
 import { persistDeadLetter } from './callback-dead-letter';
+import { relaxPracujFiltersOnce } from './pracuj-filter-relaxation';
 import { resolvePipeline, runPipeline } from './scrape-pipelines';
 import { saveOutput } from '../output/save-output';
 import { loadFreshOfferUrls } from '../db/fresh-offers';
 import type { ScrapeSourceJob } from '../types/jobs';
-import type { NormalizedJob } from '../sources/types';
+import type { DetailFetchDiagnostics, ListingJobSummary, NormalizedJob, ParsedJob, RawPage } from '../sources/types';
 
 type CallbackPayload = {
   eventId?: string;
@@ -60,6 +62,9 @@ const canonicalOfferKey = (job: Pick<NormalizedJob, 'sourceId' | 'url'>) => {
     return `url:${url.toLowerCase()}`;
   }
 };
+
+const isPracujSource = (source: string): source is PracujSourceKind =>
+  source === 'pracuj-pl' || source === 'pracuj-pl-it' || source === 'pracuj-pl-general';
 
 export const sanitizeCallbackJobs = (jobs: NormalizedJob[] | undefined) => {
   if (!jobs?.length) {
@@ -257,53 +262,133 @@ export const runScrapeJob = async (
     const callbackToken = payload.callbackToken ?? options.callbackToken;
     const callbackSigningSecret = options.callbackSigningSecret;
 
-    const pipelinePromise = runPipeline(payload.source, {
-      headless: options.headless,
-      listingUrl,
-      limit: payload.limit,
-      logger,
-      options: {
-        listingDelayMs: options.listingDelayMs,
-        listingCooldownMs: options.listingCooldownMs,
-        detailDelayMs: options.detailDelayMs,
-        listingOnly: options.listingOnly,
-        detailHost: options.detailHost,
-        detailCookiesPath: options.detailCookiesPath,
-        detailHumanize: options.detailHumanize,
-        profileDir: options.profileDir,
-        skipResolver: (urls: string[]) =>
-          loadFreshOfferUrls(
-            options.databaseUrl,
-            'PRACUJ_PL',
-            urls,
-            options.detailCacheHours ?? 24,
-          ),
-      },
-    });
     const timeoutMs = options.scrapeTimeoutMs ?? 180000;
     let timeoutRef: NodeJS.Timeout | null = null;
-    const timeoutPromise = new Promise<never>((_, reject) => {
+    const timeoutPromiseTemplate = new Promise<never>((_, reject) => {
       const timeoutError = new Error(`Scrape timed out after ${timeoutMs}ms`);
       timeoutError.name = 'ScrapeTimeoutError';
       timeoutRef = setTimeout(() => reject(timeoutError), timeoutMs);
       timeoutRef?.unref?.();
     });
 
-    const { crawlResult, parsedJobs, normalized } = await Promise.race([pipelinePromise, timeoutPromise]);
-    const sanitizedJobs = sanitizeCallbackJobs(normalized);
-    const dedupedInRunCount = Math.max(0, normalized.length - sanitizedJobs.length);
+    const requestedLimit = Math.max(1, payload.limit ?? 10);
+    const maxRelaxationAttempts = Math.max(1, requestedLimit + 4);
+    const collectedKeys = new Set<string>();
+    const skipUrls = new Set<string>();
+    const aggregatedPages: RawPage[] = [];
+    const aggregatedBlockedUrls: string[] = [];
+    const aggregatedJobLinks = new Set<string>();
+    const aggregatedRecommendedLinks = new Set<string>();
+    const aggregatedParsedJobs: ParsedJob[] = [];
+    const aggregatedNormalized: NormalizedJob[] = [];
+    const aggregatedNormalizedKeys = new Set<string>();
+    const aggregatedDiagnostics: DetailFetchDiagnostics[] = [];
+    let listingHtml = '';
+    let listingData: unknown = null;
+    let listingSummaries: ListingJobSummary[] = [];
+    let attemptListingUrl = listingUrl;
+    let activeFilters: ScrapeFilters | null = payload.filters ? { ...payload.filters } : null;
+    let relaxReason: string | null = null;
+
+    for (let attempt = 1; attempt <= maxRelaxationAttempts; attempt += 1) {
+      if (attempt > 1 && relaxReason) {
+        logger.info(
+          {
+            requestId: payload.requestId,
+            sourceRunId,
+            attempt,
+            relaxReason,
+            activeFilters,
+          },
+          'Retrying scrape with relaxed filters',
+        );
+      }
+
+      const remaining = Math.max(1, requestedLimit - collectedKeys.size);
+      const pipelinePromise = runPipeline(payload.source, {
+        headless: options.headless,
+        listingUrl: attemptListingUrl,
+        limit: remaining,
+        logger,
+        options: {
+          listingDelayMs: options.listingDelayMs,
+          listingCooldownMs: options.listingCooldownMs,
+          detailDelayMs: options.detailDelayMs,
+          listingOnly: options.listingOnly,
+          detailHost: options.detailHost,
+          detailCookiesPath: options.detailCookiesPath,
+          detailHumanize: options.detailHumanize,
+          profileDir: options.profileDir,
+          skipUrls,
+          skipResolver: (urls: string[]) =>
+            loadFreshOfferUrls(
+              options.databaseUrl,
+              'PRACUJ_PL',
+              urls,
+              options.detailCacheHours ?? 24,
+            ),
+        },
+      });
+
+      const { crawlResult, parsedJobs, normalized } = await Promise.race([pipelinePromise, timeoutPromiseTemplate]);
+      listingHtml = crawlResult.listingHtml;
+      listingData = crawlResult.listingData;
+      listingSummaries = crawlResult.listingSummaries;
+      crawlResult.jobLinks.forEach((url) => aggregatedJobLinks.add(url));
+      crawlResult.recommendedJobLinks.forEach((url) => aggregatedRecommendedLinks.add(url));
+      crawlResult.blockedUrls.forEach((url) => aggregatedBlockedUrls.push(url));
+      crawlResult.detailDiagnostics.forEach((item) => aggregatedDiagnostics.push(item));
+      crawlResult.pages.forEach((page) => aggregatedPages.push(page));
+
+      for (const parsed of parsedJobs) {
+        const key = canonicalOfferKey({ sourceId: parsed.sourceId ?? null, url: parsed.url });
+        if (!key || collectedKeys.has(key)) {
+          continue;
+        }
+        collectedKeys.add(key);
+        skipUrls.add(parsed.url);
+        aggregatedParsedJobs.push(parsed);
+      }
+
+      for (const item of normalized) {
+        const key = canonicalOfferKey(item);
+        if (!key || aggregatedNormalizedKeys.has(key)) {
+          continue;
+        }
+        aggregatedNormalizedKeys.add(key);
+        aggregatedNormalized.push(item);
+      }
+
+      if (collectedKeys.size >= requestedLimit) {
+        break;
+      }
+
+      const shouldRelax = isPracujSource(payload.source) && activeFilters && !options.listingOnly;
+      if (!shouldRelax) {
+        break;
+      }
+
+      const zeroOrNoPrimary = crawlResult.hasZeroOffers || crawlResult.jobLinks.length === 0;
+      if (!zeroOrNoPrimary) {
+        break;
+      }
+
+      const relaxed = relaxPracujFiltersOnce(payload.source, activeFilters);
+      if (!relaxed.next) {
+        break;
+      }
+
+      activeFilters = relaxed.next;
+      relaxReason = relaxed.reason;
+      attemptListingUrl = pipeline.buildListingUrl(activeFilters);
+    }
+
     if (timeoutRef) {
       clearTimeout(timeoutRef);
     }
-    const {
-      pages,
-      blockedUrls,
-      jobLinks,
-      listingHtml,
-      listingData,
-      listingSummaries,
-      detailDiagnostics,
-    } = crawlResult;
+
+    const sanitizedJobs = sanitizeCallbackJobs(aggregatedNormalized);
+    const dedupedInRunCount = Math.max(0, aggregatedNormalized.length - sanitizedJobs.length);
     const outputPath = await saveOutput(
       {
         source: payload.source,
@@ -311,14 +396,14 @@ export const runScrapeJob = async (
         listingUrl,
         fetchedAt: new Date().toISOString(),
         jobs: sanitizedJobs,
-        raw: parsedJobs,
-        pages,
-        blockedUrls,
-        jobLinks,
+        raw: aggregatedParsedJobs,
+        pages: aggregatedPages,
+        blockedUrls: aggregatedBlockedUrls,
+        jobLinks: Array.from(aggregatedJobLinks),
         listingHtml,
         listingData,
         listingSummaries,
-        detailDiagnostics,
+        detailDiagnostics: aggregatedDiagnostics,
       },
       options.outputDir,
       options.outputMode,
@@ -338,9 +423,9 @@ export const runScrapeJob = async (
           listingUrl,
           status: 'COMPLETED',
           scrapedCount: sanitizedJobs.length,
-          totalFound: jobLinks.length,
+          totalFound: aggregatedJobLinks.size,
           jobCount: sanitizedJobs.length,
-          jobLinkCount: jobLinks.length,
+          jobLinkCount: aggregatedJobLinks.size,
           jobs: sanitizedJobs,
           outputPath,
         }),
@@ -359,12 +444,13 @@ export const runScrapeJob = async (
         source: payload.source,
         runId,
       sourceRunId,
-      pages: pages.length,
+      pages: aggregatedPages.length,
       jobs: sanitizedJobs.length,
-        blockedPages: blockedUrls.length,
+        blockedPages: aggregatedBlockedUrls.length,
+        ignoredRecommendedLinks: aggregatedRecommendedLinks.size,
         dedupedInRunCount,
-        skippedFreshUrls: Math.max(0, jobLinks.length - pages.length - blockedUrls.length),
-        jobLinks: jobLinks.length,
+        skippedFreshUrls: Math.max(0, aggregatedJobLinks.size - aggregatedPages.length - aggregatedBlockedUrls.length),
+        jobLinks: aggregatedJobLinks.size,
         outputPath,
         durationMs: Date.now() - startedAt,
       },
