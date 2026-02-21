@@ -1,11 +1,18 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { VertexAI } from '@google-cloud/vertexai';
+import type { z } from 'zod';
 
 import { Env } from '@/config/env';
 
 type GenerateTextOptions = {
   model?: string;
+  responseMimeType?: 'text/plain' | 'application/json';
+};
+
+type GenerateStructuredOptions = {
+  model?: string;
+  retries?: number;
 };
 
 @Injectable()
@@ -51,6 +58,7 @@ export class GeminiService {
       model: modelName,
       generationConfig: {
         temperature: 0.4,
+        ...(options.responseMimeType ? { responseMimeType: options.responseMimeType } : {}),
       },
     });
 
@@ -66,5 +74,58 @@ export class GeminiService {
     const candidate = result.response.candidates?.[0];
     const text = candidate?.content?.parts?.map((part) => part.text ?? '').join('') ?? '';
     return text;
+  }
+
+  async generateStructured<T extends z.ZodTypeAny>(
+    prompt: string,
+    schema: T,
+    options: GenerateStructuredOptions = {},
+  ): Promise<z.infer<T>> {
+    const retries = options.retries ?? 2;
+    let lastError: string | null = null;
+
+    for (let attempt = 1; attempt <= retries + 1; attempt += 1) {
+      const text = await this.generateText(prompt, {
+        model: options.model,
+        responseMimeType: 'application/json',
+      });
+
+      const parsed = this.tryParseJson(text);
+      if (!parsed) {
+        lastError = 'Model did not return valid JSON';
+        continue;
+      }
+
+      const validated = schema.safeParse(parsed);
+      if (!validated.success) {
+        lastError = validated.error.message;
+        continue;
+      }
+
+      return validated.data;
+    }
+
+    throw new BadRequestException(`Structured generation failed: ${lastError ?? 'unknown validation error'}`);
+  }
+
+  private tryParseJson(content: string) {
+    const trimmed = content.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      const fenced = content.match(/```json\s*([\s\S]*?)\s*```/i)?.[1];
+      if (!fenced) {
+        return null;
+      }
+      try {
+        return JSON.parse(fenced);
+      } catch {
+        return null;
+      }
+    }
   }
 }

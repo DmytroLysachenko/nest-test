@@ -2,14 +2,21 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, desc, eq, inArray, isNull, not, sql } from 'drizzle-orm';
 import { careerProfilesTable, documentsTable, profileInputsTable } from '@repo/db';
-import { z } from 'zod';
 
 import { Drizzle } from '@/common/decorators';
 import { GeminiService } from '@/common/modules/gemini/gemini.service';
 
 import { CreateCareerProfileDto } from './dto/create-career-profile.dto';
 import { ListCareerProfilesQuery } from './dto/list-career-profiles.query';
+import { ListCareerProfileSearchViewQuery } from './dto/list-career-profile-search-view.query';
 import type { NormalizationMeta, NormalizedProfileInput } from '../profile-inputs/normalization/schema';
+import {
+  CANDIDATE_PROFILE_SCHEMA_VERSION,
+  candidateProfileSchema,
+  type CandidateProfile,
+} from './schema/candidate-profile.schema';
+
+const MIN_EXTRACTED_TEXT_CHARS = 700;
 
 @Injectable()
 export class CareerProfilesService {
@@ -40,6 +47,7 @@ export class CareerProfilesService {
     if (!documents.length) {
       throw new BadRequestException('No uploaded documents found');
     }
+    this.assertSufficientInputData(documents);
 
     const nextVersion = await this.getNextVersion(userId);
 
@@ -64,8 +72,11 @@ export class CareerProfilesService {
         (profileInput.normalizedInput as NormalizedProfileInput | null | undefined) ?? null,
         (profileInput.normalizationMeta as NormalizationMeta | null | undefined) ?? null,
       );
-      const content = await this.geminiService.generateText(prompt);
-      const { data: contentJson, error: jsonError } = this.parseProfileJson(content);
+      const contentJson = await this.geminiService.generateStructured(prompt, candidateProfileSchema, {
+        retries: 2,
+      });
+      const content = this.toMarkdown(contentJson);
+      const projection = this.buildSearchProjection(contentJson);
 
       await this.deactivateProfiles(userId, careerProfile.id);
 
@@ -75,8 +86,14 @@ export class CareerProfilesService {
           status: 'READY',
           content,
           contentJson,
+          primarySeniority: projection.primarySeniority,
+          targetRoles: projection.targetRoles,
+          searchableKeywords: projection.searchableKeywords,
+          searchableTechnologies: projection.searchableTechnologies,
+          preferredWorkModes: projection.preferredWorkModes,
+          preferredEmploymentTypes: projection.preferredEmploymentTypes,
           model: 'gemini',
-          error: jsonError ?? null,
+          error: null,
           updatedAt: new Date(),
         })
         .where(eq(careerProfilesTable.id, careerProfile.id))
@@ -161,6 +178,81 @@ export class CareerProfilesService {
       activeId: active?.id ?? null,
       activeVersion: active?.version ?? null,
       latestVersion: latest?.version ?? null,
+    };
+  }
+
+  async listSearchView(userId: string, query: ListCareerProfileSearchViewQuery) {
+    const limit = query.limit ? Number(query.limit) : 20;
+    const offset = query.offset ? Number(query.offset) : 0;
+    const conditions = [eq(careerProfilesTable.userId, userId)];
+
+    if (query.status) {
+      conditions.push(eq(careerProfilesTable.status, query.status));
+    }
+
+    if (query.isActive !== undefined) {
+      conditions.push(eq(careerProfilesTable.isActive, query.isActive === 'true'));
+    }
+
+    if (query.seniority) {
+      conditions.push(eq(careerProfilesTable.primarySeniority, query.seniority));
+    }
+
+    if (query.role) {
+      const roleTerm = `%${query.role}%`;
+      conditions.push(sql`coalesce(array_to_string(${careerProfilesTable.targetRoles}, ' '), '') ILIKE ${roleTerm}`);
+    }
+
+    if (query.keyword) {
+      const keywordTerm = `%${query.keyword}%`;
+      conditions.push(
+        sql`coalesce(array_to_string(${careerProfilesTable.searchableKeywords}, ' '), '') ILIKE ${keywordTerm}`,
+      );
+    }
+
+    if (query.technology) {
+      const techTerm = `%${query.technology}%`;
+      conditions.push(
+        sql`coalesce(array_to_string(${careerProfilesTable.searchableTechnologies}, ' '), '') ILIKE ${techTerm}`,
+      );
+    }
+
+    const items = await this.db
+      .select({
+        id: careerProfilesTable.id,
+        version: careerProfilesTable.version,
+        isActive: careerProfilesTable.isActive,
+        status: careerProfilesTable.status,
+        primarySeniority: careerProfilesTable.primarySeniority,
+        targetRoles: careerProfilesTable.targetRoles,
+        searchableKeywords: careerProfilesTable.searchableKeywords,
+        searchableTechnologies: careerProfilesTable.searchableTechnologies,
+        preferredWorkModes: careerProfilesTable.preferredWorkModes,
+        preferredEmploymentTypes: careerProfilesTable.preferredEmploymentTypes,
+        createdAt: careerProfilesTable.createdAt,
+        updatedAt: careerProfilesTable.updatedAt,
+      })
+      .from(careerProfilesTable)
+      .where(and(...conditions))
+      .orderBy(desc(careerProfilesTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const [{ total }] = await this.db
+      .select({ total: sql<number>`count(*)` })
+      .from(careerProfilesTable)
+      .where(and(...conditions));
+
+    return {
+      items: items.map((item) => ({
+        ...item,
+        targetRoles: item.targetRoles ?? [],
+        searchableKeywords: item.searchableKeywords ?? [],
+        searchableTechnologies: item.searchableTechnologies ?? [],
+        preferredWorkModes: item.preferredWorkModes ?? [],
+        preferredEmploymentTypes: item.preferredEmploymentTypes ?? [],
+      })),
+      total: Number(total ?? 0),
     };
   }
 
@@ -253,10 +345,21 @@ export class CareerProfilesService {
 
     return [
       'You are a career profile generator.',
-      'Create a concise career profile in markdown, then output a JSON block.',
-      'The JSON must be the last section, wrapped in a ```json code fence.',
-      'JSON shape:',
-      '{ "summary": string, "coreSkills": string[], "preferredRoles": string[], "strengths": string[], "gaps": string[], "topKeywords": string[] }',
+      'Return only JSON that strictly follows the requested schema.',
+      `Set schemaVersion exactly to "${CANDIDATE_PROFILE_SCHEMA_VERSION}".`,
+      'For all confidence fields use both confidenceLevel and confidenceScore (0..1).',
+      'Split work preferences into hardConstraints and softPreferences.',
+      'Include transferable skills and growth directions, not only confirmed strong skills.',
+      'Expand searchability: include inferred adjacent tools/keywords that are strongly implied by CV/LinkedIn experience.',
+      'When inferring adjacent skills, set lower confidenceScore and mark competency isTransferable=true if not explicitly proven.',
+      'Do not invent random experience. Every inferred item must be plausibly connected to evidence in provided documents.',
+      'Respect seniority constraints strictly: never up-level candidate target to higher seniority than evidence supports.',
+      'Be liberal with contract/work-mode flexibility in softPreferences, but keep hardConstraints conservative and user-safe.',
+      'Hard minimum output richness: targetRoles>=1, competencies>=6, searchSignals.keywords>=10, searchSignals.technologies>=5.',
+      'Use concise evidence snippets from provided input/docs.',
+      '',
+      'Output schema (as JSON object):',
+      this.schemaContractHint(),
       '',
       normalizedInput ? 'Normalized profile input (canonical, deterministic):' : '',
       normalizedInput ? JSON.stringify(normalizedInput, null, 2) : '',
@@ -273,63 +376,145 @@ export class CareerProfilesService {
       extractedSections,
       '',
       instructions ? `Additional instructions: ${instructions}` : '',
-      '',
-      'Output format:',
-      '- Summary',
-      '- Core skills',
-      '- Preferred roles',
-      '- Strengths',
-      '- Gaps / areas to improve',
-      '- Top keywords',
     ]
       .filter(Boolean)
       .join('\n');
   }
 
-  private extractJson(content: string) {
-    const match = content.match(/```json\s*([\s\S]*?)\s*```/i);
-    const candidate = match?.[1] ?? this.extractJsonObject(content);
-    if (!candidate) {
-      return null;
-    }
+  private toMarkdown(profile: CandidateProfile) {
+    const lines = [
+      `# ${profile.candidateCore.headline}`,
+      '',
+      profile.candidateCore.summary,
+      '',
+      '## Target Roles',
+      ...profile.targetRoles.map(
+        (role) =>
+          `- ${role.title} (priority ${role.priority}, confidence ${role.confidenceLevel} ${Math.round(role.confidenceScore * 100)}%)`,
+      ),
+      '',
+      '## Core Competencies',
+      ...profile.competencies
+        .sort((a, b) => b.confidenceScore - a.confidenceScore)
+        .slice(0, 15)
+        .map(
+          (item) =>
+            `- ${item.name} [${item.type}] - ${item.confidenceLevel} (${Math.round(item.confidenceScore * 100)}%), importance: ${item.importance}`,
+        ),
+      '',
+      '## Hard Constraints',
+      `- Work modes: ${profile.workPreferences.hardConstraints.workModes.join(', ') || 'none'}`,
+      `- Employment types: ${profile.workPreferences.hardConstraints.employmentTypes.join(', ') || 'none'}`,
+      profile.workPreferences.hardConstraints.minSalary
+        ? `- Min salary: ${profile.workPreferences.hardConstraints.minSalary.amount} ${profile.workPreferences.hardConstraints.minSalary.currency}/${profile.workPreferences.hardConstraints.minSalary.period}`
+        : '- Min salary: none',
+      '',
+      '## Growth Directions',
+      ...profile.riskAndGrowth.growthDirections.map((item) => `- ${item}`),
+    ];
 
-    try {
-      return JSON.parse(candidate);
-    } catch {
-      return null;
+    return lines.filter(Boolean).join('\n');
+  }
+
+  private schemaContractHint() {
+    return JSON.stringify(
+      {
+        schemaVersion: CANDIDATE_PROFILE_SCHEMA_VERSION,
+        minimumQualityConstraints: {
+          targetRoles: '>=1',
+          competencies: '>=6',
+          searchSignalsKeywords: '>=10',
+          searchSignalsTechnologies: '>=5',
+        },
+        candidateCore: {
+          headline: 'string',
+          summary: 'string',
+          totalExperienceYears: 'number?',
+          seniority: { primary: 'intern|junior|mid|senior|lead|manager?', secondary: ['...'] },
+          languages: [{ code: 'en', level: 'a1..c2|native' }],
+        },
+        targetRoles: [
+          {
+            title: 'string',
+            confidenceScore: '0..1',
+            confidenceLevel: 'very-low|low|medium|high|very-high',
+            priority: '1..10',
+          },
+        ],
+        competencies: [
+          {
+            name: 'string',
+            type: 'technology|domain|tool|methodology|language|soft-skill|role-skill',
+            confidenceScore: '0..1',
+            confidenceLevel: 'very-low|low|medium|high|very-high',
+            importance: 'low|medium|high',
+            evidence: ['string'],
+          },
+        ],
+        workPreferences: {
+          hardConstraints: {
+            workModes: ['remote|hybrid|onsite|mobile'],
+            employmentTypes: ['uop|b2b|mandate|specific-task|internship'],
+            locations: [{ city: 'string?', country: 'PL?', radiusKm: 'number?' }],
+            minSalary: { amount: 'number', currency: 'PLN|EUR|USD', period: 'month|year|hour' },
+          },
+          softPreferences: {
+            workModes: [{ value: 'remote|hybrid|onsite|mobile', weight: '0..1' }],
+            employmentTypes: [{ value: 'uop|b2b|mandate|specific-task|internship', weight: '0..1' }],
+            locations: [{ value: { city: 'string?' }, weight: '0..1' }],
+          },
+        },
+        searchSignals: {
+          keywords: [{ value: 'string', weight: '0..1' }],
+          specializations: [{ value: 'string', weight: '0..1' }],
+          technologies: [{ value: 'string', weight: '0..1' }],
+        },
+        riskAndGrowth: {
+          gaps: ['string'],
+          growthDirections: ['string'],
+          transferableStrengths: ['string'],
+        },
+      },
+      null,
+      2,
+    );
+  }
+
+  private assertSufficientInputData(
+    documents: Array<{
+      extractedText: string | null;
+    }>,
+  ) {
+    const totalExtractedChars = documents.reduce((acc, doc) => acc + (doc.extractedText?.trim().length ?? 0), 0);
+    if (totalExtractedChars < MIN_EXTRACTED_TEXT_CHARS) {
+      throw new BadRequestException(
+        `Insufficient extracted document data to build a reliable career profile (need at least ${MIN_EXTRACTED_TEXT_CHARS} chars, got ${totalExtractedChars}). Upload richer CV/LinkedIn content and run extraction first.`,
+      );
     }
   }
 
-  private extractJsonObject(content: string) {
-    const first = content.indexOf('{');
-    const last = content.lastIndexOf('}');
-    if (first === -1 || last === -1 || last <= first) {
-      return null;
-    }
-    return content.slice(first, last + 1);
-  }
+  private buildSearchProjection(profile: CandidateProfile) {
+    const unique = (values: Array<string | null | undefined>) =>
+      Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
 
-  private parseProfileJson(content: string) {
-    const raw = this.extractJson(content);
-    if (!raw) {
-      return { data: null, error: 'Profile JSON block is missing' };
-    }
+    const hardWorkModes = profile.workPreferences.hardConstraints.workModes;
+    const softWorkModes = profile.workPreferences.softPreferences.workModes
+      .filter((item) => item.weight >= 0.4)
+      .map((item) => item.value);
 
-    const schema = z.object({
-      summary: z.string(),
-      coreSkills: z.array(z.string()),
-      preferredRoles: z.array(z.string()),
-      strengths: z.array(z.string()),
-      gaps: z.array(z.string()),
-      topKeywords: z.array(z.string()),
-    });
+    const hardEmploymentTypes = profile.workPreferences.hardConstraints.employmentTypes;
+    const softEmploymentTypes = profile.workPreferences.softPreferences.employmentTypes
+      .filter((item) => item.weight >= 0.4)
+      .map((item) => item.value);
 
-    const parsed = schema.safeParse(raw);
-    if (!parsed.success) {
-      return { data: null, error: 'Profile JSON does not match schema' };
-    }
-
-    return { data: parsed.data, error: null };
+    return {
+      primarySeniority: profile.candidateCore.seniority.primary ?? null,
+      targetRoles: unique(profile.targetRoles.map((item) => item.title)).slice(0, 12),
+      searchableKeywords: unique(profile.searchSignals.keywords.map((item) => item.value)).slice(0, 40),
+      searchableTechnologies: unique(profile.searchSignals.technologies.map((item) => item.value)).slice(0, 30),
+      preferredWorkModes: unique([...hardWorkModes, ...softWorkModes]).slice(0, 8),
+      preferredEmploymentTypes: unique([...hardEmploymentTypes, ...softEmploymentTypes]).slice(0, 8),
+    };
   }
 
   private async getNextVersion(userId: string) {

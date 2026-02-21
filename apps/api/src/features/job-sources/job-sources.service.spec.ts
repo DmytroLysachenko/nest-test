@@ -15,6 +15,118 @@ const createLogger = () =>
     error: jest.fn(),
   }) as any;
 
+const candidateProfileFixture = {
+  schemaVersion: '1.0.0',
+  candidateCore: {
+    headline: 'Frontend Developer',
+    summary: 'Frontend profile',
+    seniority: { primary: 'senior', secondary: [] },
+    languages: [],
+  },
+  targetRoles: [
+    { title: 'Frontend Developer', confidenceScore: 0.9, confidenceLevel: 'high', priority: 1 },
+  ],
+  competencies: [
+    {
+      name: 'React',
+      type: 'technology',
+      confidenceScore: 0.9,
+      confidenceLevel: 'high',
+      importance: 'high',
+      evidence: ['project'],
+      isTransferable: false,
+    },
+    {
+      name: 'TypeScript',
+      type: 'technology',
+      confidenceScore: 0.9,
+      confidenceLevel: 'high',
+      importance: 'high',
+      evidence: ['project'],
+      isTransferable: false,
+    },
+    {
+      name: 'JavaScript',
+      type: 'technology',
+      confidenceScore: 0.88,
+      confidenceLevel: 'high',
+      importance: 'medium',
+      evidence: ['project'],
+      isTransferable: false,
+    },
+    {
+      name: 'HTML',
+      type: 'technology',
+      confidenceScore: 0.85,
+      confidenceLevel: 'high',
+      importance: 'medium',
+      evidence: ['project'],
+      isTransferable: false,
+    },
+    {
+      name: 'CSS',
+      type: 'technology',
+      confidenceScore: 0.84,
+      confidenceLevel: 'high',
+      importance: 'medium',
+      evidence: ['project'],
+      isTransferable: false,
+    },
+    {
+      name: 'Git',
+      type: 'tool',
+      confidenceScore: 0.8,
+      confidenceLevel: 'medium',
+      importance: 'medium',
+      evidence: ['project'],
+      isTransferable: true,
+    },
+  ],
+  workPreferences: {
+    hardConstraints: {
+      workModes: ['remote'],
+      employmentTypes: ['b2b'],
+      locations: [{ city: 'Gdynia', radiusKm: 20, country: 'PL' }],
+      minSalary: { amount: 18000, currency: 'PLN', period: 'month' },
+      noPolishRequired: false,
+      onlyEmployerOffers: false,
+      onlyWithProjectDescription: false,
+    },
+    softPreferences: {
+      workModes: [],
+      employmentTypes: [],
+      locations: [],
+    },
+  },
+  searchSignals: {
+    keywords: [
+      { value: 'Frontend Developer', weight: 1 },
+      { value: 'React', weight: 1 },
+      { value: 'TypeScript', weight: 1 },
+      { value: 'JavaScript', weight: 0.9 },
+      { value: 'HTML', weight: 0.8 },
+      { value: 'CSS', weight: 0.8 },
+      { value: 'UI', weight: 0.7 },
+      { value: 'SPA', weight: 0.7 },
+      { value: 'Web', weight: 0.6 },
+      { value: 'Git', weight: 0.6 },
+    ],
+    specializations: [{ value: 'frontend', weight: 1 }],
+    technologies: [
+      { value: 'react', weight: 1 },
+      { value: 'typescript', weight: 1 },
+      { value: 'javascript', weight: 0.9 },
+      { value: 'html', weight: 0.8 },
+      { value: 'css', weight: 0.8 },
+    ],
+  },
+  riskAndGrowth: {
+    gaps: [],
+    growthDirections: [],
+    transferableStrengths: [],
+  },
+};
+
 describe('JobSourcesService', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -24,20 +136,14 @@ describe('JobSourcesService', () => {
     const db = {
       select: jest.fn().mockReturnValue({
         from: jest.fn().mockReturnValue({
-          leftJoin: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              orderBy: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue([
-                  {
-                    careerProfileId: 'profile-id',
-                    normalizedInput: {
-                      searchPreferences: {
-                        sourceKind: 'it',
-                      },
-                    },
-                  },
-                ]),
-              }),
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([
+                {
+                  careerProfileId: 'profile-id',
+                  contentJson: candidateProfileFixture,
+                },
+              ]),
             }),
           }),
         }),
@@ -95,45 +201,14 @@ describe('JobSourcesService', () => {
     const db = {
       select: jest.fn().mockReturnValue({
         from: jest.fn().mockReturnValue({
-          leftJoin: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              orderBy: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue([
-                  {
-                    careerProfileId: 'profile-id',
-                    normalizedInput: {
-                      roles: [{ name: 'Frontend Developer', aliases: [], priority: 1 }],
-                      seniority: ['senior'],
-                      specializations: ['frontend'],
-                      technologies: ['react'],
-                      workModes: ['remote'],
-                      workTime: ['full-time'],
-                      contractTypes: ['b2b'],
-                      locations: [{ city: 'Gdynia', radiusKm: 20, country: 'PL' }],
-                      salary: { min: 18000, currency: 'PLN', period: 'month' },
-                      languages: [],
-                      constraints: {
-                        noPolishRequired: false,
-                        ukrainiansWelcome: false,
-                        onlyEmployerOffers: false,
-                        onlyWithProjectDescription: false,
-                      },
-                      searchPreferences: {
-                        sourceKind: 'it',
-                        seniority: ['senior'],
-                        workModes: ['remote'],
-                        employmentTypes: ['b2b'],
-                        timeModes: ['full-time'],
-                        salaryMin: 18000,
-                        city: 'Gdynia',
-                        radiusKm: 20,
-                        keywords: ['Frontend Developer', 'react'],
-                      },
-                      freeText: '',
-                    },
-                  },
-                ]),
-              }),
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([
+                {
+                  careerProfileId: 'profile-id',
+                  contentJson: candidateProfileFixture,
+                },
+              ]),
             }),
           }),
         }),
@@ -188,7 +263,6 @@ describe('JobSourcesService', () => {
       specializations: ['frontend'],
       workModes: ['home-office'],
       contractTypes: ['3'],
-      workDimensions: ['0'],
       salaryMin: 18000,
       location: 'Gdynia',
       radiusKm: 20,
@@ -203,20 +277,14 @@ describe('JobSourcesService', () => {
         .fn()
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
-            leftJoin: jest.fn().mockReturnValue({
-              where: jest.fn().mockReturnValue({
-                orderBy: jest.fn().mockReturnValue({
-                  limit: jest.fn().mockResolvedValue([
-                    {
-                      careerProfileId: 'profile-id',
-                      normalizedInput: {
-                        searchPreferences: {
-                          sourceKind: 'it',
-                        },
-                      },
-                    },
-                  ]),
-                }),
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    careerProfileId: 'profile-id',
+                    contentJson: candidateProfileFixture,
+                  },
+                ]),
               }),
             }),
           }),

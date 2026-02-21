@@ -17,7 +17,6 @@ import {
   jobOffersTable,
   jobSourceCallbackEventsTable,
   jobSourceRunsTable,
-  profileInputsTable,
   userJobOffersTable,
 } from '@repo/db';
 import type { JobSourceRunStatus } from '@repo/db';
@@ -32,6 +31,7 @@ import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
 import { buildFiltersFromProfile, inferPracujSource } from './scrape-request-resolver';
+import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
 
 type CallbackJobPayload = NonNullable<ScrapeCompleteDto['jobs']>[number];
 
@@ -146,15 +146,11 @@ export class JobSourcesService {
       throw new NotFoundException('Active career profile not found');
     }
     const careerProfileId = profileContext.careerProfileId;
-    const inferredSource = profileContext.normalizedInput ? inferPracujSource(profileContext.normalizedInput) : 'pracuj-pl-it';
+    const inferredSource = profileContext.profile ? inferPracujSource(profileContext.profile) : 'pracuj-pl-it';
     const source = (dto.source ?? inferredSource) as PracujSourceKind;
     const sourceEnum = mapSource(source);
 
-    const profileDerivedFilters = dto.filters
-      ? undefined
-      : profileContext.normalizedInput
-        ? buildFiltersFromProfile(profileContext.normalizedInput)
-        : undefined;
+    const profileDerivedFilters = dto.filters ? undefined : profileContext.profile ? buildFiltersFromProfile(profileContext.profile) : undefined;
     const rawFilters = (dto.filters as ScrapeFiltersDto | undefined) ?? profileDerivedFilters;
     const normalizedFiltersResult = normalizePracujFilters(source, rawFilters);
     const normalizedFilters = Object.keys(normalizedFiltersResult.filters).length ? normalizedFiltersResult.filters : undefined;
@@ -165,7 +161,7 @@ export class JobSourcesService {
     }
 
     const intentFingerprint = this.computeIntentFingerprint(source, listingUrl, normalizedFilters ?? null);
-    const resolvedFromProfile = !dto.filters && !dto.source && Boolean(profileContext.normalizedInput);
+    const resolvedFromProfile = !dto.filters && !dto.source && Boolean(profileContext.profile);
 
     if (!dto.forceRefresh) {
       const reuse = await this.tryReuseFromDatabase({
@@ -819,18 +815,19 @@ export class JobSourcesService {
     const row = await this.db
       .select({
         careerProfileId: careerProfilesTable.id,
-        normalizedInput: profileInputsTable.normalizedInput,
+        contentJson: careerProfilesTable.contentJson,
       })
       .from(careerProfilesTable)
-      .leftJoin(profileInputsTable, eq(profileInputsTable.id, careerProfilesTable.profileInputId))
       .where(conditions)
       .orderBy(desc(careerProfilesTable.createdAt))
       .limit(1)
       .then(([result]) => result);
 
+    const parsedProfile = row?.contentJson ? parseCandidateProfile(row.contentJson) : null;
+
     return {
       careerProfileId: row?.careerProfileId ?? null,
-      normalizedInput: (row?.normalizedInput as Parameters<typeof buildFiltersFromProfile>[0] | null | undefined) ?? null,
+      profile: parsedProfile?.success ? parsedProfile.data : null,
     };
   }
 

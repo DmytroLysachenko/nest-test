@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, desc, eq, isNull, not, sql } from 'drizzle-orm';
@@ -9,17 +9,10 @@ import { z } from 'zod';
 import { Drizzle } from '@/common/decorators';
 import { GeminiService } from '@/common/modules/gemini/gemini.service';
 import type { Env } from '@/config/env';
+import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
+import { scoreCandidateAgainstJob } from '@/features/job-matching/candidate-matcher';
 
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
-
-type ProfileJson = {
-  summary?: string;
-  coreSkills?: string[];
-  preferredRoles?: string[];
-  strengths?: string[];
-  gaps?: string[];
-  topKeywords?: string[];
-};
 
 const LLM_SCORE_TIMEOUT_MS = 20000;
 
@@ -240,6 +233,8 @@ export class JobOffersService {
         title: jobOffersTable.title,
         company: jobOffersTable.company,
         location: jobOffersTable.location,
+        employmentType: jobOffersTable.employmentType,
+        salary: jobOffersTable.salary,
         requirements: jobOffersTable.requirements,
         details: jobOffersTable.details,
       })
@@ -271,43 +266,52 @@ export class JobOffersService {
       throw new BadRequestException('Career profile JSON is missing');
     }
 
-    const profileJson = profile.contentJson as ProfileJson;
-    const prompt = this.buildScorePrompt(profileJson, offer);
-    let content = '';
+    const parsedProfile = parseCandidateProfile(profile.contentJson);
+    if (!parsedProfile.success) {
+      throw new BadRequestException('Career profile JSON does not match canonical schema');
+    }
+
+    const deterministic = scoreCandidateAgainstJob(parsedProfile.data, {
+      text: offer.description,
+      title: offer.title,
+      location: offer.location,
+      employmentType: offer.employmentType,
+      salaryText: offer.salary,
+    });
+
+    const prompt = this.buildScorePrompt(parsedProfile.data, offer, deterministic);
+    let llmScoreDelta = 0;
+    let llmSummary = '';
     try {
-      content = await Promise.race([
+      const content = await Promise.race([
         this.geminiService.generateText(prompt, { model: this.scoringModel }),
         new Promise<string>((_, reject) =>
           setTimeout(() => reject(new Error('LLM scoring request timed out')), LLM_SCORE_TIMEOUT_MS),
         ),
       ]);
-    } catch (error) {
-      throw new ServiceUnavailableException({
-        message: 'LLM scoring is temporarily unavailable. Please retry.',
-        reason: error instanceof Error ? error.message : 'Unknown LLM scoring error',
-      });
+      const parsed = this.parseScoreJson(content);
+      if (parsed) {
+        llmScoreDelta = Math.max(-10, Math.min(10, Math.round(parsed.score)));
+        llmSummary = parsed.summary;
+      }
+    } catch {
+      llmScoreDelta = 0;
     }
 
-    const parsed = this.parseScoreJson(content);
-
-    if (!parsed) {
-      throw new BadRequestException('Failed to parse LLM score response');
-    }
-
-    const score = Math.max(0, Math.min(100, Math.round(parsed.score)));
+    const score = Math.max(0, Math.min(100, Math.round(deterministic.score + llmScoreDelta)));
     const isMatch = score >= minScore;
     const scoredAt = new Date().toISOString();
     const matchMeta = {
-      engine: 'llm-v1',
+      engine: 'hybrid-profile-v1',
       score,
       minScore,
-      matched: {
-        skills: parsed.matchedSkills,
-        roles: parsed.matchedRoles,
-        strengths: parsed.matchedStrengths,
-        keywords: parsed.matchedKeywords,
-        summary: parsed.summary,
-      },
+      profileSchemaVersion: parsedProfile.data.schemaVersion,
+      matched: deterministic.matchedCompetencies,
+      hardConstraintViolations: deterministic.hardConstraintViolations,
+      softPreferenceGaps: deterministic.softPreferenceGaps,
+      breakdown: deterministic.breakdown,
+      llmSummary,
+      llmScoreDelta,
       audit: {
         provider: 'vertex-ai',
         model: this.scoringModel,
@@ -332,23 +336,25 @@ export class JobOffersService {
     };
   }
 
-  private buildScorePrompt(profile: ProfileJson, offer: Record<string, unknown>) {
+  private buildScorePrompt(profile: Record<string, unknown>, offer: Record<string, unknown>, deterministic: { score: number }) {
     return [
-      'You are a job matching assistant.',
-      'Score the job offer against the candidate profile.',
-      'Return ONLY a JSON block in a ```json fence with the following shape:',
-      '{ "score": number, "matchedSkills": string[], "matchedRoles": string[], "matchedStrengths": string[], "matchedKeywords": string[], "summary": string }',
+      'You are a job matching assistant for post-processing deterministic score.',
+      'Return ONLY JSON in this exact shape:',
+      '{ "score": number, "summary": string }',
+      'The score is delta adjustment in range -10..10.',
       '',
       'Candidate profile JSON:',
       JSON.stringify(profile),
       '',
       'Job offer:',
       JSON.stringify(offer),
+      '',
+      `Deterministic baseline score: ${deterministic.score}`,
     ].join('\n');
   }
 
   private parseScoreJson(content: string) {
-    const match = content.match(/```json\\s*([\\s\\S]*?)\\s*```/i);
+    const match = content.match(/```json\s*([\s\S]*?)\s*```/i);
     const candidate = match?.[1] ?? this.extractJsonObject(content);
     if (!candidate) {
       return null;
@@ -358,10 +364,6 @@ export class JobOffersService {
       const raw = JSON.parse(candidate);
       const schema = z.object({
         score: z.number(),
-        matchedSkills: z.array(z.string()),
-        matchedRoles: z.array(z.string()),
-        matchedStrengths: z.array(z.string()),
-        matchedKeywords: z.array(z.string()),
         summary: z.string(),
       });
       const parsed = schema.safeParse(raw);

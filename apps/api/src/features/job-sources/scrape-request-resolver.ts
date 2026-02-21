@@ -1,7 +1,10 @@
-import type { ScrapeFilters } from '@repo/db';
-import type { PracujSourceKind } from '@repo/db';
+import type { PracujSourceKind, ScrapeFilters } from '@repo/db';
 
-import type { NormalizedProfileInput } from '@/features/profile-inputs/normalization/schema';
+import type {
+  CandidateEmploymentType,
+  CandidateProfile,
+  CandidateWorkMode,
+} from '@/features/career-profiles/schema/candidate-profile.schema';
 
 const SENIORITY_TO_POSITION_LEVEL: Record<string, string> = {
   intern: '1',
@@ -12,25 +15,19 @@ const SENIORITY_TO_POSITION_LEVEL: Record<string, string> = {
   manager: '20',
 };
 
-const WORK_MODE_TO_PRACUJ: Record<string, string> = {
+const WORK_MODE_TO_PRACUJ: Record<CandidateWorkMode, string> = {
   remote: 'home-office',
   hybrid: 'hybrid',
   onsite: 'full-office',
   mobile: 'mobile',
 };
 
-const CONTRACT_TO_PRACUJ: Record<string, string> = {
+const CONTRACT_TO_PRACUJ: Record<CandidateEmploymentType, string> = {
   uop: '0',
   'specific-task': '1',
   mandate: '2',
   b2b: '3',
   internship: '7',
-};
-
-const TIME_MODE_TO_PRACUJ: Record<string, string> = {
-  'full-time': '0',
-  'part-time': '1',
-  temporary: '2',
 };
 
 const SPECIALIZATION_TO_ITS: Record<string, string> = {
@@ -44,54 +41,71 @@ const SPECIALIZATION_TO_ITS: Record<string, string> = {
   product: 'product-management',
 };
 
-const IT_LIKE_TECH = new Set(['javascript', 'typescript', 'react', 'node.js', 'nestjs', 'java', 'python', 'go', '.net', 'sql']);
-
 const unique = <T>(values: Array<T | undefined | null>) =>
   Array.from(new Set(values.filter((value): value is T => value != null)));
 
-const normalizeKeyword = (value: string) => value.trim().replace(/\s+/g, ' ');
-
-const inferSourceKind = (normalizedInput: NormalizedProfileInput): 'it' | 'general' => {
-  if (normalizedInput.searchPreferences.sourceKind) {
-    return normalizedInput.searchPreferences.sourceKind;
-  }
-
-  if (normalizedInput.specializations.length > 0) {
-    return 'it';
-  }
-
-  const hasItTech = normalizedInput.technologies.some((tech) => IT_LIKE_TECH.has(tech.toLowerCase()));
-  return hasItTech ? 'it' : 'general';
+export const inferPracujSource = (profile: CandidateProfile): PracujSourceKind => {
+  const specializations = profile.searchSignals.specializations.map((item) => item.value.toLowerCase());
+  const technologies = profile.searchSignals.technologies.map((item) => item.value.toLowerCase());
+  const itKeywords = ['frontend', 'backend', 'fullstack', 'devops', 'data', 'qa', 'security', 'react', 'typescript', 'java'];
+  const hasItSignals = [...specializations, ...technologies].some((value) => itKeywords.some((keyword) => value.includes(keyword)));
+  return hasItSignals ? 'pracuj-pl-it' : 'pracuj-pl-general';
 };
 
-export const inferPracujSource = (normalizedInput: NormalizedProfileInput): PracujSourceKind => {
-  return inferSourceKind(normalizedInput) === 'general' ? 'pracuj-pl-general' : 'pracuj-pl-it';
-};
+export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilters | undefined => {
+  const primarySeniority = profile.candidateCore.seniority.primary;
+  const secondarySeniority = profile.candidateCore.seniority.secondary;
+  const seniority = unique([primarySeniority, ...secondarySeniority]);
+  const positionLevels = unique(seniority.map((value) => SENIORITY_TO_POSITION_LEVEL[value]));
 
-export const buildFiltersFromProfile = (normalizedInput: NormalizedProfileInput): ScrapeFilters | undefined => {
-  const preferences = normalizedInput.searchPreferences;
+  const hardWorkModes = profile.workPreferences.hardConstraints.workModes;
+  const softWorkModes = profile.workPreferences.softPreferences.workModes
+    .filter((item) => item.weight >= 0.4)
+    .map((item) => item.value);
+  const workModes = unique([...hardWorkModes, ...softWorkModes].map((value) => WORK_MODE_TO_PRACUJ[value]));
 
-  const positionLevels = unique(preferences.seniority.map((value) => SENIORITY_TO_POSITION_LEVEL[value]));
-  const workModes = unique(preferences.workModes.map((value) => WORK_MODE_TO_PRACUJ[value]));
-  const contractTypes = unique(preferences.employmentTypes.map((value) => CONTRACT_TO_PRACUJ[value]));
-  const workDimensions = unique(preferences.timeModes.map((value) => TIME_MODE_TO_PRACUJ[value]));
-  const specializations = unique(normalizedInput.specializations.map((value) => SPECIALIZATION_TO_ITS[value]));
-  const keywords = unique(preferences.keywords.map((value) => normalizeKeyword(value))).join(' ').trim();
+  const hardEmploymentTypes = profile.workPreferences.hardConstraints.employmentTypes;
+  const softEmploymentTypes = profile.workPreferences.softPreferences.employmentTypes
+    .filter((item) => item.weight >= 0.4)
+    .map((item) => item.value);
+  const contractTypes = unique([...hardEmploymentTypes, ...softEmploymentTypes].map((value) => CONTRACT_TO_PRACUJ[value]));
+
+  const specializations = unique(
+    profile.searchSignals.specializations
+      .filter((item) => item.weight >= 0.35)
+      .map((item) => SPECIALIZATION_TO_ITS[item.value.toLowerCase()]),
+  );
+
+  const keywordPool = [
+    ...profile.searchSignals.keywords.filter((item) => item.weight >= 0.3).map((item) => item.value),
+    ...profile.targetRoles.map((item) => item.title),
+  ];
+  const keywords = unique(
+    keywordPool
+      .map((value) => value.trim().replace(/\s+/g, ' '))
+      .filter(Boolean),
+  ).join(' ');
+
+  const location = profile.workPreferences.hardConstraints.locations[0]?.city
+    ?? profile.workPreferences.softPreferences.locations[0]?.value.city;
+  const radiusKm = profile.workPreferences.hardConstraints.locations[0]?.radiusKm
+    ?? profile.workPreferences.softPreferences.locations[0]?.value.radiusKm;
+
+  const minSalary =
+    profile.workPreferences.hardConstraints.minSalary?.amount ?? profile.workPreferences.softPreferences.salary?.value.amount;
 
   const filters: ScrapeFilters = {
     positionLevels: positionLevels.length ? positionLevels : undefined,
     workModes: workModes.length ? workModes : undefined,
     contractTypes: contractTypes.length ? contractTypes : undefined,
-    workDimensions: workDimensions.length ? workDimensions : undefined,
     specializations: specializations.length ? specializations : undefined,
-    salaryMin: preferences.salaryMin ?? undefined,
-    location: preferences.city ?? undefined,
-    radiusKm: preferences.radiusKm ?? undefined,
+    salaryMin: minSalary ?? undefined,
+    location: location ?? undefined,
+    radiusKm: radiusKm ?? undefined,
     keywords: keywords || undefined,
-    onlyWithProjectDescription: normalizedInput.constraints.onlyWithProjectDescription || undefined,
-    onlyEmployerOffers: normalizedInput.constraints.onlyEmployerOffers || undefined,
-    ukrainiansWelcome: normalizedInput.constraints.ukrainiansWelcome || undefined,
-    noPolishRequired: normalizedInput.constraints.noPolishRequired || undefined,
+    noPolishRequired: profile.workPreferences.hardConstraints.noPolishRequired || undefined,
+    onlyEmployerOffers: profile.workPreferences.hardConstraints.onlyEmployerOffers || undefined,
+    onlyWithProjectDescription: profile.workPreferences.hardConstraints.onlyWithProjectDescription || undefined,
   };
 
   const hasAny = Object.values(filters).some((value) =>
@@ -100,3 +114,4 @@ export const buildFiltersFromProfile = (normalizedInput: NormalizedProfileInput)
 
   return hasAny ? filters : undefined;
 };
+

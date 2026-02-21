@@ -62,5 +62,7 @@ describe('CareerProfilesService prompt builder', () => {
     expect(prompt).toContain('Normalized profile input (canonical, deterministic):');
     expect(prompt).toContain('"specializations": [');
     expect(prompt).toContain('Normalization status: ok (v1.1.0)');
+    expect(prompt).toContain('"schemaVersion": "1.0.0"');
+    expect(prompt).toContain('Return only JSON that strictly follows the requested schema.');
   });
 });

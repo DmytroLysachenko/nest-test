@@ -1,5 +1,3 @@
-import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
-
 import { JobOffersService } from './job-offers.service';
 
 const createSelectOfferQuery = (offer: Record<string, unknown> | undefined) => ({
@@ -34,18 +32,130 @@ describe('JobOffersService', () => {
     title: 'Frontend Engineer',
     company: 'Acme',
     location: 'Remote',
+    employmentType: 'B2B',
+    salary: '20 000 PLN',
     requirements: [],
     details: {},
   };
 
   const baseProfile = {
     contentJson: {
-      summary: 'Frontend developer',
-      coreSkills: ['React', 'TypeScript'],
-      preferredRoles: ['Frontend Engineer'],
-      strengths: ['UI architecture'],
-      gaps: [],
-      topKeywords: ['react', 'typescript'],
+      schemaVersion: '1.0.0',
+      candidateCore: {
+        headline: 'Frontend developer',
+        summary: 'Frontend developer focused on React and TypeScript',
+        seniority: {
+          primary: 'senior',
+          secondary: [],
+        },
+        languages: [],
+      },
+      targetRoles: [
+        {
+          title: 'Frontend Engineer',
+          confidenceScore: 0.95,
+          confidenceLevel: 'high',
+          priority: 1,
+        },
+      ],
+      competencies: [
+        {
+          name: 'React',
+          type: 'technology',
+          confidenceScore: 0.95,
+          confidenceLevel: 'high',
+          importance: 'high',
+          evidence: ['core daily tool'],
+          isTransferable: false,
+        },
+        {
+          name: 'TypeScript',
+          type: 'technology',
+          confidenceScore: 0.9,
+          confidenceLevel: 'high',
+          importance: 'high',
+          evidence: ['core daily tool'],
+          isTransferable: false,
+        },
+        {
+          name: 'JavaScript',
+          type: 'technology',
+          confidenceScore: 0.92,
+          confidenceLevel: 'high',
+          importance: 'high',
+          evidence: ['core daily tool'],
+          isTransferable: false,
+        },
+        {
+          name: 'HTML',
+          type: 'technology',
+          confidenceScore: 0.9,
+          confidenceLevel: 'high',
+          importance: 'medium',
+          evidence: ['core daily tool'],
+          isTransferable: false,
+        },
+        {
+          name: 'CSS',
+          type: 'technology',
+          confidenceScore: 0.88,
+          confidenceLevel: 'high',
+          importance: 'medium',
+          evidence: ['core daily tool'],
+          isTransferable: false,
+        },
+        {
+          name: 'Git',
+          type: 'tool',
+          confidenceScore: 0.85,
+          confidenceLevel: 'high',
+          importance: 'medium',
+          evidence: ['daily collaboration'],
+          isTransferable: true,
+        },
+      ],
+      workPreferences: {
+        hardConstraints: {
+          workModes: ['remote'],
+          employmentTypes: [],
+          locations: [],
+          noPolishRequired: false,
+          onlyEmployerOffers: false,
+          onlyWithProjectDescription: false,
+        },
+        softPreferences: {
+          workModes: [],
+          employmentTypes: [],
+          locations: [],
+        },
+      },
+      searchSignals: {
+        keywords: [
+          { value: 'react', weight: 1 },
+          { value: 'typescript', weight: 1 },
+          { value: 'javascript', weight: 0.95 },
+          { value: 'frontend', weight: 1 },
+          { value: 'spa', weight: 0.7 },
+          { value: 'ui', weight: 0.7 },
+          { value: 'css', weight: 0.8 },
+          { value: 'html', weight: 0.8 },
+          { value: 'web performance', weight: 0.6 },
+          { value: 'responsive design', weight: 0.6 },
+        ],
+        specializations: [{ value: 'frontend', weight: 1 }],
+        technologies: [
+          { value: 'typescript', weight: 1 },
+          { value: 'react', weight: 1 },
+          { value: 'javascript', weight: 0.95 },
+          { value: 'html', weight: 0.8 },
+          { value: 'css', weight: 0.8 },
+        ],
+      },
+      riskAndGrowth: {
+        gaps: [],
+        growthDirections: [],
+        transferableStrengths: ['UI architecture'],
+      },
     },
     userId: 'user-1',
     isActive: true,
@@ -78,32 +188,32 @@ describe('JobOffersService', () => {
     jest.useRealTimers();
   });
 
-  it('throws controlled bad request when LLM JSON cannot be parsed and does not update score', async () => {
+  it('stores deterministic score when LLM JSON cannot be parsed', async () => {
     const { service, update } = createService(jest.fn().mockResolvedValue('not-json-response'));
 
-    await expect(service.scoreOffer('user-1', 'ujo-1', 0)).rejects.toThrow(BadRequestException);
-    expect(update).not.toHaveBeenCalled();
+    const result = await service.scoreOffer('user-1', 'ujo-1', 0);
+    expect(result.score).toBeGreaterThan(0);
+    expect(update).toHaveBeenCalledTimes(1);
   });
 
-  it('throws service unavailable when LLM generation fails and does not update score', async () => {
+  it('stores deterministic score when LLM generation fails', async () => {
     const { service, update } = createService(jest.fn().mockRejectedValue(new Error('vertex unavailable')));
 
-    await expect(service.scoreOffer('user-1', 'ujo-1', 0)).rejects.toThrow(ServiceUnavailableException);
-    expect(update).not.toHaveBeenCalled();
+    const result = await service.scoreOffer('user-1', 'ujo-1', 0);
+    expect(result.score).toBeGreaterThan(0);
+    expect(update).toHaveBeenCalledTimes(1);
   });
 
   it('stores scoring audit metadata with model and timestamp on success', async () => {
-    const payload =
-      '```json\n{"score":88,"matchedSkills":["React"],"matchedRoles":["Frontend Engineer"],"matchedStrengths":["UI architecture"],"matchedKeywords":["react"],"summary":"Strong fit"}\n```';
+    const payload = '```json\n{"score":8,"summary":"Strong fit"}\n```';
     const { service, set, update } = createService(jest.fn().mockResolvedValue(payload));
 
     const result = await service.scoreOffer('user-1', 'ujo-1', 70);
 
-    expect(result.score).toBe(88);
-    expect(result.isMatch).toBe(true);
+    expect(result.score).toBeGreaterThan(0);
     expect(set).toHaveBeenCalledWith(
       expect.objectContaining({
-        matchScore: 88,
+        matchScore: expect.any(Number),
         matchMeta: expect.objectContaining({
           audit: expect.objectContaining({
             provider: 'vertex-ai',

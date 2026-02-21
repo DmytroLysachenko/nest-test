@@ -9,6 +9,8 @@ import { CareerProfilesService } from './career-profiles.service';
 import { CareerProfileListResponse, CareerProfileResponse } from './dto/career-profile.response';
 import { CreateCareerProfileDto } from './dto/create-career-profile.dto';
 import { ListCareerProfilesQuery } from './dto/list-career-profiles.query';
+import { ListCareerProfileSearchViewQuery } from './dto/list-career-profile-search-view.query';
+import { CareerProfileSearchViewListResponse } from './dto/career-profile-search-view.response';
 
 @ApiTags('career-profiles')
 @ApiBearerAuth()
@@ -36,6 +38,13 @@ export class CareerProfilesController {
   @ApiOkResponse({ type: CareerProfileListResponse })
   async listVersions(@CurrentUser() user: JwtValidateUser, @Query() query: ListCareerProfilesQuery) {
     return this.careerProfilesService.listVersions(user.userId, query);
+  }
+
+  @Get('search-view')
+  @ApiOperation({ summary: 'List denormalized career-profile search view' })
+  @ApiOkResponse({ type: CareerProfileSearchViewListResponse })
+  async listSearchView(@CurrentUser() user: JwtValidateUser, @Query() query: ListCareerProfileSearchViewQuery) {
+    return this.careerProfilesService.listSearchView(user.userId, query);
   }
 
   @Get(':id')
