@@ -13,6 +13,17 @@ function Assert-StatusCode {
   }
 }
 
+function Require-Value {
+  param(
+    [Parameter(Mandatory = $true)]$Value,
+    [Parameter(Mandatory = $true)][string]$Message
+  )
+
+  if ($null -eq $Value -or ([string]::IsNullOrWhiteSpace([string]$Value) -and $Value -is [string])) {
+    throw $Message
+  }
+}
+
 try {
 Write-Host '== E2E Smoke =='
 
@@ -108,12 +119,116 @@ if (-not $profileLatestPayload.data) {
   throw 'Latest profile input returned no data.'
 }
 
-Write-Host '6) Reading job source runs...'
+Write-Host '6) Verifying career-profile endpoints (latest/list/get/restore/documents)...'
+$stage = 'career-profiles'
+$careerLatest = Invoke-WebRequest -Uri 'http://localhost:3000/api/career-profiles/latest' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $careerLatest.StatusCode -Allowed @(200) -Context 'Get latest career profile'
+$careerLatestPayload = $careerLatest.Content | ConvertFrom-Json
+$careerLatestData = $careerLatestPayload.data
+Require-Value -Value $careerLatestData.id -Message 'Latest career profile is missing id.'
+if ($careerLatestData.status -ne 'READY') {
+  throw "Latest career profile should be READY. got=$($careerLatestData.status)"
+}
+if ($careerLatestData.contentJson.schemaVersion -ne '1.0.0') {
+  throw "Latest career profile schemaVersion should be 1.0.0. got=$($careerLatestData.contentJson.schemaVersion)"
+}
+
+$careerList = Invoke-WebRequest -Uri 'http://localhost:3000/api/career-profiles?limit=10' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $careerList.StatusCode -Allowed @(200) -Context 'List career profile versions'
+$careerListPayload = $careerList.Content | ConvertFrom-Json
+if (-not $careerListPayload.data.items) {
+  throw 'Career profile list returned no items array.'
+}
+$activeCareerProfile = @($careerListPayload.data.items | Where-Object { $_.isActive -eq $true } | Select-Object -First 1)
+if (-not $activeCareerProfile) {
+  throw 'No active career profile found in list response.'
+}
+$careerProfileId = $activeCareerProfile.id
+Require-Value -Value $careerProfileId -Message 'Active career profile id is missing.'
+
+$careerById = Invoke-WebRequest -Uri "http://localhost:3000/api/career-profiles/$careerProfileId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $careerById.StatusCode -Allowed @(200) -Context 'Get career profile by id'
+$careerByIdPayload = $careerById.Content | ConvertFrom-Json
+if ($careerByIdPayload.data.id -ne $careerProfileId) {
+  throw "Career profile by id mismatch. expected=$careerProfileId got=$($careerByIdPayload.data.id)"
+}
+
+$careerDocs = Invoke-WebRequest -Uri "http://localhost:3000/api/career-profiles/$careerProfileId/documents" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $careerDocs.StatusCode -Allowed @(200) -Context 'Get career profile documents'
+$careerDocsPayload = $careerDocs.Content | ConvertFrom-Json
+if ($null -eq $careerDocsPayload.data) {
+  throw 'Career profile documents response missing data.'
+}
+
+$restore = Invoke-WebRequest -Uri "http://localhost:3000/api/career-profiles/$careerProfileId/restore" -Method Post -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $restore.StatusCode -Allowed @(200, 201) -Context 'Restore career profile version'
+$restorePayload = $restore.Content | ConvertFrom-Json
+if ($restorePayload.data.id -ne $careerProfileId -or $restorePayload.data.isActive -ne $true) {
+  throw 'Career profile restore did not keep selected profile active.'
+}
+
+Write-Host '7) Verifying denormalized career-profile search-view endpoint...'
+$stage = 'career-profiles-search-view'
+$searchView = Invoke-WebRequest -Uri 'http://localhost:3000/api/career-profiles/search-view?status=READY&isActive=true&keyword=react&technology=typescript&seniority=mid&limit=10' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $searchView.StatusCode -Allowed @(200) -Context 'List career profile search view'
+$searchViewPayload = $searchView.Content | ConvertFrom-Json
+if (-not $searchViewPayload.data.items -or $searchViewPayload.data.items.Count -lt 1) {
+  throw 'Career profile search-view returned no items.'
+}
+$searchItem = $searchViewPayload.data.items[0]
+if ($searchItem.primarySeniority -ne 'mid') {
+  throw "Career profile search-view seniority mismatch. expected=mid got=$($searchItem.primarySeniority)"
+}
+if (-not ($searchItem.searchableKeywords -contains 'react')) {
+  throw 'Career profile search-view missing searchable keyword react.'
+}
+if (-not ($searchItem.searchableTechnologies -contains 'typescript')) {
+  throw 'Career profile search-view missing searchable technology typescript.'
+}
+
+Write-Host '8) Verifying deterministic job-matching endpoints...'
+$stage = 'job-matching'
+$jobMatchingBody = @{
+  jobDescription = 'Senior Frontend Engineer. Remote, B2B. React and TypeScript required.'
+  minScore = 0
+} | ConvertTo-Json
+
+$jobMatch = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-matching/score' -Method Post -Headers $authHeaders -ContentType 'application/json' -Body $jobMatchingBody -UseBasicParsing -TimeoutSec 30
+Assert-StatusCode -Actual $jobMatch.StatusCode -Allowed @(200, 201) -Context 'Score job description'
+$jobMatchPayload = $jobMatch.Content | ConvertFrom-Json
+Require-Value -Value $jobMatchPayload.data.matchId -Message 'Job match score response missing matchId.'
+if ($null -eq $jobMatchPayload.data.score.score) {
+  throw 'Job match score response missing nested score value.'
+}
+if ($jobMatchPayload.data.profileSchemaVersionUsed -ne '1.0.0') {
+  throw "Job match should use profile schema 1.0.0. got=$($jobMatchPayload.data.profileSchemaVersionUsed)"
+}
+if ($null -eq $jobMatchPayload.data.breakdown -or $null -eq $jobMatchPayload.data.hardConstraintViolations) {
+  throw 'Job match response missing breakdown or hardConstraintViolations.'
+}
+
+$matchId = $jobMatchPayload.data.matchId
+$jobMatches = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-matching?limit=10' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $jobMatches.StatusCode -Allowed @(200) -Context 'List job matches'
+$jobMatchesPayload = $jobMatches.Content | ConvertFrom-Json
+$createdMatch = @($jobMatchesPayload.data.items | Where-Object { $_.id -eq $matchId } | Select-Object -First 1)
+if (-not $createdMatch) {
+  throw "Scored job match id=$matchId not found in job-matching list."
+}
+
+$jobMatchById = Invoke-WebRequest -Uri "http://localhost:3000/api/job-matching/$matchId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $jobMatchById.StatusCode -Allowed @(200) -Context 'Get job match by id'
+$jobMatchByIdPayload = $jobMatchById.Content | ConvertFrom-Json
+if ($jobMatchByIdPayload.data.id -ne $matchId) {
+  throw "Job match by id mismatch. expected=$matchId got=$($jobMatchByIdPayload.data.id)"
+}
+
+Write-Host '9) Reading job source runs...'
 $stage = 'job-source-runs'
 $runs = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-sources/runs' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $runs.StatusCode -Allowed @(200) -Context 'List job source runs'
 
-Write-Host '7) Enqueueing scrape task through API...'
+Write-Host '10) Enqueueing scrape task through API...'
 $stage = 'enqueue-scrape'
 $scrapeBody = @{
   source     = 'pracuj-pl'
@@ -126,7 +241,7 @@ $scrapeHeaders = @{
   'x-request-id' = "smoke-$([Guid]::NewGuid().ToString())"
 }
 
-$scrape = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-sources/scrape' -Method Post -Headers $scrapeHeaders -ContentType 'application/json' -Body $scrapeBody -UseBasicParsing -TimeoutSec 30
+$scrape = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-sources/scrape' -Method Post -Headers $scrapeHeaders -ContentType 'application/json' -Body $scrapeBody -UseBasicParsing -TimeoutSec 45
 Assert-StatusCode -Actual $scrape.StatusCode -Allowed @(200, 201, 202) -Context 'Enqueue scrape'
 
 $scrapePayload = $scrape.Content | ConvertFrom-Json
@@ -135,7 +250,7 @@ if ([string]::IsNullOrWhiteSpace($sourceRunId)) {
   throw 'Scrape enqueue did not return sourceRunId.'
 }
 
-Write-Host '8) Waiting for scrape run completion callback...'
+Write-Host '11) Waiting for scrape run completion callback...'
 $stage = 'wait-completion'
 $deadline = (Get-Date).AddMinutes(3)
 $finalStatus = $null
@@ -164,7 +279,7 @@ if ($finalStatus -ne 'COMPLETED') {
   throw "Scrape run did not complete successfully. status=$finalStatus failureType=$finalFailureType sourceRunId=$sourceRunId"
 }
 
-Write-Host '9) Verifying persisted user job offers for this run...'
+Write-Host '12) Verifying persisted user job offers for this run...'
 $stage = 'verify-persisted-offers'
 $offers = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-offers?limit=100' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $offers.StatusCode -Allowed @(200) -Context 'List job offers'
@@ -174,7 +289,7 @@ if ($matched.Count -lt 1) {
   throw "No persisted user job offers found for sourceRunId=$sourceRunId"
 }
 
-Write-Host '10) Verifying notebook offer actions (status/meta/history/score)...'
+Write-Host '13) Verifying notebook offer actions (status/meta/history/score)...'
 $stage = 'notebook-actions'
 $offer = $matched[0]
 $offerId = $offer.id
@@ -201,8 +316,14 @@ $scorePayload = $score.Content | ConvertFrom-Json
 if ($null -eq $scorePayload.data.score) {
   throw 'Job offer score response missing score field'
 }
+if ($scorePayload.data.matchMeta.profileSchemaVersion -ne '1.0.0') {
+  throw "Job offer score should include canonical profileSchemaVersion=1.0.0. got=$($scorePayload.data.matchMeta.profileSchemaVersion)"
+}
+if ($null -eq $scorePayload.data.matchMeta.breakdown -or $null -eq $scorePayload.data.matchMeta.hardConstraintViolations) {
+  throw 'Job offer score matchMeta missing breakdown or hardConstraintViolations.'
+}
 
-Write-Host "Smoke test passed. sourceRunId=$sourceRunId offers=$($matched.Count)"
+Write-Host "Smoke test passed. sourceRunId=$sourceRunId offers=$($matched.Count) matchId=$matchId"
 } catch {
   Write-Host "Smoke test failed at stage: $stage" -ForegroundColor Red
   throw
