@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Label } from '@repo/ui/components/label';
 
+import { CareerProfileSearchViewPanel } from '@/features/career-profiles/ui/career-profile-search-view-panel';
 import { runTesterRequest } from '@/features/tester/api/tester-api';
 import { testerEndpointPresets } from '@/features/tester/model/endpoint-presets';
 import { env } from '@/shared/config/env';
@@ -97,6 +98,8 @@ export const TesterPage = ({ token }: TesterPageProps) => {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 md:py-8">
+      <CareerProfileSearchViewPanel token={token} />
+
       <Card
         title="E2E Tester"
         description="Internal-only testing panel for API and worker endpoints. Run requests, inspect payloads, and verify persisted state using read endpoints."

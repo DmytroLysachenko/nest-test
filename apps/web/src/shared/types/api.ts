@@ -81,6 +81,26 @@ export type CareerProfileDto = {
   updatedAt: string;
 };
 
+export type CareerProfileSearchViewItemDto = {
+  id: string;
+  version: number;
+  isActive: boolean;
+  status: 'PENDING' | 'READY' | 'FAILED';
+  primarySeniority: string | null;
+  targetRoles: string[];
+  searchableKeywords: string[];
+  searchableTechnologies: string[];
+  preferredWorkModes: string[];
+  preferredEmploymentTypes: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CareerProfileSearchViewListDto = {
+  items: CareerProfileSearchViewItemDto[];
+  total: number;
+};
+
 export type JobScoreResultDto = {
   score: number;
   matchedSkills: string[];
