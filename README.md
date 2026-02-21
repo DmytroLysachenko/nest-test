@@ -13,7 +13,14 @@ This repository is a full-stack monorepo for a career search assistant. The back
 This README is designed to be the primary source of context for both humans and LLMs. It describes the current workflow, data model, endpoints, and development setup.
 
 Engineering standards and contribution rules are defined in `CONTRIBUTING.md`.
+Agent execution rules are defined in `AGENTS.md`.
 Operational recovery and incident guidance is in `docs/operations-runbook.md`.
+Project orchestration docs:
+- `docs/PROJECT_STATE.md`
+- `docs/ROADMAP.md`
+- `docs/DECISIONS.md`
+- `docs/RUNBOOK.md`
+- `docs/CODEX_HANDOFF.md` (first-read for fresh Codex sessions)
 
 ## System Architecture (High Level)
 
@@ -361,6 +368,13 @@ Tables (simplified):
 - career_profiles: user_id, profile_input_id, document_ids, status, content, content_json, model, error
 
   - includes `version` and `is_active` for profile history
+  - includes denormalized search projection columns for fast querying:
+    - `primary_seniority`
+    - `target_roles`
+    - `searchable_keywords`
+    - `searchable_technologies`
+    - `preferred_work_modes`
+    - `preferred_employment_types`
 
 - job_matches: user_id, career_profile_id, profile_version, job_description, score, is_match
 - job_source_runs: source, listing_url, filters, status, counts
@@ -775,11 +789,14 @@ This command will:
 - login with fixture credentials,
 - validate refresh-token rotation and invalid refresh rejection,
 - create and fetch `profile-inputs/latest` for fixture user,
+- verify career-profile endpoints (`latest`, version list, `:id`, `:id/documents`, `:id/restore`),
+- verify denormalized `career-profiles/search-view` filters (seniority/keyword/technology),
+- verify deterministic job-matching endpoints (`score`, list, `:id`) with canonical profile schema,
 - call `GET /api/job-sources/runs`,
 - enqueue a scrape job via `POST /api/job-sources/scrape`,
 - wait for completion callback,
 - verify persisted `job-offers` entries for the run,
-- validate notebook actions (`status`, `meta`, `history`, `score`) on one persisted offer.
+- validate notebook actions (`status`, `meta`, `history`, `score`) on one persisted offer, including canonical matching metadata fields.
 
 ---
 
@@ -807,25 +824,17 @@ Use files in `apps/api/http/` for sample requests.
 
 JSON schema:
 
-```
+The canonical profile JSON is strict and schema-versioned (`schemaVersion: "1.0.0"`).  
+Main sections:
+- `candidateCore`
+- `targetRoles`
+- `competencies` (with `confidenceScore`, `importance`, optional `yearsUsed`)
+- `workPreferences` (`hardConstraints` and `softPreferences`)
+- `searchSignals`
+- `riskAndGrowth`
 
-{
-
-  "summary": string,
-
-  "coreSkills": string[],
-
-  "preferredRoles": string[],
-
-  "strengths": string[],
-
-  "gaps": string[],
-
-  "topKeywords": string[]
-
-}
-
-```
+Source of truth:
+- `apps/api/src/features/career-profiles/schema/candidate-profile.schema.ts`
 
 Job matching notes:
 
