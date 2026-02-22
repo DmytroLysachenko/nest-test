@@ -1,6 +1,11 @@
 import { apiRequest } from '@/shared/lib/http/api-client';
 
-import type { CareerProfileDto, CareerProfileSearchViewListDto } from '@/shared/types/api';
+import type {
+  CareerProfileDto,
+  CareerProfileListDto,
+  CareerProfileSearchViewListDto,
+  DocumentDto,
+} from '@/shared/types/api';
 
 type GenerateCareerProfilePayload = {
   instructions?: string;
@@ -18,6 +23,48 @@ export const getLatestCareerProfile = (token: string) =>
     method: 'GET',
     token,
   }).then((data) => data ?? null);
+
+export const listCareerProfileVersions = (
+  token: string,
+  params: {
+    limit?: number;
+    offset?: number;
+    status?: 'PENDING' | 'READY' | 'FAILED';
+    isActive?: boolean;
+  } = {},
+) => {
+  const query = new URLSearchParams();
+  if (params.limit !== undefined) {
+    query.set('limit', String(params.limit));
+  }
+  if (params.offset !== undefined) {
+    query.set('offset', String(params.offset));
+  }
+  if (params.status) {
+    query.set('status', params.status);
+  }
+  if (params.isActive !== undefined) {
+    query.set('isActive', String(params.isActive));
+  }
+
+  const value = query.toString();
+  return apiRequest<CareerProfileListDto>(value ? `/career-profiles?${value}` : '/career-profiles', {
+    method: 'GET',
+    token,
+  });
+};
+
+export const restoreCareerProfileVersion = (token: string, id: string) =>
+  apiRequest<CareerProfileDto>(`/career-profiles/${id}/restore`, {
+    method: 'POST',
+    token,
+  });
+
+export const listCareerProfileDocuments = (token: string, id: string) =>
+  apiRequest<DocumentDto[]>(`/career-profiles/${id}/documents`, {
+    method: 'GET',
+    token,
+  });
 
 type CareerProfilesSearchViewFilters = {
   status?: 'PENDING' | 'READY' | 'FAILED';

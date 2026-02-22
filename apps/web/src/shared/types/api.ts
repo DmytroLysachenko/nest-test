@@ -81,6 +81,14 @@ export type CareerProfileDto = {
   updatedAt: string;
 };
 
+export type CareerProfileListDto = {
+  items: CareerProfileDto[];
+  total: number;
+  activeId: string | null;
+  activeVersion: number | null;
+  latestVersion: number | null;
+};
+
 export type CareerProfileSearchViewItemDto = {
   id: string;
   version: number;
