@@ -1,11 +1,6 @@
 import { apiRequest } from '@/shared/lib/http/api-client';
 
-import type {
-  JobOfferHistoryDto,
-  JobOffersListDto,
-  JobOfferScoreResultDto,
-  JobOfferStatus,
-} from '@/shared/types/api';
+import type { JobOfferHistoryDto, JobOffersListDto, JobOfferScoreResultDto, JobOfferStatus } from '@/shared/types/api';
 
 export type ListJobOffersParams = {
   limit?: number;
