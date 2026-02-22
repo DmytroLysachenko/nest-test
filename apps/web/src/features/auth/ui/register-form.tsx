@@ -1,58 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useMutation } from '@tanstack/react-query';
 import { Label } from '@repo/ui/components/label';
-import { useState } from 'react';
 
-import { register, sendRegisterCode } from '@/features/auth/api/auth-api';
-import { ApiError } from '@/shared/lib/http/api-error';
+import { useRegisterForm } from '@/features/auth/model/use-register-form';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 
 export const RegisterForm = () => {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [code, setCode] = useState('');
-  const [status, setStatus] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const sendCodeMutation = useMutation({
-    mutationFn: sendRegisterCode,
-    onSuccess: () => {
-      setStatus('Verification code sent to your email.');
-      setError(null);
-    },
-    onError: (err: unknown) => {
-      const message = err instanceof ApiError ? err.message : 'Failed to send verification code';
-      setStatus(null);
-      setError(message);
-    },
-  });
-
-  const registerMutation = useMutation({
-    mutationFn: register,
-    onSuccess: () => {
-      router.push('/login');
-    },
-    onError: (err: unknown) => {
-      const message = err instanceof ApiError ? err.message : 'Registration failed';
-      setStatus(null);
-      setError(message);
-    },
-  });
+  const registerForm = useRegisterForm();
 
   return (
     <form
       className="flex w-full max-w-md flex-col gap-3 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       onSubmit={(event) => {
         event.preventDefault();
-        setError(null);
-        setStatus(null);
-        registerMutation.mutate({ email, password, confirmPassword, code });
+        registerForm.submit();
       }}
     >
       <h1 className="text-xl font-semibold text-slate-900">Create account</h1>
@@ -64,8 +27,8 @@ export const RegisterForm = () => {
           id="register-email"
           className="mt-1"
           type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          value={registerForm.email}
+          onChange={(event) => registerForm.setEmail(event.target.value)}
           placeholder="you@example.com"
           required
         />
@@ -74,10 +37,10 @@ export const RegisterForm = () => {
       <Button
         type="button"
         variant="secondary"
-        onClick={() => sendCodeMutation.mutate(email)}
-        disabled={sendCodeMutation.isPending || !email}
+        onClick={registerForm.requestCode}
+        disabled={registerForm.isSendingCode || !registerForm.canRequestCode}
       >
-        {sendCodeMutation.isPending ? 'Sending code...' : 'Send verification code'}
+        {registerForm.isSendingCode ? 'Sending code...' : 'Send verification code'}
       </Button>
 
       <Label htmlFor="register-code" className="text-slate-700">
@@ -85,8 +48,8 @@ export const RegisterForm = () => {
         <Input
           id="register-code"
           className="mt-1"
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
+          value={registerForm.code}
+          onChange={(event) => registerForm.setCode(event.target.value)}
           placeholder="6 digits"
           minLength={6}
           maxLength={6}
@@ -100,8 +63,8 @@ export const RegisterForm = () => {
           id="register-password"
           className="mt-1"
           type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
+          value={registerForm.password}
+          onChange={(event) => registerForm.setPassword(event.target.value)}
           minLength={8}
           required
         />
@@ -113,18 +76,18 @@ export const RegisterForm = () => {
           id="register-confirm-password"
           className="mt-1"
           type="password"
-          value={confirmPassword}
-          onChange={(event) => setConfirmPassword(event.target.value)}
+          value={registerForm.confirmPassword}
+          onChange={(event) => registerForm.setConfirmPassword(event.target.value)}
           minLength={8}
           required
         />
       </Label>
 
-      {status ? <p className="text-sm text-emerald-700">{status}</p> : null}
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+      {registerForm.status ? <p className="text-sm text-emerald-700">{registerForm.status}</p> : null}
+      {registerForm.error ? <p className="text-sm text-rose-600">{registerForm.error}</p> : null}
 
-      <Button type="submit" disabled={registerMutation.isPending}>
-        {registerMutation.isPending ? 'Creating account...' : 'Create account'}
+      <Button type="submit" disabled={registerForm.isSubmitting}>
+        {registerForm.isSubmitting ? 'Creating account...' : 'Create account'}
       </Button>
 
       <p className="text-sm text-slate-500">
