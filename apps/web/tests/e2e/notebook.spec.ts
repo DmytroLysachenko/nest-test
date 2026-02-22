@@ -185,7 +185,10 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
   await expect(page.getByText('Job Notebook')).toBeVisible();
   await expect(page.getByText('Backend Developer')).toBeVisible();
 
-  await page.getByRole('button', { name: /Backend Developer/ }).first().click();
+  await page
+    .getByRole('button', { name: /Backend Developer/ })
+    .first()
+    .click();
 
   const statusRequest = page.waitForRequest('**/api/job-offers/ujo-1/status');
   await page.getByRole('button', { name: 'SAVED' }).first().click();

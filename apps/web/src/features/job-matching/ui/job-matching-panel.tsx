@@ -94,7 +94,10 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
             <div className="mt-2 space-y-1">
               <p className="font-medium text-slate-800">Score breakdown</p>
               {Object.entries(scoreMutation.data.breakdown).map(([key, value]) => (
-                <div key={key} className="flex items-center justify-between rounded bg-white px-2 py-1 text-xs text-slate-700">
+                <div
+                  key={key}
+                  className="flex items-center justify-between rounded bg-white px-2 py-1 text-xs text-slate-700"
+                >
                   <span>{key}</span>
                   <span>{value}</span>
                 </div>

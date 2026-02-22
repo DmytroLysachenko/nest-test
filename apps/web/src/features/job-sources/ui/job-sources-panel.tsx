@@ -109,7 +109,9 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           <p className="font-semibold text-slate-900">Latest enqueue metadata</p>
           <p>Status: {enqueueMutation.data.status}</p>
           {enqueueMutation.data.resolvedFromProfile ? <p>Resolved from active profile: yes</p> : null}
-          {enqueueMutation.data.intentFingerprint ? <p>Intent fingerprint: {enqueueMutation.data.intentFingerprint}</p> : null}
+          {enqueueMutation.data.intentFingerprint ? (
+            <p>Intent fingerprint: {enqueueMutation.data.intentFingerprint}</p>
+          ) : null}
           {enqueueMutation.data.acceptedFilters ? (
             <details className="mt-2">
               <summary className="cursor-pointer font-medium text-slate-800">Accepted filters</summary>

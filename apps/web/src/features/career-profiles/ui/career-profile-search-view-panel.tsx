@@ -6,10 +6,11 @@ import { Label } from '@repo/ui/components/label';
 
 import { getCareerProfilesSearchView } from '@/features/career-profiles/api/career-profiles-api';
 import { ApiError } from '@/shared/lib/http/api-error';
-import type { CareerProfileSearchViewItemDto } from '@/shared/types/api';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
+
+import type { CareerProfileSearchViewItemDto } from '@/shared/types/api';
 
 type CareerProfileSearchViewPanelProps = {
   token: string;
@@ -161,7 +162,9 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
               type="number"
               min={0}
               value={filters.offset}
-              onChange={(event) => setFilters((prev) => ({ ...prev, offset: Math.max(0, Number(event.target.value) || 0) }))}
+              onChange={(event) =>
+                setFilters((prev) => ({ ...prev, offset: Math.max(0, Number(event.target.value) || 0) }))
+              }
             />
           </div>
         </div>
@@ -217,4 +220,3 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
     </Card>
   );
 };
-
