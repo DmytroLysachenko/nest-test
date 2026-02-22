@@ -58,5 +58,4 @@ Last updated: 2026-02-21
 
 - Global API throttling can interfere with intensive manual test loops.
 - Some e2e scenarios still rely on live external scraping source behavior.
-- Frontend still includes internal tester focus; product-facing UX needs hardening.
-
+- Frontend standards are now explicitly documented in `docs/FRONTEND_STANDARDS.md`; continue enforcing via ESLint and reviews.

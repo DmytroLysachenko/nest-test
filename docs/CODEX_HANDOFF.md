@@ -9,7 +9,8 @@ Use this file as the first read for a fresh Codex session.
 3. `docs/PROJECT_STATE.md`
 4. `docs/ROADMAP.md`
 5. `docs/DECISIONS.md` (only if architecture/contract work)
-6. `docs/RUNBOOK.md` (only when running stack/tests)
+6. `docs/FRONTEND_STANDARDS.md` (for FE tasks)
+7. `docs/RUNBOOK.md` (only when running stack/tests)
 
 ## 2) Current System Shape
 
@@ -53,4 +54,3 @@ Expected dev ports:
 2. `pnpm smoke:e2e` passes if cross-service behavior changed.
 3. Docs updated (`PROJECT_STATE`, `ROADMAP`, `DECISIONS` when relevant).
 4. No debug leftovers, no contract drift.
-

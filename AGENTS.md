@@ -10,6 +10,7 @@ Primary project context lives in:
 - `docs/PROJECT_STATE.md`
 - `docs/ROADMAP.md`
 - `docs/DECISIONS.md`
+- `docs/FRONTEND_STANDARDS.md`
 - `docs/RUNBOOK.md`
 
 If instructions conflict, follow this order:
@@ -87,6 +88,7 @@ When changing specific areas:
 - Use shared UI primitives (`@repo/ui`, shadcn-style approach) instead of ad-hoc duplicated components.
 - Keep test/support tooling separated from production UX when needed.
 - Use env-driven API base URLs; no hardcoded prod/dev URLs.
+- For FE architecture and conventions, follow `docs/FRONTEND_STANDARDS.md` as canonical.
 
 ## Commit and PR Discipline
 Commit style:

@@ -18,6 +18,7 @@ Read these instead of expanding this README:
 - Current implemented state: `docs/PROJECT_STATE.md`
 - Planned next work: `docs/ROADMAP.md`
 - Key architecture decisions: `docs/DECISIONS.md`
+- Frontend architecture standards: `docs/FRONTEND_STANDARDS.md`
 - Local run/test commands: `docs/RUNBOOK.md`
 - Operational recovery: `docs/operations-runbook.md`
 - Scraper mapping reference: `docs/pracuj-query-mapping.md`
