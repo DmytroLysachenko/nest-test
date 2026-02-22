@@ -12,6 +12,7 @@ import {
   writeStoredTokens,
 } from '@/features/auth/model/token-storage';
 import { ApiError } from '@/shared/lib/http/api-error';
+import { queryKeys } from '@/shared/lib/query/query-keys';
 
 import type { UserDto } from '@/shared/types/api';
 
@@ -46,7 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const userQuery = useQuery({
-    queryKey: ['auth', 'me', token],
+    queryKey: queryKeys.auth.me(token),
     queryFn: async () => {
       if (!token) {
         return null;

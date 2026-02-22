@@ -8,6 +8,7 @@ import { listDocuments } from '@/features/documents/api/documents-api';
 import { listJobOffers } from '@/features/job-offers/api/job-offers-api';
 import { listJobSourceRuns } from '@/features/job-sources/api/job-sources-api';
 import { getLatestProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
+import { queryKeys } from '@/shared/lib/query/query-keys';
 
 type WorkflowStepKey =
   | 'profile-input'
@@ -28,31 +29,31 @@ export const useWorkflowState = (token: string | null) => {
   const hasToken = Boolean(token);
 
   const profileInputQuery = useQuery({
-    queryKey: ['workflow', 'profile-input', token],
+    queryKey: queryKeys.profileInputs.latest(token),
     queryFn: () => getLatestProfileInput(token as string),
     enabled: hasToken,
   });
 
   const documentsQuery = useQuery({
-    queryKey: ['workflow', 'documents', token],
+    queryKey: queryKeys.documents.list(token),
     queryFn: () => listDocuments(token as string),
     enabled: hasToken,
   });
 
   const careerProfileQuery = useQuery({
-    queryKey: ['workflow', 'career-profile', token],
+    queryKey: queryKeys.careerProfiles.latest(token),
     queryFn: () => getLatestCareerProfile(token as string),
     enabled: hasToken,
   });
 
   const runsQuery = useQuery({
-    queryKey: ['workflow', 'job-source-runs', token],
+    queryKey: queryKeys.jobSources.runs(token),
     queryFn: () => listJobSourceRuns(token as string),
     enabled: hasToken,
   });
 
   const offersQuery = useQuery({
-    queryKey: ['workflow', 'job-offers-count', token],
+    queryKey: queryKeys.jobOffers.list(token, { limit: 1, offset: 0 }),
     queryFn: () => listJobOffers(token as string, { limit: 1, offset: 0 }),
     enabled: hasToken,
   });
