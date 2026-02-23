@@ -1,7 +1,6 @@
 'use client';
 
-import { Label } from '@repo/ui/components/label';
-
+import { Label } from '@/shared/ui/label';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
 

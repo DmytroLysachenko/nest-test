@@ -1,16 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { Label } from '@repo/ui/components/label';
 
+import { useNotebookOfferDetailsDrafts } from '@/features/job-offers/model/hooks/use-notebook-offer-details-drafts';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
 
-import type { JobOfferListItemDto, JobOfferStatus } from '@/shared/types/api';
 import type { getJobOfferHistory } from '@/features/job-offers/api/job-offers-api';
+import type { JobOfferListItemDto, JobOfferStatus } from '@/shared/types/api';
 
 const STATUSES: JobOfferStatus[] = ['NEW', 'SEEN', 'SAVED', 'APPLIED', 'DISMISSED'];
 
@@ -31,13 +31,7 @@ export const NotebookOfferDetailsCard = ({
   onSaveMeta,
   onRescore,
 }: NotebookOfferDetailsCardProps) => {
-  const [notesDraft, setNotesDraft] = useState('');
-  const [tagsDraft, setTagsDraft] = useState('');
-
-  useEffect(() => {
-    setNotesDraft(offer?.notes ?? '');
-    setTagsDraft(offer?.tags?.join(', ') ?? '');
-  }, [offer?.id, offer?.notes, offer?.tags]);
+  const drafts = useNotebookOfferDetailsDrafts({ offer });
 
   if (!offer) {
     return (
@@ -81,8 +75,8 @@ export const NotebookOfferDetailsCard = ({
           <Textarea
             id="offer-notes"
             rows={4}
-            value={notesDraft}
-            onChange={(event) => setNotesDraft(event.target.value)}
+            value={drafts.notesDraft}
+            onChange={(event) => drafts.setNotesDraft(event.target.value)}
             placeholder="Why this offer matters"
           />
         </div>
@@ -91,26 +85,14 @@ export const NotebookOfferDetailsCard = ({
           <Label htmlFor="offer-tags">Tags (comma separated)</Label>
           <Input
             id="offer-tags"
-            value={tagsDraft}
-            onChange={(event) => setTagsDraft(event.target.value)}
+            value={drafts.tagsDraft}
+            onChange={(event) => drafts.setTagsDraft(event.target.value)}
             placeholder="backend, remote"
           />
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            disabled={isBusy}
-            onClick={() =>
-              onSaveMeta(
-                notesDraft,
-                tagsDraft
-                  .split(',')
-                  .map((tag) => tag.trim())
-                  .filter(Boolean),
-              )
-            }
-          >
+          <Button type="button" disabled={isBusy} onClick={() => onSaveMeta(drafts.notesDraft, drafts.normalizedTags)}>
             Save notes/tags
           </Button>
           <Button type="button" variant="secondary" disabled={isBusy} onClick={onRescore}>
