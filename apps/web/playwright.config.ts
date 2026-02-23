@@ -8,6 +8,9 @@ export default defineConfig({
   },
   webServer: {
     command: 'pnpm --filter web dev',
+    env: {
+      NEXT_PUBLIC_ENABLE_TESTER: 'true',
+    },
     port: 3002,
     reuseExistingServer: true,
     timeout: 120_000,

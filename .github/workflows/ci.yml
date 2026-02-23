@@ -69,5 +69,5 @@ jobs:
       - name: Install Playwright (Chromium)
         run: pnpm --filter web exec playwright install --with-deps chromium
 
-      - name: Web notebook e2e
-        run: pnpm --filter web test:e2e tests/e2e/notebook.spec.ts
+      - name: Web e2e
+        run: pnpm --filter web test:e2e
