@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
 
-import { useRequireAuth } from '@/features/auth/model/auth-context';
-import { useProfileManagementData } from '@/features/profile-management/model/use-profile-management-data';
+import { useRequireAuth } from '@/features/auth/model/context/auth-context';
+import { useProfileManagementData } from '@/features/profile-management/model/hooks/use-profile-management-data';
 import { CareerProfileVersionsCard } from '@/features/profile-management/ui/components/career-profile-versions-card';
 import { DocumentsReadinessCard } from '@/features/profile-management/ui/components/documents-readiness-card';
 import { ProfileInputEditorCard } from '@/features/profile-management/ui/components/profile-input-editor-card';

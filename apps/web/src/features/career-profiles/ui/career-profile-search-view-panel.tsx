@@ -1,90 +1,35 @@
 'use client';
 
-import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { Label } from '@repo/ui/components/label';
-
-import { getCareerProfilesSearchView } from '@/features/career-profiles/api/career-profiles-api';
-import { ApiError } from '@/shared/lib/http/api-error';
+import { useCareerProfileSearchViewPanel } from '@/features/career-profiles/model/hooks/use-career-profile-search-view-panel';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
-
-import type { CareerProfileSearchViewItemDto } from '@/shared/types/api';
+import { Label } from '@/shared/ui/label';
 
 type CareerProfileSearchViewPanelProps = {
   token: string;
 };
 
-const defaultFilters = {
-  status: 'READY' as 'PENDING' | 'READY' | 'FAILED',
-  isActive: true,
-  seniority: '',
-  role: '',
-  keyword: '',
-  technology: '',
-  limit: 10,
-  offset: 0,
-};
-
 export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewPanelProps) => {
-  const [filters, setFilters] = useState(defaultFilters);
-  const [error, setError] = useState<string | null>(null);
-  const [rows, setRows] = useState<CareerProfileSearchViewItemDto[]>([]);
-  const [total, setTotal] = useState<number>(0);
-
-  const mutation = useMutation({
-    mutationFn: async () =>
-      getCareerProfilesSearchView(token, {
-        status: filters.status,
-        isActive: filters.isActive,
-        seniority: filters.seniority || undefined,
-        role: filters.role || undefined,
-        keyword: filters.keyword || undefined,
-        technology: filters.technology || undefined,
-        limit: filters.limit,
-        offset: filters.offset,
-      }),
-    onSuccess: (data) => {
-      setRows(data.items);
-      setTotal(data.total);
-      setError(null);
-    },
-    onError: (err) => {
-      if (err instanceof ApiError) {
-        setError(err.message);
-        return;
-      }
-      if (err instanceof Error) {
-        setError(err.message);
-        return;
-      }
-      setError('Failed to load search-view data.');
-    },
-  });
+  const searchViewPanel = useCareerProfileSearchViewPanel(token);
+  const {
+    register,
+    formState: { errors },
+  } = searchViewPanel.form;
 
   return (
     <Card
       title="Career Profiles Search View"
       description="Query denormalized profile fields (seniority, target roles, keywords, technologies) for quick validation."
     >
-      <form
-        className="space-y-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          mutation.mutate();
-        }}
-      >
+      <form className="space-y-3" onSubmit={searchViewPanel.submit}>
         <div className="grid gap-3 md:grid-cols-4">
           <div className="space-y-1">
             <Label htmlFor="cp-status">Status</Label>
             <select
               id="cp-status"
-              value={filters.status}
-              onChange={(event) =>
-                setFilters((prev) => ({ ...prev, status: event.target.value as 'PENDING' | 'READY' | 'FAILED' }))
-              }
               className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+              {...register('status')}
             >
               <option value="READY">READY</option>
               <option value="PENDING">PENDING</option>
@@ -95,9 +40,8 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
             <Label htmlFor="cp-active">Is active</Label>
             <select
               id="cp-active"
-              value={filters.isActive ? 'true' : 'false'}
-              onChange={(event) => setFilters((prev) => ({ ...prev, isActive: event.target.value === 'true' }))}
               className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+              {...register('isActive')}
             >
               <option value="true">true</option>
               <option value="false">false</option>
@@ -105,76 +49,41 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
           </div>
           <div className="space-y-1">
             <Label htmlFor="cp-seniority">Seniority</Label>
-            <Input
-              id="cp-seniority"
-              value={filters.seniority}
-              onChange={(event) => setFilters((prev) => ({ ...prev, seniority: event.target.value }))}
-              placeholder="mid"
-            />
+            <Input id="cp-seniority" placeholder="mid" {...register('seniority')} />
           </div>
           <div className="space-y-1">
             <Label htmlFor="cp-role">Role</Label>
-            <Input
-              id="cp-role"
-              value={filters.role}
-              onChange={(event) => setFilters((prev) => ({ ...prev, role: event.target.value }))}
-              placeholder="frontend"
-            />
+            <Input id="cp-role" placeholder="frontend" {...register('role')} />
           </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-4">
           <div className="space-y-1">
             <Label htmlFor="cp-keyword">Keyword</Label>
-            <Input
-              id="cp-keyword"
-              value={filters.keyword}
-              onChange={(event) => setFilters((prev) => ({ ...prev, keyword: event.target.value }))}
-              placeholder="react"
-            />
+            <Input id="cp-keyword" placeholder="react" {...register('keyword')} />
           </div>
           <div className="space-y-1">
             <Label htmlFor="cp-technology">Technology</Label>
-            <Input
-              id="cp-technology"
-              value={filters.technology}
-              onChange={(event) => setFilters((prev) => ({ ...prev, technology: event.target.value }))}
-              placeholder="typescript"
-            />
+            <Input id="cp-technology" placeholder="typescript" {...register('technology')} />
           </div>
           <div className="space-y-1">
             <Label htmlFor="cp-limit">Limit</Label>
-            <Input
-              id="cp-limit"
-              type="number"
-              min={1}
-              max={100}
-              value={filters.limit}
-              onChange={(event) =>
-                setFilters((prev) => ({ ...prev, limit: Math.max(1, Math.min(100, Number(event.target.value) || 10)) }))
-              }
-            />
+            <Input id="cp-limit" type="number" min={1} max={100} {...register('limit')} />
+            {errors.limit?.message ? <p className="text-xs text-rose-600">{errors.limit.message}</p> : null}
           </div>
           <div className="space-y-1">
             <Label htmlFor="cp-offset">Offset</Label>
-            <Input
-              id="cp-offset"
-              type="number"
-              min={0}
-              value={filters.offset}
-              onChange={(event) =>
-                setFilters((prev) => ({ ...prev, offset: Math.max(0, Number(event.target.value) || 0) }))
-              }
-            />
+            <Input id="cp-offset" type="number" min={0} {...register('offset')} />
+            {errors.offset?.message ? <p className="text-xs text-rose-600">{errors.offset.message}</p> : null}
           </div>
         </div>
 
-        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+        {errors.root?.message ? <p className="text-sm text-rose-600">{errors.root.message}</p> : null}
         <div className="flex items-center gap-2">
-          <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? 'Loading...' : 'Load search view'}
+          <Button type="submit" disabled={searchViewPanel.isSubmitting}>
+            {searchViewPanel.isSubmitting ? 'Loading...' : 'Load search view'}
           </Button>
-          <span className="text-xs text-slate-500">Total: {total}</span>
+          <span className="text-xs text-slate-500">Total: {searchViewPanel.total}</span>
         </div>
       </form>
 
@@ -191,8 +100,8 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
             </tr>
           </thead>
           <tbody>
-            {rows.length > 0 ? (
-              rows.map((item) => (
+            {searchViewPanel.rows.length > 0 ? (
+              searchViewPanel.rows.map((item) => (
                 <tr key={item.id} className="border-b border-slate-100 align-top text-slate-700">
                   <td className="px-2 py-2">
                     <div>{item.id}</div>

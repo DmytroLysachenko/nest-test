@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Label } from '@repo/ui/components/label';
-
+import { useProfileInputEditorForm } from '@/features/profile-management/model/hooks/use-profile-input-editor-form';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
 
 type ProfileInputEditorCardProps = {
@@ -23,13 +22,11 @@ export const ProfileInputEditorCard = ({
   isSaving,
   errorMessage,
 }: ProfileInputEditorCardProps) => {
-  const [targetRoles, setTargetRoles] = useState(initialTargetRoles ?? '');
-  const [notes, setNotes] = useState(initialNotes ?? '');
-
-  useEffect(() => {
-    setTargetRoles(initialTargetRoles ?? '');
-    setNotes(initialNotes ?? '');
-  }, [initialNotes, initialTargetRoles]);
+  const form = useProfileInputEditorForm({ initialTargetRoles, initialNotes });
+  const {
+    register,
+    formState: { errors },
+  } = form;
 
   return (
     <Card
@@ -38,33 +35,29 @@ export const ProfileInputEditorCard = ({
     >
       <form
         className="flex flex-col gap-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit({ targetRoles, notes: notes || undefined });
-        }}
+        onSubmit={form.handleSubmit((values) => {
+          onSubmit({
+            targetRoles: values.targetRoles,
+            notes: values.notes?.trim() ? values.notes.trim() : undefined,
+          });
+        })}
       >
-        <Label htmlFor="pm-target-roles">
-          Target roles
-          <Input
-            id="pm-target-roles"
-            className="mt-1"
-            value={targetRoles}
-            onChange={(event) => setTargetRoles(event.target.value)}
-            placeholder="Frontend Developer, Fullstack Developer"
-            required
-          />
-        </Label>
+        <Label htmlFor="pm-target-roles">Target roles</Label>
+        <Input
+          id="pm-target-roles"
+          placeholder="Frontend Developer, Fullstack Developer"
+          {...register('targetRoles')}
+        />
+        {errors.targetRoles?.message ? <p className="text-sm text-rose-600">{errors.targetRoles.message}</p> : null}
 
-        <Label htmlFor="pm-notes">
-          Notes
-          <Textarea
-            id="pm-notes"
-            className="mt-1 min-h-24"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="Preferred work mode, salary, location, contracts..."
-          />
-        </Label>
+        <Label htmlFor="pm-notes">Notes</Label>
+        <Textarea
+          id="pm-notes"
+          className="min-h-24"
+          placeholder="Preferred work mode, salary, location, contracts..."
+          {...register('notes')}
+        />
+        {errors.notes?.message ? <p className="text-sm text-rose-600">{errors.notes.message}</p> : null}
 
         {errorMessage ? <p className="text-sm text-rose-600">{errorMessage}</p> : null}
         <Button type="submit" disabled={isSaving}>

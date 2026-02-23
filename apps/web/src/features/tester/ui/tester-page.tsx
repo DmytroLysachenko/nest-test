@@ -1,100 +1,30 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { Label } from '@repo/ui/components/label';
-
-import { CareerProfileSearchViewPanel } from '@/features/career-profiles/ui/career-profile-search-view-panel';
-import { runTesterRequest } from '@/features/tester/api/tester-api';
+import { CareerProfileSearchViewPanel } from '@/features/career-profiles';
+import { useTesterPage } from '@/features/tester/model/hooks/use-tester-page';
 import { testerEndpointPresets } from '@/features/tester/model/endpoint-presets';
-import { env } from '@/shared/config/env';
-import { ApiError } from '@/shared/lib/http/api-error';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
 
 type TesterPageProps = {
   token: string;
 };
 
-const formatJson = (value: unknown) => JSON.stringify(value, null, 2);
-const defaultPreset = testerEndpointPresets[0];
-
 export const TesterPage = ({ token }: TesterPageProps) => {
-  if (!defaultPreset) {
-    throw new Error('No tester endpoint presets configured.');
-  }
+  const testerPage = useTesterPage(token);
 
-  const [selectedPresetId, setSelectedPresetId] = useState(defaultPreset.id);
-
-  const selectedPreset = useMemo(
-    () => testerEndpointPresets.find((preset) => preset.id === selectedPresetId) ?? defaultPreset,
-    [selectedPresetId],
-  );
-
-  const [service, setService] = useState(selectedPreset.service);
-  const [method, setMethod] = useState(selectedPreset.method);
-  const [path, setPath] = useState(selectedPreset.path);
-  const [useApiToken, setUseApiToken] = useState(Boolean(selectedPreset.requiresAuth));
-  const [workerToken, setWorkerToken] = useState('');
-  const [headersText, setHeadersText] = useState('');
-  const [bodyText, setBodyText] = useState(selectedPreset.defaultBody ? formatJson(selectedPreset.defaultBody) : '');
-  const [error, setError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const mutation = useMutation({
-    mutationFn: async () =>
-      runTesterRequest({
-        service,
-        method,
-        path,
-        token: useApiToken ? token : null,
-        workerToken: workerToken.trim() || null,
-        extraHeadersText: headersText,
-        bodyText,
-        apiBaseUrl: env.NEXT_PUBLIC_API_URL,
-        workerBaseUrl: env.NEXT_PUBLIC_WORKER_URL,
-      }),
-    onError: (err: unknown) => {
-      if (err instanceof ApiError) {
-        setError(err.message);
-        return;
-      }
-
-      if (err instanceof Error) {
-        setError(err.message);
-        return;
-      }
-
-      setError('Request failed.');
-    },
-    onSuccess: () => {
-      setError(null);
-    },
-  });
-
-  const applyPreset = () => {
-    if (!selectedPreset) {
-      return;
-    }
-
-    setService(selectedPreset.service);
-    setMethod(selectedPreset.method);
-    setPath(selectedPreset.path);
-    setUseApiToken(Boolean(selectedPreset.requiresAuth));
-    setBodyText(selectedPreset.defaultBody ? formatJson(selectedPreset.defaultBody) : '');
-    setHeadersText('');
-    setError(null);
-  };
-
-  if (!mounted) {
+  if (!testerPage.mounted) {
     return <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 md:py-8" />;
   }
+
+  const {
+    register,
+    formState: { errors },
+    watch,
+  } = testerPage.form;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 md:py-8">
@@ -109,8 +39,8 @@ export const TesterPage = ({ token }: TesterPageProps) => {
             <Label htmlFor="tester-preset">Endpoint preset</Label>
             <select
               id="tester-preset"
-              value={selectedPresetId}
-              onChange={(event) => setSelectedPresetId(event.target.value)}
+              value={testerPage.selectedPresetId}
+              onChange={(event) => testerPage.setSelectedPresetId(event.target.value)}
               className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
             >
               {testerEndpointPresets.map((preset) => (
@@ -119,37 +49,34 @@ export const TesterPage = ({ token }: TesterPageProps) => {
                 </option>
               ))}
             </select>
-            <Button type="button" variant="secondary" onClick={applyPreset}>
+            <Button type="button" variant="secondary" onClick={testerPage.applyPreset}>
               Apply preset
             </Button>
-            {selectedPreset?.notes ? <p className="text-xs text-slate-500">{selectedPreset.notes}</p> : null}
+            {testerPage.selectedPreset?.notes ? (
+              <p className="text-xs text-slate-500">{testerPage.selectedPreset.notes}</p>
+            ) : null}
           </div>
 
           <div className="space-y-2">
             <p className="text-sm font-medium text-slate-800">Environment targets</p>
-            <p className="text-xs text-slate-600">API base: {env.NEXT_PUBLIC_API_URL}</p>
-            <p className="text-xs text-slate-600">Worker base: {env.NEXT_PUBLIC_WORKER_URL}</p>
-            <p className="text-xs text-slate-600">User token attached: {useApiToken ? 'yes' : 'no'}</p>
+            <p className="text-xs text-slate-600">API base: {testerPage.targets.apiBaseUrl}</p>
+            <p className="text-xs text-slate-600">Worker base: {testerPage.targets.workerBaseUrl}</p>
+            <p className="text-xs text-slate-600">
+              User token attached: {watch('useApiToken') === 'yes' ? 'yes' : 'no'}
+            </p>
           </div>
         </div>
       </Card>
 
       <Card title="Request" description="Edit and send request payloads.">
-        <form
-          className="space-y-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            mutation.mutate();
-          }}
-        >
+        <form className="space-y-3" onSubmit={testerPage.submit}>
           <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-1">
               <Label htmlFor="tester-service">Service</Label>
               <select
                 id="tester-service"
-                value={service}
-                onChange={(event) => setService(event.target.value as 'api' | 'worker')}
                 className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                {...register('service')}
               >
                 <option value="api">API</option>
                 <option value="worker">Worker</option>
@@ -160,9 +87,8 @@ export const TesterPage = ({ token }: TesterPageProps) => {
               <Label htmlFor="tester-method">Method</Label>
               <select
                 id="tester-method"
-                value={method}
-                onChange={(event) => setMethod(event.target.value as 'GET' | 'POST' | 'PATCH' | 'DELETE')}
                 className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                {...register('method')}
               >
                 <option value="GET">GET</option>
                 <option value="POST">POST</option>
@@ -175,9 +101,8 @@ export const TesterPage = ({ token }: TesterPageProps) => {
               <Label htmlFor="tester-api-auth">Attach API bearer token</Label>
               <select
                 id="tester-api-auth"
-                value={useApiToken ? 'yes' : 'no'}
-                onChange={(event) => setUseApiToken(event.target.value === 'yes')}
                 className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                {...register('useApiToken')}
               >
                 <option value="yes">yes</option>
                 <option value="no">no</option>
@@ -187,21 +112,16 @@ export const TesterPage = ({ token }: TesterPageProps) => {
 
           <div className="space-y-1">
             <Label htmlFor="tester-path">Path</Label>
-            <Input
-              id="tester-path"
-              value={path}
-              onChange={(event) => setPath(event.target.value)}
-              placeholder="/job-sources/runs"
-            />
+            <Input id="tester-path" placeholder="/job-sources/runs" {...register('path')} />
+            {errors.path?.message ? <p className="text-sm text-rose-600">{errors.path.message}</p> : null}
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="tester-worker-token">Worker token (optional)</Label>
             <Input
               id="tester-worker-token"
-              value={workerToken}
-              onChange={(event) => setWorkerToken(event.target.value)}
               placeholder="Used as Bearer token for worker requests"
+              {...register('workerToken')}
             />
           </div>
 
@@ -209,46 +129,41 @@ export const TesterPage = ({ token }: TesterPageProps) => {
             <Label htmlFor="tester-extra-headers">Extra headers (JSON object)</Label>
             <Textarea
               id="tester-extra-headers"
-              value={headersText}
-              onChange={(event) => setHeadersText(event.target.value)}
-              placeholder='{"x-request-id": "manual-test-1"}'
               rows={3}
+              placeholder='{"x-request-id": "manual-test-1"}'
+              {...register('headersText')}
             />
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="tester-body">Body (JSON)</Label>
-            <Textarea
-              id="tester-body"
-              value={bodyText}
-              onChange={(event) => setBodyText(event.target.value)}
-              placeholder="{}"
-              rows={10}
-            />
+            <Textarea id="tester-body" rows={10} placeholder="{}" {...register('bodyText')} />
           </div>
 
-          {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-          <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? 'Sending...' : 'Send request'}
+          {testerPage.error ? <p className="text-sm text-rose-600">{testerPage.error}</p> : null}
+          {errors.root?.message ? <p className="text-sm text-rose-600">{errors.root.message}</p> : null}
+          <Button type="submit" disabled={testerPage.mutation.isPending}>
+            {testerPage.mutation.isPending ? 'Sending...' : 'Send request'}
           </Button>
         </form>
       </Card>
 
       <Card title="Last Result" description="Request and response payloads for the latest run.">
-        {mutation.data ? (
+        {testerPage.mutation.data ? (
           <div className="space-y-4">
             <div className="space-y-1">
               <p className="text-sm font-semibold text-slate-900">Request</p>
               <pre className="max-h-80 overflow-auto rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800">
-                {formatJson(mutation.data.request)}
+                {testerPage.formatJson(testerPage.mutation.data.request)}
               </pre>
             </div>
             <div className="space-y-1">
               <p className="text-sm font-semibold text-slate-900">
-                Response: {mutation.data.response.status} {mutation.data.response.ok ? '(ok)' : '(error)'}
+                Response: {testerPage.mutation.data.response.status}{' '}
+                {testerPage.mutation.data.response.ok ? '(ok)' : '(error)'}
               </p>
               <pre className="max-h-96 overflow-auto rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800">
-                {formatJson(mutation.data.response)}
+                {testerPage.formatJson(testerPage.mutation.data.response)}
               </pre>
             </div>
           </div>

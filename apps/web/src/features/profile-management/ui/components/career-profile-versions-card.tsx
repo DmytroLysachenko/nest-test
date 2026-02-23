@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Label } from '@repo/ui/components/label';
-
+import { useProfileGenerationInstructionsForm } from '@/features/profile-management/model/hooks/use-profile-generation-instructions-form';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
+import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
 
 import type { CareerProfileDto, CareerProfileListDto, DocumentDto } from '@/shared/types/api';
@@ -34,7 +33,7 @@ export const CareerProfileVersionsCard = ({
   generateErrorMessage,
   restoreErrorMessage,
 }: CareerProfileVersionsCardProps) => {
-  const [instructions, setInstructions] = useState('');
+  const generationForm = useProfileGenerationInstructionsForm();
 
   return (
     <Card
@@ -43,21 +42,17 @@ export const CareerProfileVersionsCard = ({
     >
       <form
         className="space-y-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onGenerate({ instructions: instructions || undefined });
-        }}
+        onSubmit={generationForm.handleSubmit((values) => {
+          onGenerate({ instructions: values.instructions?.trim() ? values.instructions.trim() : undefined });
+        })}
       >
-        <Label htmlFor="pm-generation-instructions">
-          Optional generation instructions
-          <Textarea
-            id="pm-generation-instructions"
-            className="mt-1 min-h-20"
-            value={instructions}
-            onChange={(event) => setInstructions(event.target.value)}
-            placeholder="Highlight frontend + transferable backend competencies."
-          />
-        </Label>
+        <Label htmlFor="pm-generation-instructions">Optional generation instructions</Label>
+        <Textarea
+          id="pm-generation-instructions"
+          className="min-h-20"
+          placeholder="Highlight frontend + transferable backend competencies."
+          {...generationForm.register('instructions')}
+        />
         {generateErrorMessage ? <p className="text-sm text-rose-600">{generateErrorMessage}</p> : null}
         <Button type="submit" disabled={!canGenerate || isGenerating}>
           {isGenerating ? 'Generating...' : 'Generate new profile version'}
