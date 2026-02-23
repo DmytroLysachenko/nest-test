@@ -10,7 +10,7 @@ import {
   onStoredTokensChanged,
   readStoredTokens,
   writeStoredTokens,
-} from '@/features/auth/model/token-storage';
+} from '@/features/auth/model/utils/token-storage';
 import { ApiError } from '@/shared/lib/http/api-error';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 

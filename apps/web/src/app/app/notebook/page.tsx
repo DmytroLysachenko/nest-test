@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-import { useRequireAuth } from '@/features/auth/model/auth-context';
+import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { NotebookPage } from '@/features/job-offers';
 import { useWorkflowState } from '@/features/workflow/model/use-workflow-state';
 

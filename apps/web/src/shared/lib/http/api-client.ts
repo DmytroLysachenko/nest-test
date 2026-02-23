@@ -1,5 +1,5 @@
 import { env } from '@/shared/config/env';
-import { clearStoredTokens, readStoredTokens, writeStoredTokens } from '@/features/auth/model/token-storage';
+import { clearStoredTokens, readStoredTokens, writeStoredTokens } from '@/features/auth/model/utils/token-storage';
 
 import { ApiError } from './api-error';
 

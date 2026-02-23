@@ -4,7 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { type ReactNode, useState } from 'react';
 
-import { AuthProvider } from '@/features/auth/model/auth-context';
+import { AuthProvider } from '@/features/auth/model/context/auth-context';
 import { createQueryClient } from '@/shared/lib/query/query-client';
 
 export const Providers = ({ children }: { children: ReactNode }) => {

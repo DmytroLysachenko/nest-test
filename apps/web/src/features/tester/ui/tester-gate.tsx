@@ -1,6 +1,6 @@
 'use client';
 
-import { useRequireAuth } from '@/features/auth/model/auth-context';
+import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 
 import { TesterPage } from './tester-page';
 

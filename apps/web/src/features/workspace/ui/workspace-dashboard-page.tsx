@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 
 import { logout } from '@/features/auth/api/auth-api';
-import { useRequireAuth } from '@/features/auth/model/auth-context';
+import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { CareerProfilePanel } from '@/features/career-profiles';
 import { DocumentsPanel } from '@/features/documents';
 import { JobMatchingPanel } from '@/features/job-matching';
