@@ -45,3 +45,40 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Avoid low-trust match outcomes (e.g., junior candidates matched to senior-only roles).
 
+## 2026-02-23: Request Payload Guardrails (API + Worker)
+
+- Decision:
+  - Add environment-driven request body size limits:
+    - API: `API_BODY_LIMIT`
+    - Worker: `WORKER_MAX_BODY_BYTES`
+- Why:
+  - Reduce memory abuse and accidental oversized payload failures.
+  - Keep ingress behavior explicit and configurable by environment.
+
+## 2026-02-23: Source-Specific Listing URL Allowlist
+
+- Decision:
+  - Validate scrape `listingUrl` host/protocol in API before worker enqueue.
+  - For `pracuj-pl*` sources, permit only `pracuj.pl` and subdomains.
+- Why:
+  - Prevent SSRF-style misuse and accidental scraping of unsupported domains.
+  - Keep API-to-worker contract bounded to known source adapters.
+
+## 2026-02-23: Callback Retry Strategy Upgrade
+
+- Decision:
+  - Use exponential backoff with jitter and max-delay cap for worker callback retries.
+  - Add env controls:
+    - `WORKER_CALLBACK_RETRY_MAX_DELAY_MS`
+    - `WORKER_CALLBACK_RETRY_JITTER_PCT`
+- Why:
+  - Lower retry synchronization spikes.
+  - Improve callback reliability without unbounded delay growth.
+
+## 2026-02-23: Web E2E Coverage as CI Gate
+
+- Decision:
+  - Run full web Playwright e2e suite in CI (not only a single notebook spec).
+- Why:
+  - Catch cross-page integration regressions early.
+  - Keep internal tester and profile management flows continuously validated.

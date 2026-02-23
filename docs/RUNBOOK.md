@@ -12,6 +12,15 @@ Day-to-day engineering runbook for local development and verification.
    - `packages/db/.env`
 3. Postgres running and reachable.
 
+## Security/Capacity Env Knobs
+
+1. API:
+   - `API_BODY_LIMIT` (example: `1mb`)
+2. Worker:
+   - `WORKER_MAX_BODY_BYTES` (example: `262144`)
+   - `WORKER_CALLBACK_RETRY_MAX_DELAY_MS`
+   - `WORKER_CALLBACK_RETRY_JITTER_PCT`
+
 ## Core Commands
 
 1. Install dependencies:
@@ -33,6 +42,7 @@ Day-to-day engineering runbook for local development and verification.
 3. Web checks:
    - `pnpm --filter web check-types`
    - `pnpm --filter web test`
+   - `pnpm --filter web test:e2e`
 4. End-to-end smoke:
    - `pnpm smoke:e2e`
 
@@ -49,6 +59,7 @@ Day-to-day engineering runbook for local development and verification.
 7. deterministic job matching
 8. scrape enqueue + completion
 9. notebook status/meta/history/score actions
+10. worker + callback flow with retry-safe completion path
 
 ## Recovery Tips
 
@@ -66,4 +77,3 @@ Day-to-day engineering runbook for local development and verification.
    - `docs/PROJECT_STATE.md`
    - `docs/ROADMAP.md`
    - `docs/DECISIONS.md` (if architecture/contracts changed)
-

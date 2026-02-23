@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-02-21
+Last updated: 2026-02-23
 
 ## Now (Execution Priority)
 
@@ -8,6 +8,7 @@ Last updated: 2026-02-21
 2. Matching quality tuning (score calibration, stricter seniority/constraints behavior).
 3. Scraper quality hardening and source-specific reliability.
 4. CI quality gates (API/worker/web tests + smoke on protected branches).
+   - Status: in progress (web e2e suite is now part of CI; smoke gate expansion pending branch policy alignment).
 
 ## Next
 
@@ -38,4 +39,3 @@ Last updated: 2026-02-21
    - `PROJECT_STATE.md`
    - `ROADMAP.md`
    - `DECISIONS.md` when architecture/contract changed
-

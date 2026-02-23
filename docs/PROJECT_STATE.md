@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-02-21
+Last updated: 2026-02-23
 
 ## Current Architecture
 
@@ -30,8 +30,11 @@ Last updated: 2026-02-21
 - Worker scraping is service-oriented (API enqueues, worker callbacks).
 - In-memory worker queue with controlled concurrency.
 - Callback idempotency and optional callback signature validation.
+- Callback retry uses exponential backoff + jitter with env-driven caps.
 - Scraper ignores recommended offers and relaxes strict filters when zero results.
 - Career profile now has denormalized search projection columns.
+- API and worker enforce request body size limits (env-driven).
+- API validates scrape listing URL allowlist per source before enqueue.
 
 ## Data Model Highlights
 
@@ -59,3 +62,4 @@ Last updated: 2026-02-21
 - Global API throttling can interfere with intensive manual test loops.
 - Some e2e scenarios still rely on live external scraping source behavior.
 - Frontend standards are now explicitly documented in `docs/FRONTEND_STANDARDS.md`; continue enforcing via ESLint and reviews.
+- Worker queue is still in-memory (acceptable for now, not crash-resilient across process restarts).
