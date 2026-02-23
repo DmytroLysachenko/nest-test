@@ -1,14 +1,10 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import { Label } from '@repo/ui/components/label';
-
-import { enqueueScrape, listJobSourceRuns } from '@/features/job-sources/api/job-sources-api';
-import { ApiError } from '@/shared/lib/http/api-error';
+import { useJobSourcesPanel } from '@/features/job-sources/model/hooks/use-job-sources-panel';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
 
 type JobSourcesPanelProps = {
   token: string;
@@ -16,36 +12,12 @@ type JobSourcesPanelProps = {
   disabledReason?: string;
 };
 
-const DEFAULT_LISTING_URL = 'https://it.pracuj.pl/praca?wm=home-office&its=frontend';
-
 export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: JobSourcesPanelProps) => {
-  const queryClient = useQueryClient();
-  const [mode, setMode] = useState<'profile' | 'custom'>('profile');
-  const [listingUrl, setListingUrl] = useState(DEFAULT_LISTING_URL);
-  const [limit, setLimit] = useState('20');
-  const [error, setError] = useState<string | null>(null);
-
-  const runsQuery = useQuery({
-    queryKey: ['job-sources', 'runs', token],
-    queryFn: () => listJobSourceRuns(token),
-    refetchInterval: 15000,
-  });
-
-  const enqueueMutation = useMutation({
-    mutationFn: () =>
-      enqueueScrape(token, {
-        listingUrl: mode === 'custom' ? listingUrl : undefined,
-        limit: Number(limit),
-        source: mode === 'custom' ? 'pracuj-pl' : undefined,
-      }),
-    onSuccess: async () => {
-      setError(null);
-      await queryClient.invalidateQueries({ queryKey: ['job-sources', 'runs', token] });
-    },
-    onError: (err: unknown) => {
-      setError(err instanceof ApiError ? err.message : 'Failed to enqueue scrape');
-    },
-  });
+  const jobSourcesPanel = useJobSourcesPanel(token);
+  const {
+    register,
+    formState: { errors },
+  } = jobSourcesPanel.form;
 
   return (
     <Card title="Worker integration" description="Trigger scrape runs and track worker lifecycle status.">
@@ -56,8 +28,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           if (disabled) {
             return;
           }
-          setError(null);
-          enqueueMutation.mutate();
+          void jobSourcesPanel.submit(event);
         }}
       >
         <div className="space-y-1">
@@ -65,8 +36,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           <select
             id="scrape-mode"
             className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
-            value={mode}
-            onChange={(event) => setMode(event.target.value as 'profile' | 'custom')}
+            {...register('mode')}
           >
             <option value="profile">Use profile-derived filters</option>
             <option value="custom">Use custom listing URL</option>
@@ -77,46 +47,39 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           <Label htmlFor="listing-url">Listing URL</Label>
           <Input
             id="listing-url"
-            value={listingUrl}
-            onChange={(event) => setListingUrl(event.target.value)}
             placeholder="https://it.pracuj.pl/praca?..."
-            required={mode === 'custom'}
-            disabled={mode !== 'custom'}
+            disabled={jobSourcesPanel.mode !== 'custom'}
+            {...register('listingUrl')}
           />
+          {errors.listingUrl?.message ? <p className="text-sm text-rose-600">{errors.listingUrl.message}</p> : null}
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="listing-limit">Limit</Label>
-          <Input
-            id="listing-limit"
-            type="number"
-            min={1}
-            max={100}
-            value={limit}
-            onChange={(event) => setLimit(event.target.value)}
-          />
+          <Input id="listing-limit" type="number" min={1} max={100} {...register('limit')} />
+          {errors.limit?.message ? <p className="text-sm text-rose-600">{errors.limit.message}</p> : null}
         </div>
 
-        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-        <Button type="submit" disabled={disabled || enqueueMutation.isPending}>
-          {enqueueMutation.isPending ? 'Enqueuing...' : 'Enqueue scrape run'}
+        {errors.root?.message ? <p className="text-sm text-rose-600">{errors.root.message}</p> : null}
+        <Button type="submit" disabled={disabled || jobSourcesPanel.isSubmitting}>
+          {jobSourcesPanel.isSubmitting ? 'Enqueuing...' : 'Enqueue scrape run'}
         </Button>
         {disabled && disabledReason ? <p className="text-sm text-amber-700">{disabledReason}</p> : null}
       </form>
 
-      {enqueueMutation.data ? (
+      {jobSourcesPanel.enqueueResult ? (
         <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
           <p className="font-semibold text-slate-900">Latest enqueue metadata</p>
-          <p>Status: {enqueueMutation.data.status}</p>
-          {enqueueMutation.data.resolvedFromProfile ? <p>Resolved from active profile: yes</p> : null}
-          {enqueueMutation.data.intentFingerprint ? (
-            <p>Intent fingerprint: {enqueueMutation.data.intentFingerprint}</p>
+          <p>Status: {jobSourcesPanel.enqueueResult.status}</p>
+          {jobSourcesPanel.enqueueResult.resolvedFromProfile ? <p>Resolved from active profile: yes</p> : null}
+          {jobSourcesPanel.enqueueResult.intentFingerprint ? (
+            <p>Intent fingerprint: {jobSourcesPanel.enqueueResult.intentFingerprint}</p>
           ) : null}
-          {enqueueMutation.data.acceptedFilters ? (
+          {jobSourcesPanel.enqueueResult.acceptedFilters ? (
             <details className="mt-2">
               <summary className="cursor-pointer font-medium text-slate-800">Accepted filters</summary>
               <pre className="mt-2 whitespace-pre-wrap rounded-md bg-white p-2 text-xs">
-                {JSON.stringify(enqueueMutation.data.acceptedFilters, null, 2)}
+                {JSON.stringify(jobSourcesPanel.enqueueResult.acceptedFilters, null, 2)}
               </pre>
             </details>
           ) : null}
@@ -125,8 +88,8 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
 
       <div className="mt-5 space-y-2">
         <p className="text-sm font-semibold text-slate-800">Recent runs</p>
-        {runsQuery.data?.items?.length ? (
-          runsQuery.data.items.map((run) => (
+        {jobSourcesPanel.runsQuery.data?.items?.length ? (
+          jobSourcesPanel.runsQuery.data.items.map((run) => (
             <article key={run.id} className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
               <p className="font-medium text-slate-900">Status: {run.status}</p>
               <p className="text-slate-600">Scraped: {run.scrapedCount ?? 0}</p>

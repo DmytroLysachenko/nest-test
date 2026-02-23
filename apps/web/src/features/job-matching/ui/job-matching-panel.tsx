@@ -1,14 +1,10 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Label } from '@repo/ui/components/label';
-import { useState } from 'react';
-
-import { getJobMatchHistory, scoreJob } from '@/features/job-matching/api/job-matching-api';
-import { ApiError } from '@/shared/lib/http/api-error';
+import { useJobMatchingPanel } from '@/features/job-matching/model/hooks/use-job-matching-panel';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
 
 type JobMatchingPanelProps = {
@@ -18,30 +14,11 @@ type JobMatchingPanelProps = {
 };
 
 export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: JobMatchingPanelProps) => {
-  const queryClient = useQueryClient();
-  const [jobDescription, setJobDescription] = useState('');
-  const [minScore, setMinScore] = useState('60');
-  const [error, setError] = useState<string | null>(null);
-
-  const historyQuery = useQuery({
-    queryKey: ['job-matching', 'history', token],
-    queryFn: () => getJobMatchHistory(token),
-  });
-
-  const scoreMutation = useMutation({
-    mutationFn: () =>
-      scoreJob(token, {
-        jobDescription,
-        minScore: minScore ? Number(minScore) : undefined,
-      }),
-    onSuccess: async () => {
-      setError(null);
-      await queryClient.invalidateQueries({ queryKey: ['job-matching', 'history', token] });
-    },
-    onError: (err: unknown) => {
-      setError(err instanceof ApiError ? err.message : 'Scoring failed');
-    },
-  });
+  const jobMatchingPanel = useJobMatchingPanel(token);
+  const {
+    register,
+    formState: { errors },
+  } = jobMatchingPanel.form;
 
   return (
     <Card title="Job matching" description="Score a job description and track matching history.">
@@ -52,48 +29,43 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
           if (disabled) {
             return;
           }
-          setError(null);
-          scoreMutation.mutate();
+          void jobMatchingPanel.submit(event);
         }}
       >
         <Label htmlFor="job-description" className="text-slate-700">
           Job description
-          <Textarea
-            id="job-description"
-            className="mt-1 min-h-28"
-            value={jobDescription}
-            onChange={(event) => setJobDescription(event.target.value)}
-            placeholder="Paste a full job description..."
-            required
-          />
         </Label>
+        <Textarea
+          id="job-description"
+          className="min-h-28"
+          placeholder="Paste a full job description..."
+          {...register('jobDescription')}
+        />
+        {errors.jobDescription?.message ? (
+          <p className="text-sm text-rose-600">{errors.jobDescription.message}</p>
+        ) : null}
+
         <Label htmlFor="job-min-score" className="text-slate-700">
           Minimum score
-          <Input
-            id="job-min-score"
-            className="mt-1 max-w-24"
-            type="number"
-            min={0}
-            max={100}
-            value={minScore}
-            onChange={(event) => setMinScore(event.target.value)}
-          />
         </Label>
-        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-        <Button type="submit" disabled={disabled || scoreMutation.isPending}>
-          {scoreMutation.isPending ? 'Scoring...' : 'Score job'}
+        <Input id="job-min-score" className="max-w-24" type="number" min={0} max={100} {...register('minScore')} />
+        {errors.minScore?.message ? <p className="text-sm text-rose-600">{errors.minScore.message}</p> : null}
+
+        {errors.root?.message ? <p className="text-sm text-rose-600">{errors.root.message}</p> : null}
+        <Button type="submit" disabled={disabled || jobMatchingPanel.isSubmitting}>
+          {jobMatchingPanel.isSubmitting ? 'Scoring...' : 'Score job'}
         </Button>
         {disabled && disabledReason ? <p className="text-sm text-amber-700">{disabledReason}</p> : null}
       </form>
 
-      {scoreMutation.data ? (
+      {jobMatchingPanel.scoreResult ? (
         <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
-          <p className="font-semibold text-slate-900">Latest score: {scoreMutation.data.score.score}</p>
-          <p className="text-slate-700">Match: {scoreMutation.data.isMatch ? 'Yes' : 'No'}</p>
-          {scoreMutation.data.breakdown ? (
+          <p className="font-semibold text-slate-900">Latest score: {jobMatchingPanel.scoreResult.score.score}</p>
+          <p className="text-slate-700">Match: {jobMatchingPanel.scoreResult.isMatch ? 'Yes' : 'No'}</p>
+          {jobMatchingPanel.scoreResult.breakdown ? (
             <div className="mt-2 space-y-1">
               <p className="font-medium text-slate-800">Score breakdown</p>
-              {Object.entries(scoreMutation.data.breakdown).map(([key, value]) => (
+              {Object.entries(jobMatchingPanel.scoreResult.breakdown).map(([key, value]) => (
                 <div
                   key={key}
                   className="flex items-center justify-between rounded bg-white px-2 py-1 text-xs text-slate-700"
@@ -104,15 +76,15 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
               ))}
             </div>
           ) : null}
-          {scoreMutation.data.missingPreferences?.length ? (
+          {jobMatchingPanel.scoreResult.missingPreferences?.length ? (
             <p className="mt-2 text-xs text-amber-700">
-              Missing preferences: {scoreMutation.data.missingPreferences.join(', ')}
+              Missing preferences: {jobMatchingPanel.scoreResult.missingPreferences.join(', ')}
             </p>
           ) : null}
           <details className="mt-2">
             <summary className="cursor-pointer font-medium text-slate-800">Explanation</summary>
             <pre className="mt-2 whitespace-pre-wrap text-slate-700">
-              {JSON.stringify(scoreMutation.data.explanation, null, 2)}
+              {JSON.stringify(jobMatchingPanel.scoreResult.explanation, null, 2)}
             </pre>
           </details>
         </div>
@@ -120,8 +92,8 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
 
       <div className="mt-5 space-y-2">
         <p className="text-sm font-semibold text-slate-800">History</p>
-        {historyQuery.data?.items?.length ? (
-          historyQuery.data.items.map((item) => (
+        {jobMatchingPanel.historyQuery.data?.items?.length ? (
+          jobMatchingPanel.historyQuery.data.items.map((item) => (
             <article
               key={item.id}
               className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700"
