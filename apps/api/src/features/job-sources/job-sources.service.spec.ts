@@ -197,6 +197,56 @@ describe('JobSourcesService', () => {
     expect(result.status).toBe('accepted');
   });
 
+  it('rejects listingUrl outside source allowlist', async () => {
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([
+                {
+                  careerProfileId: 'profile-id',
+                  contentJson: candidateProfileFixture,
+                },
+              ]),
+            }),
+          }),
+        }),
+      }),
+      insert: jest.fn(),
+      update: jest.fn(),
+    } as any;
+
+    const fetchMock = jest.spyOn(global, 'fetch' as any).mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ ok: true }),
+    } as any);
+
+    const service = new JobSourcesService(
+      createConfigService({
+        WORKER_TASK_URL: 'http://localhost:4001/tasks',
+        WORKER_REQUEST_TIMEOUT_MS: 5000,
+      }),
+      createLogger(),
+      db,
+    );
+
+    await expect(
+      service.enqueueScrape(
+        'user-id',
+        {
+          source: 'pracuj-pl',
+          listingUrl: 'https://example.com/jobs',
+          limit: 10,
+          forceRefresh: true,
+        },
+        'request-id',
+      ),
+    ).rejects.toThrow('listingUrl host is not allowed for this source');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('synthesizes scrape source and filters from active profile when request omits them', async () => {
     const db = {
       select: jest.fn().mockReturnValue({

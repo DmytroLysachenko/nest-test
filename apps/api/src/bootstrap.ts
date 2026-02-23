@@ -5,6 +5,7 @@ import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino';
 import chalk from 'chalk';
 import * as compression from 'compression';
+import * as bodyParser from 'body-parser';
 
 import { swagger } from '@/config/swagger';
 import { Env } from '@/config/env';
@@ -17,6 +18,8 @@ export const bootstrap = async (app: NestExpressApplication) => {
   const logger = app.get(Logger);
 
   app.set('query parser', 'extended');
+  app.use(bodyParser.json({ limit: configService.get('API_BODY_LIMIT') }));
+  app.use(bodyParser.urlencoded({ extended: true, limit: configService.get('API_BODY_LIMIT') }));
 
   // =========================================================
   // configure swagger

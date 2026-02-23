@@ -159,6 +159,7 @@ export class JobSourcesService {
     if (!listingUrl) {
       throw new BadRequestException('Provide listingUrl, explicit filters, or profile input preferences');
     }
+    this.assertListingUrlAllowed(source, listingUrl);
 
     const intentFingerprint = this.computeIntentFingerprint(source, listingUrl, normalizedFilters ?? null);
     const resolvedFromProfile = !dto.filters && !dto.source && Boolean(profileContext.profile);
@@ -838,6 +839,26 @@ export class JobSourcesService {
       normalizedFilters,
     });
     return createHash('sha256').update(payload).digest('hex');
+  }
+
+  private assertListingUrlAllowed(source: PracujSourceKind, listingUrl: string) {
+    let parsed: URL;
+    try {
+      parsed = new URL(listingUrl);
+    } catch {
+      throw new BadRequestException('Invalid listingUrl');
+    }
+
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new BadRequestException('listingUrl must use http or https');
+    }
+
+    if (source === 'pracuj-pl' || source === 'pracuj-pl-it' || source === 'pracuj-pl-general') {
+      const hostname = parsed.hostname.toLowerCase();
+      if (!(hostname === 'pracuj.pl' || hostname.endsWith('.pracuj.pl'))) {
+        throw new BadRequestException('listingUrl host is not allowed for this source');
+      }
+    }
   }
 
   private resolveWorkerCallbackUrl() {
