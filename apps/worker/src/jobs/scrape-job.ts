@@ -143,6 +143,26 @@ export const buildWorkerCallbackSignaturePayload = (
   timestampSec: number,
 ) => `${timestampSec}.${payload.sourceRunId ?? ''}.${payload.status}.${payload.runId}.${requestId ?? ''}.${payload.eventId ?? ''}`;
 
+export const computeCallbackRetryDelayMs = (
+  attempt: number,
+  baseBackoffMs: number,
+  maxDelayMs: number,
+  jitterPct: number,
+  randomValue = Math.random(),
+) => {
+  const safeAttempt = Math.max(1, attempt);
+  const safeBase = Math.max(1, baseBackoffMs);
+  const exponential = Math.min(maxDelayMs, safeBase * 2 ** (safeAttempt - 1));
+  const boundedJitter = Math.max(0, Math.min(1, jitterPct));
+  if (boundedJitter === 0) {
+    return exponential;
+  }
+  const spread = exponential * boundedJitter;
+  const boundedRandom = Math.max(0, Math.min(1, randomValue));
+  const offset = (boundedRandom * 2 - 1) * spread;
+  return Math.max(0, Math.round(exponential + offset));
+};
+
 const notifyCallback = async (
   url: string,
   token: string | undefined,
@@ -152,6 +172,8 @@ const notifyCallback = async (
   options: {
     retryAttempts: number;
     retryBackoffMs: number;
+    retryMaxDelayMs: number;
+    retryJitterPct: number;
     deadLetterDir?: string;
   },
   logger: Logger,
@@ -185,7 +207,14 @@ const notifyCallback = async (
       logger.warn({ requestId, error, attempt }, 'Failed to notify callback');
     }
     if (attempt < options.retryAttempts) {
-      await sleep(attempt * options.retryBackoffMs);
+      await sleep(
+        computeCallbackRetryDelayMs(
+          attempt,
+          options.retryBackoffMs,
+          options.retryMaxDelayMs,
+          options.retryJitterPct,
+        ),
+      );
     }
   }
 
@@ -242,6 +271,8 @@ export const runScrapeJob = async (
     callbackSigningSecret?: string;
     callbackRetryAttempts?: number;
     callbackRetryBackoffMs?: number;
+    callbackRetryMaxDelayMs?: number;
+    callbackRetryJitterPct?: number;
     callbackDeadLetterDir?: string;
     scrapeTimeoutMs?: number;
     databaseUrl?: string;
@@ -432,6 +463,8 @@ export const runScrapeJob = async (
         {
           retryAttempts: options.callbackRetryAttempts ?? 3,
           retryBackoffMs: options.callbackRetryBackoffMs ?? 1000,
+          retryMaxDelayMs: options.callbackRetryMaxDelayMs ?? 10000,
+          retryJitterPct: options.callbackRetryJitterPct ?? 0.2,
           deadLetterDir: options.callbackDeadLetterDir,
         },
         logger,
@@ -487,6 +520,8 @@ export const runScrapeJob = async (
         {
           retryAttempts: options.callbackRetryAttempts ?? 3,
           retryBackoffMs: options.callbackRetryBackoffMs ?? 1000,
+          retryMaxDelayMs: options.callbackRetryMaxDelayMs ?? 10000,
+          retryJitterPct: options.callbackRetryJitterPct ?? 0.2,
           deadLetterDir: options.callbackDeadLetterDir,
         },
         logger,

@@ -26,6 +26,8 @@ export const handleTask = async (
     callbackSigningSecret?: string;
     callbackRetryAttempts?: number;
     callbackRetryBackoffMs?: number;
+    callbackRetryMaxDelayMs?: number;
+    callbackRetryJitterPct?: number;
     callbackDeadLetterDir?: string;
     scrapeTimeoutMs?: number;
     databaseUrl?: string;
@@ -52,6 +54,8 @@ export const handleTask = async (
         callbackSigningSecret: options.callbackSigningSecret,
         callbackRetryAttempts: options.callbackRetryAttempts,
         callbackRetryBackoffMs: options.callbackRetryBackoffMs,
+        callbackRetryMaxDelayMs: options.callbackRetryMaxDelayMs,
+        callbackRetryJitterPct: options.callbackRetryJitterPct,
         callbackDeadLetterDir: options.callbackDeadLetterDir,
         scrapeTimeoutMs: options.scrapeTimeoutMs,
         databaseUrl: options.databaseUrl,

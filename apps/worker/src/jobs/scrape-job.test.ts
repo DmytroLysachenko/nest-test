@@ -5,6 +5,7 @@ import {
   buildScrapeCallbackPayload,
   buildWorkerCallbackSignaturePayload,
   classifyScrapeError,
+  computeCallbackRetryDelayMs,
   sanitizeCallbackJobs,
 } from './scrape-job';
 
@@ -119,4 +120,17 @@ test('buildWorkerCallbackSignaturePayload is deterministic', () => {
 
   const result = buildWorkerCallbackSignaturePayload(payload, 'req-1', 1700000000);
   assert.equal(result, '1700000000.source-run-1.COMPLETED.run-1.req-1.event-1');
+});
+
+test('computeCallbackRetryDelayMs applies exponential backoff without jitter', () => {
+  assert.equal(computeCallbackRetryDelayMs(1, 500, 10_000, 0), 500);
+  assert.equal(computeCallbackRetryDelayMs(2, 500, 10_000, 0), 1000);
+  assert.equal(computeCallbackRetryDelayMs(3, 500, 10_000, 0), 2000);
+  assert.equal(computeCallbackRetryDelayMs(10, 500, 10_000, 0), 10_000);
+});
+
+test('computeCallbackRetryDelayMs applies bounded jitter', () => {
+  assert.equal(computeCallbackRetryDelayMs(2, 1000, 10_000, 0.2, 0), 1600);
+  assert.equal(computeCallbackRetryDelayMs(2, 1000, 10_000, 0.2, 1), 2400);
+  assert.equal(computeCallbackRetryDelayMs(2, 1000, 10_000, 0.2, 0.5), 2000);
 });
