@@ -16,7 +16,8 @@ Goals:
 - Framework: Next.js App Router
 - Server state: TanStack Query only
 - Client/UI state: Zustand only
-- Reusable UI primitives: `@repo/ui` and `src/shared/ui`
+- Form stack: React Hook Form + Zod (`@hookform/resolvers/zod`)
+- Reusable UI primitives: shadcn-based `@repo/ui` and `src/shared/ui`
 
 Ownership boundaries:
 - `features/*` owns feature behavior and feature composition.
@@ -25,16 +26,38 @@ Ownership boundaries:
 
 ## Mandatory Folder Structure
 
-For each feature:
+Use one of these two variants.
+
+Complex feature (default when feature has forms/mutations/derived UI state):
 
 ```text
 src/features/<feature>/
   api/          # endpoint clients, query/mutation request builders
-  model/        # hooks, local state adapters, view models, feature-local types
+  model/
+    hooks/      # custom hooks only
+    state/      # feature-local stores/context adapters
+    validation/ # zod schemas and form mapping
+    types/      # feature-local types/view models
+    constants/  # feature-scoped constants
+    utils/      # feature-scoped helpers
   ui/           # feature UI composition
   lib/          # optional feature-only helpers
   index.ts      # public feature exports
 ```
+
+Notes:
+- Simple feature variant is allowed when complexity is low (few files, read-only UI):
+
+```text
+src/features/<feature>/
+  api/
+  ui/
+  index.ts
+```
+
+- Promote simple feature to complex structure once local state/forms/derived logic grows.
+- For small features that already have `model/`, a flat `model/*` is allowed temporarily, but once 3+ files exist, split into the folders above.
+- Avoid treating `model` as a mixed dump folder.
 
 Shared:
 
@@ -50,6 +73,11 @@ src/shared/
   types/        # reusable API and shared types
   ui/           # reusable abstract components
 ```
+
+UI rules:
+- Prefer adding/reusing primitives in `shared/ui` before creating one-off feature-specific base components.
+- If a component may be reused across pages/features, move it to `shared/ui`.
+- Feature code should import UI primitives from `shared/ui/*` (not directly from `@repo/ui/components/*`).
 
 ## Route and Page Rules
 
@@ -70,15 +98,21 @@ src/shared/
 
 - Reusable/abstract components go to `shared/ui`.
 - Feature-specific UI goes to `features/<feature>/ui`.
+- Prefer `@repo/ui` components as baseline, then wrap/customize in `shared/ui` for project-specific look/behavior.
 - Avoid hardcoded one-off variants when a reusable prop-based abstraction can be used.
 - Keep components focused; extract sections into subcomponents when file grows complex.
 
 ## Hooks and API Rules
 
-- Feature hooks live in `features/<feature>/model`.
+- Feature hooks live in `features/<feature>/model/hooks`.
 - API calls must go through `shared/lib/http/api-client.ts`.
 - Do not call `fetch` directly in feature UI or hooks.
 - Keep query keys stable and explicit; avoid ad-hoc key shapes.
+
+Forms:
+- Default to React Hook Form + Zod for non-trivial forms.
+- Keep schemas in `features/<feature>/model/validation`.
+- Keep submit/mutation orchestration in hooks (`model/hooks`), not in route files.
 
 ## TypeScript Rules
 
@@ -109,3 +143,9 @@ src/shared/
 4. `pnpm --filter web check-types` passes.
 5. `pnpm --filter web test` passes.
 6. Relevant docs are updated when conventions or architecture change.
+
+## Visual Consistency
+
+- Maintain a single color and spacing system across screens.
+- Light/dark theming is allowed but must use centralized tokens/CSS variables.
+- Do not mix inconsistent ad-hoc palettes between features.
