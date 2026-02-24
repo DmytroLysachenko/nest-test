@@ -119,6 +119,15 @@ if (-not $profileLatestPayload.data) {
   throw 'Latest profile input returned no data.'
 }
 
+Write-Host '5.1) Verifying document upload-health endpoint...'
+$stage = 'documents-upload-health'
+$uploadHealth = Invoke-WebRequest -Uri 'http://localhost:3000/api/documents/upload-health' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $uploadHealth.StatusCode -Allowed @(200) -Context 'Documents upload-health'
+$uploadHealthPayload = $uploadHealth.Content | ConvertFrom-Json
+if ($null -eq $uploadHealthPayload.data.ok) {
+  throw 'Documents upload-health payload missing ok flag.'
+}
+
 Write-Host '6) Verifying career-profile endpoints (latest/list/get/restore/documents)...'
 $stage = 'career-profiles'
 $careerLatest = Invoke-WebRequest -Uri 'http://localhost:3000/api/career-profiles/latest' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
@@ -158,6 +167,11 @@ Assert-StatusCode -Actual $careerDocs.StatusCode -Allowed @(200) -Context 'Get c
 $careerDocsPayload = $careerDocs.Content | ConvertFrom-Json
 if ($null -eq $careerDocsPayload.data) {
   throw 'Career profile documents response missing data.'
+}
+$documentIdForDiagnostics = @($careerDocsPayload.data | Select-Object -First 1).id
+if ($documentIdForDiagnostics) {
+  $documentEvents = Invoke-WebRequest -Uri "http://localhost:3000/api/documents/$documentIdForDiagnostics/events" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+  Assert-StatusCode -Actual $documentEvents.StatusCode -Allowed @(200) -Context 'Document diagnostics timeline'
 }
 
 $restore = Invoke-WebRequest -Uri "http://localhost:3000/api/career-profiles/$careerProfileId/restore" -Method Post -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
@@ -281,12 +295,35 @@ if ($finalStatus -ne 'COMPLETED') {
 
 Write-Host '12) Verifying persisted user job offers for this run...'
 $stage = 'verify-persisted-offers'
-$offers = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-offers?limit=100' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$offers = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-offers?mode=strict&limit=100' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $offers.StatusCode -Allowed @(200) -Context 'List job offers'
 $offersPayload = $offers.Content | ConvertFrom-Json
-$matched = @($offersPayload.data.items | Where-Object { $_.sourceRunId -eq $sourceRunId })
+$offersMode = $offersPayload.data.mode
+if ($offersMode -ne 'strict') {
+  throw "Expected strict ranking mode in response. got=$offersMode"
+}
+
+$offersApprox = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-offers?mode=approx&limit=100' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $offersApprox.StatusCode -Allowed @(200) -Context 'List job offers (approx mode)'
+$offersApproxPayload = $offersApprox.Content | ConvertFrom-Json
+if ($offersApproxPayload.data.mode -ne 'approx') {
+  throw "Expected approx ranking mode in response. got=$($offersApproxPayload.data.mode)"
+}
+$matched = @($offersApproxPayload.data.items | Where-Object { $_.sourceRunId -eq $sourceRunId })
 if ($matched.Count -lt 1) {
   throw "No persisted user job offers found for sourceRunId=$sourceRunId"
+}
+
+Write-Host '12.1) Verifying scrape diagnostics endpoint...'
+$stage = 'verify-scrape-diagnostics'
+$diagnostics = Invoke-WebRequest -Uri "http://localhost:3000/api/job-sources/runs/$sourceRunId/diagnostics" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $diagnostics.StatusCode -Allowed @(200) -Context 'Get scrape run diagnostics'
+$diagnosticsPayload = $diagnostics.Content | ConvertFrom-Json
+if ($diagnosticsPayload.data.runId -ne $sourceRunId) {
+  throw "Diagnostics run id mismatch. expected=$sourceRunId got=$($diagnosticsPayload.data.runId)"
+}
+if ($null -eq $diagnosticsPayload.data.diagnostics.stats.jobLinksDiscovered) {
+  throw 'Scrape diagnostics missing stats.jobLinksDiscovered.'
 }
 
 Write-Host '13) Verifying notebook offer actions (status/meta/history/score)...'
