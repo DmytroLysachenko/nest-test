@@ -5,6 +5,7 @@ import * as sessions from './passport';
 import * as otps from './otps';
 import * as profileInputs from './profile-inputs';
 import * as documents from './documents';
+import * as documentEvents from './document-events';
 import * as careerProfiles from './career-profiles';
 import * as jobMatches from './job-matches';
 import * as jobSourceRuns from './job-source-runs';
@@ -20,6 +21,7 @@ export * from './passport';
 export * from './otps';
 export * from './profile-inputs';
 export * from './documents';
+export * from './document-events';
 export * from './career-profiles';
 export * from './job-matches';
 export * from './job-source-runs';
@@ -39,6 +41,7 @@ const schema = {
   ...otps,
   ...profileInputs,
   ...documents,
+  ...documentEvents,
   ...careerProfiles,
   ...jobMatches,
   ...jobSourceRuns,

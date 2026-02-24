@@ -1,5 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -12,6 +12,8 @@ import { ListDocumentsQuery } from './dto/list-documents.query';
 import { ExtractDocumentDto } from './dto/extract-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { SyncDocumentsDto } from './dto/sync-documents.dto';
+import { DocumentEventResponse } from './dto/document-event.response';
+import { DocumentUploadHealthResponse } from './dto/document-upload-health.response';
 
 @ApiTags('documents')
 @ApiBearerAuth()
@@ -22,14 +24,22 @@ export class DocumentsController {
 
   @Post('upload-url')
   @ApiOperation({ summary: 'Create signed upload URL for document' })
-  async createUploadUrl(@CurrentUser() user: JwtValidateUser, @Body() dto: CreateUploadUrlDto) {
-    return this.documentsService.createUploadUrl(user.userId, dto);
+  async createUploadUrl(
+    @CurrentUser() user: JwtValidateUser,
+    @Headers('x-request-id') requestId: string | undefined,
+    @Body() dto: CreateUploadUrlDto,
+  ) {
+    return this.documentsService.createUploadUrl(user.userId, dto, requestId);
   }
 
   @Post('confirm')
   @ApiOperation({ summary: 'Confirm document upload in storage' })
-  async confirmUpload(@CurrentUser() user: JwtValidateUser, @Body() dto: ConfirmDocumentDto) {
-    return this.documentsService.confirmUpload(user.userId, dto);
+  async confirmUpload(
+    @CurrentUser() user: JwtValidateUser,
+    @Headers('x-request-id') requestId: string | undefined,
+    @Body() dto: ConfirmDocumentDto,
+  ) {
+    return this.documentsService.confirmUpload(user.userId, dto, requestId);
   }
 
   @Get()
@@ -40,8 +50,26 @@ export class DocumentsController {
 
   @Post('extract')
   @ApiOperation({ summary: 'Extract text from uploaded PDF' })
-  async extractText(@CurrentUser() user: JwtValidateUser, @Body() dto: ExtractDocumentDto) {
-    return this.documentsService.extractText(user.userId, dto);
+  async extractText(
+    @CurrentUser() user: JwtValidateUser,
+    @Headers('x-request-id') requestId: string | undefined,
+    @Body() dto: ExtractDocumentDto,
+  ) {
+    return this.documentsService.extractText(user.userId, dto, requestId);
+  }
+
+  @Get(':id/events')
+  @ApiOperation({ summary: 'Get document upload/extraction diagnostics timeline' })
+  @ApiOkResponse({ type: [DocumentEventResponse] })
+  async listEvents(@CurrentUser() user: JwtValidateUser, @Param('id') documentId: string) {
+    return this.documentsService.listEvents(user.userId, documentId);
+  }
+
+  @Get('upload-health')
+  @ApiOperation({ summary: 'Check document upload capability and storage connectivity' })
+  @ApiOkResponse({ type: DocumentUploadHealthResponse })
+  async uploadHealth(@CurrentUser() user: JwtValidateUser, @Headers('x-request-id') requestId: string | undefined) {
+    return this.documentsService.checkUploadHealth(user.userId, requestId);
   }
 
   @Post('sync')

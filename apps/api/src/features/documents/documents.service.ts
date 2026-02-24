@@ -2,8 +2,9 @@ import { randomUUID } from 'crypto';
 
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { documentsTable } from '@repo/db';
+import { documentEventsTable, documentsTable } from '@repo/db';
 import { and, desc, eq } from 'drizzle-orm';
+import { Logger } from 'nestjs-pino';
 
 import { Drizzle } from '@/common/decorators';
 import { GcsService } from '@/common/modules/gcs/gcs.service';
@@ -20,9 +21,10 @@ export class DocumentsService {
   constructor(
     @Drizzle() private readonly db: NodePgDatabase,
     private readonly gcsService: GcsService,
+    private readonly logger: Logger,
   ) {}
 
-  async createUploadUrl(userId: string, dto: CreateUploadUrlDto) {
+  async createUploadUrl(userId: string, dto: CreateUploadUrlDto, traceId?: string) {
     const documentId = randomUUID();
     const safeName = this.sanitizeFilename(dto.originalName);
     const objectPath = `documents/${userId}/${documentId}/${safeName}`;
@@ -40,7 +42,42 @@ export class DocumentsService {
       })
       .returning();
 
-    const uploadUrl = await this.gcsService.createSignedUploadUrl(objectPath, dto.mimeType);
+    let uploadUrl: string;
+    try {
+      uploadUrl = await this.gcsService.createSignedUploadUrl(objectPath, dto.mimeType);
+    } catch (error) {
+      await this.recordEvent({
+        documentId,
+        userId,
+        stage: 'UPLOAD_URL_CREATED',
+        status: 'ERROR',
+        message: 'Failed to create signed upload URL',
+        errorCode: 'SIGNED_URL_ERROR',
+        traceId,
+        meta: {
+          mimeType: dto.mimeType,
+          originalName: dto.originalName,
+          reason: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+      throw new BadRequestException({
+        error: 'SIGNED_URL_ERROR',
+        message: 'Failed to create signed upload URL',
+      });
+    }
+
+    await this.recordEvent({
+      documentId,
+      userId,
+      stage: 'UPLOAD_URL_CREATED',
+      status: 'SUCCESS',
+      message: 'Signed upload URL created',
+      traceId,
+      meta: {
+        mimeType: dto.mimeType,
+        size: dto.size,
+      },
+    });
 
     return {
       document,
@@ -48,7 +85,7 @@ export class DocumentsService {
     };
   }
 
-  async confirmUpload(userId: string, dto: ConfirmDocumentDto) {
+  async confirmUpload(userId: string, dto: ConfirmDocumentDto, traceId?: string) {
     const document = await this.db
       .select()
       .from(documentsTable)
@@ -62,7 +99,20 @@ export class DocumentsService {
 
     const exists = await this.gcsService.fileExists(document.storagePath);
     if (!exists) {
-      throw new BadRequestException('File not found in storage');
+      await this.recordEvent({
+        documentId: document.id,
+        userId,
+        stage: 'SIGNED_UPLOAD_CONFIRMED',
+        status: 'ERROR',
+        message: 'File not found in storage during confirm',
+        errorCode: 'STORAGE_FILE_MISSING',
+        traceId,
+        meta: { storagePath: document.storagePath },
+      });
+      throw new BadRequestException({
+        error: 'STORAGE_FILE_MISSING',
+        message: 'File not found in storage',
+      });
     }
 
     const [updated] = await this.db
@@ -70,6 +120,16 @@ export class DocumentsService {
       .set({ uploadedAt: new Date() })
       .where(eq(documentsTable.id, document.id))
       .returning();
+
+    await this.recordEvent({
+      documentId: document.id,
+      userId,
+      stage: 'SIGNED_UPLOAD_CONFIRMED',
+      status: 'SUCCESS',
+      message: 'Signed upload confirmed in storage',
+      traceId,
+      meta: { storagePath: document.storagePath },
+    });
 
     return updated;
   }
@@ -121,7 +181,7 @@ export class DocumentsService {
     return updated;
   }
 
-  async extractText(userId: string, dto: ExtractDocumentDto) {
+  async extractText(userId: string, dto: ExtractDocumentDto, traceId?: string) {
     const document = await this.db
       .select()
       .from(documentsTable)
@@ -137,12 +197,35 @@ export class DocumentsService {
       throw new BadRequestException('Document is not uploaded yet');
     }
 
+    await this.recordEvent({
+      documentId: document.id,
+      userId,
+      stage: 'EXTRACTION_STARTED',
+      status: 'INFO',
+      message: 'Document extraction started',
+      traceId,
+      meta: { mimeType: document.mimeType },
+    });
+
     if (document.mimeType !== 'application/pdf') {
       await this.db
         .update(documentsTable)
         .set({ extractionStatus: 'FAILED', extractionError: 'Only PDF documents are supported' })
         .where(eq(documentsTable.id, document.id));
-      throw new BadRequestException('Only PDF documents are supported');
+      await this.recordEvent({
+        documentId: document.id,
+        userId,
+        stage: 'EXTRACTION_FAILED',
+        status: 'ERROR',
+        message: 'Only PDF documents are supported',
+        errorCode: 'UNSUPPORTED_MIME',
+        traceId,
+        meta: { mimeType: document.mimeType },
+      });
+      throw new BadRequestException({
+        error: 'UNSUPPORTED_MIME',
+        message: 'Only PDF documents are supported',
+      });
     }
 
     const fileBuffer = await this.gcsService.downloadFile(document.storagePath);
@@ -161,7 +244,20 @@ export class DocumentsService {
         .update(documentsTable)
         .set({ extractionStatus: 'FAILED', extractionError: 'Failed to parse PDF' })
         .where(eq(documentsTable.id, document.id));
-      throw new BadRequestException('Failed to parse PDF');
+      await this.recordEvent({
+        documentId: document.id,
+        userId,
+        stage: 'EXTRACTION_FAILED',
+        status: 'ERROR',
+        message: 'Failed to parse PDF',
+        errorCode: 'PDF_PARSE_FAILED',
+        traceId,
+        meta: { reason: error instanceof Error ? error.message : 'Unknown parse error' },
+      });
+      throw new BadRequestException({
+        error: 'PDF_PARSE_FAILED',
+        message: 'Failed to parse PDF',
+      });
     }
 
     const [updated] = await this.db
@@ -175,7 +271,63 @@ export class DocumentsService {
       .where(eq(documentsTable.id, document.id))
       .returning();
 
+    await this.recordEvent({
+      documentId: document.id,
+      userId,
+      stage: 'EXTRACTION_READY',
+      status: 'SUCCESS',
+      message: 'Document extraction completed',
+      traceId,
+      meta: { extractedChars: parsed.text.length },
+    });
+
     return updated;
+  }
+
+  async listEvents(userId: string, documentId: string) {
+    await this.getById(userId, documentId);
+    return this.db
+      .select()
+      .from(documentEventsTable)
+      .where(and(eq(documentEventsTable.userId, userId), eq(documentEventsTable.documentId, documentId)))
+      .orderBy(desc(documentEventsTable.createdAt));
+  }
+
+  async checkUploadHealth(_userId: string, traceId?: string) {
+    const bucket = await this.gcsService.checkBucketAccess();
+    let signedUrl: { ok: boolean; reason: string | null };
+    try {
+      await this.gcsService.createSignedUploadUrl(
+        `healthchecks/upload-${Date.now()}.pdf`,
+        'application/pdf',
+        5,
+      );
+      signedUrl = { ok: true, reason: null };
+    } catch (error) {
+      signedUrl = {
+        ok: false,
+        reason: error instanceof Error ? error.message : 'Unknown signed URL error',
+      };
+    }
+
+    const ok = bucket.ok && signedUrl.ok;
+    if (!ok) {
+      this.logger.warn(
+        {
+          traceId,
+          bucket,
+          signedUrl,
+        },
+        'Document upload health check failed',
+      );
+    }
+
+    return {
+      traceId: traceId ?? randomUUID(),
+      bucket,
+      signedUrl,
+      ok,
+    };
   }
 
   async syncWithStorage(userId: string, dto: SyncDocumentsDto) {
@@ -400,5 +552,39 @@ export class DocumentsService {
       return null;
     }
     return { documentId, filename };
+  }
+
+  private async recordEvent(input: {
+    documentId: string;
+    userId: string;
+    stage: string;
+    status: 'INFO' | 'SUCCESS' | 'ERROR';
+    message: string;
+    errorCode?: string;
+    traceId?: string;
+    meta?: Record<string, unknown>;
+  }) {
+    try {
+      await this.db.insert(documentEventsTable).values({
+        documentId: input.documentId,
+        userId: input.userId,
+        stage: input.stage,
+        status: input.status,
+        message: input.message,
+        errorCode: input.errorCode ?? null,
+        traceId: input.traceId ?? null,
+        meta: input.meta ?? null,
+      });
+    } catch (error) {
+      this.logger.warn(
+        {
+          documentId: input.documentId,
+          stage: input.stage,
+          status: input.status,
+          reason: error instanceof Error ? error.message : 'Unknown event write error',
+        },
+        'Failed to persist document event',
+      );
+    }
   }
 }

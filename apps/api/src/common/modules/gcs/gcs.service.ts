@@ -56,6 +56,22 @@ export class GcsService {
     await file.delete({ ignoreNotFound: true });
   }
 
+  async checkBucketAccess() {
+    const bucket = this.storage.bucket(this.bucketName);
+    try {
+      const [exists] = await bucket.exists();
+      if (!exists) {
+        return { ok: false, reason: 'Bucket does not exist or is not accessible' };
+      }
+      return { ok: true, reason: null };
+    } catch (error) {
+      return {
+        ok: false,
+        reason: error instanceof Error ? error.message : 'Unknown bucket access error',
+      };
+    }
+  }
+
   private getClientConfig(): ConstructorParameters<typeof Storage>[0] | undefined {
     const clientEmail = this.config.get('GCP_CLIENT_EMAIL');
     const privateKey = this.config.get('GCP_PRIVATE_KEY');
