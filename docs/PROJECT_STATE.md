@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-02-23
+Last updated: 2026-02-24 (late)
 
 ## Current Architecture
 
@@ -35,6 +35,12 @@ Last updated: 2026-02-23
 - Career profile now has denormalized search projection columns.
 - API and worker enforce request body size limits (env-driven).
 - API validates scrape listing URL allowlist per source before enqueue.
+- Notebook supports ranking modes (`strict` / `approx` / `explore`) with explanation tags per offer.
+- Career profile exposes deterministic quality diagnostics endpoint.
+- Scrape runs expose diagnostics endpoint (relaxation trail + source stats).
+- Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
+- Documents expose upload health and per-document diagnostics timeline endpoints.
+- Profile management page now includes direct document upload/confirm/extract flow with diagnostics visibility.
 
 ## Data Model Highlights
 

@@ -60,6 +60,9 @@ Day-to-day engineering runbook for local development and verification.
 8. scrape enqueue + completion
 9. notebook status/meta/history/score actions
 10. worker + callback flow with retry-safe completion path
+11. notebook ranking mode contract (`strict` + `approx`)
+12. scrape diagnostics endpoint for completed run
+13. document upload-health endpoint
 
 ## Recovery Tips
 
@@ -67,6 +70,10 @@ Day-to-day engineering runbook for local development and verification.
    - `pnpm --filter worker callbacks:replay`
 2. If smoke fails from startup race, re-run `pnpm smoke:e2e` after services are healthy.
 3. If local tests hit throttling, reduce request rate or wait for throttle window reset.
+4. If document uploads fail in FE:
+   - check `GET /api/documents/upload-health`
+   - inspect `GET /api/documents/:id/events` timeline for failure stage and error code
+   - correlate with API `traceId` in `logs/error.log`
 
 ## Change Workflow
 

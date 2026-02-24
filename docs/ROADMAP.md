@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-02-23
+Last updated: 2026-02-24
 
 ## Now (Execution Priority)
 
@@ -12,13 +12,11 @@ Last updated: 2026-02-23
 
 ## Next
 
-1. Add profile quality scoring endpoint (explain missing evidence/signals).
-2. Add run-level scrape diagnostics endpoint (relaxation trail, blocked pages, source stats).
-3. Add notebook ranking modes:
-   - strict fit
-   - approximate fit
-   - exploration
-4. Add cached query/read models for FE cards and dashboard widgets.
+1. Add cached query/read models for FE cards and dashboard widgets.
+2. Improve deterministic ranking calibration (mode thresholds + penalty tuning).
+3. Add score-explanation audit export for support/debug workflows.
+4. Expand diagnostics aggregation for long-running scrape history.
+5. Extend document diagnostics with percentile timing metrics per stage (upload/confirm/extract).
 
 ## Later
 

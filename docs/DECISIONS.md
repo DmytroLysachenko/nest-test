@@ -82,3 +82,48 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Catch cross-page integration regressions early.
   - Keep internal tester and profile management flows continuously validated.
+
+## 2026-02-24: Notebook Ranking Modes
+
+- Decision:
+  - Add mode-driven ranking on `GET /job-offers`:
+    - `strict` (default): only scored offers without hard-constraint violations.
+    - `approx`: broader set with deterministic violation penalties.
+    - `explore`: discovery-oriented ordering.
+- Why:
+  - Improve trust by default while still supporting discovery workflows.
+  - Keep ranking behavior explicit and testable.
+
+## 2026-02-24: Deterministic Profile Quality Read Model
+
+- Decision:
+  - Add `GET /career-profiles/quality` returning deterministic completeness signals and recommendations.
+- Why:
+  - Make profile readiness measurable before matching/scraping.
+  - Reduce black-box behavior in profile generation flow.
+
+## 2026-02-24: Scrape Run Diagnostics Endpoint
+
+- Decision:
+  - Extend worker callback payload with diagnostics and expose run-level diagnostics at
+    `GET /job-sources/runs/:id/diagnostics`.
+- Why:
+  - Improve scrape observability (filter relaxation, blocked pages, link discovery stats).
+  - Provide support/debug transparency without requiring raw artifact inspection.
+
+## 2026-02-24: Persistent Document Stage Diagnostics
+
+- Decision:
+  - Persist document upload/extraction timeline events in DB (`document_events`).
+  - Expose diagnostics at `GET /documents/:id/events`.
+- Why:
+  - File logs alone are insufficient for per-user troubleshooting and FE visibility.
+  - Durable event trails improve supportability across restarts and environments.
+
+## 2026-02-24: Upload Capability Health Endpoint
+
+- Decision:
+  - Add `GET /documents/upload-health` to check bucket access and signed URL generation capability.
+- Why:
+  - Fast root-cause detection for upload failures (credentials/CORS/signing/storage issues).
+  - Enables FE to surface actionable environment diagnostics to users/developers.
