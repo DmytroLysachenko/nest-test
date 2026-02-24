@@ -6,6 +6,7 @@ export type ListJobOffersParams = {
   limit?: number;
   offset?: number;
   status?: JobOfferStatus;
+  mode?: 'strict' | 'approx' | 'explore';
   minScore?: number;
   search?: string;
   tag?: string;
@@ -22,6 +23,9 @@ const toQuery = (params: ListJobOffersParams) => {
   }
   if (params.status) {
     query.set('status', params.status);
+  }
+  if (params.mode) {
+    query.set('mode', params.mode);
   }
   if (params.minScore !== undefined) {
     query.set('minScore', String(params.minScore));

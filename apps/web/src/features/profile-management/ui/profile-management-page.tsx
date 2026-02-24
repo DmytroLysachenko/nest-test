@@ -8,6 +8,8 @@ import { useProfileManagementData } from '@/features/profile-management/model/ho
 import { CareerProfileVersionsCard } from '@/features/profile-management/ui/components/career-profile-versions-card';
 import { DocumentsReadinessCard } from '@/features/profile-management/ui/components/documents-readiness-card';
 import { ProfileInputEditorCard } from '@/features/profile-management/ui/components/profile-input-editor-card';
+import { ProfileQualityCard } from '@/features/profile-management/ui/components/profile-quality-card';
+import { DocumentsPanel } from '@/features/documents';
 import { useAppUiStore } from '@/shared/store/app-ui-store';
 
 export const ProfileManagementPage = () => {
@@ -22,6 +24,7 @@ export const ProfileManagementPage = () => {
     latestProfileInputQuery,
     documentsQuery,
     latestCareerProfileQuery,
+    careerProfileQualityQuery,
     selectedProfileDocumentsQuery,
     careerProfileVersionsQuery,
     saveProfileInputMutation,
@@ -70,6 +73,8 @@ export const ProfileManagementPage = () => {
         <DocumentsReadinessCard documents={documents} />
       </div>
 
+      <DocumentsPanel token={auth.token} />
+
       <CareerProfileVersionsCard
         latestProfile={latestCareerProfileQuery.data ?? null}
         versions={careerProfileVersionsQuery.data}
@@ -82,6 +87,8 @@ export const ProfileManagementPage = () => {
         generateErrorMessage={generateError}
         restoreErrorMessage={restoreError}
       />
+
+      <ProfileQualityCard quality={careerProfileQualityQuery.data} />
     </main>
   );
 };

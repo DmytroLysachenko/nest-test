@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   generateCareerProfile,
+  getCareerProfileQuality,
   getLatestCareerProfile,
   listCareerProfileDocuments,
   listCareerProfileVersions,
@@ -39,6 +40,12 @@ export const useProfileManagementData = ({ token }: UseProfileManagementDataArgs
     enabled: hasToken,
   });
 
+  const careerProfileQualityQuery = useQuery({
+    queryKey: queryKeys.careerProfiles.quality(token),
+    queryFn: () => getCareerProfileQuality(token as string),
+    enabled: hasToken,
+  });
+
   const careerProfileVersionsQuery = useQuery({
     queryKey: queryKeys.careerProfiles.versions(token, 25, 0),
     queryFn: () => listCareerProfileVersions(token as string, { limit: 25, offset: 0 }),
@@ -63,6 +70,7 @@ export const useProfileManagementData = ({ token }: UseProfileManagementDataArgs
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.careerProfiles.latest(token) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.careerProfiles.quality(token) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.careerProfiles.versions(token, 25, 0) }),
       ]);
     },
@@ -73,6 +81,7 @@ export const useProfileManagementData = ({ token }: UseProfileManagementDataArgs
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.careerProfiles.latest(token) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.careerProfiles.quality(token) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.careerProfiles.versions(token, 25, 0) }),
       ]);
     },
@@ -82,6 +91,7 @@ export const useProfileManagementData = ({ token }: UseProfileManagementDataArgs
     latestProfileInputQuery,
     documentsQuery,
     latestCareerProfileQuery,
+    careerProfileQualityQuery,
     careerProfileVersionsQuery,
     selectedProfileDocumentsQuery,
     saveProfileInputMutation,

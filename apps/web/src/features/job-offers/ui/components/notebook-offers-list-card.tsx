@@ -44,9 +44,17 @@ export const NotebookOffersListCard = ({
             <div className="mt-2 flex flex-wrap gap-2 text-xs">
               <span className="rounded bg-slate-100 px-2 py-1">status: {offer.status}</span>
               <span className="rounded bg-slate-100 px-2 py-1">score: {offer.matchScore ?? 'n/a'}</span>
+              {offer.rankingScore !== undefined ? (
+                <span className="rounded bg-slate-100 px-2 py-1">rank: {offer.rankingScore}</span>
+              ) : null}
               {offer.sourceRunId ? (
                 <span className="rounded bg-slate-100 px-2 py-1">run: {offer.sourceRunId.slice(0, 8)}</span>
               ) : null}
+              {(offer.explanationTags ?? []).slice(0, 3).map((tag) => (
+                <span key={tag} className="rounded bg-slate-100 px-2 py-1">
+                  {tag}
+                </span>
+              ))}
             </div>
           </button>
         ))

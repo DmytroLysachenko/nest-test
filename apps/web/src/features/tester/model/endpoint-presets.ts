@@ -137,6 +137,14 @@ export const testerEndpointPresets: TesterEndpointPreset[] = [
     requiresAuth: true,
   },
   {
+    id: 'documents-upload-health',
+    label: 'Documents: upload health',
+    service: 'api',
+    method: 'GET',
+    path: '/documents/upload-health',
+    requiresAuth: true,
+  },
+  {
     id: 'documents-create-upload-url',
     label: 'Documents: create upload URL',
     service: 'api',
@@ -193,6 +201,14 @@ export const testerEndpointPresets: TesterEndpointPreset[] = [
     requiresAuth: true,
   },
   {
+    id: 'document-events',
+    label: 'Documents: diagnostics timeline',
+    service: 'api',
+    method: 'GET',
+    path: '/documents/<document-id>/events',
+    requiresAuth: true,
+  },
+  {
     id: 'document-update',
     label: 'Documents: update metadata',
     service: 'api',
@@ -237,6 +253,14 @@ export const testerEndpointPresets: TesterEndpointPreset[] = [
     service: 'api',
     method: 'GET',
     path: '/career-profiles',
+    requiresAuth: true,
+  },
+  {
+    id: 'career-profile-quality',
+    label: 'Career Profiles: quality diagnostics',
+    service: 'api',
+    method: 'GET',
+    path: '/career-profiles/quality',
     requiresAuth: true,
   },
   {
@@ -296,7 +320,7 @@ export const testerEndpointPresets: TesterEndpointPreset[] = [
     label: 'Job Offers: list',
     service: 'api',
     method: 'GET',
-    path: '/job-offers?limit=20&offset=0',
+    path: '/job-offers?mode=strict&limit=20&offset=0',
     requiresAuth: true,
   },
   {
@@ -381,6 +405,14 @@ export const testerEndpointPresets: TesterEndpointPreset[] = [
     service: 'api',
     method: 'GET',
     path: '/job-sources/runs/<run-id>',
+    requiresAuth: true,
+  },
+  {
+    id: 'job-sources-run-diagnostics',
+    label: 'Job Sources: get run diagnostics',
+    service: 'api',
+    method: 'GET',
+    path: '/job-sources/runs/<run-id>/diagnostics',
     requiresAuth: true,
   },
   {

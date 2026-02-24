@@ -1,6 +1,6 @@
 import { apiRequest } from '@/shared/lib/http/api-client';
 
-import type { EnqueueScrapeResponseDto, JobSourceRunsListDto } from '@/shared/types/api';
+import type { EnqueueScrapeResponseDto, JobSourceRunDiagnosticsDto, JobSourceRunsListDto } from '@/shared/types/api';
 
 type EnqueueScrapePayload = {
   listingUrl?: string;
@@ -23,3 +23,9 @@ export const listJobSourceRuns = (token: string, status?: 'PENDING' | 'RUNNING' 
     token,
   });
 };
+
+export const getJobSourceRunDiagnostics = (token: string, runId: string) =>
+  apiRequest<JobSourceRunDiagnosticsDto>(`/job-sources/runs/${runId}/diagnostics`, {
+    method: 'GET',
+    token,
+  });

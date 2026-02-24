@@ -24,11 +24,13 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-6 md:py-8">
       <NotebookFiltersCard
         status={notebook.filters.status}
+        mode={notebook.filters.mode}
         hasScore={notebook.filters.hasScore}
         tag={notebook.filters.tag}
         search={notebook.filters.search}
         total={notebook.listQuery.data?.total ?? 0}
         onStatusChange={(value) => notebook.setNotebookFilter('status', value)}
+        onModeChange={(value) => notebook.setNotebookFilter('mode', value)}
         onHasScoreChange={(value) => notebook.setNotebookFilter('hasScore', value)}
         onTagChange={(value) => notebook.setNotebookFilter('tag', value)}
         onSearchChange={(value) => notebook.setNotebookFilter('search', value)}

@@ -73,6 +73,7 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
       body: JSON.stringify({
         success: true,
         data: {
+          mode: 'strict',
           items: [
             {
               id: 'run-1',
@@ -99,6 +100,8 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
               sourceRunId: 'run-1',
               status: 'NEW',
               matchScore: 62,
+              rankingScore: 62,
+              explanationTags: ['hard_constraints_ok', 'seniority_match', 'skill_partial'],
               matchMeta: { summary: 'Good backend match' },
               notes: null,
               tags: ['backend'],
@@ -184,6 +187,7 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
 
   await expect(page.getByText('Job Notebook')).toBeVisible();
   await expect(page.getByText('Backend Developer')).toBeVisible();
+  await expect(page.getByLabel('Mode')).toHaveValue('strict');
 
   await page
     .getByRole('button', { name: /Backend Developer/ })

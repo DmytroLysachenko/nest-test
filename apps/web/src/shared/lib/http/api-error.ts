@@ -4,6 +4,7 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly details?: string[];
+  readonly traceId?: string;
 
   constructor(status: number, payload?: ApiErrorPayload) {
     super(payload?.error.message ?? 'Request failed');
@@ -11,5 +12,6 @@ export class ApiError extends Error {
     this.status = status;
     this.code = payload?.error.code ?? 'UNKNOWN_ERROR';
     this.details = payload?.error.details;
+    this.traceId = payload?.meta?.traceId;
   }
 }

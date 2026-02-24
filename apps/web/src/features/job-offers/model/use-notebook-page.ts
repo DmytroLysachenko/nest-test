@@ -33,11 +33,12 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
       limit: pagination.limit,
       offset: pagination.offset,
       status: filters.status === 'ALL' ? undefined : filters.status,
+      mode: filters.mode,
       search: filters.search || undefined,
       tag: filters.tag || undefined,
       hasScore: filters.hasScore === 'all' ? undefined : filters.hasScore === 'yes',
     }),
-    [filters.hasScore, filters.search, filters.status, filters.tag, pagination.limit, pagination.offset],
+    [filters.hasScore, filters.mode, filters.search, filters.status, filters.tag, pagination.limit, pagination.offset],
   );
 
   const listQuery = useQuery({

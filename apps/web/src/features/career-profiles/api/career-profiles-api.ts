@@ -3,6 +3,7 @@ import { apiRequest } from '@/shared/lib/http/api-client';
 import type {
   CareerProfileDto,
   CareerProfileListDto,
+  CareerProfileQualityDto,
   CareerProfileSearchViewListDto,
   DocumentDto,
 } from '@/shared/types/api';
@@ -23,6 +24,12 @@ export const getLatestCareerProfile = (token: string) =>
     method: 'GET',
     token,
   }).then((data) => data ?? null);
+
+export const getCareerProfileQuality = (token: string) =>
+  apiRequest<CareerProfileQualityDto>('/career-profiles/quality', {
+    method: 'GET',
+    token,
+  });
 
 export const listCareerProfileVersions = (
   token: string,

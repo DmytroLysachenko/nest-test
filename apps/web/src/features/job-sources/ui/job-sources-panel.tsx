@@ -94,6 +94,15 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               <p className="font-medium text-slate-900">Status: {run.status}</p>
               <p className="text-slate-600">Scraped: {run.scrapedCount ?? 0}</p>
               <p className="text-slate-600">Found: {run.totalFound ?? 0}</p>
+              <div className="mt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => jobSourcesPanel.setSelectedRunId(run.id)}
+                >
+                  Show diagnostics
+                </Button>
+              </div>
               {run.error ? <p className="text-rose-600">{run.error}</p> : null}
             </article>
           ))
@@ -101,6 +110,19 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           <p className="text-sm text-slate-500">No runs yet.</p>
         )}
       </div>
+
+      {jobSourcesPanel.diagnosticsQuery.data ? (
+        <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">Run diagnostics</p>
+          <p>Run id: {jobSourcesPanel.diagnosticsQuery.data.runId}</p>
+          <p>Status: {jobSourcesPanel.diagnosticsQuery.data.status}</p>
+          <p>Pages visited: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.pagesVisited}</p>
+          <p>Job links discovered: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.jobLinksDiscovered}</p>
+          <p>Blocked pages: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.blockedPages}</p>
+          <p>Ignored recommended links: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.ignoredRecommendedLinks}</p>
+          <p>Zero-offers step observed: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.hadZeroOffersStep ? 'yes' : 'no'}</p>
+        </div>
+      ) : null}
     </Card>
   );
 };

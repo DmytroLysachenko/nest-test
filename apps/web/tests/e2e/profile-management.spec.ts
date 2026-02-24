@@ -85,6 +85,22 @@ test('profile management supports save, generate, and restore actions', async ({
     });
   });
 
+  await page.route('**/api/documents/upload-health', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          traceId: 'trace-1',
+          ok: true,
+          bucket: { ok: true, reason: null },
+          signedUrl: { ok: true, reason: null },
+        },
+      }),
+    });
+  });
+
   await page.route('**/api/career-profiles/latest', async (route) => {
     await route.fulfill({
       status: 200,
@@ -97,6 +113,25 @@ test('profile management supports save, generate, and restore actions', async ({
           status: 'READY',
           isActive: true,
           createdAt: '2026-02-20T00:00:00.000Z',
+        },
+      }),
+    });
+  });
+
+  await page.route('**/api/career-profiles/quality', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          score: 84,
+          signals: [
+            { key: 'target_roles', status: 'ok', score: 1, message: 'Sufficient evidence present' },
+            { key: 'technologies_coverage', status: 'weak', score: 0.7, message: 'Signal is present but under-detailed' },
+          ],
+          missing: [],
+          recommendations: ['Add additional technologies (including transferable ones) with lower confidence where applicable.'],
         },
       }),
     });

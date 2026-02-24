@@ -10,6 +10,7 @@ type AppUiState = {
     selectedOfferId: string | null;
     filters: {
       status: 'ALL' | 'NEW' | 'SEEN' | 'SAVED' | 'APPLIED' | 'DISMISSED';
+      mode: 'strict' | 'approx' | 'explore';
       search: string;
       tag: string;
       hasScore: 'all' | 'yes' | 'no';
@@ -34,6 +35,7 @@ type AppUiActions = {
 
 const initialNotebookFilters: AppUiState['notebook']['filters'] = {
   status: 'ALL',
+  mode: 'strict',
   search: '',
   tag: '',
   hasScore: 'all',

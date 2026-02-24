@@ -10,10 +10,12 @@ const STATUSES: JobOfferStatus[] = ['NEW', 'SEEN', 'SAVED', 'APPLIED', 'DISMISSE
 
 type NotebookFiltersCardProps = {
   status: 'ALL' | JobOfferStatus;
+  mode: 'strict' | 'approx' | 'explore';
   hasScore: 'all' | 'yes' | 'no';
   tag: string;
   search: string;
   onStatusChange: (value: 'ALL' | JobOfferStatus) => void;
+  onModeChange: (value: 'strict' | 'approx' | 'explore') => void;
   onHasScoreChange: (value: 'all' | 'yes' | 'no') => void;
   onTagChange: (value: string) => void;
   onSearchChange: (value: string) => void;
@@ -22,10 +24,12 @@ type NotebookFiltersCardProps = {
 
 export const NotebookFiltersCard = ({
   status,
+  mode,
   hasScore,
   tag,
   search,
   onStatusChange,
+  onModeChange,
   onHasScoreChange,
   onTagChange,
   onSearchChange,
@@ -35,7 +39,7 @@ export const NotebookFiltersCard = ({
     title="Job Notebook"
     description="Review scraped offers, update workflow status, manage notes/tags, and inspect scoring output."
   >
-    <div className="grid gap-3 md:grid-cols-5">
+    <div className="grid gap-3 md:grid-cols-6">
       <div className="space-y-1">
         <Label htmlFor="notebook-status">Status</Label>
         <select
@@ -50,6 +54,20 @@ export const NotebookFiltersCard = ({
               {statusOption}
             </option>
           ))}
+        </select>
+      </div>
+
+      <div className="space-y-1">
+        <Label htmlFor="notebook-mode">Mode</Label>
+        <select
+          id="notebook-mode"
+          value={mode}
+          onChange={(event) => onModeChange(event.target.value as 'strict' | 'approx' | 'explore')}
+          className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+        >
+          <option value="strict">strict</option>
+          <option value="approx">approx</option>
+          <option value="explore">explore</option>
         </select>
       </div>
 

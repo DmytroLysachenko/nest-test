@@ -1,10 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 
-import { enqueueScrape, listJobSourceRuns } from '@/features/job-sources/api/job-sources-api';
+import { enqueueScrape, getJobSourceRunDiagnostics, listJobSourceRuns } from '@/features/job-sources/api/job-sources-api';
 import {
   enqueueScrapeSchema,
   type EnqueueScrapeFormValues,
@@ -16,6 +17,7 @@ const DEFAULT_LISTING_URL = 'https://it.pracuj.pl/praca?wm=home-office&its=front
 
 export const useJobSourcesPanel = (token: string) => {
   const queryClient = useQueryClient();
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
   const form = useForm<EnqueueScrapeFormValues>({
     resolver: zodResolver(enqueueScrapeSchema),
@@ -30,6 +32,12 @@ export const useJobSourcesPanel = (token: string) => {
     queryKey: queryKeys.jobSources.runs(token),
     queryFn: () => listJobSourceRuns(token),
     refetchInterval: 15000,
+  });
+
+  const diagnosticsQuery = useQuery({
+    queryKey: ['job-sources', 'run-diagnostics', token, selectedRunId],
+    queryFn: () => getJobSourceRunDiagnostics(token, selectedRunId as string),
+    enabled: Boolean(selectedRunId),
   });
 
   const enqueueMutation = useMutation({
@@ -64,6 +72,9 @@ export const useJobSourcesPanel = (token: string) => {
     submit,
     mode,
     runsQuery,
+    diagnosticsQuery,
+    selectedRunId,
+    setSelectedRunId,
     enqueueResult: enqueueMutation.data,
     isSubmitting: enqueueMutation.isPending,
   };

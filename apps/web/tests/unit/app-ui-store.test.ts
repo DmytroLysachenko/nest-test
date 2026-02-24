@@ -8,6 +8,7 @@ describe('useAppUiStore', () => {
         selectedOfferId: null,
         filters: {
           status: 'ALL',
+          mode: 'strict',
           search: '',
           tag: '',
           hasScore: 'all',
@@ -45,5 +46,6 @@ describe('useAppUiStore', () => {
     expect(filters.tag).toBe('');
     expect(filters.search).toBe('');
     expect(filters.hasScore).toBe('all');
+    expect(filters.mode).toBe('strict');
   });
 });

@@ -10,6 +10,7 @@ export const queryKeys = {
   },
   careerProfiles: {
     latest: (token: string | null) => ['career-profiles', 'latest', token] as const,
+    quality: (token: string | null) => ['career-profiles', 'quality', token] as const,
     versions: (token: string | null, limit: number, offset: number) =>
       ['career-profiles', 'versions', token, limit, offset] as const,
     searchView: (
@@ -39,6 +40,7 @@ export const queryKeys = {
         limit?: number;
         offset?: number;
         status?: string;
+        mode?: 'strict' | 'approx' | 'explore';
         minScore?: number;
         search?: string;
         tag?: string;

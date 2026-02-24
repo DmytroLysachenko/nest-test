@@ -65,6 +65,32 @@ export type DocumentDto = {
   createdAt: string;
 };
 
+export type DocumentEventDto = {
+  id: string;
+  documentId: string;
+  userId: string;
+  stage: string;
+  status: 'INFO' | 'SUCCESS' | 'ERROR';
+  message: string;
+  errorCode: string | null;
+  traceId: string | null;
+  meta: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type DocumentUploadHealthDto = {
+  traceId: string;
+  ok: boolean;
+  bucket: {
+    ok: boolean;
+    reason: string | null;
+  };
+  signedUrl: {
+    ok: boolean;
+    reason: string | null;
+  };
+};
+
 export type CareerProfileDto = {
   id: string;
   userId: string;
@@ -107,6 +133,20 @@ export type CareerProfileSearchViewItemDto = {
 export type CareerProfileSearchViewListDto = {
   items: CareerProfileSearchViewItemDto[];
   total: number;
+};
+
+export type CareerProfileQualitySignalDto = {
+  key: string;
+  status: 'ok' | 'weak' | 'missing';
+  score: number;
+  message: string;
+};
+
+export type CareerProfileQualityDto = {
+  score: number;
+  signals: CareerProfileQualitySignalDto[];
+  missing: string[];
+  recommendations: string[];
 };
 
 export type JobScoreResultDto = {
@@ -179,6 +219,29 @@ export type JobSourceRunDto = {
   createdAt: string;
 };
 
+export type JobSourceRunDiagnosticsDto = {
+  runId: string;
+  source: string;
+  status: string;
+  listingUrl: string;
+  finalizedAt: string | null;
+  diagnostics: {
+    relaxationTrail: string[];
+    blockedUrls: string[];
+    hadZeroOffersStep: boolean;
+    stats: {
+      totalFound: number | null;
+      scrapedCount: number | null;
+      pagesVisited: number;
+      jobLinksDiscovered: number;
+      blockedPages: number;
+      skippedFreshUrls: number;
+      dedupedInRunCount: number;
+      ignoredRecommendedLinks: number;
+    };
+  };
+};
+
 export type JobSourceRunsListDto = {
   items: JobSourceRunDto[];
   total: number;
@@ -207,6 +270,8 @@ export type JobOfferListItemDto = {
   sourceRunId: string | null;
   status: JobOfferStatus;
   matchScore: number | null;
+  rankingScore?: number | null;
+  explanationTags?: string[];
   matchMeta: Record<string, unknown> | null;
   notes: string | null;
   tags: string[] | null;
@@ -228,6 +293,7 @@ export type JobOfferListItemDto = {
 export type JobOffersListDto = {
   items: JobOfferListItemDto[];
   total: number;
+  mode: 'strict' | 'approx' | 'explore';
 };
 
 export type JobOfferHistoryDto = {
