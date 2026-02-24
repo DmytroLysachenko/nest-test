@@ -24,6 +24,17 @@ type CallbackPayload = {
   jobs?: NormalizedJob[];
   outputPath?: string;
   error?: string;
+  diagnostics?: {
+    relaxationTrail?: string[];
+    blockedUrls?: string[];
+    pagesVisited?: number;
+    jobLinksDiscovered?: number;
+    ignoredRecommendedLinks?: number;
+    dedupedInRunCount?: number;
+    skippedFreshUrls?: number;
+    blockedPages?: number;
+    hadZeroOffersStep?: boolean;
+  };
 };
 
 export type ScrapeFailureType = 'validation' | 'network' | 'parse' | 'callback' | 'timeout' | 'unknown';
@@ -247,6 +258,7 @@ export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
   jobs: input.jobs,
   outputPath: input.outputPath,
   error: input.error,
+  diagnostics: input.diagnostics,
 });
 
 export const runScrapeJob = async (
@@ -320,6 +332,8 @@ export const runScrapeJob = async (
     let attemptListingUrl = listingUrl;
     let activeFilters: ScrapeFilters | null = payload.filters ? { ...payload.filters } : null;
     let relaxReason: string | null = null;
+    const relaxationTrail: string[] = [];
+    let hadZeroOffersStep = false;
 
     for (let attempt = 1; attempt <= maxRelaxationAttempts; attempt += 1) {
       if (attempt > 1 && relaxReason) {
@@ -400,6 +414,7 @@ export const runScrapeJob = async (
       }
 
       const zeroOrNoPrimary = crawlResult.hasZeroOffers || crawlResult.jobLinks.length === 0;
+      hadZeroOffersStep = hadZeroOffersStep || zeroOrNoPrimary;
       if (!zeroOrNoPrimary) {
         break;
       }
@@ -411,6 +426,7 @@ export const runScrapeJob = async (
 
       activeFilters = relaxed.next;
       relaxReason = relaxed.reason;
+      relaxationTrail.push(relaxed.reason);
       attemptListingUrl = pipeline.buildListingUrl(activeFilters);
     }
 
@@ -459,6 +475,17 @@ export const runScrapeJob = async (
           jobLinkCount: aggregatedJobLinks.size,
           jobs: sanitizedJobs,
           outputPath,
+          diagnostics: {
+            relaxationTrail,
+            blockedUrls: aggregatedBlockedUrls,
+            pagesVisited: aggregatedPages.length,
+            jobLinksDiscovered: aggregatedJobLinks.size,
+            ignoredRecommendedLinks: aggregatedRecommendedLinks.size,
+            dedupedInRunCount,
+            skippedFreshUrls: Math.max(0, aggregatedJobLinks.size - aggregatedPages.length - aggregatedBlockedUrls.length),
+            blockedPages: aggregatedBlockedUrls.length,
+            hadZeroOffersStep,
+          },
         }),
         {
           retryAttempts: options.callbackRetryAttempts ?? 3,
@@ -516,6 +543,17 @@ export const runScrapeJob = async (
           listingUrl,
           status: 'FAILED',
           error: `[${failureType}] ${errorMessage}`,
+          diagnostics: {
+            relaxationTrail: [],
+            blockedUrls: [],
+            pagesVisited: 0,
+            jobLinksDiscovered: 0,
+            ignoredRecommendedLinks: 0,
+            dedupedInRunCount: 0,
+            skippedFreshUrls: 0,
+            blockedPages: 0,
+            hadZeroOffersStep: false,
+          },
         }),
         {
           retryAttempts: options.callbackRetryAttempts ?? 3,

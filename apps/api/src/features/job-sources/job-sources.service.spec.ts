@@ -902,4 +902,71 @@ describe('JobSourcesService', () => {
     });
     expect(db.update).not.toHaveBeenCalled();
   });
+
+  it('returns run diagnostics from latest callback event payload', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) =>
+                  Promise.resolve(
+                    cb([
+                      {
+                        id: 'run-10',
+                        source: 'PRACUJ_PL',
+                        userId: 'user-10',
+                        status: 'COMPLETED',
+                        listingUrl: 'https://it.pracuj.pl/praca?its=frontend',
+                        totalFound: 12,
+                        scrapedCount: 4,
+                        completedAt: new Date('2026-02-21T00:00:00.000Z'),
+                      },
+                    ]),
+                  ),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  then: (cb: (rows: unknown[]) => unknown) =>
+                    Promise.resolve(
+                      cb([
+                        {
+                          payload: JSON.stringify({
+                            diagnostics: {
+                              relaxationTrail: ['drop.keyword'],
+                              blockedUrls: ['https://it.pracuj.pl/x'],
+                              hadZeroOffersStep: true,
+                              pagesVisited: 3,
+                              jobLinksDiscovered: 12,
+                              blockedPages: 1,
+                            },
+                          }),
+                        },
+                      ]),
+                    ),
+                }),
+              }),
+            }),
+          }),
+        }),
+      update: jest.fn(),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const diagnostics = await service.getRunDiagnostics('user-10', 'run-10');
+
+    expect(diagnostics.runId).toBe('run-10');
+    expect(diagnostics.diagnostics.relaxationTrail).toEqual(['drop.keyword']);
+    expect(diagnostics.diagnostics.hadZeroOffersStep).toBe(true);
+    expect(diagnostics.diagnostics.stats.jobLinksDiscovered).toBe(12);
+  });
 });

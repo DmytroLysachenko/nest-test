@@ -11,6 +11,7 @@ import { CreateCareerProfileDto } from './dto/create-career-profile.dto';
 import { ListCareerProfilesQuery } from './dto/list-career-profiles.query';
 import { ListCareerProfileSearchViewQuery } from './dto/list-career-profile-search-view.query';
 import { CareerProfileSearchViewListResponse } from './dto/career-profile-search-view.response';
+import { CareerProfileQualityResponse } from './dto/career-profile-quality.response';
 
 @ApiTags('career-profiles')
 @ApiBearerAuth()
@@ -45,6 +46,13 @@ export class CareerProfilesController {
   @ApiOkResponse({ type: CareerProfileSearchViewListResponse })
   async listSearchView(@CurrentUser() user: JwtValidateUser, @Query() query: ListCareerProfileSearchViewQuery) {
     return this.careerProfilesService.listSearchView(user.userId, query);
+  }
+
+  @Get('quality')
+  @ApiOperation({ summary: 'Get quality diagnostics for latest active career profile' })
+  @ApiOkResponse({ type: CareerProfileQualityResponse })
+  async getQuality(@CurrentUser() user: JwtValidateUser) {
+    return this.careerProfilesService.getQuality(user.userId);
   }
 
   @Get(':id')

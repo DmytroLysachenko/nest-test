@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -10,6 +10,7 @@ import { EnqueueScrapeDto } from './dto/enqueue-scrape.dto';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { JobSourcesService } from './job-sources.service';
+import { ScrapeRunDiagnosticsResponse } from './dto/run-diagnostics.response';
 
 @ApiTags('job-sources')
 @ApiBearerAuth()
@@ -41,6 +42,16 @@ export class JobSourcesController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ) {
     return this.jobSourcesService.getRun(user.userId, id);
+  }
+
+  @Get('runs/:id/diagnostics')
+  @ApiOperation({ summary: 'Get scrape run diagnostics' })
+  @ApiOkResponse({ type: ScrapeRunDiagnosticsResponse })
+  async getRunDiagnostics(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.jobSourcesService.getRunDiagnostics(user.userId, id);
   }
 
   @Post('complete')

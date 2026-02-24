@@ -11,6 +11,7 @@ import { GeminiService } from '@/common/modules/gemini/gemini.service';
 import type { Env } from '@/config/env';
 import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
 import { scoreCandidateAgainstJob } from '@/features/job-matching/candidate-matcher';
+import { computeNotebookOfferRanking, type NotebookRankingMode } from '@/features/job-offers/notebook-ranking';
 
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
 
@@ -31,6 +32,9 @@ export class JobOffersService {
   async list(userId: string, query: ListJobOffersQuery) {
     const limit = query.limit ? Number(query.limit) : 20;
     const offset = query.offset ? Number(query.offset) : 0;
+    const mode: NotebookRankingMode = query.mode ?? 'strict';
+    const fetchWindow = mode === 'explore' ? limit : Math.max(limit * 3, limit + offset);
+    const fetchOffset = mode === 'explore' ? offset : 0;
 
     const conditions = [eq(userJobOffersTable.userId, userId)];
     if (query.status) {
@@ -92,8 +96,37 @@ export class JobOffersService {
       .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
       .where(and(...conditions))
       .orderBy(desc(userJobOffersTable.createdAt))
-      .limit(limit)
-      .offset(offset);
+      .limit(fetchWindow)
+      .offset(fetchOffset);
+
+    const rankedItems = items
+      .map((item) => {
+        const ranking = computeNotebookOfferRanking(
+          {
+            matchScore: item.matchScore,
+            matchMeta: (item.matchMeta as Record<string, unknown> | null) ?? null,
+          },
+          mode,
+        );
+
+        return {
+          ...item,
+          rankingScore: ranking.rankingScore,
+          explanationTags: ranking.explanationTags,
+          __include: ranking.include,
+        };
+      })
+      .filter((item) => item.__include)
+      .sort((a, b) => {
+        if (mode === 'explore') {
+          const left = new Date(b.createdAt).getTime();
+          const right = new Date(a.createdAt).getTime();
+          return left - right;
+        }
+        return (b.rankingScore ?? 0) - (a.rankingScore ?? 0);
+      })
+      .slice(offset, offset + limit)
+      .map(({ __include, ...item }) => item);
 
     const [{ total }] = await this.db
       .select({ total: sql<number>`count(*)` })
@@ -102,8 +135,9 @@ export class JobOffersService {
       .where(and(...conditions));
 
     return {
-      items,
+      items: rankedItems,
       total: Number(total ?? 0),
+      mode,
     };
   }
 

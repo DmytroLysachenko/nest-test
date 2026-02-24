@@ -4,8 +4,14 @@ import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, Max, Min } fr
 
 const STATUS_VALUES = ['NEW', 'SEEN', 'SAVED', 'APPLIED', 'DISMISSED'] as const;
 const SOURCE_VALUES = ['PRACUJ_PL'] as const;
+const RANKING_MODE_VALUES = ['strict', 'approx', 'explore'] as const;
 
 export class ListJobOffersQuery {
+  @ApiPropertyOptional({ enum: RANKING_MODE_VALUES, default: 'strict' })
+  @IsOptional()
+  @IsIn(RANKING_MODE_VALUES)
+  mode?: (typeof RANKING_MODE_VALUES)[number];
+
   @ApiPropertyOptional({ enum: STATUS_VALUES })
   @IsOptional()
   @IsIn(STATUS_VALUES)

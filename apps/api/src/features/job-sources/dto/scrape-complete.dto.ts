@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsIn, IsInt, IsObject, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested } from 'class-validator';
 
 const SCRAPE_COMPLETE_STATUS = ['COMPLETED', 'FAILED'] as const;
 
@@ -63,6 +63,61 @@ class ScrapeResultJobDto {
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
+}
+
+class ScrapeRunDiagnosticsDto {
+  @ApiPropertyOptional({ type: [String], description: 'Filter relaxation reasons trail from worker' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  relaxationTrail?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  blockedUrls?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  pagesVisited?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  jobLinksDiscovered?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  ignoredRecommendedLinks?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  dedupedInRunCount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  skippedFreshUrls?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  blockedPages?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  hadZeroOffersStep?: boolean;
 }
 
 export class ScrapeCompleteDto {
@@ -137,4 +192,10 @@ export class ScrapeCompleteDto {
   @ValidateNested({ each: true })
   @Type(() => ScrapeResultJobDto)
   jobs?: ScrapeResultJobDto[];
+
+  @ApiPropertyOptional({ type: ScrapeRunDiagnosticsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ScrapeRunDiagnosticsDto)
+  diagnostics?: ScrapeRunDiagnosticsDto;
 }

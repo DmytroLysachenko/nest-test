@@ -65,4 +65,50 @@ describe('CareerProfilesService prompt builder', () => {
     expect(prompt).toContain('"schemaVersion": "1.0.0"');
     expect(prompt).toContain('Return only JSON that strictly follows the requested schema.');
   });
+
+  it('computes deterministic quality diagnostics from profile content', () => {
+    const service = new CareerProfilesService({} as any, {} as any);
+    const quality = (service as any).evaluateProfileQuality({
+      schemaVersion: '1.0.0',
+      candidateCore: {
+        headline: 'Frontend Engineer',
+        summary: 'Summary',
+        seniority: { primary: 'mid', secondary: [] },
+        languages: [],
+      },
+      targetRoles: [
+        { title: 'Frontend Engineer', confidenceScore: 0.9, confidenceLevel: 'high', priority: 1 },
+      ],
+      competencies: Array.from({ length: 6 }).map((_, index) => ({
+        name: `Skill ${index}`,
+        type: 'technology',
+        confidenceScore: 0.7,
+        confidenceLevel: 'medium',
+        importance: 'medium',
+        evidence: ['cv'],
+        isTransferable: false,
+      })),
+      workPreferences: {
+        hardConstraints: {
+          workModes: ['remote'],
+          employmentTypes: ['b2b'],
+          locations: [],
+          noPolishRequired: false,
+          onlyEmployerOffers: false,
+          onlyWithProjectDescription: false,
+        },
+        softPreferences: { workModes: [], employmentTypes: [], locations: [] },
+      },
+      searchSignals: {
+        keywords: Array.from({ length: 10 }).map((_, index) => ({ value: `k-${index}`, weight: 0.6 })),
+        specializations: [{ value: 'frontend', weight: 0.9 }],
+        technologies: Array.from({ length: 5 }).map((_, index) => ({ value: `t-${index}`, weight: 0.7 })),
+      },
+      riskAndGrowth: { gaps: [], growthDirections: [], transferableStrengths: [] },
+    });
+
+    expect(quality.score).toBeGreaterThan(0);
+    expect(Array.isArray(quality.signals)).toBe(true);
+    expect(quality.signals.find((item: { key: string }) => item.key === 'seniority_defined')).toBeTruthy();
+  });
 });

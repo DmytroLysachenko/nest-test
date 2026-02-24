@@ -31,6 +31,12 @@ export class JobOfferItem {
   matchScore!: number | null;
 
   @ApiProperty({ required: false })
+  rankingScore?: number | null;
+
+  @ApiProperty({ required: false, type: [String] })
+  explanationTags?: string[];
+
+  @ApiProperty({ required: false })
   matchMeta!: unknown | null;
 
   @ApiProperty({ required: false })
@@ -85,4 +91,7 @@ export class JobOfferListResponse {
 
   @ApiProperty()
   total!: number;
+
+  @ApiProperty({ enum: ['strict', 'approx', 'explore'] })
+  mode!: 'strict' | 'approx' | 'explore';
 }

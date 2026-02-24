@@ -14,6 +14,7 @@ import {
   CANDIDATE_PROFILE_SCHEMA_VERSION,
   candidateProfileSchema,
   type CandidateProfile,
+  parseCandidateProfile,
 } from './schema/candidate-profile.schema';
 
 const MIN_EXTRACTED_TEXT_CHARS = 700;
@@ -123,6 +124,23 @@ export class CareerProfilesService {
       .limit(1)
       .then(([result]) => result);
     return latest ?? null;
+  }
+
+  async getQuality(userId: string) {
+    const latest = await this.getLatest(userId);
+    if (!latest) {
+      throw new NotFoundException('Career profile not found');
+    }
+    if (latest.status !== 'READY' || !latest.contentJson) {
+      throw new BadRequestException('Latest career profile is not ready');
+    }
+
+    const parsed = parseCandidateProfile(latest.contentJson);
+    if (!parsed.success) {
+      throw new BadRequestException('Career profile JSON does not match canonical schema');
+    }
+
+    return this.evaluateProfileQuality(parsed.data);
   }
 
   async listVersions(userId: string, query: ListCareerProfilesQuery) {
@@ -532,5 +550,66 @@ export class CareerProfilesService {
       .update(careerProfilesTable)
       .set({ isActive: false })
       .where(and(eq(careerProfilesTable.userId, userId), not(eq(careerProfilesTable.id, activeId))));
+  }
+
+  private evaluateProfileQuality(profile: CandidateProfile) {
+    const signals = [
+      this.qualitySignal('target_roles', profile.targetRoles.length >= 2 ? 1 : profile.targetRoles.length === 1 ? 0.6 : 0),
+      this.qualitySignal('core_competencies', profile.competencies.length >= 10 ? 1 : profile.competencies.length >= 6 ? 0.7 : 0),
+      this.qualitySignal('keywords_coverage', profile.searchSignals.keywords.length >= 15 ? 1 : profile.searchSignals.keywords.length >= 10 ? 0.7 : 0),
+      this.qualitySignal('technologies_coverage', profile.searchSignals.technologies.length >= 8 ? 1 : profile.searchSignals.technologies.length >= 5 ? 0.7 : 0),
+      this.qualitySignal('seniority_defined', profile.candidateCore.seniority.primary ? 1 : 0),
+      this.qualitySignal(
+        'work_preferences_defined',
+        profile.workPreferences.hardConstraints.workModes.length + profile.workPreferences.hardConstraints.employmentTypes.length >= 2
+          ? 1
+          : profile.workPreferences.hardConstraints.workModes.length + profile.workPreferences.hardConstraints.employmentTypes.length === 1
+            ? 0.6
+            : 0,
+      ),
+    ];
+
+    const missing = signals.filter((signal) => signal.status === 'missing').map((signal) => signal.key);
+    const weak = signals.filter((signal) => signal.status === 'weak').map((signal) => signal.key);
+    const recommendations = [
+      ...missing.map((key) => this.recommendationForSignal(key)),
+      ...weak.map((key) => this.recommendationForSignal(key)),
+    ];
+
+    const score = Math.round((signals.reduce((acc, signal) => acc + signal.score, 0) / signals.length) * 100);
+    return {
+      score,
+      signals,
+      missing,
+      recommendations,
+    };
+  }
+
+  private qualitySignal(key: string, value: number) {
+    const score = Math.max(0, Math.min(1, value));
+    const status: 'ok' | 'weak' | 'missing' = score >= 0.8 ? 'ok' : score >= 0.5 ? 'weak' : 'missing';
+    const messages: Record<typeof status, string> = {
+      ok: 'Sufficient evidence present',
+      weak: 'Signal is present but under-detailed',
+      missing: 'Signal is missing and impacts matching quality',
+    };
+    return {
+      key,
+      status,
+      score,
+      message: messages[status],
+    };
+  }
+
+  private recommendationForSignal(key: string) {
+    const map: Record<string, string> = {
+      target_roles: 'Add 1-2 concrete target roles to improve role-level filtering.',
+      core_competencies: 'Expand competencies with tools, methods, and domain skills visible in your CV/LinkedIn.',
+      keywords_coverage: 'Add more search keywords inferred from your experience and projects.',
+      technologies_coverage: 'Add additional technologies (including transferable ones) with lower confidence where applicable.',
+      seniority_defined: 'Specify realistic primary seniority to avoid mismatch with job level.',
+      work_preferences_defined: 'Define work-mode and contract preferences to tighten match relevance.',
+    };
+    return map[key] ?? `Improve signal: ${key}`;
   }
 }

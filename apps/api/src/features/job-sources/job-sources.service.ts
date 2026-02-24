@@ -697,6 +697,67 @@ export class JobSourcesService {
     };
   }
 
+  async getRunDiagnostics(userId: string, runId: string) {
+    const run = await this.db
+      .select()
+      .from(jobSourceRunsTable)
+      .where(and(eq(jobSourceRunsTable.id, runId), eq(jobSourceRunsTable.userId, userId)))
+      .limit(1)
+      .then(([item]) => item);
+
+    if (!run) {
+      throw new NotFoundException('Job source run not found');
+    }
+
+    const latestEvent = await this.db
+      .select({
+        payload: jobSourceCallbackEventsTable.payload,
+      })
+      .from(jobSourceCallbackEventsTable)
+      .where(eq(jobSourceCallbackEventsTable.sourceRunId, runId))
+      .orderBy(desc(jobSourceCallbackEventsTable.receivedAt))
+      .limit(1)
+      .then(([item]) => item);
+
+    let parsedPayload: Record<string, unknown> = {};
+    if (latestEvent?.payload && latestEvent.payload.trim()) {
+      try {
+        parsedPayload = (JSON.parse(latestEvent.payload) as Record<string, unknown>) ?? {};
+      } catch {
+        parsedPayload = {};
+      }
+    }
+
+    const diagnostics = (parsedPayload?.diagnostics as Record<string, unknown> | undefined) ?? {};
+
+    return {
+      runId: run.id,
+      source: run.source,
+      status: run.status,
+      listingUrl: run.listingUrl,
+      finalizedAt: run.completedAt,
+      diagnostics: {
+        relaxationTrail: Array.isArray(diagnostics.relaxationTrail)
+          ? diagnostics.relaxationTrail.filter((item): item is string => typeof item === 'string')
+          : [],
+        blockedUrls: Array.isArray(diagnostics.blockedUrls)
+          ? diagnostics.blockedUrls.filter((item): item is string => typeof item === 'string')
+          : [],
+        hadZeroOffersStep: Boolean(diagnostics.hadZeroOffersStep),
+        stats: {
+          totalFound: run.totalFound ?? null,
+          scrapedCount: run.scrapedCount ?? null,
+          pagesVisited: Number(diagnostics.pagesVisited ?? 0),
+          jobLinksDiscovered: Number(diagnostics.jobLinksDiscovered ?? run.totalFound ?? 0),
+          blockedPages: Number(diagnostics.blockedPages ?? 0),
+          skippedFreshUrls: Number(diagnostics.skippedFreshUrls ?? 0),
+          dedupedInRunCount: Number(diagnostics.dedupedInRunCount ?? 0),
+          ignoredRecommendedLinks: Number(diagnostics.ignoredRecommendedLinks ?? 0),
+        },
+      },
+    };
+  }
+
   private async tryReuseFromDatabase(input: {
     userId: string;
     careerProfileId: string;
@@ -914,6 +975,7 @@ export class JobSourcesService {
       runId: dto.runId,
       error: dto.error,
       jobCount: dto.jobs?.length ?? dto.scrapedCount ?? dto.jobCount ?? 0,
+      diagnostics: dto.diagnostics ?? null,
     });
 
     const inserted = await this.db
