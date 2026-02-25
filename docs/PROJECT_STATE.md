@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-02-24 (late)
+Last updated: 2026-02-25
 
 ## Current Architecture
 
@@ -44,6 +44,8 @@ Last updated: 2026-02-24 (late)
 - New guided onboarding flow is available at `/app/onboarding` with persisted draft state and step-based UX.
 - Profile input now supports structured intake payload (`intake_payload`) used for deterministic normalization.
 - Main `/app` workspace is notebook-first dashboard; users without ready profile are redirected to onboarding.
+- Onboarding draft persistence now supports both local draft and server-side draft recovery (`/onboarding/draft`).
+- Workspace summary read model (`/workspace/summary`) powers dashboard cards and onboarding guard decisions.
 
 ## Data Model Highlights
 
@@ -62,9 +64,11 @@ Last updated: 2026-02-24 (late)
 ## New API Read Model
 
 - `GET /api/career-profiles/search-view`
+- `GET /api/workspace/summary`
 - Purpose:
   - fast filtering without parsing `content_json`
   - FE/tester support for profile diagnostics and search-readiness checks
+  - dashboard aggregation with one API request
 
 ## Current Risks / Gaps
 

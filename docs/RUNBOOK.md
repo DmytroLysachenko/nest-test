@@ -60,15 +60,17 @@ Day-to-day engineering runbook for local development and verification.
 2. API/worker/web health
 3. auth login + refresh rotation
 4. profile-input endpoints
-5. career-profile endpoints
-6. denormalized `career-profiles/search-view`
-7. deterministic job matching
-8. scrape enqueue + completion
-9. notebook status/meta/history/score actions
-10. worker + callback flow with retry-safe completion path
-11. notebook ranking mode contract (`strict` + `approx`)
-12. scrape diagnostics endpoint for completed run
-13. document upload-health endpoint
+5. onboarding draft CRUD endpoints
+6. career-profile endpoints
+7. workspace summary endpoint
+8. denormalized `career-profiles/search-view`
+9. deterministic job matching
+10. scrape enqueue + completion
+11. notebook status/meta/history/score actions
+12. worker + callback flow with retry-safe completion path
+13. notebook ranking mode contract (`strict` + `approx`)
+14. scrape diagnostics endpoint for completed run
+15. document upload-health endpoint
 
 ## Recovery Tips
 

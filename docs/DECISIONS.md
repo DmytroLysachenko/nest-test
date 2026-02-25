@@ -146,3 +146,23 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Reduces cognitive load from panel-heavy internal-tool layout.
   - Aligns product UX with user journey and improves completion rate.
+
+## 2026-02-25: Server-Side Onboarding Draft Recovery
+
+- Decision:
+  - Add `onboarding_drafts` table and authenticated draft endpoints:
+    - `GET /onboarding/draft`
+    - `PUT /onboarding/draft`
+    - `DELETE /onboarding/draft`
+  - Keep local persisted draft in FE and add server draft as cross-device fallback.
+- Why:
+  - Prevent data loss across browsers/devices.
+  - Improve onboarding completion reliability without over-coupling to localStorage.
+
+## 2026-02-25: Workspace Summary Read Model
+
+- Decision:
+  - Add `GET /workspace/summary` to aggregate dashboard cards + onboarding guard state.
+- Why:
+  - Replace multiple dashboard queries with one deterministic read model.
+  - Reduce frontend orchestration complexity and inconsistent loading states.

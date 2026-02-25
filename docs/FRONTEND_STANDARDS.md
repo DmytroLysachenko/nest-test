@@ -1,6 +1,6 @@
 # Frontend Standards
 
-Last updated: 2026-02-22
+Last updated: 2026-02-25
 
 ## Purpose
 This document defines mandatory frontend architecture and coding standards for `apps/web`.
@@ -34,7 +34,7 @@ Complex feature (default when feature has forms/mutations/derived UI state):
 src/features/<feature>/
   api/          # endpoint clients, query/mutation request builders
   model/
-    hooks/      # custom hooks only
+    hooks/      # hook split rules below
     state/      # feature-local stores/context adapters
     validation/ # zod schemas and form mapping
     types/      # feature-local types/view models
@@ -108,6 +108,40 @@ UI rules:
 - API calls must go through `shared/lib/http/api-client.ts`.
 - Do not call `fetch` directly in feature UI or hooks.
 - Keep query keys stable and explicit; avoid ad-hoc key shapes.
+- Use shared query/error helpers for consistency:
+  - `shared/lib/query/authed-query-options.ts` for token-gated query options.
+  - `shared/lib/query/invalidate-query-keys.ts` for multi-key invalidation.
+  - `shared/lib/http/to-user-error-message.ts` for normalized user-facing errors.
+  - `shared/lib/forms/set-root-server-error.ts` for form-root server error handling.
+
+Hook composition is mandatory for medium/large features:
+- `use-<feature>-queries.ts`:
+  - contains only `useQuery` calls and query-derived selectors.
+  - no write side-effects (`POST/PATCH/DELETE`) and no form submission orchestration.
+- `use-<feature>-mutations.ts`:
+  - contains only `useMutation` calls and invalidation logic.
+  - owns success/error notification behavior (toasts) and mutation-side effects.
+- `use-<feature>-<page|panel|controller>.ts`:
+  - composes query + mutation hooks and local UI state.
+  - must stay orchestration-only; avoid embedding raw transport logic.
+
+Anti-patterns (do not do):
+- one "god hook" with many unrelated reads/writes.
+- mixing API payload shaping, form validation, and UI rendering logic in one place.
+- direct `fetch` in controller hooks.
+- placing `useQuery`/`useMutation` directly in `ui/*` components (move to `model/hooks`).
+
+Data shaping:
+- Avoid exposing raw DTOs directly to UI when not needed.
+- Prefer one of:
+  - API-level mapper (e.g. `get<Job>Preview`) in feature `api/`.
+  - Query `select` mapper in feature hook.
+- Hook return value should be UI-ready (minimal required fields, no transport noise).
+
+Notifications:
+- Use `sonner` via `shared/lib/ui/toast.ts` only.
+- Success/error feedback for mutations should be shown through shared toast wrappers.
+- Keep toasts concise and action-oriented.
 
 Forms:
 - Default to React Hook Form + Zod for non-trivial forms.
