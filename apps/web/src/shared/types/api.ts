@@ -33,6 +33,29 @@ export type ProfileInputDto = {
   userId: string;
   targetRoles: string;
   notes: string | null;
+  intakePayload: {
+    desiredPositions: string[];
+    jobDomains: string[];
+    coreSkills: string[];
+    experienceYearsInRole: number | null;
+    targetSeniority: Array<'intern' | 'junior' | 'mid' | 'senior' | 'lead' | 'manager'>;
+    workModePreferences: {
+      hard: Array<'remote' | 'hybrid' | 'onsite' | 'mobile'>;
+      soft: Array<{ value: 'remote' | 'hybrid' | 'onsite' | 'mobile'; weight: number }>;
+    };
+    contractPreferences: {
+      hard: Array<'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'>;
+      soft: Array<{ value: 'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'; weight: number }>;
+    };
+    sectionNotes: {
+      positions: string | null;
+      domains: string | null;
+      skills: string | null;
+      experience: string | null;
+      preferences: string | null;
+    };
+    generalNotes: string | null;
+  } | null;
   normalizedInput?: {
     searchPreferences?: {
       sourceKind?: 'it' | 'general';
