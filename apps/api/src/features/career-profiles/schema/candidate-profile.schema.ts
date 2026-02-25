@@ -119,27 +119,27 @@ export const candidateProfileSchema = candidateProfileSchemaBase.superRefine((va
     });
   }
 
-  if (value.competencies.length < 6) {
+  if (value.competencies.length < 8) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['competencies'],
-      message: 'At least six competencies are required to build robust matches.',
+      message: 'At least eight competencies are required to build robust matches.',
     });
   }
 
-  if (value.searchSignals.keywords.length < 10) {
+  if (value.searchSignals.keywords.length < 12) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['searchSignals', 'keywords'],
-      message: 'At least ten keywords are required to broaden candidate search coverage.',
+      message: 'At least twelve keywords are required to broaden candidate search coverage.',
     });
   }
 
-  if (value.searchSignals.technologies.length < 5) {
+  if (value.searchSignals.technologies.length < 6) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['searchSignals', 'technologies'],
-      message: 'At least five technologies/tools are required to improve discoverability.',
+      message: 'At least six technologies/tools are required to improve discoverability.',
     });
   }
 });

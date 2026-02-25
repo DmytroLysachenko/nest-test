@@ -113,6 +113,24 @@ describe('JobOffersService', () => {
           evidence: ['daily collaboration'],
           isTransferable: true,
         },
+        {
+          name: 'REST API',
+          type: 'methodology',
+          confidenceScore: 0.82,
+          confidenceLevel: 'medium',
+          importance: 'medium',
+          evidence: ['integration work'],
+          isTransferable: true,
+        },
+        {
+          name: 'Testing',
+          type: 'methodology',
+          confidenceScore: 0.8,
+          confidenceLevel: 'medium',
+          importance: 'medium',
+          evidence: ['quality ownership'],
+          isTransferable: true,
+        },
       ],
       workPreferences: {
         hardConstraints: {
@@ -141,6 +159,8 @@ describe('JobOffersService', () => {
           { value: 'html', weight: 0.8 },
           { value: 'web performance', weight: 0.6 },
           { value: 'responsive design', weight: 0.6 },
+          { value: 'rest api', weight: 0.6 },
+          { value: 'testing', weight: 0.6 },
         ],
         specializations: [{ value: 'frontend', weight: 1 }],
         technologies: [
@@ -149,6 +169,7 @@ describe('JobOffersService', () => {
           { value: 'javascript', weight: 0.95 },
           { value: 'html', weight: 0.8 },
           { value: 'css', weight: 0.8 },
+          { value: 'git', weight: 0.7 },
         ],
       },
       riskAndGrowth: {

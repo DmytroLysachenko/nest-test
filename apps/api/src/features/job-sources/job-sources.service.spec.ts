@@ -81,6 +81,24 @@ const candidateProfileFixture = {
       evidence: ['project'],
       isTransferable: true,
     },
+    {
+      name: 'REST API',
+      type: 'methodology',
+      confidenceScore: 0.78,
+      confidenceLevel: 'medium',
+      importance: 'medium',
+      evidence: ['project'],
+      isTransferable: true,
+    },
+    {
+      name: 'Testing',
+      type: 'methodology',
+      confidenceScore: 0.76,
+      confidenceLevel: 'medium',
+      importance: 'medium',
+      evidence: ['project'],
+      isTransferable: true,
+    },
   ],
   workPreferences: {
     hardConstraints: {
@@ -110,6 +128,8 @@ const candidateProfileFixture = {
       { value: 'SPA', weight: 0.7 },
       { value: 'Web', weight: 0.6 },
       { value: 'Git', weight: 0.6 },
+      { value: 'REST API', weight: 0.6 },
+      { value: 'Testing', weight: 0.6 },
     ],
     specializations: [{ value: 'frontend', weight: 1 }],
     technologies: [
@@ -118,6 +138,7 @@ const candidateProfileFixture = {
       { value: 'javascript', weight: 0.9 },
       { value: 'html', weight: 0.8 },
       { value: 'css', weight: 0.8 },
+      { value: 'git', weight: 0.6 },
     ],
   },
   riskAndGrowth: {

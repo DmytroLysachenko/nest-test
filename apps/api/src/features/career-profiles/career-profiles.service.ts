@@ -68,6 +68,7 @@ export class CareerProfilesService {
       const prompt = this.buildPrompt(
         profileInput.targetRoles,
         profileInput.notes,
+        profileInput.intakePayload as Record<string, unknown> | null | undefined,
         documents,
         dto.instructions,
         (profileInput.normalizedInput as NormalizedProfileInput | null | undefined) ?? null,
@@ -333,6 +334,7 @@ export class CareerProfilesService {
   private buildPrompt(
     targetRoles: string,
     notes: string | null,
+    intakePayload: Record<string, unknown> | null | undefined,
     documents: Array<{
       storagePath: string;
       originalName: string;
@@ -373,7 +375,7 @@ export class CareerProfilesService {
       'Do not invent random experience. Every inferred item must be plausibly connected to evidence in provided documents.',
       'Respect seniority constraints strictly: never up-level candidate target to higher seniority than evidence supports.',
       'Be liberal with contract/work-mode flexibility in softPreferences, but keep hardConstraints conservative and user-safe.',
-      'Hard minimum output richness: targetRoles>=1, competencies>=6, searchSignals.keywords>=10, searchSignals.technologies>=5.',
+      'Hard minimum output richness: targetRoles>=1, competencies>=8, searchSignals.keywords>=12, searchSignals.technologies>=6.',
       'Use concise evidence snippets from provided input/docs.',
       '',
       'Output schema (as JSON object):',
@@ -381,6 +383,8 @@ export class CareerProfilesService {
       '',
       normalizedInput ? 'Normalized profile input (canonical, deterministic):' : '',
       normalizedInput ? JSON.stringify(normalizedInput, null, 2) : '',
+      intakePayload ? 'Structured onboarding intake payload:' : '',
+      intakePayload ? JSON.stringify(intakePayload, null, 2) : '',
       normalizationMeta ? `Normalization status: ${normalizationMeta.status} (${normalizationMeta.mapperVersion})` : '',
       normalizationMeta?.warnings?.length ? `Normalization warnings: ${JSON.stringify(normalizationMeta.warnings)}` : '',
       normalizationMeta?.errors?.length ? `Normalization errors: ${JSON.stringify(normalizationMeta.errors)}` : '',
@@ -440,9 +444,9 @@ export class CareerProfilesService {
         schemaVersion: CANDIDATE_PROFILE_SCHEMA_VERSION,
         minimumQualityConstraints: {
           targetRoles: '>=1',
-          competencies: '>=6',
-          searchSignalsKeywords: '>=10',
-          searchSignalsTechnologies: '>=5',
+          competencies: '>=8',
+          searchSignalsKeywords: '>=12',
+          searchSignalsTechnologies: '>=6',
         },
         candidateCore: {
           headline: 'string',

@@ -7,6 +7,7 @@ describe('CareerProfilesService prompt builder', () => {
     const prompt = (service as any).buildPrompt(
       'Frontend Developer',
       'note',
+      { desiredPositions: ['Frontend Developer'] },
       [
         {
           storagePath: 'docs/cv.pdf',
@@ -48,20 +49,22 @@ describe('CareerProfilesService prompt builder', () => {
         freeText: 'note',
       },
       {
-        mapperVersion: 'v1.1.0',
+        mapperVersion: 'v1.2.0',
         status: 'ok',
         warnings: [],
         errors: [],
         rawSnapshot: {
           targetRoles: 'Frontend Developer',
           notes: 'note',
+          intakePayload: null,
         },
       },
     );
 
     expect(prompt).toContain('Normalized profile input (canonical, deterministic):');
     expect(prompt).toContain('"specializations": [');
-    expect(prompt).toContain('Normalization status: ok (v1.1.0)');
+    expect(prompt).toContain('Normalization status: ok (v1.2.0)');
+    expect(prompt).toContain('Structured onboarding intake payload:');
     expect(prompt).toContain('"schemaVersion": "1.0.0"');
     expect(prompt).toContain('Return only JSON that strictly follows the requested schema.');
   });
