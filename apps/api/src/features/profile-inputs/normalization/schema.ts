@@ -18,6 +18,38 @@ const LanguageLevelEnum = z.enum(['a1', 'a2', 'b1', 'b2', 'c1', 'c2', 'native'])
 const CurrencyEnum = z.enum(['PLN', 'EUR', 'USD']);
 const SalaryPeriodEnum = z.enum(['month', 'year', 'hour']);
 const SearchSourceKindEnum = z.enum(['it', 'general']);
+const IntakeWeightedWorkModeSchema = z.object({
+  value: WorkModeEnum,
+  weight: z.number().min(0).max(1),
+});
+const IntakeWeightedContractSchema = z.object({
+  value: ContractTypeEnum,
+  weight: z.number().min(0).max(1),
+});
+
+export const profileIntakePayloadSchema = z.object({
+  desiredPositions: z.array(z.string().min(1)).min(1),
+  jobDomains: z.array(z.string().min(1)).default([]),
+  coreSkills: z.array(z.string().min(1)).default([]),
+  experienceYearsInRole: z.number().min(0).max(60).nullable().default(null),
+  targetSeniority: z.array(SeniorityEnum).default([]),
+  workModePreferences: z.object({
+    hard: z.array(WorkModeEnum).default([]),
+    soft: z.array(IntakeWeightedWorkModeSchema).default([]),
+  }),
+  contractPreferences: z.object({
+    hard: z.array(ContractTypeEnum).default([]),
+    soft: z.array(IntakeWeightedContractSchema).default([]),
+  }),
+  sectionNotes: z.object({
+    positions: z.string().nullable().default(null),
+    domains: z.string().nullable().default(null),
+    skills: z.string().nullable().default(null),
+    experience: z.string().nullable().default(null),
+    preferences: z.string().nullable().default(null),
+  }),
+  generalNotes: z.string().nullable().default(null),
+});
 
 export const normalizedRoleSchema = z.object({
   name: z.string().min(1),
@@ -105,8 +137,10 @@ export const normalizationMetaSchema = z.object({
   rawSnapshot: z.object({
     targetRoles: z.string(),
     notes: z.string().nullable(),
+    intakePayload: profileIntakePayloadSchema.nullable().default(null),
   }),
 });
 
 export type NormalizedProfileInput = z.infer<typeof normalizedProfileInputSchema>;
 export type NormalizationMeta = z.infer<typeof normalizationMetaSchema>;
+export type ProfileIntakePayload = z.infer<typeof profileIntakePayloadSchema>;

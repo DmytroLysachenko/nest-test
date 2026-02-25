@@ -14,13 +14,16 @@ import {
 import {
   type NormalizationMeta,
   type NormalizedProfileInput,
+  type ProfileIntakePayload,
   normalizedProfileInputSchema,
   normalizationMetaSchema,
+  profileIntakePayloadSchema,
 } from './schema';
 
 type NormalizeInputPayload = {
   targetRoles: string;
   notes?: string | null;
+  intakePayload?: ProfileIntakePayload | null;
 };
 
 const normalizeAscii = (value: string) =>
@@ -167,22 +170,63 @@ const buildUnknownTokenWarnings = (
 export const normalizeProfileInput = ({
   targetRoles,
   notes,
+  intakePayload,
 }: NormalizeInputPayload): { normalizedInput: NormalizedProfileInput; normalizationMeta: NormalizationMeta } => {
+  const parsedIntake = intakePayload ? profileIntakePayloadSchema.parse(intakePayload) : null;
   const notesValue = notes?.trim() || null;
-  const combinedRaw = [targetRoles, notesValue].filter(Boolean).join(' ');
+  const sectionNotes = parsedIntake
+    ? [
+        parsedIntake.sectionNotes.positions,
+        parsedIntake.sectionNotes.domains,
+        parsedIntake.sectionNotes.skills,
+        parsedIntake.sectionNotes.experience,
+        parsedIntake.sectionNotes.preferences,
+        parsedIntake.generalNotes,
+      ]
+        .filter((value): value is string => Boolean(value))
+        .join(' ')
+    : '';
+  const combinedRaw = [
+    targetRoles,
+    notesValue,
+    parsedIntake?.desiredPositions.join(' '),
+    parsedIntake?.jobDomains.join(' '),
+    parsedIntake?.coreSkills.join(' '),
+    sectionNotes,
+  ]
+    .filter(Boolean)
+    .join(' ');
   const normalizedText = normalizeAscii(combinedRaw);
 
-  const roles = parseCommaSeparated(targetRoles).map((role, index) => ({
+  const roleSource = parsedIntake?.desiredPositions.length ? parsedIntake.desiredPositions.join(', ') : targetRoles;
+  const roles = parseCommaSeparated(roleSource).map((role, index) => ({
     name: role.trim(),
     aliases: [],
     priority: index + 1,
   }));
-  const seniority = detectKeywords(normalizedText, SENIORITY_MAP).sort();
-  const specializations = detectKeywords(normalizedText, SPECIALIZATION_MAP).sort();
-  const workModes = detectKeywords(normalizedText, WORK_MODE_MAP).sort();
+  const seniority = unique([
+    ...(parsedIntake?.targetSeniority ?? []),
+    ...detectKeywords(normalizedText, SENIORITY_MAP),
+  ]).sort();
+  const specializations = unique([
+    ...detectKeywords(normalizedText, SPECIALIZATION_MAP),
+    ...((parsedIntake?.jobDomains ?? []).flatMap((item) => detectKeywords(normalizeAscii(item), SPECIALIZATION_MAP)) ?? []),
+  ]).sort();
+  const workModes = unique([
+    ...(parsedIntake?.workModePreferences.hard ?? []),
+    ...((parsedIntake?.workModePreferences.soft ?? []).map((item) => item.value) ?? []),
+    ...detectKeywords(normalizedText, WORK_MODE_MAP),
+  ]).sort();
   const workTime = detectKeywords(normalizedText, WORK_TIME_MAP).sort();
-  const contractTypes = detectKeywords(normalizedText, CONTRACT_MAP).sort();
-  const technologies = detectTechnologies(normalizedText);
+  const contractTypes = unique([
+    ...(parsedIntake?.contractPreferences.hard ?? []),
+    ...((parsedIntake?.contractPreferences.soft ?? []).map((item) => item.value) ?? []),
+    ...detectKeywords(normalizedText, CONTRACT_MAP),
+  ]).sort();
+  const technologies = unique([
+    ...detectTechnologies(normalizedText),
+    ...((parsedIntake?.coreSkills ?? []).map((item) => normalizeAscii(item)).filter(Boolean) ?? []),
+  ]).sort();
   const languages = detectLanguages(normalizedText);
   const locations = detectLocations(normalizedText);
   const salary = parseSalary(normalizedText);
@@ -235,7 +279,7 @@ export const normalizeProfileInput = ({
       locations,
       salary,
     }),
-    freeText: notesValue ?? '',
+    freeText: [notesValue, sectionNotes].filter(Boolean).join('\n'),
   });
 
   const status: 'ok' | 'partial' | 'failed' =
@@ -253,6 +297,7 @@ export const normalizeProfileInput = ({
     rawSnapshot: {
       targetRoles,
       notes: notesValue,
+      intakePayload: parsedIntake,
     },
   });
 

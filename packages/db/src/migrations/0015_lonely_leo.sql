@@ -1,0 +1,1 @@
+ALTER TABLE "profile_inputs" ADD COLUMN "intake_payload" jsonb;

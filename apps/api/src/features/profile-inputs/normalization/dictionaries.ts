@@ -1,4 +1,4 @@
-export const NORMALIZATION_MAPPER_VERSION = 'v1.1.0';
+export const NORMALIZATION_MAPPER_VERSION = 'v1.2.0';
 
 export const SENIORITY_MAP: Record<string, 'intern' | 'junior' | 'mid' | 'senior' | 'lead' | 'manager'> = {
   intern: 'intern',

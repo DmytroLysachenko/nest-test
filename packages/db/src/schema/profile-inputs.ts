@@ -9,6 +9,7 @@ export const profileInputsTable = pgTable('profile_inputs', {
     .references(() => usersTable.id, { onDelete: 'cascade' }),
   targetRoles: text('target_roles').notNull(),
   notes: text('notes'),
+  intakePayload: jsonb('intake_payload'),
   normalizedInput: jsonb('normalized_input'),
   normalizationMeta: jsonb('normalization_meta'),
   normalizationVersion: varchar('normalization_version', { length: 32 }),

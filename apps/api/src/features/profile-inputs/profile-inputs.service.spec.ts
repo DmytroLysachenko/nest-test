@@ -23,13 +23,24 @@ describe('ProfileInputsService', () => {
 
     const service = new ProfileInputsService(db);
     await service.create('user-1', {
-      targetRoles: 'Frontend Developer',
-      notes: 'B2B, remote, React',
+      intakePayload: {
+        desiredPositions: ['Frontend Developer'],
+        jobDomains: ['IT'],
+        coreSkills: ['React', 'TypeScript'],
+        experienceYearsInRole: 3,
+        targetSeniority: ['mid'],
+        workModePreferences: { hard: ['remote'], soft: [] },
+        contractPreferences: { hard: ['b2b'], soft: [] },
+        sectionNotes: {},
+        generalNotes: 'B2B, remote, React',
+      },
     });
 
     expect(insertValues).toHaveLength(1);
     expect(insertValues[0].normalizedInput).toBeDefined();
     expect(insertValues[0].normalizationMeta).toBeDefined();
-    expect(insertValues[0].normalizationVersion).toBe('v1.1.0');
+    expect(insertValues[0].normalizationVersion).toBe('v1.2.0');
+    expect(insertValues[0].targetRoles).toBe('Frontend Developer');
+    expect(insertValues[0].intakePayload).toBeDefined();
   });
 });
