@@ -127,3 +127,22 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Fast root-cause detection for upload failures (credentials/CORS/signing/storage issues).
   - Enables FE to surface actionable environment diagnostics to users/developers.
+
+## 2026-02-25: Structured Onboarding Intake Payload
+
+- Decision:
+  - Extend `profile_inputs` with `intake_payload` (jsonb) and accept structured onboarding payload on `POST /profile-inputs`.
+  - Keep `target_roles` and `notes` materialized for backward compatibility/readability.
+- Why:
+  - Richer deterministic normalization and better prompt context for profile generation.
+  - Enables step-by-step UX without collapsing user intent into one free-text field.
+
+## 2026-02-25: Guided Onboarding + Notebook-First App Entry
+
+- Decision:
+  - Add `/app/onboarding` as primary guided flow (preferences -> documents -> review/generate).
+  - Route users without ready profile from `/app` to onboarding.
+  - Keep `/app` focused on notebook-first dashboard summary.
+- Why:
+  - Reduces cognitive load from panel-heavy internal-tool layout.
+  - Aligns product UX with user journey and improves completion rate.

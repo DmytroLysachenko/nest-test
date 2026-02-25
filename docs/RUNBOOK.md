@@ -46,6 +46,12 @@ Day-to-day engineering runbook for local development and verification.
 4. End-to-end smoke:
    - `pnpm smoke:e2e`
 
+## Web Entry Routes
+
+1. Main dashboard: `/app`
+2. Guided profile onboarding: `/app/onboarding`
+3. Internal endpoint tester (dev flag): `/app/tester`
+
 ## Smoke Coverage (Current)
 
 `smoke:e2e` verifies:

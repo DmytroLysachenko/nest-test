@@ -5,6 +5,7 @@ Last updated: 2026-02-24
 ## Now (Execution Priority)
 
 1. Frontend productization from internal tooling to user workflow UX.
+   - Status: onboarding wizard + notebook-first dashboard implemented; continue UX refinement and accessibility hardening.
 2. Matching quality tuning (score calibration, stricter seniority/constraints behavior).
 3. Scraper quality hardening and source-specific reliability.
 4. CI quality gates (API/worker/web tests + smoke on protected branches).

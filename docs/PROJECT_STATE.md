@@ -41,6 +41,9 @@ Last updated: 2026-02-24 (late)
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.
 - Profile management page now includes direct document upload/confirm/extract flow with diagnostics visibility.
+- New guided onboarding flow is available at `/app/onboarding` with persisted draft state and step-based UX.
+- Profile input now supports structured intake payload (`intake_payload`) used for deterministic normalization.
+- Main `/app` workspace is notebook-first dashboard; users without ready profile are redirected to onboarding.
 
 ## Data Model Highlights
 
