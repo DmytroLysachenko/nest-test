@@ -4,6 +4,7 @@ import { usersTable } from './users';
 import { profilesTable } from './profiles';
 import { passportTable } from './passport';
 import { profileInputsTable } from './profile-inputs';
+import { onboardingDraftsTable } from './onboarding-drafts';
 import { documentsTable } from './documents';
 import { documentEventsTable } from './document-events';
 import { careerProfilesTable } from './career-profiles';
@@ -19,6 +20,7 @@ export const usersRelations = relations(usersTable, ({ one, many }) => ({
   }),
   passport: many(passportTable),
   profileInputs: many(profileInputsTable),
+  onboardingDrafts: many(onboardingDraftsTable),
   documents: many(documentsTable),
   documentEvents: many(documentEventsTable),
   careerProfiles: many(careerProfilesTable),
@@ -46,6 +48,13 @@ export const profileInputsRelations = relations(profileInputsTable, ({ one, many
     references: [usersTable.id],
   }),
   careerProfiles: many(careerProfilesTable),
+}));
+
+export const onboardingDraftsRelations = relations(onboardingDraftsTable, ({ one }) => ({
+  user: one(usersTable, {
+    fields: [onboardingDraftsTable.userId],
+    references: [usersTable.id],
+  }),
 }));
 
 export const documentsRelations = relations(documentsTable, ({ one, many }) => ({

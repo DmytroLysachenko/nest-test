@@ -20,6 +20,8 @@ import { CareerProfilesModule } from '@/features/career-profiles/career-profiles
 import { JobMatchingModule } from '@/features/job-matching/job-matching.module';
 import { JobSourcesModule } from '@/features/job-sources/job-sources.module';
 import { JobOffersModule } from '@/features/job-offers/job-offers.module';
+import { OnboardingDraftsModule } from '@/features/onboarding-drafts/onboarding-drafts.module';
+import { WorkspaceModule } from '@/features/workspace/workspace.module';
 import { RolesGuard } from '@/common/guards';
 
 @Module({
@@ -52,6 +54,8 @@ import { RolesGuard } from '@/common/guards';
     JobMatchingModule,
     JobSourcesModule,
     JobOffersModule,
+    OnboardingDraftsModule,
+    WorkspaceModule,
   ],
   providers: [
     {
