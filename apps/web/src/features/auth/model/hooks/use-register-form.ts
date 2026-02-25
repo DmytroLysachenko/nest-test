@@ -1,19 +1,15 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
-import { register, sendRegisterCode } from '@/features/auth/api/auth-api';
+import { useRegisterMutations } from '@/features/auth/model/hooks/use-register-mutations';
 import { registerSchema } from '@/features/auth/model/validation/auth-schemas';
-import { ApiError } from '@/shared/lib/http/api-error';
 
 import type { RegisterFormValues } from '@/features/auth/model/validation/auth-schemas';
 
 export const useRegisterForm = () => {
-  const router = useRouter();
   const [status, setStatus] = useState<string | null>(null);
 
   const form = useForm<RegisterFormValues>({
@@ -26,36 +22,7 @@ export const useRegisterForm = () => {
     },
   });
 
-  const sendCodeMutation = useMutation({
-    mutationFn: sendRegisterCode,
-    onSuccess: () => {
-      setStatus('Verification code sent to your email.');
-      form.clearErrors('root');
-    },
-    onError: (error: unknown) => {
-      setStatus(null);
-      const message = error instanceof ApiError ? error.message : 'Failed to send verification code';
-      form.setError('root', {
-        type: 'server',
-        message,
-      });
-    },
-  });
-
-  const registerMutation = useMutation({
-    mutationFn: register,
-    onSuccess: () => {
-      router.push('/login');
-    },
-    onError: (error: unknown) => {
-      setStatus(null);
-      const message = error instanceof ApiError ? error.message : 'Registration failed';
-      form.setError('root', {
-        type: 'server',
-        message,
-      });
-    },
-  });
+  const { sendCodeMutation, registerMutation } = useRegisterMutations({ form, setStatus });
 
   const requestCode = async () => {
     const valid = await form.trigger('email');

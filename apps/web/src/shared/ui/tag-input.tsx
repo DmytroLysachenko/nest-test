@@ -37,7 +37,9 @@ export const TagInput = ({ label, placeholder, values, onChange, disabled = fals
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-slate-800">{label}</p>
+      <p className="text-sm font-medium text-slate-800">
+        {label} <span className="text-xs font-normal text-slate-500">({values.length}/{maxItems})</span>
+      </p>
       <div className="flex gap-2">
         <Input
           placeholder={placeholder}
@@ -73,6 +75,7 @@ export const TagInput = ({ label, placeholder, values, onChange, disabled = fals
       ) : (
         <p className="text-xs text-slate-500">No values added yet.</p>
       )}
+      {values.length >= maxItems ? <p className="text-xs text-amber-700">Maximum number of items reached.</p> : null}
     </div>
   );
 };

@@ -76,3 +76,20 @@ export const getJobOfferHistory = (token: string, id: string) =>
     method: 'GET',
     token,
   });
+
+export type JobOfferPreviewRow = {
+  id: string;
+  title: string;
+  company: string | null;
+  location: string | null;
+  matchScore: number | null;
+};
+
+export const getJobOffersPreview = (data: JobOffersListDto): JobOfferPreviewRow[] =>
+  data.items.map((offer) => ({
+    id: offer.id,
+    title: offer.title,
+    company: offer.company,
+    location: offer.location,
+    matchScore: offer.matchScore,
+  }));

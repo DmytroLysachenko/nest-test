@@ -53,6 +53,12 @@ export const getDocumentUploadHealth = (token: string) =>
     token,
   });
 
+export const removeDocument = (token: string, documentId: string) =>
+  apiRequest<{ ok: boolean }>(`/documents/${documentId}`, {
+    method: 'DELETE',
+    token,
+  });
+
 export const uploadFileToSignedUrl = async (uploadUrl: string, file: File) => {
   const response = await fetch(uploadUrl, {
     method: 'PUT',

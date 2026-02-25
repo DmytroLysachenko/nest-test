@@ -30,6 +30,7 @@ export const ProfileManagementPage = () => {
     saveProfileInputMutation,
     generateProfileMutation,
     restoreProfileMutation,
+    errors,
   } = useProfileManagementData({ token: auth.token });
 
   if (!auth.token) {
@@ -39,11 +40,6 @@ export const ProfileManagementPage = () => {
   const documents = documentsQuery.data ?? [];
   const readyDocumentsCount = documents.filter((document) => document.extractionStatus === 'READY').length;
   const canGenerate = readyDocumentsCount > 0;
-
-  const profileInputError =
-    saveProfileInputMutation.error instanceof Error ? saveProfileInputMutation.error.message : null;
-  const generateError = generateProfileMutation.error instanceof Error ? generateProfileMutation.error.message : null;
-  const restoreError = restoreProfileMutation.error instanceof Error ? restoreProfileMutation.error.message : null;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 md:py-8">
@@ -68,7 +64,7 @@ export const ProfileManagementPage = () => {
           initialNotes={latestProfileInputQuery.data?.notes ?? ''}
           onSubmit={(payload) => saveProfileInputMutation.mutate(payload)}
           isSaving={saveProfileInputMutation.isPending}
-          errorMessage={profileInputError}
+          errorMessage={errors.saveProfileInput}
         />
         <DocumentsReadinessCard documents={documents} />
       </div>
@@ -84,8 +80,8 @@ export const ProfileManagementPage = () => {
         isRestoring={restoreProfileMutation.isPending}
         onGenerate={(payload) => generateProfileMutation.mutate(payload)}
         onRestore={(careerProfileId) => restoreProfileMutation.mutate(careerProfileId)}
-        generateErrorMessage={generateError}
-        restoreErrorMessage={restoreError}
+        generateErrorMessage={errors.generateProfile}
+        restoreErrorMessage={errors.restoreProfile}
       />
 
       <ProfileQualityCard quality={careerProfileQualityQuery.data} />

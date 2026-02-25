@@ -2,9 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 
-import { getCurrentUser } from '@/features/auth/api/auth-api';
+import { useAuthMeQuery } from '@/features/auth/model/hooks/use-auth-me-query';
 import {
   clearStoredTokens,
   onStoredTokensChanged,
@@ -12,7 +11,6 @@ import {
   writeStoredTokens,
 } from '@/features/auth/model/utils/token-storage';
 import { ApiError } from '@/shared/lib/http/api-error';
-import { queryKeys } from '@/shared/lib/query/query-keys';
 
 import type { UserDto } from '@/shared/types/api';
 
@@ -46,16 +44,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return onStoredTokensChanged(syncTokens);
   }, []);
 
-  const userQuery = useQuery({
-    queryKey: queryKeys.auth.me(token),
-    queryFn: async () => {
-      if (!token) {
-        return null;
-      }
-      return getCurrentUser(token);
-    },
-    enabled: Boolean(token),
-  });
+  const userQuery = useAuthMeQuery(token);
 
   useEffect(() => {
     if (userQuery.data) {

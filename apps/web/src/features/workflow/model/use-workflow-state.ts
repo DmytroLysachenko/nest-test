@@ -1,14 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 
-import { getLatestCareerProfile } from '@/features/career-profiles/api/career-profiles-api';
-import { listDocuments } from '@/features/documents/api/documents-api';
-import { listJobOffers } from '@/features/job-offers/api/job-offers-api';
-import { listJobSourceRuns } from '@/features/job-sources/api/job-sources-api';
-import { getLatestProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
-import { queryKeys } from '@/shared/lib/query/query-keys';
+import { useWorkflowQueries } from '@/features/workflow/model/hooks/use-workflow-queries';
 
 type WorkflowStepKey =
   | 'profile-input'
@@ -26,37 +20,8 @@ type WorkflowStep = {
 };
 
 export const useWorkflowState = (token: string | null) => {
-  const hasToken = Boolean(token);
-
-  const profileInputQuery = useQuery({
-    queryKey: queryKeys.profileInputs.latest(token),
-    queryFn: () => getLatestProfileInput(token as string),
-    enabled: hasToken,
-  });
-
-  const documentsQuery = useQuery({
-    queryKey: queryKeys.documents.list(token),
-    queryFn: () => listDocuments(token as string),
-    enabled: hasToken,
-  });
-
-  const careerProfileQuery = useQuery({
-    queryKey: queryKeys.careerProfiles.latest(token),
-    queryFn: () => getLatestCareerProfile(token as string),
-    enabled: hasToken,
-  });
-
-  const runsQuery = useQuery({
-    queryKey: queryKeys.jobSources.runs(token),
-    queryFn: () => listJobSourceRuns(token as string),
-    enabled: hasToken,
-  });
-
-  const offersQuery = useQuery({
-    queryKey: queryKeys.jobOffers.list(token, { limit: 1, offset: 0 }),
-    queryFn: () => listJobOffers(token as string, { limit: 1, offset: 0 }),
-    enabled: hasToken,
-  });
+  const { profileInputQuery, documentsQuery, careerProfileQuery, runsQuery, offersQuery } =
+    useWorkflowQueries(token);
 
   return useMemo(() => {
     const documents = documentsQuery.data ?? [];
