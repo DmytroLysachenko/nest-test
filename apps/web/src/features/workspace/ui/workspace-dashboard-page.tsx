@@ -1,28 +1,47 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { useMutation } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { logout } from '@/features/auth/api/auth-api';
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
-import { CareerProfilePanel } from '@/features/career-profiles';
-import { DocumentsPanel } from '@/features/documents';
-import { JobMatchingPanel } from '@/features/job-matching';
-import { JobSourcesPanel } from '@/features/job-sources';
-import { ProfileInputPanel } from '@/features/profile-inputs';
-import { useWorkflowState, WorkflowOverviewCard } from '@/features/workflow';
-import { env } from '@/shared/config/env';
-import { useAppUiStore } from '@/shared/store/app-ui-store';
+import { getLatestCareerProfile } from '@/features/career-profiles/api/career-profiles-api';
+import { listJobOffers } from '@/features/job-offers/api/job-offers-api';
+import { listJobSourceRuns } from '@/features/job-sources/api/job-sources-api';
+import { getLatestProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
+import { queryKeys } from '@/shared/lib/query/query-keys';
 import { Button } from '@/shared/ui/button';
-
-const testerEnabled = process.env.NODE_ENV !== 'production' && env.NEXT_PUBLIC_ENABLE_TESTER;
+import { Card } from '@/shared/ui/card';
 
 export const WorkspaceDashboardPage = () => {
   const auth = useRequireAuth();
-  const searchParams = useSearchParams();
-  const workflow = useWorkflowState(auth.token);
-  const setLastVisitedSection = useAppUiStore((state) => state.setLastVisitedSection);
+  const router = useRouter();
+
+  const profileInputQuery = useQuery({
+    queryKey: queryKeys.profileInputs.latest(auth.token),
+    queryFn: () => getLatestProfileInput(auth.token as string),
+    enabled: Boolean(auth.token),
+  });
+
+  const latestProfileQuery = useQuery({
+    queryKey: queryKeys.careerProfiles.latest(auth.token),
+    queryFn: () => getLatestCareerProfile(auth.token as string),
+    enabled: Boolean(auth.token),
+  });
+
+  const offersQuery = useQuery({
+    queryKey: queryKeys.jobOffers.list(auth.token, { limit: 8, offset: 0, mode: 'strict' }),
+    queryFn: () => listJobOffers(auth.token as string, { limit: 8, offset: 0, mode: 'strict' }),
+    enabled: Boolean(auth.token),
+  });
+
+  const runsQuery = useQuery({
+    queryKey: queryKeys.jobSources.runs(auth.token),
+    queryFn: () => listJobSourceRuns(auth.token as string),
+    enabled: Boolean(auth.token),
+  });
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
@@ -31,101 +50,110 @@ export const WorkspaceDashboardPage = () => {
       }
       await logout(auth.token);
     },
-    onSettled: () => {
-      auth.clearSession();
-    },
+    onSettled: () => auth.clearSession(),
   });
 
-  if (!auth.token) {
-    return <main className="mx-auto max-w-6xl px-4 py-10 text-sm text-slate-500">Checking session...</main>;
+  const isLoading = profileInputQuery.isLoading || latestProfileQuery.isLoading || offersQuery.isLoading || runsQuery.isLoading;
+  const hasReadyProfile = latestProfileQuery.data?.status === 'READY';
+
+  useEffect(() => {
+    if (!auth.isHydrated || auth.isLoading) {
+      return;
+    }
+    if (!auth.token) {
+      return;
+    }
+    if (profileInputQuery.isLoading || latestProfileQuery.isLoading) {
+      return;
+    }
+    if (!profileInputQuery.data || !hasReadyProfile) {
+      router.replace('/app/onboarding');
+    }
+  }, [
+    auth.isHydrated,
+    auth.isLoading,
+    auth.token,
+    hasReadyProfile,
+    latestProfileQuery.isLoading,
+    profileInputQuery.data,
+    profileInputQuery.isLoading,
+    router,
+  ]);
+
+  if (!auth.token || isLoading) {
+    return <main className="mx-auto max-w-6xl px-4 py-8 text-sm text-slate-500">Loading workspace...</main>;
   }
 
+  const latestRun = runsQuery.data?.items[0] ?? null;
+  const offers = offersQuery.data?.items ?? [];
+  const totalOffers = offersQuery.data?.total ?? 0;
+
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 md:py-8">
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-100/60 p-4">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
+      <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
         <div>
-          <h1 className="text-lg font-semibold text-slate-900">Career Assistant Workspace</h1>
-          <p className="text-sm text-slate-700">Signed in as {auth.user?.email ?? 'unknown user'}</p>
+          <h1 className="text-xl font-semibold text-slate-900">Job Search Dashboard</h1>
+          <p className="text-sm text-slate-600">Signed in as {auth.user?.email ?? 'unknown user'}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700"
-            href="/app/profile"
-            onClick={() => setLastVisitedSection('profile')}
-          >
-            Open profile management
+        <div className="flex flex-wrap gap-2">
+          <Link href="/app/notebook" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+            Open notebook
           </Link>
-          {workflow.allowNotebook ? (
-            <Link
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700"
-              href="/app/notebook"
-              onClick={() => setLastVisitedSection('notebook')}
-            >
-              Open notebook
-            </Link>
-          ) : (
-            <span className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-400">
-              Notebook locked
-            </span>
-          )}
+          <Link href="/app/profile" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+            Manage profile
+          </Link>
+          <Link href="/app/onboarding" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+            Recreate profile
+          </Link>
           <Button variant="secondary" onClick={() => logoutMutation.mutate()} disabled={logoutMutation.isPending}>
             {logoutMutation.isPending ? 'Signing out...' : 'Sign out'}
           </Button>
         </div>
       </header>
 
-      {testerEnabled ? (
-        <section className="rounded-xl border border-sky-200 bg-sky-50 p-4">
-          <p className="text-sm text-slate-700">
-            Internal testing is enabled. Open{' '}
-            <Link className="font-semibold text-sky-700 underline" href="/app/tester">
-              /app/tester
-            </Link>{' '}
-            to test API and worker endpoints.
-          </p>
-        </section>
-      ) : null}
-
-      {searchParams.get('blocked') === 'notebook' ? (
-        <section className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          Notebook access requires at least one completed scrape run or existing materialized offers.
-        </section>
-      ) : null}
-
-      <WorkflowOverviewCard
-        completedSteps={workflow.completedSteps}
-        totalSteps={workflow.totalSteps}
-        isLoading={workflow.isLoading}
-        steps={workflow.steps}
-      />
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ProfileInputPanel token={auth.token} />
-        <DocumentsPanel
-          token={auth.token}
-          disabled={!workflow.allowDocumentsActions}
-          disabledReason="Save profile input first, then upload and extract documents."
-        />
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card title="Profile" description="Current search profile status">
+          <p className="text-sm text-slate-700">Status: {latestProfileQuery.data?.status ?? 'n/a'}</p>
+          <p className="text-sm text-slate-700">Version: {latestProfileQuery.data?.version ?? 'n/a'}</p>
+        </Card>
+        <Card title="Scrape Runs" description="Latest ingestion state">
+          <p className="text-sm text-slate-700">Last run status: {latestRun?.status ?? 'n/a'}</p>
+          <p className="text-sm text-slate-700">Total runs: {runsQuery.data?.total ?? 0}</p>
+        </Card>
+        <Card title="Notebook" description="Materialized offers in your notebook">
+          <p className="text-sm text-slate-700">Total offers: {totalOffers}</p>
+          <p className="text-sm text-slate-700">Mode: strict</p>
+        </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <CareerProfilePanel
-          token={auth.token}
-          disabled={!workflow.allowProfileGeneration}
-          disabledReason="At least one document must be extracted (READY) before profile generation."
-        />
-        <JobMatchingPanel
-          token={auth.token}
-          disabled={!workflow.allowJobMatching}
-          disabledReason="Generate a READY career profile before deterministic job matching."
-        />
-      </div>
-
-      <JobSourcesPanel
-        token={auth.token}
-        disabled={!workflow.allowScrapeEnqueue}
-        disabledReason="Generate a READY career profile before enqueuing scrape runs."
-      />
+      <Card title="Recent offers" description="Quick preview of top offers from your notebook.">
+        {offers.length ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500">
+                  <th className="pb-2">Title</th>
+                  <th className="pb-2">Company</th>
+                  <th className="pb-2">Location</th>
+                  <th className="pb-2">Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {offers.map((offer) => (
+                  <tr key={offer.id} className="border-t border-slate-100">
+                    <td className="py-2 text-slate-900">{offer.title}</td>
+                    <td className="py-2 text-slate-700">{offer.company}</td>
+                    <td className="py-2 text-slate-700">{offer.location ?? 'n/a'}</td>
+                    <td className="py-2 text-slate-700">{offer.matchScore == null ? 'n/a' : offer.matchScore.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">No offers yet. Enqueue scrape from notebook or tester tools.</p>
+        )}
+      </Card>
     </main>
   );
 };
