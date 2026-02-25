@@ -6,6 +6,7 @@ import { type ReactNode, useState } from 'react';
 
 import { AuthProvider } from '@/features/auth/model/context/auth-context';
 import { createQueryClient } from '@/shared/lib/query/query-client';
+import { AppToaster } from '@/shared/ui/toaster';
 
 export const Providers = ({ children }: { children: ReactNode }) => {
   const [queryClient] = useState(() => createQueryClient());
@@ -14,6 +15,7 @@ export const Providers = ({ children }: { children: ReactNode }) => {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         {children}
+        <AppToaster />
         <ReactQueryDevtools initialIsOpen={false} />
       </AuthProvider>
     </QueryClientProvider>
