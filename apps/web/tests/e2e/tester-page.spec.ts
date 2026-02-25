@@ -28,7 +28,7 @@ test('tester page can send a mocked API request and render response payload', as
     });
   });
 
-  await page.goto('/app/tester');
+  await page.goto('/app/tester', { waitUntil: 'domcontentloaded' });
 
   await expect(page.getByText('E2E Tester')).toBeVisible();
 

@@ -213,7 +213,7 @@ test('profile management supports save, generate, and restore actions', async ({
     });
   });
 
-  await page.goto('/app/profile');
+  await page.goto('/app/profile', { waitUntil: 'domcontentloaded' });
 
   await expect(page.getByRole('heading', { name: 'Profile Management' })).toBeVisible();
 

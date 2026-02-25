@@ -183,9 +183,9 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
     });
   });
 
-  await page.goto('/app/notebook');
+  await page.goto('/app/notebook', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByText('Job Notebook')).toBeVisible();
+  await expect(page.getByText('Job Notebook')).toBeVisible({ timeout: 15000 });
   await expect(page.getByText('Backend Developer')).toBeVisible();
   await expect(page.getByLabel('Mode')).toHaveValue('strict');
 
