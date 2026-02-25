@@ -1,45 +1,22 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
-import { generateCareerProfile, getLatestCareerProfile } from '@/features/career-profiles/api/career-profiles-api';
-import { listDocuments } from '@/features/documents/api/documents-api';
+import { useOnboardingMutations } from '@/features/onboarding/model/hooks/use-onboarding-mutations';
+import { useOnboardingQueries } from '@/features/onboarding/model/hooks/use-onboarding-queries';
 import { useOnboardingDraftStore } from '@/features/onboarding/model/state/onboarding-draft-store';
 import { onboardingStepOneSchema, type OnboardingStepOneValues } from '@/features/onboarding/model/validation/onboarding-step-one-schema';
-import { createProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
-import { getLatestProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
-import { ApiError } from '@/shared/lib/http/api-error';
-import { queryKeys } from '@/shared/lib/query/query-keys';
 import { defaultOnboardingDraft } from '@/features/onboarding/model/types/onboarding-draft';
+import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
 export const useOnboardingPage = () => {
   const auth = useRequireAuth();
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const { draft, step, setStep, patchDraft, resetDraft } = useOnboardingDraftStore();
 
-  const latestCareerProfileQuery = useQuery({
-    queryKey: queryKeys.careerProfiles.latest(auth.token),
-    queryFn: () => getLatestCareerProfile(auth.token as string),
-    enabled: Boolean(auth.token),
-  });
-
-  const latestProfileInputQuery = useQuery({
-    queryKey: queryKeys.profileInputs.latest(auth.token),
-    queryFn: () => getLatestProfileInput(auth.token as string),
-    enabled: Boolean(auth.token),
-  });
-
-  const documentsQuery = useQuery({
-    queryKey: queryKeys.documents.list(auth.token),
-    queryFn: () => listDocuments(auth.token as string),
-    enabled: Boolean(auth.token),
-  });
+  const { latestCareerProfileQuery, onboardingDraftQuery, documentsQuery } = useOnboardingQueries(auth.token);
 
   const stepOneForm = useForm<OnboardingStepOneValues>({
     resolver: zodResolver(onboardingStepOneSchema),
@@ -58,66 +35,27 @@ export const useOnboardingPage = () => {
     },
   });
 
-  const submitProfileMutation = useMutation({
-    mutationFn: async () => {
-      if (!auth.token) {
-        throw new Error('No auth token');
-      }
-
-      await createProfileInput(auth.token, {
-        intakePayload: {
-          desiredPositions: draft.desiredPositions,
-          jobDomains: draft.jobDomains,
-          coreSkills: draft.coreSkills,
-          experienceYearsInRole: draft.experienceYearsInRole ?? undefined,
-          targetSeniority: draft.targetSeniority,
-          workModePreferences: {
-            hard: draft.hardWorkModes,
-            soft: draft.softWorkModes.map((value) => ({ value, weight: 0.6 })),
-          },
-          contractPreferences: {
-            hard: draft.hardContractTypes,
-            soft: draft.softContractTypes.map((value) => ({ value, weight: 0.6 })),
-          },
-          sectionNotes: {
-            positions: draft.sectionNotes.positions || undefined,
-            domains: draft.sectionNotes.domains || undefined,
-            skills: draft.sectionNotes.skills || undefined,
-            experience: draft.sectionNotes.experience || undefined,
-            preferences: draft.sectionNotes.preferences || undefined,
-          },
-          generalNotes: draft.generalNotes || undefined,
-        },
-      });
-
-      await generateCareerProfile(auth.token, {
-        instructions: draft.generationInstructions || undefined,
-      });
-    },
-    onSuccess: async () => {
-      resetDraft();
-      await queryClient.invalidateQueries({ queryKey: queryKeys.profileInputs.latest(auth.token) });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.careerProfiles.latest(auth.token) });
-      router.push('/app');
-    },
+  const { submitProfileMutation, saveDraftMutation, clearDraftMutation } = useOnboardingMutations({
+    token: auth.token,
+    draft,
+    resetDraft,
   });
 
   const saveStepOne = stepOneForm.handleSubmit((values) => {
     patchDraft(values);
+    if (auth.token) {
+      saveDraftMutation.mutate(values as Record<string, unknown>);
+    }
     setStep(2);
   });
 
   const hasReadyDocument = (documentsQuery.data ?? []).some((item) => item.extractionStatus === 'READY');
 
   const generationError =
-    submitProfileMutation.error instanceof ApiError
-      ? submitProfileMutation.error.message
-      : submitProfileMutation.error instanceof Error
-        ? submitProfileMutation.error.message
-        : null;
+    submitProfileMutation.error ? toUserErrorMessage(submitProfileMutation.error, 'Failed to generate profile') : null;
 
   useEffect(() => {
-    const server = latestProfileInputQuery.data?.intakePayload;
+    const server = onboardingDraftQuery.data?.payload as Record<string, unknown> | null | undefined;
     if (!server) {
       return;
     }
@@ -138,32 +76,59 @@ export const useOnboardingPage = () => {
     }
 
     patchDraft({
-      desiredPositions: server.desiredPositions ?? [],
-      jobDomains: server.jobDomains ?? [],
-      coreSkills: server.coreSkills ?? [],
-      experienceYearsInRole: server.experienceYearsInRole ?? null,
-      targetSeniority: server.targetSeniority ?? [],
-      hardWorkModes: server.workModePreferences?.hard ?? [],
-      softWorkModes: (server.workModePreferences?.soft ?? []).map((item) => item.value),
-      hardContractTypes: server.contractPreferences?.hard ?? [],
-      softContractTypes: (server.contractPreferences?.soft ?? []).map((item) => item.value),
+      desiredPositions: Array.isArray(server.desiredPositions) ? (server.desiredPositions as string[]) : [],
+      jobDomains: Array.isArray(server.jobDomains) ? (server.jobDomains as string[]) : [],
+      coreSkills: Array.isArray(server.coreSkills) ? (server.coreSkills as string[]) : [],
+      experienceYearsInRole: typeof server.experienceYearsInRole === 'number' ? server.experienceYearsInRole : null,
+      targetSeniority: Array.isArray(server.targetSeniority)
+        ? (server.targetSeniority as Array<'intern' | 'junior' | 'mid' | 'senior' | 'lead' | 'manager'>)
+        : [],
+      hardWorkModes: Array.isArray(server.hardWorkModes)
+        ? (server.hardWorkModes as Array<'remote' | 'hybrid' | 'onsite' | 'mobile'>)
+        : [],
+      softWorkModes: Array.isArray(server.softWorkModes)
+        ? (server.softWorkModes as Array<'remote' | 'hybrid' | 'onsite' | 'mobile'>)
+        : [],
+      hardContractTypes: Array.isArray(server.hardContractTypes)
+        ? (server.hardContractTypes as Array<'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'>)
+        : [],
+      softContractTypes: Array.isArray(server.softContractTypes)
+        ? (server.softContractTypes as Array<'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'>)
+        : [],
       sectionNotes: {
-        positions: server.sectionNotes?.positions ?? '',
-        domains: server.sectionNotes?.domains ?? '',
-        skills: server.sectionNotes?.skills ?? '',
-        experience: server.sectionNotes?.experience ?? '',
-        preferences: server.sectionNotes?.preferences ?? '',
+        positions:
+          typeof server.sectionNotes === 'object' && server.sectionNotes && 'positions' in server.sectionNotes
+            ? String((server.sectionNotes as Record<string, unknown>).positions ?? '')
+            : '',
+        domains:
+          typeof server.sectionNotes === 'object' && server.sectionNotes && 'domains' in server.sectionNotes
+            ? String((server.sectionNotes as Record<string, unknown>).domains ?? '')
+            : '',
+        skills:
+          typeof server.sectionNotes === 'object' && server.sectionNotes && 'skills' in server.sectionNotes
+            ? String((server.sectionNotes as Record<string, unknown>).skills ?? '')
+            : '',
+        experience:
+          typeof server.sectionNotes === 'object' && server.sectionNotes && 'experience' in server.sectionNotes
+            ? String((server.sectionNotes as Record<string, unknown>).experience ?? '')
+            : '',
+        preferences:
+          typeof server.sectionNotes === 'object' && server.sectionNotes && 'preferences' in server.sectionNotes
+            ? String((server.sectionNotes as Record<string, unknown>).preferences ?? '')
+            : '',
       },
-      generalNotes: server.generalNotes ?? '',
+      generalNotes: typeof server.generalNotes === 'string' ? server.generalNotes : '',
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [latestProfileInputQuery.data]);
+  }, [onboardingDraftQuery.data]);
 
   return {
     auth,
     step,
     setStep,
-    latestProfileInputQuery,
+    onboardingDraftQuery,
+    saveDraftMutation,
+    clearDraftMutation,
     draft,
     patchDraft,
     stepOneForm,

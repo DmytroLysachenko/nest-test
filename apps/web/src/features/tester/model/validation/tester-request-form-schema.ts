@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const testerRequestFormSchema = z.object({
   service: z.enum(['api', 'worker']),
-  method: z.enum(['GET', 'POST', 'PATCH', 'DELETE']),
+  method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
   path: z.string().trim().min(1, 'Path is required'),
   useApiToken: z.enum(['yes', 'no']),
   workerToken: z.string().optional(),

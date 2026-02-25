@@ -1,92 +1,25 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { logout } from '@/features/auth/api/auth-api';
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
-import { getLatestCareerProfile } from '@/features/career-profiles/api/career-profiles-api';
-import { listJobOffers } from '@/features/job-offers/api/job-offers-api';
-import { listJobSourceRuns } from '@/features/job-sources/api/job-sources-api';
-import { getLatestProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
-import { queryKeys } from '@/shared/lib/query/query-keys';
+import { useWorkspaceDashboardData } from '@/features/workspace/model/hooks/use-workspace-dashboard-data';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 
 export const WorkspaceDashboardPage = () => {
   const auth = useRequireAuth();
-  const router = useRouter();
-
-  const profileInputQuery = useQuery({
-    queryKey: queryKeys.profileInputs.latest(auth.token),
-    queryFn: () => getLatestProfileInput(auth.token as string),
-    enabled: Boolean(auth.token),
+  const dashboard = useWorkspaceDashboardData({
+    token: auth.token,
+    clearSession: auth.clearSession,
   });
 
-  const latestProfileQuery = useQuery({
-    queryKey: queryKeys.careerProfiles.latest(auth.token),
-    queryFn: () => getLatestCareerProfile(auth.token as string),
-    enabled: Boolean(auth.token),
-  });
-
-  const offersQuery = useQuery({
-    queryKey: queryKeys.jobOffers.list(auth.token, { limit: 8, offset: 0, mode: 'strict' }),
-    queryFn: () => listJobOffers(auth.token as string, { limit: 8, offset: 0, mode: 'strict' }),
-    enabled: Boolean(auth.token),
-  });
-
-  const runsQuery = useQuery({
-    queryKey: queryKeys.jobSources.runs(auth.token),
-    queryFn: () => listJobSourceRuns(auth.token as string),
-    enabled: Boolean(auth.token),
-  });
-
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      if (!auth.token) {
-        return;
-      }
-      await logout(auth.token);
-    },
-    onSettled: () => auth.clearSession(),
-  });
-
-  const isLoading = profileInputQuery.isLoading || latestProfileQuery.isLoading || offersQuery.isLoading || runsQuery.isLoading;
-  const hasReadyProfile = latestProfileQuery.data?.status === 'READY';
-
-  useEffect(() => {
-    if (!auth.isHydrated || auth.isLoading) {
-      return;
-    }
-    if (!auth.token) {
-      return;
-    }
-    if (profileInputQuery.isLoading || latestProfileQuery.isLoading) {
-      return;
-    }
-    if (!profileInputQuery.data || !hasReadyProfile) {
-      router.replace('/app/onboarding');
-    }
-  }, [
-    auth.isHydrated,
-    auth.isLoading,
-    auth.token,
-    hasReadyProfile,
-    latestProfileQuery.isLoading,
-    profileInputQuery.data,
-    profileInputQuery.isLoading,
-    router,
-  ]);
-
-  if (!auth.token || isLoading) {
+  if (dashboard.isLoading || !dashboard.summary) {
     return <main className="mx-auto max-w-6xl px-4 py-8 text-sm text-slate-500">Loading workspace...</main>;
   }
 
-  const latestRun = runsQuery.data?.items[0] ?? null;
-  const offers = offersQuery.data?.items ?? [];
-  const totalOffers = offersQuery.data?.total ?? 0;
+  const summary = dashboard.summary;
+  const offers = dashboard.offers;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
@@ -105,24 +38,24 @@ export const WorkspaceDashboardPage = () => {
           <Link href="/app/onboarding" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
             Recreate profile
           </Link>
-          <Button variant="secondary" onClick={() => logoutMutation.mutate()} disabled={logoutMutation.isPending}>
-            {logoutMutation.isPending ? 'Signing out...' : 'Sign out'}
+          <Button variant="secondary" onClick={() => dashboard.logout()} disabled={dashboard.isLoggingOut}>
+            {dashboard.isLoggingOut ? 'Signing out...' : 'Sign out'}
           </Button>
         </div>
       </header>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card title="Profile" description="Current search profile status">
-          <p className="text-sm text-slate-700">Status: {latestProfileQuery.data?.status ?? 'n/a'}</p>
-          <p className="text-sm text-slate-700">Version: {latestProfileQuery.data?.version ?? 'n/a'}</p>
+          <p className="text-sm text-slate-700">Status: {summary.profile.status ?? 'n/a'}</p>
+          <p className="text-sm text-slate-700">Version: {summary.profile.version ?? 'n/a'}</p>
         </Card>
         <Card title="Scrape Runs" description="Latest ingestion state">
-          <p className="text-sm text-slate-700">Last run status: {latestRun?.status ?? 'n/a'}</p>
-          <p className="text-sm text-slate-700">Total runs: {runsQuery.data?.total ?? 0}</p>
+          <p className="text-sm text-slate-700">Last run status: {summary.scrape.lastRunStatus ?? 'n/a'}</p>
+          <p className="text-sm text-slate-700">Total runs: {summary.scrape.totalRuns}</p>
         </Card>
         <Card title="Notebook" description="Materialized offers in your notebook">
-          <p className="text-sm text-slate-700">Total offers: {totalOffers}</p>
-          <p className="text-sm text-slate-700">Mode: strict</p>
+          <p className="text-sm text-slate-700">Total offers: {summary.offers.total}</p>
+          <p className="text-sm text-slate-700">Scored offers: {summary.offers.scored}</p>
         </Card>
       </div>
 

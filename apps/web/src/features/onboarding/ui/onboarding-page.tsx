@@ -111,6 +111,9 @@ export const OnboardingPage = () => {
           description="Provide role, domain, skills and constraints. This input is persisted locally until generation."
         >
           <form className="space-y-4" onSubmit={onboarding.saveStepOne}>
+            <p className="text-xs text-slate-500">
+              Fields marked by behavior are required for progressing. Optional notes improve profile quality.
+            </p>
             <TagInput
               label="1) Positions you want to apply for"
               placeholder="e.g. Frontend Developer"
@@ -236,104 +239,181 @@ export const OnboardingPage = () => {
             </div>
 
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-slate-500">Draft is saved automatically in local storage.</p>
+              <div className="space-y-1">
+                <p className="text-xs text-slate-500">Draft is saved automatically in local storage.</p>
+                {onboarding.stepOneForm.formState.isDirty ? (
+                  <p className="text-xs text-amber-700">You have unsaved local changes in this step.</p>
+                ) : null}
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={() => {
-                    const intake = onboarding.latestProfileInputQuery.data?.intakePayload;
-                    if (!intake) {
+                    const server = onboarding.onboardingDraftQuery.data?.payload as Record<string, unknown> | null | undefined;
+                    if (!server) {
                       return;
                     }
                     onboarding.patchDraft({
-                      desiredPositions: intake.desiredPositions ?? [],
-                      jobDomains: intake.jobDomains ?? [],
-                      coreSkills: intake.coreSkills ?? [],
-                      experienceYearsInRole: intake.experienceYearsInRole ?? null,
-                      targetSeniority: intake.targetSeniority ?? [],
-                      hardWorkModes: intake.workModePreferences?.hard ?? [],
-                      softWorkModes: (intake.workModePreferences?.soft ?? []).map((item) => item.value),
-                      hardContractTypes: intake.contractPreferences?.hard ?? [],
-                      softContractTypes: (intake.contractPreferences?.soft ?? []).map((item) => item.value),
+                      desiredPositions: Array.isArray(server.desiredPositions) ? (server.desiredPositions as string[]) : [],
+                      jobDomains: Array.isArray(server.jobDomains) ? (server.jobDomains as string[]) : [],
+                      coreSkills: Array.isArray(server.coreSkills) ? (server.coreSkills as string[]) : [],
+                      experienceYearsInRole: typeof server.experienceYearsInRole === 'number' ? server.experienceYearsInRole : null,
+                      targetSeniority: Array.isArray(server.targetSeniority)
+                        ? (server.targetSeniority as Array<'intern' | 'junior' | 'mid' | 'senior' | 'lead' | 'manager'>)
+                        : [],
+                      hardWorkModes: Array.isArray(server.hardWorkModes)
+                        ? (server.hardWorkModes as Array<'remote' | 'hybrid' | 'onsite' | 'mobile'>)
+                        : [],
+                      softWorkModes: Array.isArray(server.softWorkModes)
+                        ? (server.softWorkModes as Array<'remote' | 'hybrid' | 'onsite' | 'mobile'>)
+                        : [],
+                      hardContractTypes: Array.isArray(server.hardContractTypes)
+                        ? (server.hardContractTypes as Array<'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'>)
+                        : [],
+                      softContractTypes: Array.isArray(server.softContractTypes)
+                        ? (server.softContractTypes as Array<'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'>)
+                        : [],
                       sectionNotes: {
-                        positions: intake.sectionNotes?.positions ?? '',
-                        domains: intake.sectionNotes?.domains ?? '',
-                        skills: intake.sectionNotes?.skills ?? '',
-                        experience: intake.sectionNotes?.experience ?? '',
-                        preferences: intake.sectionNotes?.preferences ?? '',
+                        positions:
+                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'positions' in server.sectionNotes
+                            ? String((server.sectionNotes as Record<string, unknown>).positions ?? '')
+                            : '',
+                        domains:
+                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'domains' in server.sectionNotes
+                            ? String((server.sectionNotes as Record<string, unknown>).domains ?? '')
+                            : '',
+                        skills:
+                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'skills' in server.sectionNotes
+                            ? String((server.sectionNotes as Record<string, unknown>).skills ?? '')
+                            : '',
+                        experience:
+                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'experience' in server.sectionNotes
+                            ? String((server.sectionNotes as Record<string, unknown>).experience ?? '')
+                            : '',
+                        preferences:
+                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'preferences' in server.sectionNotes
+                            ? String((server.sectionNotes as Record<string, unknown>).preferences ?? '')
+                            : '',
                       },
-                      generalNotes: intake.generalNotes ?? '',
+                      generalNotes: typeof server.generalNotes === 'string' ? server.generalNotes : '',
                     });
                     onboarding.stepOneForm.reset({
-                      desiredPositions: intake.desiredPositions ?? [],
-                      jobDomains: intake.jobDomains ?? [],
-                      coreSkills: intake.coreSkills ?? [],
-                      experienceYearsInRole: intake.experienceYearsInRole ?? null,
-                      targetSeniority: intake.targetSeniority ?? [],
-                      hardWorkModes: intake.workModePreferences?.hard ?? [],
-                      softWorkModes: (intake.workModePreferences?.soft ?? []).map((item) => item.value),
-                      hardContractTypes: intake.contractPreferences?.hard ?? [],
-                      softContractTypes: (intake.contractPreferences?.soft ?? []).map((item) => item.value),
+                      desiredPositions: Array.isArray(server.desiredPositions) ? (server.desiredPositions as string[]) : [],
+                      jobDomains: Array.isArray(server.jobDomains) ? (server.jobDomains as string[]) : [],
+                      coreSkills: Array.isArray(server.coreSkills) ? (server.coreSkills as string[]) : [],
+                      experienceYearsInRole: typeof server.experienceYearsInRole === 'number' ? server.experienceYearsInRole : null,
+                      targetSeniority: Array.isArray(server.targetSeniority)
+                        ? (server.targetSeniority as Array<'intern' | 'junior' | 'mid' | 'senior' | 'lead' | 'manager'>)
+                        : [],
+                      hardWorkModes: Array.isArray(server.hardWorkModes)
+                        ? (server.hardWorkModes as Array<'remote' | 'hybrid' | 'onsite' | 'mobile'>)
+                        : [],
+                      softWorkModes: Array.isArray(server.softWorkModes)
+                        ? (server.softWorkModes as Array<'remote' | 'hybrid' | 'onsite' | 'mobile'>)
+                        : [],
+                      hardContractTypes: Array.isArray(server.hardContractTypes)
+                        ? (server.hardContractTypes as Array<'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'>)
+                        : [],
+                      softContractTypes: Array.isArray(server.softContractTypes)
+                        ? (server.softContractTypes as Array<'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'>)
+                        : [],
                       sectionNotes: {
-                        positions: intake.sectionNotes?.positions ?? '',
-                        domains: intake.sectionNotes?.domains ?? '',
-                        skills: intake.sectionNotes?.skills ?? '',
-                        experience: intake.sectionNotes?.experience ?? '',
-                        preferences: intake.sectionNotes?.preferences ?? '',
+                        positions:
+                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'positions' in server.sectionNotes
+                            ? String((server.sectionNotes as Record<string, unknown>).positions ?? '')
+                            : '',
+                        domains:
+                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'domains' in server.sectionNotes
+                            ? String((server.sectionNotes as Record<string, unknown>).domains ?? '')
+                            : '',
+                        skills:
+                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'skills' in server.sectionNotes
+                            ? String((server.sectionNotes as Record<string, unknown>).skills ?? '')
+                            : '',
+                        experience:
+                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'experience' in server.sectionNotes
+                            ? String((server.sectionNotes as Record<string, unknown>).experience ?? '')
+                            : '',
+                        preferences:
+                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'preferences' in server.sectionNotes
+                            ? String((server.sectionNotes as Record<string, unknown>).preferences ?? '')
+                            : '',
                       },
-                      generalNotes: intake.generalNotes ?? '',
+                      generalNotes: typeof server.generalNotes === 'string' ? server.generalNotes : '',
                     });
                   }}
-                  disabled={!onboarding.latestProfileInputQuery.data?.intakePayload}
+                  disabled={!onboarding.onboardingDraftQuery.data?.payload}
                 >
-                  Load saved input
+                  Load server draft
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={async () => {
+                    onboarding.stepOneForm.reset({
+                      desiredPositions: [],
+                      jobDomains: [],
+                      coreSkills: [],
+                      experienceYearsInRole: null,
+                      targetSeniority: [],
+                      hardWorkModes: [],
+                      softWorkModes: [],
+                      hardContractTypes: [],
+                      softContractTypes: [],
+                      sectionNotes: {
+                        positions: '',
+                        domains: '',
+                        skills: '',
+                        experience: '',
+                        preferences: '',
+                      },
+                      generalNotes: '',
+                    });
+                    onboarding.patchDraft({
+                      desiredPositions: [],
+                      jobDomains: [],
+                      coreSkills: [],
+                      experienceYearsInRole: null,
+                      targetSeniority: [],
+                      hardWorkModes: [],
+                      softWorkModes: [],
+                      hardContractTypes: [],
+                      softContractTypes: [],
+                      sectionNotes: {
+                        positions: '',
+                        domains: '',
+                        skills: '',
+                        experience: '',
+                        preferences: '',
+                      },
+                      generalNotes: '',
+                    });
+                    onboarding.clearDraftMutation.mutate();
+                  }}
+                >
+                  Clear draft (local + server)
                 </Button>
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={() => {
                     onboarding.stepOneForm.reset({
-                      desiredPositions: [],
-                      jobDomains: [],
-                      coreSkills: [],
-                      experienceYearsInRole: null,
-                      targetSeniority: [],
-                      hardWorkModes: [],
-                      softWorkModes: [],
-                      hardContractTypes: [],
-                      softContractTypes: [],
-                      sectionNotes: {
-                        positions: '',
-                        domains: '',
-                        skills: '',
-                        experience: '',
-                        preferences: '',
-                      },
-                      generalNotes: '',
-                    });
-                    onboarding.patchDraft({
-                      desiredPositions: [],
-                      jobDomains: [],
-                      coreSkills: [],
-                      experienceYearsInRole: null,
-                      targetSeniority: [],
-                      hardWorkModes: [],
-                      softWorkModes: [],
-                      hardContractTypes: [],
-                      softContractTypes: [],
-                      sectionNotes: {
-                        positions: '',
-                        domains: '',
-                        skills: '',
-                        experience: '',
-                        preferences: '',
-                      },
-                      generalNotes: '',
+                      desiredPositions: onboarding.draft.desiredPositions,
+                      jobDomains: onboarding.draft.jobDomains,
+                      coreSkills: onboarding.draft.coreSkills,
+                      experienceYearsInRole: onboarding.draft.experienceYearsInRole,
+                      targetSeniority: onboarding.draft.targetSeniority,
+                      hardWorkModes: onboarding.draft.hardWorkModes,
+                      softWorkModes: onboarding.draft.softWorkModes,
+                      hardContractTypes: onboarding.draft.hardContractTypes,
+                      softContractTypes: onboarding.draft.softContractTypes,
+                      sectionNotes: onboarding.draft.sectionNotes,
+                      generalNotes: onboarding.draft.generalNotes,
                     });
                   }}
                 >
-                  Clear draft
+                  Reset step values
                 </Button>
                 <Button type="submit">Continue to documents</Button>
               </div>

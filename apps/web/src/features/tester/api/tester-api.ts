@@ -4,7 +4,7 @@ import { type TesterService } from '../model/endpoint-presets';
 
 type TesterRequestInput = {
   service: TesterService;
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   path: string;
   token?: string | null;
   workerToken?: string | null;

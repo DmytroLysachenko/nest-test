@@ -30,6 +30,9 @@ export const queryKeys = {
   workflow: {
     summary: (token: string | null) => ['workflow', 'summary', token] as const,
   },
+  onboarding: {
+    draft: (token: string | null) => ['onboarding', 'draft', token] as const,
+  },
   jobSources: {
     runs: (token: string | null) => ['job-sources', 'runs', token] as const,
   },

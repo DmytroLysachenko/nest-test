@@ -4,7 +4,7 @@ export type TesterEndpointPreset = {
   id: string;
   label: string;
   service: TesterService;
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   path: string;
   requiresAuth?: boolean;
   defaultBody?: Record<string, unknown>;
@@ -126,6 +126,44 @@ export const testerEndpointPresets: TesterEndpointPreset[] = [
     service: 'api',
     method: 'GET',
     path: '/profile-inputs/latest',
+    requiresAuth: true,
+  },
+  {
+    id: 'onboarding-draft-get',
+    label: 'Onboarding: get draft',
+    service: 'api',
+    method: 'GET',
+    path: '/onboarding/draft',
+    requiresAuth: true,
+  },
+  {
+    id: 'onboarding-draft-upsert',
+    label: 'Onboarding: upsert draft',
+    service: 'api',
+    method: 'PUT',
+    path: '/onboarding/draft',
+    requiresAuth: true,
+    defaultBody: {
+      stepOne: {
+        desiredRole: 'Frontend Developer',
+        desiredSpecialization: 'IT - Rozwój oprogramowania',
+        preferredLocations: ['Gdynia'],
+        workModes: ['hybrid', 'home-office'],
+        keywords: ['react', 'typescript', 'next.js'],
+        seniorities: ['junior'],
+      },
+      stepTwo: {
+        notes:
+          'Open to remote-first offers, can relocate in Tricity area for hybrid.',
+      },
+    },
+  },
+  {
+    id: 'onboarding-draft-delete',
+    label: 'Onboarding: delete draft',
+    service: 'api',
+    method: 'DELETE',
+    path: '/onboarding/draft',
     requiresAuth: true,
   },
   {
@@ -321,6 +359,14 @@ export const testerEndpointPresets: TesterEndpointPreset[] = [
     service: 'api',
     method: 'GET',
     path: '/job-offers?mode=strict&limit=20&offset=0',
+    requiresAuth: true,
+  },
+  {
+    id: 'workspace-summary',
+    label: 'Workspace: summary',
+    service: 'api',
+    method: 'GET',
+    path: '/workspace/summary',
     requiresAuth: true,
   },
   {

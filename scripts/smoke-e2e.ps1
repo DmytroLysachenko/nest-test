@@ -119,6 +119,24 @@ if (-not $profileLatestPayload.data) {
   throw 'Latest profile input returned no data.'
 }
 
+Write-Host '5.05) Verifying onboarding draft CRUD endpoints...'
+$stage = 'onboarding-draft'
+$draftPut = Invoke-WebRequest -Uri 'http://localhost:3000/api/onboarding/draft' -Method Put -Headers $authHeaders -ContentType 'application/json' -Body (@{
+  payload = @{
+    desiredPositions = @('Backend Developer')
+    coreSkills = @('Node.js', 'TypeScript', 'PostgreSQL')
+  }
+} | ConvertTo-Json -Depth 6) -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $draftPut.StatusCode -Allowed @(200, 201) -Context 'Upsert onboarding draft'
+$draftGet = Invoke-WebRequest -Uri 'http://localhost:3000/api/onboarding/draft' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $draftGet.StatusCode -Allowed @(200) -Context 'Get onboarding draft'
+$draftPayload = $draftGet.Content | ConvertFrom-Json
+if (-not $draftPayload.data.payload) {
+  throw 'Onboarding draft payload missing.'
+}
+$draftDelete = Invoke-WebRequest -Uri 'http://localhost:3000/api/onboarding/draft' -Method Delete -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $draftDelete.StatusCode -Allowed @(200) -Context 'Delete onboarding draft'
+
 Write-Host '5.1) Verifying document upload-health endpoint...'
 $stage = 'documents-upload-health'
 $uploadHealth = Invoke-WebRequest -Uri 'http://localhost:3000/api/documents/upload-health' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
@@ -140,6 +158,15 @@ if ($careerLatestData.status -ne 'READY') {
 }
 if ($careerLatestData.contentJson.schemaVersion -ne '1.0.0') {
   throw "Latest career profile schemaVersion should be 1.0.0. got=$($careerLatestData.contentJson.schemaVersion)"
+}
+
+Write-Host '6.1) Verifying workspace summary endpoint...'
+$stage = 'workspace-summary'
+$workspaceSummary = Invoke-WebRequest -Uri 'http://localhost:3000/api/workspace/summary' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $workspaceSummary.StatusCode -Allowed @(200) -Context 'Get workspace summary'
+$workspaceSummaryPayload = $workspaceSummary.Content | ConvertFrom-Json
+if ($null -eq $workspaceSummaryPayload.data.workflow.needsOnboarding) {
+  throw 'Workspace summary missing workflow.needsOnboarding.'
 }
 
 $careerList = Invoke-WebRequest -Uri 'http://localhost:3000/api/career-profiles?limit=10' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20

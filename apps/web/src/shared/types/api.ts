@@ -72,6 +72,40 @@ export type ProfileInputDto = {
   createdAt: string;
 };
 
+export type OnboardingDraftDto = {
+  id: string;
+  userId: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorkspaceSummaryDto = {
+  profile: {
+    exists: boolean;
+    status: string | null;
+    version: number | null;
+    updatedAt: string | null;
+  };
+  profileInput: {
+    exists: boolean;
+    updatedAt: string | null;
+  };
+  offers: {
+    total: number;
+    scored: number;
+    lastUpdatedAt: string | null;
+  };
+  scrape: {
+    lastRunStatus: string | null;
+    lastRunAt: string | null;
+    totalRuns: number;
+  };
+  workflow: {
+    needsOnboarding: boolean;
+  };
+};
+
 export type DocumentDto = {
   id: string;
   userId: string;
