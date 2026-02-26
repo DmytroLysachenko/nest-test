@@ -16,6 +16,8 @@ Day-to-day engineering runbook for local development and verification.
 
 1. API:
    - `API_BODY_LIMIT` (example: `1mb`)
+   - `SCRAPE_MAX_ACTIVE_RUNS_PER_USER` (per-user backpressure guard)
+   - `ALLOWED_ORIGINS` must not be `*` in production mode
    - `WORKSPACE_SUMMARY_CACHE_TTL_SEC` (cache ttl for workspace summary read model)
    - `JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS` (default summary window)
    - `NOTEBOOK_APPROX_VIOLATION_PENALTY`
@@ -56,6 +58,7 @@ Day-to-day engineering runbook for local development and verification.
 1. Main dashboard: `/app`
 2. Guided profile onboarding: `/app/onboarding`
 3. Internal endpoint tester (dev flag): `/app/tester`
+4. Admin ops metrics: `GET /api/ops/metrics`
 
 ## Smoke Coverage (Current)
 

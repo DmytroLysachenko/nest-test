@@ -12,6 +12,8 @@ Last updated: 2026-02-24
    - Status: in progress (run diagnostics summary + cache-first reuse + filter canonicalization improvements).
 4. CI quality gates (API/worker/web tests + smoke on protected branches).
    - Status: in progress (web e2e suite is now part of CI; smoke gate expansion pending branch policy alignment).
+5. Reliability guardrails for scrape intake + admin ops visibility.
+   - Status: in progress (per-user scrape backpressure + admin metrics endpoint implemented).
 
 ## Next
 

@@ -35,11 +35,13 @@ Last updated: 2026-02-26
 - Career profile now has denormalized search projection columns.
 - API and worker enforce request body size limits (env-driven).
 - API validates scrape listing URL allowlist per source before enqueue.
+- API enforces per-user active scrape backpressure (`SCRAPE_MAX_ACTIVE_RUNS_PER_USER`).
 - Notebook supports ranking modes (`strict` / `approx` / `explore`) with explanation tags per offer.
 - Notebook ranking calibration is env-tunable (approx penalties/bonuses and explore unscored base).
 - Career profile exposes deterministic quality diagnostics endpoint.
 - Scrape runs expose diagnostics endpoint (relaxation trail + source stats).
 - Scrape runs expose aggregated diagnostics summary endpoint (`/job-sources/runs/diagnostics/summary`).
+- Admin ops metrics endpoint available at `/ops/metrics`.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.
 - Profile management page now includes direct document upload/confirm/extract flow with diagnostics visibility.
@@ -49,6 +51,7 @@ Last updated: 2026-02-26
 - Onboarding draft persistence now supports both local draft and server-side draft recovery (`/onboarding/draft`).
 - Workspace summary read model (`/workspace/summary`) powers dashboard cards and onboarding guard decisions.
 - Workspace summary supports optional in-memory ttl cache (`WORKSPACE_SUMMARY_CACHE_TTL_SEC`).
+- Production bootstrap rejects wildcard CORS (`ALLOWED_ORIGINS=*`) in production mode.
 
 ## Data Model Highlights
 

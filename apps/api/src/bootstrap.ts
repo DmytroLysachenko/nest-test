@@ -37,6 +37,10 @@ export const bootstrap = async (app: NestExpressApplication) => {
   app.use(compression());
   app.use(helmet());
   const allowedOrigins = configService.get('ALLOWED_ORIGINS') ?? '*';
+  const isProduction = configService.get('NODE_ENV') === 'production';
+  if (isProduction && allowedOrigins.trim() === '*') {
+    throw new Error('ALLOWED_ORIGINS cannot be "*" in production');
+  }
   const origin =
     allowedOrigins === '*'
       ? true
