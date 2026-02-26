@@ -22,6 +22,7 @@ import { JobSourcesModule } from '@/features/job-sources/job-sources.module';
 import { JobOffersModule } from '@/features/job-offers/job-offers.module';
 import { OnboardingDraftsModule } from '@/features/onboarding-drafts/onboarding-drafts.module';
 import { WorkspaceModule } from '@/features/workspace/workspace.module';
+import { OpsModule } from '@/features/ops/ops.module';
 import { RolesGuard } from '@/common/guards';
 
 @Module({
@@ -56,6 +57,7 @@ import { RolesGuard } from '@/common/guards';
     JobOffersModule,
     OnboardingDraftsModule,
     WorkspaceModule,
+    OpsModule,
   ],
   providers: [
     {

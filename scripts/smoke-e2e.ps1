@@ -169,6 +169,15 @@ if ($null -eq $workspaceSummaryPayload.data.workflow.needsOnboarding) {
   throw 'Workspace summary missing workflow.needsOnboarding.'
 }
 
+Write-Host '6.2) Verifying ops metrics endpoint...'
+$stage = 'ops-metrics'
+$opsMetrics = Invoke-WebRequest -Uri 'http://localhost:3000/api/ops/metrics' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $opsMetrics.StatusCode -Allowed @(200) -Context 'Get ops metrics'
+$opsMetricsPayload = $opsMetrics.Content | ConvertFrom-Json
+if ($null -eq $opsMetricsPayload.data.queue.activeRuns) {
+  throw 'Ops metrics missing queue.activeRuns.'
+}
+
 $careerList = Invoke-WebRequest -Uri 'http://localhost:3000/api/career-profiles?limit=10' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $careerList.StatusCode -Allowed @(200) -Context 'List career profile versions'
 $careerListPayload = $careerList.Content | ConvertFrom-Json
