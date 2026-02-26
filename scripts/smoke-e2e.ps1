@@ -273,6 +273,25 @@ if ($jobMatchByIdPayload.data.id -ne $matchId) {
   throw "Job match by id mismatch. expected=$matchId got=$($jobMatchByIdPayload.data.id)"
 }
 
+Write-Host '8.1) Verifying job-matching audit endpoints...'
+$stage = 'job-matching-audit'
+$jobMatchAudit = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-matching/audit?limit=10' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $jobMatchAudit.StatusCode -Allowed @(200) -Context 'List job match audit'
+$jobMatchAuditPayload = $jobMatchAudit.Content | ConvertFrom-Json
+$auditItem = @($jobMatchAuditPayload.data.items | Where-Object { $_.id -eq $matchId } | Select-Object -First 1)
+if (-not $auditItem) {
+  throw "Scored job match id=$matchId not found in job-matching audit list."
+}
+if ($null -eq $auditItem.matchMeta) {
+  throw 'Job match audit item missing matchMeta.'
+}
+
+$jobMatchAuditCsv = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-matching/audit/export.csv?limit=10' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $jobMatchAuditCsv.StatusCode -Allowed @(200) -Context 'Export job match audit csv'
+if ($jobMatchAuditCsv.Content -notmatch 'id,careerProfileId,profileVersion,score') {
+  throw 'Job match audit CSV header missing expected columns.'
+}
+
 Write-Host '9) Reading job source runs...'
 $stage = 'job-source-runs'
 $runs = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-sources/runs' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
