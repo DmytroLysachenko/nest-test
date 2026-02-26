@@ -21,33 +21,32 @@ const normalizeDetails = (details?: JobDetails): JobDetails | undefined => {
         all: normalizeList(details.technologies.all),
       }
     : undefined;
-    const normalized: JobDetails = {
-      technologies:
-        technologies?.required || technologies?.niceToHave || technologies?.all ? technologies : undefined,
-      requirements: details.requirements
-        ? {
-            all: normalizeList(details.requirements.all),
-            required: normalizeList(details.requirements.required),
-            niceToHave: normalizeList(details.requirements.niceToHave),
-          }
-        : undefined,
-      positionLevels: normalizeList(details.positionLevels),
-      workModes: normalizeList(details.workModes),
-      workSchedules: normalizeList(details.workSchedules),
-      contractTypes: normalizeList(details.contractTypes),
-      workplace: normalizeText(details.workplace) ?? undefined,
-      companyLocation: normalizeText(details.companyLocation) ?? undefined,
-      companyDescription: normalizeText(details.companyDescription) ?? undefined,
-      benefits: normalizeList(details.benefits),
-    };
+  const normalized: JobDetails = {
+    technologies: technologies?.required || technologies?.niceToHave || technologies?.all ? technologies : undefined,
+    requirements: details.requirements
+      ? {
+          all: normalizeList(details.requirements.all),
+          required: normalizeList(details.requirements.required),
+          niceToHave: normalizeList(details.requirements.niceToHave),
+        }
+      : undefined,
+    positionLevels: normalizeList(details.positionLevels),
+    workModes: normalizeList(details.workModes),
+    workSchedules: normalizeList(details.workSchedules),
+    contractTypes: normalizeList(details.contractTypes),
+    workplace: normalizeText(details.workplace) ?? undefined,
+    companyLocation: normalizeText(details.companyLocation) ?? undefined,
+    companyDescription: normalizeText(details.companyDescription) ?? undefined,
+    benefits: normalizeList(details.benefits),
+  };
 
-    if (
-      !normalized.technologies &&
-      !normalized.requirements &&
-      !normalized.positionLevels &&
-      !normalized.workModes &&
-      !normalized.workSchedules &&
-      !normalized.contractTypes &&
+  if (
+    !normalized.technologies &&
+    !normalized.requirements &&
+    !normalized.positionLevels &&
+    !normalized.workModes &&
+    !normalized.workSchedules &&
+    !normalized.contractTypes &&
     !normalized.workplace &&
     !normalized.companyLocation &&
     !normalized.companyDescription &&

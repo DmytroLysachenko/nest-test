@@ -19,4 +19,3 @@ export const useCareerProfileQueries = (token: string) => {
     latestQuery,
   };
 };
-

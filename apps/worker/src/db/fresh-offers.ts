@@ -44,13 +44,7 @@ export const loadFreshOfferUrls = async (
     const rows = await db
       .select({ url: jobOffersTable.url, sourceId: jobOffersTable.sourceId })
       .from(jobOffersTable)
-      .where(
-        and(
-          eq(jobOffersTable.source, source),
-          gte(jobOffersTable.fetchedAt, cutoff),
-          or(...identityConditions),
-        ),
-      )
+      .where(and(eq(jobOffersTable.source, source), gte(jobOffersTable.fetchedAt, cutoff), or(...identityConditions)))
       .orderBy(desc(jobOffersTable.fetchedAt));
     rows.forEach((row) => {
       if (row.url) {

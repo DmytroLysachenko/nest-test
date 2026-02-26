@@ -48,4 +48,3 @@ export class ListCareerProfileSearchViewQuery {
   @Min(0)
   offset?: number;
 }
-

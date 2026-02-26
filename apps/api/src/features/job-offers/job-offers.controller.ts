@@ -30,10 +30,7 @@ export class JobOffersController {
 
   @Get('status-history')
   @ApiOperation({ summary: 'List status change history for user offers' })
-  async listStatusHistory(
-    @CurrentUser() user: JwtValidateUser,
-    @Query() query: ListStatusHistoryQuery,
-  ) {
+  async listStatusHistory(@CurrentUser() user: JwtValidateUser, @Query() query: ListStatusHistoryQuery) {
     const limit = query.limit ? Number(query.limit) : 20;
     const offset = query.offset ? Number(query.offset) : 0;
     return this.jobOffersService.listStatusHistory(user.userId, limit, offset);
@@ -41,10 +38,7 @@ export class JobOffersController {
 
   @Get(':id/history')
   @ApiOperation({ summary: 'Get status history for a single offer' })
-  async getHistory(
-    @CurrentUser() user: JwtValidateUser,
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ) {
+  async getHistory(@CurrentUser() user: JwtValidateUser, @Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.jobOffersService.getHistory(user.userId, id);
   }
 

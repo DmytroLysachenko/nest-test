@@ -67,17 +67,19 @@ export class ProfileInputsService {
         targetSeniority: payload.targetSeniority ?? [],
         workModePreferences: {
           hard: payload.workModePreferences?.hard ?? [],
-          soft: payload.workModePreferences?.soft?.map((item) => ({
-            value: item.value,
-            weight: Math.max(0, Math.min(1, item.weight)),
-          })) ?? [],
+          soft:
+            payload.workModePreferences?.soft?.map((item) => ({
+              value: item.value,
+              weight: Math.max(0, Math.min(1, item.weight)),
+            })) ?? [],
         },
         contractPreferences: {
           hard: payload.contractPreferences?.hard ?? [],
-          soft: payload.contractPreferences?.soft?.map((item) => ({
-            value: item.value,
-            weight: Math.max(0, Math.min(1, item.weight)),
-          })) ?? [],
+          soft:
+            payload.contractPreferences?.soft?.map((item) => ({
+              value: item.value,
+              weight: Math.max(0, Math.min(1, item.weight)),
+            })) ?? [],
         },
         sectionNotes: {
           positions: payload.sectionNotes?.positions?.trim() || null,

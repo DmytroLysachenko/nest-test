@@ -77,7 +77,9 @@ describe('JobMatchingService scoring', () => {
     expect(result.score).toBeGreaterThan(0);
     expect(result.hardConstraintViolations).toHaveLength(0);
     expect(result.softPreferenceGaps).toEqual([]);
-    expect(result.matchedCompetencies.map((item) => item.name)).toEqual(expect.arrayContaining(['React', 'TypeScript']));
+    expect(result.matchedCompetencies.map((item) => item.name)).toEqual(
+      expect.arrayContaining(['React', 'TypeScript']),
+    );
   });
 
   it('blocks higher seniority jobs when candidate seniority is lower', () => {

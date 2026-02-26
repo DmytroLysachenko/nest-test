@@ -59,4 +59,3 @@ export class ScrapeRunDiagnosticsResponse {
   @ApiProperty({ type: ScrapeRunDiagnosticsPayloadResponse })
   diagnostics!: ScrapeRunDiagnosticsPayloadResponse;
 }
-

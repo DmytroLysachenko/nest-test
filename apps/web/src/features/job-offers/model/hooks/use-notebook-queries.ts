@@ -44,4 +44,3 @@ export const useNotebookQueries = ({ token, listParams, selectedId }: UseNoteboo
     historyQuery,
   };
 };
-

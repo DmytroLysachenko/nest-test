@@ -112,17 +112,4 @@ export const KNOWN_CITIES = [
   'katowice',
 ] as const;
 
-export const STOPWORDS = new Set([
-  'and',
-  'or',
-  'the',
-  'for',
-  'with',
-  'bez',
-  'oraz',
-  'lub',
-  'i',
-  'w',
-  'na',
-  'do',
-]);
+export const STOPWORDS = new Set(['and', 'or', 'the', 'for', 'with', 'bez', 'oraz', 'lub', 'i', 'w', 'na', 'do']);

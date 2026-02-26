@@ -90,8 +90,21 @@ const unique = <T>(values: Array<T | undefined | null>) =>
 export const inferPracujSource = (profile: CandidateProfile): PracujSourceKind => {
   const specializations = profile.searchSignals.specializations.map((item) => item.value.toLowerCase());
   const technologies = profile.searchSignals.technologies.map((item) => item.value.toLowerCase());
-  const itKeywords = ['frontend', 'backend', 'fullstack', 'devops', 'data', 'qa', 'security', 'react', 'typescript', 'java'];
-  const hasItSignals = [...specializations, ...technologies].some((value) => itKeywords.some((keyword) => value.includes(keyword)));
+  const itKeywords = [
+    'frontend',
+    'backend',
+    'fullstack',
+    'devops',
+    'data',
+    'qa',
+    'security',
+    'react',
+    'typescript',
+    'java',
+  ];
+  const hasItSignals = [...specializations, ...technologies].some((value) =>
+    itKeywords.some((keyword) => value.includes(keyword)),
+  );
   return hasItSignals ? 'pracuj-pl-it' : 'pracuj-pl-general';
 };
 
@@ -111,7 +124,9 @@ export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilter
   const softEmploymentTypes = profile.workPreferences.softPreferences.employmentTypes
     .filter((item) => item.weight >= 0.4)
     .map((item) => item.value);
-  const contractTypes = unique([...hardEmploymentTypes, ...softEmploymentTypes].map((value) => CONTRACT_TO_PRACUJ[value]));
+  const contractTypes = unique(
+    [...hardEmploymentTypes, ...softEmploymentTypes].map((value) => CONTRACT_TO_PRACUJ[value]),
+  );
 
   const specializations = unique(
     profile.searchSignals.specializations
@@ -123,20 +138,19 @@ export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilter
     ...profile.searchSignals.keywords.filter((item) => item.weight >= 0.3).map((item) => item.value),
     ...profile.targetRoles.map((item) => item.title),
   ];
-  const keywords = unique(
-    keywordPool
-      .map((value) => value.trim().replace(/\s+/g, ' '))
-      .filter(Boolean),
-  ).join(' ');
+  const keywords = unique(keywordPool.map((value) => value.trim().replace(/\s+/g, ' ')).filter(Boolean)).join(' ');
 
-  const location = profile.workPreferences.hardConstraints.locations[0]?.city
-    ?? profile.workPreferences.softPreferences.locations[0]?.value.city;
-  const radiusKm = profile.workPreferences.hardConstraints.locations[0]?.radiusKm
-    ?? profile.workPreferences.softPreferences.locations[0]?.value.radiusKm;
+  const location =
+    profile.workPreferences.hardConstraints.locations[0]?.city ??
+    profile.workPreferences.softPreferences.locations[0]?.value.city;
+  const radiusKm =
+    profile.workPreferences.hardConstraints.locations[0]?.radiusKm ??
+    profile.workPreferences.softPreferences.locations[0]?.value.radiusKm;
   const canonicalLocation = canonicalizeLocation(location, radiusKm);
 
   const minSalary =
-    profile.workPreferences.hardConstraints.minSalary?.amount ?? profile.workPreferences.softPreferences.salary?.value.amount;
+    profile.workPreferences.hardConstraints.minSalary?.amount ??
+    profile.workPreferences.softPreferences.salary?.value.amount;
 
   const filters: ScrapeFilters = {
     positionLevels: positionLevels.length ? positionLevels : undefined,

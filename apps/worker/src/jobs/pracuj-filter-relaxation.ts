@@ -71,8 +71,16 @@ export const relaxPracujFiltersOnce = (source: PracujSourceKind, current: Scrape
   const filters = cloneFilters(current);
 
   const reasonFromArrays =
-    dropOneFromArray(filters, source === 'pracuj-pl-general' ? 'categories' : 'technologies', 'reduced tech/category') ??
-    dropOneFromArray(filters, source === 'pracuj-pl-general' ? 'positionLevels' : 'specializations', 'reduced specialization/level') ??
+    dropOneFromArray(
+      filters,
+      source === 'pracuj-pl-general' ? 'categories' : 'technologies',
+      'reduced tech/category',
+    ) ??
+    dropOneFromArray(
+      filters,
+      source === 'pracuj-pl-general' ? 'positionLevels' : 'specializations',
+      'reduced specialization/level',
+    ) ??
     dropOneFromArray(filters, 'workModes', 'reduced work mode') ??
     dropOneFromArray(filters, 'contractTypes', 'reduced contract type') ??
     dropOneFromArray(filters, 'workDimensions', 'reduced work dimension') ??

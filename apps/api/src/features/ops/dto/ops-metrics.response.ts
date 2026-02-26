@@ -46,4 +46,3 @@ export class OpsMetricsResponse {
   @ApiProperty({ type: OpsOffersMetricsResponse })
   offers!: OpsOffersMetricsResponse;
 }
-

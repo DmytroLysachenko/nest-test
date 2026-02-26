@@ -8,7 +8,10 @@ import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { useOnboardingMutations } from '@/features/onboarding/model/hooks/use-onboarding-mutations';
 import { useOnboardingQueries } from '@/features/onboarding/model/hooks/use-onboarding-queries';
 import { useOnboardingDraftStore } from '@/features/onboarding/model/state/onboarding-draft-store';
-import { onboardingStepOneSchema, type OnboardingStepOneValues } from '@/features/onboarding/model/validation/onboarding-step-one-schema';
+import {
+  onboardingStepOneSchema,
+  type OnboardingStepOneValues,
+} from '@/features/onboarding/model/validation/onboarding-step-one-schema';
 import { defaultOnboardingDraft } from '@/features/onboarding/model/types/onboarding-draft';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
@@ -51,8 +54,9 @@ export const useOnboardingPage = () => {
 
   const hasReadyDocument = (documentsQuery.data ?? []).some((item) => item.extractionStatus === 'READY');
 
-  const generationError =
-    submitProfileMutation.error ? toUserErrorMessage(submitProfileMutation.error, 'Failed to generate profile') : null;
+  const generationError = submitProfileMutation.error
+    ? toUserErrorMessage(submitProfileMutation.error, 'Failed to generate profile')
+    : null;
 
   useEffect(() => {
     const server = onboardingDraftQuery.data?.payload as Record<string, unknown> | null | undefined;

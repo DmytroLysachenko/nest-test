@@ -66,4 +66,3 @@ export const useWorkflowQueries = (token: string | null) => {
     offersQuery,
   };
 };
-

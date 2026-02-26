@@ -128,10 +128,17 @@ test('profile management supports save, generate, and restore actions', async ({
           score: 84,
           signals: [
             { key: 'target_roles', status: 'ok', score: 1, message: 'Sufficient evidence present' },
-            { key: 'technologies_coverage', status: 'weak', score: 0.7, message: 'Signal is present but under-detailed' },
+            {
+              key: 'technologies_coverage',
+              status: 'weak',
+              score: 0.7,
+              message: 'Signal is present but under-detailed',
+            },
           ],
           missing: [],
-          recommendations: ['Add additional technologies (including transferable ones) with lower confidence where applicable.'],
+          recommendations: [
+            'Add additional technologies (including transferable ones) with lower confidence where applicable.',
+          ],
         },
       }),
     });

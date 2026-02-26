@@ -11,7 +11,11 @@ import { GeminiService } from '@/common/modules/gemini/gemini.service';
 import type { Env } from '@/config/env';
 import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
 import { scoreCandidateAgainstJob } from '@/features/job-matching/candidate-matcher';
-import { computeNotebookOfferRanking, type NotebookRankingMode, type NotebookRankingTuning } from '@/features/job-offers/notebook-ranking';
+import {
+  computeNotebookOfferRanking,
+  type NotebookRankingMode,
+  type NotebookRankingTuning,
+} from '@/features/job-offers/notebook-ranking';
 
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
 
@@ -56,10 +60,7 @@ export class JobOffersService {
       const wantsScore = query.hasScore === 'true';
       conditions.push(wantsScore ? not(isNull(userJobOffersTable.matchScore)) : isNull(userJobOffersTable.matchScore));
     }
-    const tagFilters = [
-      ...(query.tag ? [query.tag] : []),
-      ...(query.tags ?? []),
-    ].filter(Boolean);
+    const tagFilters = [...(query.tag ? [query.tag] : []), ...(query.tags ?? [])].filter(Boolean);
     if (tagFilters.length) {
       const tagsSql = sql.join(
         tagFilters.map((tag) => sql`${tag}`),
@@ -171,13 +172,8 @@ export class JobOffersService {
 
       const history = Array.isArray(current.statusHistory) ? current.statusHistory : [];
       const ensuredHistory =
-        history.length > 0
-          ? history
-          : [{ status: current.status, changedAt: new Date().toISOString() }];
-      const nextHistory = [
-        ...ensuredHistory,
-        { status, changedAt: new Date().toISOString() },
-      ];
+        history.length > 0 ? history : [{ status: current.status, changedAt: new Date().toISOString() }];
+      const nextHistory = [...ensuredHistory, { status, changedAt: new Date().toISOString() }];
 
       const [updated] = await tx
         .update(userJobOffersTable)
@@ -377,7 +373,11 @@ export class JobOffersService {
     };
   }
 
-  private buildScorePrompt(profile: Record<string, unknown>, offer: Record<string, unknown>, deterministic: { score: number }) {
+  private buildScorePrompt(
+    profile: Record<string, unknown>,
+    offer: Record<string, unknown>,
+    deterministic: { score: number },
+  ) {
     return [
       'You are a job matching assistant for post-processing deterministic score.',
       'Return ONLY JSON in this exact shape:',

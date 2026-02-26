@@ -38,7 +38,10 @@ export const TagInput = ({ label, placeholder, values, onChange, disabled = fals
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium text-slate-800">
-        {label} <span className="text-xs font-normal text-slate-500">({values.length}/{maxItems})</span>
+        {label}{' '}
+        <span className="text-xs font-normal text-slate-500">
+          ({values.length}/{maxItems})
+        </span>
       </p>
       <div className="flex gap-2">
         <Input

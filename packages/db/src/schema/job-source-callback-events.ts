@@ -18,7 +18,9 @@ export const jobSourceCallbackEventsTable = pgTable(
   },
   (table) => ({
     runEventUniqueIdx: uniqueIndex('job_source_callback_events_run_event_uidx').on(table.sourceRunId, table.eventId),
-    runReceivedAtIdx: index('job_source_callback_events_run_received_at_idx').on(table.sourceRunId, table.receivedAt.desc()),
+    runReceivedAtIdx: index('job_source_callback_events_run_received_at_idx').on(
+      table.sourceRunId,
+      table.receivedAt.desc(),
+    ),
   }),
 );
-

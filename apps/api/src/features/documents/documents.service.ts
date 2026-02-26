@@ -297,11 +297,7 @@ export class DocumentsService {
     const bucket = await this.gcsService.checkBucketAccess();
     let signedUrl: { ok: boolean; reason: string | null };
     try {
-      await this.gcsService.createSignedUploadUrl(
-        `healthchecks/upload-${Date.now()}.pdf`,
-        'application/pdf',
-        5,
-      );
+      await this.gcsService.createSignedUploadUrl(`healthchecks/upload-${Date.now()}.pdf`, 'application/pdf', 5);
       signedUrl = { ok: true, reason: null };
     } catch (error) {
       signedUrl = {

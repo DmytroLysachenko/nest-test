@@ -79,9 +79,7 @@ describe('CareerProfilesService prompt builder', () => {
         seniority: { primary: 'mid', secondary: [] },
         languages: [],
       },
-      targetRoles: [
-        { title: 'Frontend Engineer', confidenceScore: 0.9, confidenceLevel: 'high', priority: 1 },
-      ],
+      targetRoles: [{ title: 'Frontend Engineer', confidenceScore: 0.9, confidenceLevel: 'high', priority: 1 }],
       competencies: Array.from({ length: 6 }).map((_, index) => ({
         name: `Skill ${index}`,
         type: 'technology',

@@ -8,4 +8,3 @@ export const detectDocumentType = (fileName: string): 'CV' | 'LINKEDIN' | 'OTHER
   }
   return 'OTHER';
 };
-

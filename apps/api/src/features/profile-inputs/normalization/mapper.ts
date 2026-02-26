@@ -59,9 +59,7 @@ const parseSalary = (value: string) => {
   }
 
   const rawAmount = salaryMatch[1].replace(/\s+/g, '').toLowerCase();
-  const amount = rawAmount.endsWith('k')
-    ? Number(rawAmount.slice(0, -1)) * 1000
-    : Number(rawAmount.replace(/\./g, ''));
+  const amount = rawAmount.endsWith('k') ? Number(rawAmount.slice(0, -1)) * 1000 : Number(rawAmount.replace(/\./g, ''));
   if (!Number.isFinite(amount) || amount <= 0) {
     return null;
   }
@@ -70,11 +68,7 @@ const parseSalary = (value: string) => {
   const currency = ['PLN', 'EUR', 'USD'].includes(rawCurrency) ? rawCurrency : 'PLN';
   const rawPeriod = salaryMatch[3]?.toLowerCase();
   const period =
-    rawPeriod === 'rok' || rawPeriod === 'year'
-      ? 'year'
-      : rawPeriod === 'h' || rawPeriod === 'hour'
-        ? 'hour'
-        : 'month';
+    rawPeriod === 'rok' || rawPeriod === 'year' ? 'year' : rawPeriod === 'h' || rawPeriod === 'hour' ? 'hour' : 'month';
 
   return {
     min: Math.round(amount),
@@ -105,7 +99,9 @@ const detectLanguages = (text: string) => {
     if (!text.includes(keyword)) {
       continue;
     }
-    const levelMatch = LANGUAGE_LEVELS.find((level) => text.includes(`${keyword} ${level}`) || text.includes(`${level} ${keyword}`));
+    const levelMatch = LANGUAGE_LEVELS.find(
+      (level) => text.includes(`${keyword} ${level}`) || text.includes(`${level} ${keyword}`),
+    );
     results.push({ code, level: levelMatch ?? 'b2' });
   }
   return results;
@@ -158,9 +154,7 @@ const buildUnknownTokenWarnings = (
   normalizedText: string,
   knownTokenPool: Set<string>,
 ): Array<{ code: string; value: string }> => {
-  const words = normalizedText
-    .split(/[^a-z0-9+#.]+/g)
-    .filter((token) => token.length > 2 && !STOPWORDS.has(token));
+  const words = normalizedText.split(/[^a-z0-9+#.]+/g).filter((token) => token.length > 2 && !STOPWORDS.has(token));
 
   const unknown = words.filter((token) => !knownTokenPool.has(token) && Number.isNaN(Number(token)));
   const unique = Array.from(new Set(unknown)).slice(0, 10);
@@ -210,7 +204,8 @@ export const normalizeProfileInput = ({
   ]).sort();
   const specializations = unique([
     ...detectKeywords(normalizedText, SPECIALIZATION_MAP),
-    ...((parsedIntake?.jobDomains ?? []).flatMap((item) => detectKeywords(normalizeAscii(item), SPECIALIZATION_MAP)) ?? []),
+    ...((parsedIntake?.jobDomains ?? []).flatMap((item) => detectKeywords(normalizeAscii(item), SPECIALIZATION_MAP)) ??
+      []),
   ]).sort();
   const workModes = unique([
     ...(parsedIntake?.workModePreferences.hard ?? []),
@@ -233,12 +228,18 @@ export const normalizeProfileInput = ({
 
   const constraints = {
     noPolishRequired:
-      normalizedText.includes('no polish') || normalizedText.includes('bez polskiego') || normalizedText.includes('wpl'),
+      normalizedText.includes('no polish') ||
+      normalizedText.includes('bez polskiego') ||
+      normalizedText.includes('wpl'),
     ukrainiansWelcome: normalizedText.includes('ukrainian') || normalizedText.includes('ukraincy'),
     onlyEmployerOffers:
-      normalizedText.includes('only employer') || normalizedText.includes('oferty pracodawcy') || normalizedText.includes('ao=false'),
+      normalizedText.includes('only employer') ||
+      normalizedText.includes('oferty pracodawcy') ||
+      normalizedText.includes('ao=false'),
     onlyWithProjectDescription:
-      normalizedText.includes('project description') || normalizedText.includes('opis projektu') || normalizedText.includes('ap=true'),
+      normalizedText.includes('project description') ||
+      normalizedText.includes('opis projektu') ||
+      normalizedText.includes('ap=true'),
   };
 
   const knownTokenPool = new Set<string>([

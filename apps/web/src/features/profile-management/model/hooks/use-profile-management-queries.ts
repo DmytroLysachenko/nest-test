@@ -83,4 +83,3 @@ export const useProfileManagementQueries = ({ token }: UseProfileManagementQueri
     selectedProfileDocumentsQuery,
   };
 };
-

@@ -46,4 +46,3 @@ export class CareerProfileSearchViewListResponse {
   @ApiProperty()
   total!: number;
 }
-

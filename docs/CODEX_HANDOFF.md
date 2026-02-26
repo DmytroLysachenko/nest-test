@@ -30,6 +30,7 @@ pnpm smoke:e2e
 ```
 
 Expected dev ports:
+
 - API: `3000`
 - Web: `3002`
 - Worker: `4001`

@@ -67,4 +67,3 @@ export class ScrapeRunDiagnosticsSummaryResponse {
   @ApiProperty({ type: ScrapeRunFailureSummary })
   failures!: ScrapeRunFailureSummary;
 }
-

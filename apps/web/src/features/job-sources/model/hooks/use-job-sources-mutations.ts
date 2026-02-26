@@ -37,4 +37,3 @@ export const useJobSourcesMutations = (token: string, form: UseFormReturn<Enqueu
     enqueueMutation,
   };
 };
-

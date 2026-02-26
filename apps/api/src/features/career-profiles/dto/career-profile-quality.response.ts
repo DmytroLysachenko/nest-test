@@ -27,4 +27,3 @@ export class CareerProfileQualityResponse {
   @ApiProperty({ type: [String] })
   recommendations!: string[];
 }
-

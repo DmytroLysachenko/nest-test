@@ -40,4 +40,3 @@ export class WorkspaceSummaryCache<T> {
     this.entries.delete(key);
   }
 }
-

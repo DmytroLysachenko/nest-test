@@ -58,4 +58,3 @@ test('fallback excludes recommended links when section-offers is missing', () =>
   assert.deepEqual(result.primaryLinks, ['https://it.pracuj.pl/praca/primary,oferta,555']);
   assert.deepEqual(result.recommendedLinks, ['https://it.pracuj.pl/praca/recommended,oferta,666']);
 });
-

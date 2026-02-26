@@ -11,6 +11,7 @@ This runbook documents core operational procedures for API + worker.
 ## Callback Security
 
 If `WORKER_CALLBACK_SIGNING_SECRET` is enabled:
+
 - worker sends `x-worker-signature` and `x-worker-timestamp`
 - API validates timestamp tolerance via `WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC`
 - callback payload should include `eventId` to prevent replay
@@ -35,6 +36,7 @@ curl -X POST http://localhost:4001/callbacks/replay \
 ## Queue Backpressure
 
 Worker queue can be controlled via:
+
 - `WORKER_MAX_CONCURRENT_TASKS`
 - `WORKER_MAX_QUEUE_SIZE`
 - `WORKER_TASK_TIMEOUT_MS`

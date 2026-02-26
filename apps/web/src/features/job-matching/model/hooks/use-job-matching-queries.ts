@@ -19,4 +19,3 @@ export const useJobMatchingQueries = (token: string) => {
     historyQuery,
   };
 };
-

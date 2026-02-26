@@ -41,4 +41,3 @@ export const useDocumentsPanelQueries = (token: string, selectedDocumentId: stri
     documentEventsQuery,
   };
 };
-

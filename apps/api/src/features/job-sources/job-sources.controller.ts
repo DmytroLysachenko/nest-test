@@ -41,10 +41,7 @@ export class JobSourcesController {
 
   @Get('runs/:id')
   @ApiOperation({ summary: 'Get scrape run by id' })
-  async getRun(
-    @CurrentUser() user: JwtValidateUser,
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ) {
+  async getRun(@CurrentUser() user: JwtValidateUser, @Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.jobSourcesService.getRun(user.userId, id);
   }
 
@@ -61,10 +58,7 @@ export class JobSourcesController {
   @Get('runs/diagnostics/summary')
   @ApiOperation({ summary: 'Get aggregated scrape diagnostics summary' })
   @ApiOkResponse({ type: ScrapeRunDiagnosticsSummaryResponse })
-  async getRunDiagnosticsSummary(
-    @CurrentUser() user: JwtValidateUser,
-    @Query() query: ListRunDiagnosticsSummaryQuery,
-  ) {
+  async getRunDiagnosticsSummary(@CurrentUser() user: JwtValidateUser, @Query() query: ListRunDiagnosticsSummaryQuery) {
     return this.jobSourcesService.getRunDiagnosticsSummary(user.userId, query.windowHours);
   }
 

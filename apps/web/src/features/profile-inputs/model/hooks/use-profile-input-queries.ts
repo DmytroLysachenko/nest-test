@@ -19,4 +19,3 @@ export const useProfileInputQueries = (token: string) => {
     latestQuery,
   };
 };
-

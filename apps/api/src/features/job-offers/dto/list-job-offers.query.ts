@@ -40,7 +40,10 @@ export class ListJobOffersQuery {
     Array.isArray(value)
       ? value
       : typeof value === 'string'
-        ? value.split(',').map((item) => item.trim()).filter(Boolean)
+        ? value
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean)
         : undefined,
   )
   @IsArray()

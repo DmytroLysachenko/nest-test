@@ -11,10 +11,7 @@ import { toastSuccess } from '@/shared/lib/ui/toast';
 
 import type { CareerProfileGenerationFormValues } from '@/features/career-profiles/model/validation/career-profile-generation-form-schema';
 
-export const useCareerProfileMutations = (
-  token: string,
-  form: UseFormReturn<CareerProfileGenerationFormValues>,
-) => {
+export const useCareerProfileMutations = (token: string, form: UseFormReturn<CareerProfileGenerationFormValues>) => {
   const queryClient = useQueryClient();
 
   const generateMutation = useMutation({
@@ -38,4 +35,3 @@ export const useCareerProfileMutations = (
     generateMutation,
   };
 };
-

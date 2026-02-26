@@ -95,11 +95,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               <p className="text-slate-600">Scraped: {run.scrapedCount ?? 0}</p>
               <p className="text-slate-600">Found: {run.totalFound ?? 0}</p>
               <div className="mt-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => jobSourcesPanel.setSelectedRunId(run.id)}
-                >
+                <Button type="button" variant="secondary" onClick={() => jobSourcesPanel.setSelectedRunId(run.id)}>
                   Show diagnostics
                 </Button>
               </div>
@@ -119,8 +115,13 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           <p>Pages visited: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.pagesVisited}</p>
           <p>Job links discovered: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.jobLinksDiscovered}</p>
           <p>Blocked pages: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.blockedPages}</p>
-          <p>Ignored recommended links: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.ignoredRecommendedLinks}</p>
-          <p>Zero-offers step observed: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.hadZeroOffersStep ? 'yes' : 'no'}</p>
+          <p>
+            Ignored recommended links: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.ignoredRecommendedLinks}
+          </p>
+          <p>
+            Zero-offers step observed:{' '}
+            {jobSourcesPanel.diagnosticsQuery.data.diagnostics.hadZeroOffersStep ? 'yes' : 'no'}
+          </p>
         </div>
       ) : null}
     </Card>

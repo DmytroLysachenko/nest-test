@@ -92,4 +92,3 @@ describe('canonicalizeCandidateProfile', () => {
     expect(result.searchSignals.keywords.some((item) => item.value === 'Junior Frontend Developer')).toBe(true);
   });
 });
-

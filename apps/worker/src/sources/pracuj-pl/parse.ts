@@ -49,20 +49,18 @@ const extractNextDataJson = (html: string) => {
 };
 
 const findJobOfferData = (html: string) => {
-  const data = extractNextDataJson(html) as
-    | {
-        props?: {
-          pageProps?: {
-            dehydratedState?: {
-              queries?: Array<{
-                queryKey?: unknown[];
-                state?: { data?: Record<string, unknown> };
-              }>;
-            };
-          };
+  const data = extractNextDataJson(html) as {
+    props?: {
+      pageProps?: {
+        dehydratedState?: {
+          queries?: Array<{
+            queryKey?: unknown[];
+            state?: { data?: Record<string, unknown> };
+          }>;
         };
-      }
-    | null;
+      };
+    };
+  } | null;
   const queries = data?.props?.pageProps?.dehydratedState?.queries;
   if (!Array.isArray(queries)) {
     return null;
@@ -120,8 +118,7 @@ const extractListBySelectors = (html: string, selectors: string[]) => {
   return [];
 };
 
-const extractChipText = (value: string) =>
-  cleanText(value.replace(/[,;]\s*$/, '').replace(/\s*\|\s*/g, ' '));
+const extractChipText = (value: string) => cleanText(value.replace(/[,;]\s*$/, '').replace(/\s*\|\s*/g, ' '));
 
 const extractChips = (html: string, selectors: string[]) => {
   const $ = load(html);
@@ -201,7 +198,9 @@ const extractSectionTextByHeading = (html: string, headingPatterns: RegExp[]) =>
 };
 
 const extractJobOfferSections = (jobOffer: Record<string, unknown> | null) => {
-  const sections = Array.isArray(jobOffer?.textSections) ? (jobOffer?.textSections as Array<Record<string, unknown>>) : [];
+  const sections = Array.isArray(jobOffer?.textSections)
+    ? (jobOffer?.textSections as Array<Record<string, unknown>>)
+    : [];
   const collect = (type: string) =>
     sections
       .filter((section) => section.sectionType === type)
@@ -231,14 +230,16 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
   const jobOffer = findJobOfferData(html);
   const offerSections = extractJobOfferSections(jobOffer);
 
-  const expectedTech = extractChipsByHeading(html, [/Technologies we use/i, /Technologie/i], [
-    /Expected/i,
-    /Wymagane/i,
-  ]);
-  const optionalTech = extractChipsByHeading(html, [/Technologies we use/i, /Technologie/i], [
-    /Optional/i,
-    /Mile widziane/i,
-  ]);
+  const expectedTech = extractChipsByHeading(
+    html,
+    [/Technologies we use/i, /Technologie/i],
+    [/Expected/i, /Wymagane/i],
+  );
+  const optionalTech = extractChipsByHeading(
+    html,
+    [/Technologies we use/i, /Technologie/i],
+    [/Optional/i, /Mile widziane/i],
+  );
   const allTech =
     expectedTech.length || optionalTech.length
       ? Array.from(new Set([...expectedTech, ...optionalTech]))
@@ -281,14 +282,13 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
             niceToHave: optionalTech.length ? optionalTech : offerSections.technologiesOptional,
           }
         : undefined,
-    requirements:
-      allReq.length
-        ? {
-            all: allReq,
-            required: requiredReq.length ? requiredReq : undefined,
-            niceToHave: optionalReq.length ? optionalReq : undefined,
-          }
-        : undefined,
+    requirements: allReq.length
+      ? {
+          all: allReq,
+          required: requiredReq.length ? requiredReq : undefined,
+          niceToHave: optionalReq.length ? optionalReq : undefined,
+        }
+      : undefined,
     workModes: workModes.length ? workModes : undefined,
     contractTypes: contractTypes.length ? contractTypes : undefined,
     positionLevels: positionLevels.length ? positionLevels : undefined,
@@ -324,11 +324,7 @@ const findJobPosting = (blocks: string[]) => {
     try {
       const data = JSON.parse(block) as JsonLdJob | JsonLdJob[] | { ['@graph']?: JsonLdJob[] };
       const graph = (data as { ['@graph']?: JsonLdJob[] })['@graph'];
-      const list = Array.isArray(data)
-        ? data
-        : Array.isArray(graph)
-          ? graph
-          : [data as JsonLdJob];
+      const list = Array.isArray(data) ? data : Array.isArray(graph) ? graph : [data as JsonLdJob];
       const posting = list.find((item) => item['@type'] === 'JobPosting');
       if (posting) {
         return posting;
@@ -363,9 +359,7 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
     const combinedLocation = [location, region].filter(Boolean).join(', ');
 
     const hiringOrg =
-      typeof jsonLd?.hiringOrganization === 'string'
-        ? jsonLd?.hiringOrganization
-        : jsonLd?.hiringOrganization?.name;
+      typeof jsonLd?.hiringOrganization === 'string' ? jsonLd?.hiringOrganization : jsonLd?.hiringOrganization?.name;
 
     const jobOffer = findJobOfferData(page.html);
     const offerSections = extractJobOfferSections(jobOffer);

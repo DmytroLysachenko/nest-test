@@ -14,4 +14,3 @@ export const useAuthMeQuery = (token: string | null) =>
       queryFn: getCurrentUser,
     }),
   );
-

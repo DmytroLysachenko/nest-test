@@ -9,4 +9,3 @@ export class ListRunDiagnosticsSummaryQuery {
   @Max(720)
   windowHours?: number;
 }
-

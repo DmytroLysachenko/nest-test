@@ -52,13 +52,7 @@ const normalizeString = (value: string | undefined | null) => {
 };
 
 const sanitizeStringArray = (value: string[] | undefined | null) =>
-  Array.from(
-    new Set(
-      (value ?? [])
-        .map((item) => item.trim())
-        .filter(Boolean),
-    ),
-  );
+  Array.from(new Set((value ?? []).map((item) => item.trim()).filter(Boolean)));
 
 const sanitizeCallbackJobs = (jobs: ScrapeCompleteDto['jobs']) => {
   if (!jobs?.length) {
@@ -156,12 +150,7 @@ export class JobSourcesService {
       const activeRunsResult = await this.db
         .select({ value: count() })
         .from(jobSourceRunsTable)
-        .where(
-          and(
-            eq(jobSourceRunsTable.userId, userId),
-            inArray(jobSourceRunsTable.status, ['PENDING', 'RUNNING']),
-          ),
-        );
+        .where(and(eq(jobSourceRunsTable.userId, userId), inArray(jobSourceRunsTable.status, ['PENDING', 'RUNNING'])));
       const [activeRuns] = Array.isArray(activeRunsResult) ? activeRunsResult : [];
       const activeRunCount = Number(activeRuns?.value ?? 0);
       if (activeRunCount >= maxActiveRuns) {
@@ -172,11 +161,18 @@ export class JobSourcesService {
       }
     }
 
-    const profileDerivedFilters = dto.filters ? undefined : profileContext.profile ? buildFiltersFromProfile(profileContext.profile) : undefined;
+    const profileDerivedFilters = dto.filters
+      ? undefined
+      : profileContext.profile
+        ? buildFiltersFromProfile(profileContext.profile)
+        : undefined;
     const rawFilters = (dto.filters as ScrapeFiltersDto | undefined) ?? profileDerivedFilters;
     const normalizedFiltersResult = normalizePracujFilters(source, rawFilters);
-    const normalizedFilters = Object.keys(normalizedFiltersResult.filters).length ? normalizedFiltersResult.filters : undefined;
-    const listingUrl = dto.listingUrl ?? (normalizedFilters ? buildPracujListingUrl(source, normalizedFilters) : undefined);
+    const normalizedFilters = Object.keys(normalizedFiltersResult.filters).length
+      ? normalizedFiltersResult.filters
+      : undefined;
+    const listingUrl =
+      dto.listingUrl ?? (normalizedFilters ? buildPracujListingUrl(source, normalizedFilters) : undefined);
 
     if (!listingUrl) {
       throw new BadRequestException('Provide listingUrl, explicit filters, or profile input preferences');
@@ -601,7 +597,11 @@ export class JobSourcesService {
       .onConflictDoNothing()
       .returning({ id: userJobOffersTable.id });
 
-    void this.autoScoreIngestedOffers(run.userId, run.id, inserted.map((entry) => entry.id));
+    void this.autoScoreIngestedOffers(
+      run.userId,
+      run.id,
+      inserted.map((entry) => entry.id),
+    );
 
     this.logger.log(
       {
@@ -823,16 +823,10 @@ export class JobSourcesService {
       : null;
 
     const avgScrapedCount = finalized.length
-      ? Math.round(
-          finalized.reduce((sum, run) => sum + Number(run.scrapedCount ?? 0), 0) /
-            finalized.length,
-        )
+      ? Math.round(finalized.reduce((sum, run) => sum + Number(run.scrapedCount ?? 0), 0) / finalized.length)
       : null;
     const avgTotalFound = finalized.length
-      ? Math.round(
-          finalized.reduce((sum, run) => sum + Number(run.totalFound ?? 0), 0) /
-            finalized.length,
-        )
+      ? Math.round(finalized.reduce((sum, run) => sum + Number(run.totalFound ?? 0), 0) / finalized.length)
       : null;
     const successRate = status.total ? Number((status.completed / status.total).toFixed(4)) : 0;
 
@@ -902,7 +896,11 @@ export class JobSourcesService {
 
     const targetFilters = stableJson(input.normalizedFilters);
     const reusedRun = recentRuns.find((run) => {
-      const fingerprint = this.computeIntentFingerprint('pracuj-pl', run.listingUrl, (run.filters as Record<string, unknown> | null) ?? null);
+      const fingerprint = this.computeIntentFingerprint(
+        'pracuj-pl',
+        run.listingUrl,
+        (run.filters as Record<string, unknown> | null) ?? null,
+      );
       if (fingerprint === input.intentFingerprint) {
         return true;
       }
@@ -962,7 +960,11 @@ export class JobSourcesService {
       .returning({ id: userJobOffersTable.id });
 
     if (inserted.length) {
-      void this.autoScoreIngestedOffers(input.userId, reuseRun.id, inserted.map((row) => row.id));
+      void this.autoScoreIngestedOffers(
+        input.userId,
+        reuseRun.id,
+        inserted.map((row) => row.id),
+      );
     }
 
     return {
@@ -1006,7 +1008,11 @@ export class JobSourcesService {
     };
   }
 
-  private computeIntentFingerprint(source: PracujSourceKind, listingUrl: string, normalizedFilters: Record<string, unknown> | null) {
+  private computeIntentFingerprint(
+    source: PracujSourceKind,
+    listingUrl: string,
+    normalizedFilters: Record<string, unknown> | null,
+  ) {
     const payload = stableJson({
       source,
       listingUrl,
@@ -1116,7 +1122,10 @@ export class JobSourcesService {
       return;
     }
     if (!this.jobOffersService) {
-      this.logger.warn({ userId, userOfferCount: userOfferIds.length }, 'JobOffersService unavailable, skipping auto-score');
+      this.logger.warn(
+        { userId, userOfferCount: userOfferIds.length },
+        'JobOffersService unavailable, skipping auto-score',
+      );
       return;
     }
 
@@ -1186,7 +1195,9 @@ export class JobSourcesService {
   }
 
   private async reuseExistingUrlsBySourceId(source: 'PRACUJ_PL', jobs: CallbackJobPayload[]) {
-    const sourceIds = Array.from(new Set(jobs.map((job) => job.sourceId).filter((value): value is string => Boolean(value))));
+    const sourceIds = Array.from(
+      new Set(jobs.map((job) => job.sourceId).filter((value): value is string => Boolean(value))),
+    );
     if (!sourceIds.length) {
       return jobs;
     }
@@ -1204,9 +1215,7 @@ export class JobSourcesService {
     }
 
     const urlBySourceId = new Map(
-      existing
-        .filter((row) => row.sourceId && row.url)
-        .map((row) => [row.sourceId!, row.url]),
+      existing.filter((row) => row.sourceId && row.url).map((row) => [row.sourceId!, row.url]),
     );
 
     return jobs.map((job) => {

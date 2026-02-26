@@ -15,7 +15,6 @@ import { extractListingSummaries } from './listing';
 
 chromium.use(stealth());
 
-
 const toAbsoluteUrl = (href: string) => {
   try {
     const url = new URL(href);
@@ -261,13 +260,7 @@ const acceptCookieBanner = async (page: Page, logger?: Logger) => {
   }
 };
 
-const loadJobPage = async (
-  page: Page,
-  url: string,
-  delayMs: number,
-  humanize: boolean,
-  logger?: Logger,
-) => {
+const loadJobPage = async (page: Page, url: string, delayMs: number, humanize: boolean, logger?: Logger) => {
   const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
   await acceptCookieBanner(page, logger);
   await page.waitForSelector('[data-test="offer-title"], h1', { timeout: 8000 }).catch(() => undefined);
@@ -338,19 +331,23 @@ export const crawlPracujPl = async (
           locale: 'pl-PL',
           timezoneId: 'Europe/Warsaw',
         });
-  const page = await context.newPage();
-  const response = await page.goto(listingUrl, { waitUntil: 'domcontentloaded' });
+    const page = await context.newPage();
+    const response = await page.goto(listingUrl, { waitUntil: 'domcontentloaded' });
 
-  const status = response?.status();
-  const finalUrl = page.url();
-  await acceptCookieBanner(page, logger);
-  await page.waitForTimeout(listingDelayMs);
+    const status = response?.status();
+    const finalUrl = page.url();
+    await acceptCookieBanner(page, logger);
+    await page.waitForTimeout(listingDelayMs);
 
     const hasNextData = await page.evaluate(() => Boolean(document.querySelector('#__NEXT_DATA__')));
-    await page.waitForFunction(
-      () => document.querySelectorAll('a[href*=",oferta,"]').length > 0 || Boolean(document.querySelector('#__NEXT_DATA__')),
-      { timeout: 5000 },
-    ).catch(() => undefined);
+    await page
+      .waitForFunction(
+        () =>
+          document.querySelectorAll('a[href*=",oferta,"]').length > 0 ||
+          Boolean(document.querySelector('#__NEXT_DATA__')),
+        { timeout: 5000 },
+      )
+      .catch(() => undefined);
 
     const html = await page.content();
     const listingData = extractNextDataJson(html);
@@ -404,7 +401,10 @@ export const crawlPracujPl = async (
     const skipUrls = new Set<string>([...localSkipUrls, ...resolvedSkipUrls]);
     const detailTargets = normalizedLinks.filter((url) => !skipUrls.has(url));
     if (skipUrls.size) {
-      logger?.info({ skipped: skipUrls.size, total: normalizedLinks.length }, 'Skipping detail fetch for cached offers');
+      logger?.info(
+        { skipped: skipUrls.size, total: normalizedLinks.length },
+        'Skipping detail fetch for cached offers',
+      );
     }
     const pages: RawPage[] = [];
     const blockedUrls: string[] = [];

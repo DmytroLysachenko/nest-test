@@ -37,4 +37,3 @@ export const useProfileInputMutations = (token: string, form: UseFormReturn<Prof
     createMutation,
   };
 };
-

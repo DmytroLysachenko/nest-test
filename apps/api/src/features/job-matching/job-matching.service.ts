@@ -4,7 +4,10 @@ import { careerProfilesTable, jobMatchesTable } from '@repo/db';
 import { and, desc, eq, sql } from 'drizzle-orm';
 
 import { Drizzle } from '@/common/decorators';
-import { parseCandidateProfile, type CandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
+import {
+  parseCandidateProfile,
+  type CandidateProfile,
+} from '@/features/career-profiles/schema/candidate-profile.schema';
 
 import { ScoreJobDto } from './dto/score-job.dto';
 import { ListJobMatchesQuery } from './dto/list-job-matches.query';

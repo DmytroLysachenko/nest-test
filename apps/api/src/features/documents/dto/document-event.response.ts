@@ -35,4 +35,3 @@ export class DocumentEventResponse {
   @ApiProperty()
   createdAt!: Date;
 }
-

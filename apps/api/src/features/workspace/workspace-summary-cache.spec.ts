@@ -32,4 +32,3 @@ describe('WorkspaceSummaryCache', () => {
     expect(cache.get('u1')).toBeNull();
   });
 });
-

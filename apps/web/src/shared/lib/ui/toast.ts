@@ -11,4 +11,3 @@ export const toastError = (message: string) => {
 export const toastInfo = (message: string) => {
   toast(message);
 };
-

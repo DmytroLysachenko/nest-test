@@ -23,9 +23,7 @@ const candidateProfileFixture = {
     seniority: { primary: 'senior', secondary: [] },
     languages: [],
   },
-  targetRoles: [
-    { title: 'Frontend Developer', confidenceScore: 0.9, confidenceLevel: 'high', priority: 1 },
-  ],
+  targetRoles: [{ title: 'Frontend Developer', confidenceScore: 0.9, confidenceLevel: 'high', priority: 1 }],
   competencies: [
     {
       name: 'React',
@@ -173,9 +171,9 @@ describe('JobSourcesService', () => {
         if (table === jobSourceRunsTable) {
           return {
             values: jest.fn().mockReturnValue({
-              returning: jest.fn().mockResolvedValue([
-                { id: 'run-uuid', createdAt: new Date('2026-02-12T00:00:00.000Z') },
-              ]),
+              returning: jest
+                .fn()
+                .mockResolvedValue([{ id: 'run-uuid', createdAt: new Date('2026-02-12T00:00:00.000Z') }]),
             }),
           };
         }
@@ -342,9 +340,9 @@ describe('JobSourcesService', () => {
         if (table === jobSourceRunsTable) {
           return {
             values: jest.fn().mockReturnValue({
-              returning: jest.fn().mockResolvedValue([
-                { id: 'run-uuid-derived', createdAt: new Date('2026-02-12T00:00:00.000Z') },
-              ]),
+              returning: jest
+                .fn()
+                .mockResolvedValue([{ id: 'run-uuid-derived', createdAt: new Date('2026-02-12T00:00:00.000Z') }]),
             }),
           };
         }
@@ -443,9 +441,9 @@ describe('JobSourcesService', () => {
         if (table === jobSourceRunsTable) {
           return {
             values: jest.fn().mockReturnValue({
-              returning: jest.fn().mockResolvedValue([
-                { id: 'reused-run-uuid', createdAt: new Date('2026-02-20T00:00:00.000Z') },
-              ]),
+              returning: jest
+                .fn()
+                .mockResolvedValue([{ id: 'reused-run-uuid', createdAt: new Date('2026-02-20T00:00:00.000Z') }]),
             }),
           };
         }
@@ -498,29 +496,27 @@ describe('JobSourcesService', () => {
   it('handles failed callback without creating user offers', async () => {
     const updatePayloads: Array<Record<string, unknown>> = [];
     const db = {
-      select: jest
-        .fn()
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              limit: jest.fn().mockReturnValue({
-                then: (cb: (rows: unknown[]) => unknown) =>
-                  Promise.resolve(
-                    cb([
-                      {
-                        id: 'run-1',
-                        userId: 'user-1',
-                        careerProfileId: 'profile-1',
-                        status: 'RUNNING',
-                        totalFound: null,
-                        scrapedCount: null,
-                      },
-                    ]),
-                  ),
-              }),
+      select: jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-1',
+                      userId: 'user-1',
+                      careerProfileId: 'profile-1',
+                      status: 'RUNNING',
+                      totalFound: null,
+                      scrapedCount: null,
+                    },
+                  ]),
+                ),
             }),
           }),
         }),
+      }),
       update: jest.fn().mockReturnValue({
         set: jest.fn().mockImplementation((values: Record<string, unknown>) => {
           updatePayloads.push(values);
@@ -547,26 +543,26 @@ describe('JobSourcesService', () => {
   it('short-circuits repeated completed callback idempotently', async () => {
     const db = {
       select: jest.fn().mockReturnValue({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              limit: jest.fn().mockReturnValue({
-                then: (cb: (rows: unknown[]) => unknown) =>
-                  Promise.resolve(
-                    cb([
-                      {
-                        id: 'run-2',
-                        userId: 'user-2',
-                        careerProfileId: 'profile-2',
-                        status: 'COMPLETED',
-                        totalFound: 3,
-                        scrapedCount: 3,
-                      },
-                    ]),
-                  ),
-              }),
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-2',
+                      userId: 'user-2',
+                      careerProfileId: 'profile-2',
+                      status: 'COMPLETED',
+                      totalFound: 3,
+                      scrapedCount: 3,
+                    },
+                  ]),
+                ),
             }),
           }),
         }),
+      }),
       update: jest.fn(),
       insert: jest.fn(),
     } as any;

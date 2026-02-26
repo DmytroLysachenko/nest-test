@@ -11,10 +11,7 @@ import { toastSuccess } from '@/shared/lib/ui/toast';
 import type { JobMatchingFormValues } from '@/features/job-matching/model/validation/job-matching-form-schema';
 import type { UseFormReturn } from 'react-hook-form';
 
-export const useJobMatchingMutations = (
-  token: string,
-  form: UseFormReturn<JobMatchingFormValues>,
-) => {
+export const useJobMatchingMutations = (token: string, form: UseFormReturn<JobMatchingFormValues>) => {
   const queryClient = useQueryClient();
 
   const scoreMutation = useMutation({
@@ -39,4 +36,3 @@ export const useJobMatchingMutations = (
     scoreMutation,
   };
 };
-

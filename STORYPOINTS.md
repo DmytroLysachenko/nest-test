@@ -3,6 +3,7 @@
 `storypoints.md` is intentionally brief to avoid duplication.
 
 Use these canonical docs instead:
+
 - Current state: `docs/PROJECT_STATE.md`
 - Prioritized plan: `docs/ROADMAP.md`
 - Decisions/constraints: `docs/DECISIONS.md`

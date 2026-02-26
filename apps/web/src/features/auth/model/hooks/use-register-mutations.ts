@@ -52,4 +52,3 @@ export const useRegisterMutations = ({ form, setStatus }: UseRegisterMutationsAr
     registerMutation,
   };
 };
-

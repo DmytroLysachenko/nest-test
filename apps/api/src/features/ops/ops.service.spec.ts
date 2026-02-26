@@ -10,37 +10,35 @@ const createConfigService = (overrides: Record<string, unknown> = {}) =>
 describe('OpsService', () => {
   it('returns aggregated queue/scrape/offer metrics', async () => {
     const db = {
-      select: jest
-        .fn()
-        .mockImplementation((shape) => {
-          if ('value' in shape) {
-            return {
-              from: jest.fn().mockImplementation((table) => {
-                if (table === jobSourceRunsTable) {
-                  return {
-                    where: jest
-                      .fn()
-                      .mockResolvedValueOnce([{ value: 3 }]) // active
-                      .mockResolvedValueOnce([{ value: 1 }]) // pending
-                      .mockResolvedValueOnce([{ value: 2 }]) // running
-                      .mockResolvedValueOnce([{ value: 10 }]) // total
-                      .mockResolvedValueOnce([{ value: 8 }]) // completed
-                      .mockResolvedValueOnce([{ value: 2 }]), // failed
-                  };
-                }
-                if (table === userJobOffersTable) {
-                  return {
-                    where: jest.fn().mockResolvedValueOnce([{ value: 4 }]),
-                  };
-                }
-                return { where: jest.fn().mockResolvedValue([{ value: 0 }]) };
-              }),
-            };
-          }
+      select: jest.fn().mockImplementation((shape) => {
+        if ('value' in shape) {
           return {
-            from: jest.fn().mockResolvedValue([{ value: 0 }]),
+            from: jest.fn().mockImplementation((table) => {
+              if (table === jobSourceRunsTable) {
+                return {
+                  where: jest
+                    .fn()
+                    .mockResolvedValueOnce([{ value: 3 }]) // active
+                    .mockResolvedValueOnce([{ value: 1 }]) // pending
+                    .mockResolvedValueOnce([{ value: 2 }]) // running
+                    .mockResolvedValueOnce([{ value: 10 }]) // total
+                    .mockResolvedValueOnce([{ value: 8 }]) // completed
+                    .mockResolvedValueOnce([{ value: 2 }]), // failed
+                };
+              }
+              if (table === userJobOffersTable) {
+                return {
+                  where: jest.fn().mockResolvedValueOnce([{ value: 4 }]),
+                };
+              }
+              return { where: jest.fn().mockResolvedValue([{ value: 0 }]) };
+            }),
           };
-        }),
+        }
+        return {
+          from: jest.fn().mockResolvedValue([{ value: 0 }]),
+        };
+      }),
     } as any;
 
     // For total offers without where()
@@ -86,4 +84,3 @@ describe('OpsService', () => {
     expect(result.offers.unscoredUserOffers).toBe(4);
   });
 });
-

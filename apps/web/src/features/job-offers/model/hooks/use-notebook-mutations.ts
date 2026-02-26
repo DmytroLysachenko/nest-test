@@ -48,4 +48,3 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     scoreMutation,
   };
 };
-

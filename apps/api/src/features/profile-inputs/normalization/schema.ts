@@ -1,16 +1,7 @@
 import { z } from 'zod';
 
 const SeniorityEnum = z.enum(['intern', 'junior', 'mid', 'senior', 'lead', 'manager']);
-const SpecializationEnum = z.enum([
-  'frontend',
-  'backend',
-  'fullstack',
-  'devops',
-  'data',
-  'qa',
-  'security',
-  'product',
-]);
+const SpecializationEnum = z.enum(['frontend', 'backend', 'fullstack', 'devops', 'data', 'qa', 'security', 'product']);
 const WorkModeEnum = z.enum(['remote', 'hybrid', 'onsite', 'mobile']);
 const WorkTimeEnum = z.enum(['full-time', 'part-time', 'temporary']);
 const ContractTypeEnum = z.enum(['uop', 'b2b', 'mandate', 'specific-task', 'internship']);

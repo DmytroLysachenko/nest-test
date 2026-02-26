@@ -8,4 +8,3 @@ import { OpsService } from './ops.service';
   providers: [OpsService],
 })
 export class OpsModule {}
-

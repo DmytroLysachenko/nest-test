@@ -20,8 +20,7 @@ type WorkflowStep = {
 };
 
 export const useWorkflowState = (token: string | null) => {
-  const { profileInputQuery, documentsQuery, careerProfileQuery, runsQuery, offersQuery } =
-    useWorkflowQueries(token);
+  const { profileInputQuery, documentsQuery, careerProfileQuery, runsQuery, offersQuery } = useWorkflowQueries(token);
 
   return useMemo(() => {
     const documents = documentsQuery.data ?? [];

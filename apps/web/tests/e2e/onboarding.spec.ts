@@ -176,11 +176,19 @@ test('onboarding loads server draft into form', async ({ page }) => {
   });
 
   await page.route('**/api/career-profiles/latest', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: null }) });
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: null }),
+    });
   });
 
   await page.route('**/api/documents', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) });
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: [] }),
+    });
   });
   await page.route('**/api/documents/upload-health', async (route) => {
     await route.fulfill({

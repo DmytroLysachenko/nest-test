@@ -78,7 +78,10 @@ export class CareerProfilesService {
       const rawContentJson = await this.geminiService.generateStructured(prompt, candidateProfileSchema, {
         retries: 2,
       });
-      const contentJson = canonicalizeCandidateProfile(rawContentJson, profileInput.normalizedInput as NormalizedProfileInput | null);
+      const contentJson = canonicalizeCandidateProfile(
+        rawContentJson,
+        profileInput.normalizedInput as NormalizedProfileInput | null,
+      );
       const parsedCanonical = parseCandidateProfile(contentJson);
       if (!parsedCanonical.success) {
         throw new BadRequestException('Canonicalized profile JSON does not match canonical schema');
@@ -395,7 +398,9 @@ export class CareerProfilesService {
       intakePayload ? 'Structured onboarding intake payload:' : '',
       intakePayload ? JSON.stringify(intakePayload, null, 2) : '',
       normalizationMeta ? `Normalization status: ${normalizationMeta.status} (${normalizationMeta.mapperVersion})` : '',
-      normalizationMeta?.warnings?.length ? `Normalization warnings: ${JSON.stringify(normalizationMeta.warnings)}` : '',
+      normalizationMeta?.warnings?.length
+        ? `Normalization warnings: ${JSON.stringify(normalizationMeta.warnings)}`
+        : '',
       normalizationMeta?.errors?.length ? `Normalization errors: ${JSON.stringify(normalizationMeta.errors)}` : '',
       '',
       `Target roles: ${targetRoles}`,
@@ -567,16 +572,32 @@ export class CareerProfilesService {
 
   private evaluateProfileQuality(profile: CandidateProfile) {
     const signals = [
-      this.qualitySignal('target_roles', profile.targetRoles.length >= 2 ? 1 : profile.targetRoles.length === 1 ? 0.6 : 0),
-      this.qualitySignal('core_competencies', profile.competencies.length >= 10 ? 1 : profile.competencies.length >= 6 ? 0.7 : 0),
-      this.qualitySignal('keywords_coverage', profile.searchSignals.keywords.length >= 15 ? 1 : profile.searchSignals.keywords.length >= 10 ? 0.7 : 0),
-      this.qualitySignal('technologies_coverage', profile.searchSignals.technologies.length >= 8 ? 1 : profile.searchSignals.technologies.length >= 5 ? 0.7 : 0),
+      this.qualitySignal(
+        'target_roles',
+        profile.targetRoles.length >= 2 ? 1 : profile.targetRoles.length === 1 ? 0.6 : 0,
+      ),
+      this.qualitySignal(
+        'core_competencies',
+        profile.competencies.length >= 10 ? 1 : profile.competencies.length >= 6 ? 0.7 : 0,
+      ),
+      this.qualitySignal(
+        'keywords_coverage',
+        profile.searchSignals.keywords.length >= 15 ? 1 : profile.searchSignals.keywords.length >= 10 ? 0.7 : 0,
+      ),
+      this.qualitySignal(
+        'technologies_coverage',
+        profile.searchSignals.technologies.length >= 8 ? 1 : profile.searchSignals.technologies.length >= 5 ? 0.7 : 0,
+      ),
       this.qualitySignal('seniority_defined', profile.candidateCore.seniority.primary ? 1 : 0),
       this.qualitySignal(
         'work_preferences_defined',
-        profile.workPreferences.hardConstraints.workModes.length + profile.workPreferences.hardConstraints.employmentTypes.length >= 2
+        profile.workPreferences.hardConstraints.workModes.length +
+          profile.workPreferences.hardConstraints.employmentTypes.length >=
+          2
           ? 1
-          : profile.workPreferences.hardConstraints.workModes.length + profile.workPreferences.hardConstraints.employmentTypes.length === 1
+          : profile.workPreferences.hardConstraints.workModes.length +
+                profile.workPreferences.hardConstraints.employmentTypes.length ===
+              1
             ? 0.6
             : 0,
       ),
@@ -619,7 +640,8 @@ export class CareerProfilesService {
       target_roles: 'Add 1-2 concrete target roles to improve role-level filtering.',
       core_competencies: 'Expand competencies with tools, methods, and domain skills visible in your CV/LinkedIn.',
       keywords_coverage: 'Add more search keywords inferred from your experience and projects.',
-      technologies_coverage: 'Add additional technologies (including transferable ones) with lower confidence where applicable.',
+      technologies_coverage:
+        'Add additional technologies (including transferable ones) with lower confidence where applicable.',
       seniority_defined: 'Specify realistic primary seniority to avoid mismatch with job level.',
       work_preferences_defined: 'Define work-mode and contract preferences to tighten match relevance.',
     };

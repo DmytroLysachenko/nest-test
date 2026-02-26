@@ -36,4 +36,3 @@ test('relaxPracujFiltersOnce reduces keyword strictness word-by-word', () => {
   assert.equal(reduced2.reason, 'removed keywords');
   assert.equal(reduced2.next, null);
 });
-

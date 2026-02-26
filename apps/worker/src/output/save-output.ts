@@ -68,8 +68,7 @@ export const saveOutput = async (payload: OutputPayload, outputDir?: string, mod
   await mkdir(baseDir, { recursive: true });
 
   const rawPages = mode === 'full' && payload.pages ? await saveRawPages(payload.pages, baseDir) : undefined;
-  const listingData =
-    mode === 'full' ? await saveListingData(payload.listingHtml, payload.listingData, baseDir) : {};
+  const listingData = mode === 'full' ? await saveListingData(payload.listingHtml, payload.listingData, baseDir) : {};
   const filename = `${toSafeFilename(payload.source)}-${toSafeFilename(payload.runId)}.json`;
   const path = join(baseDir, filename);
 

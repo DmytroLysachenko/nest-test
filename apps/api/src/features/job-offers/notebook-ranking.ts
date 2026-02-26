@@ -28,9 +28,7 @@ const getHardConstraintViolations = (matchMeta: Record<string, unknown> | null) 
   if (!Array.isArray(raw)) {
     return [] as string[];
   }
-  return raw
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter(Boolean);
+  return raw.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean);
 };
 
 const hasHardConstraintsPass = (violations: string[]) => violations.length === 0;

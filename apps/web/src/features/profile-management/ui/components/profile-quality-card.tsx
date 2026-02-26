@@ -50,4 +50,3 @@ export const ProfileQualityCard = ({ quality }: ProfileQualityCardProps) => (
     )}
   </Card>
 );
-

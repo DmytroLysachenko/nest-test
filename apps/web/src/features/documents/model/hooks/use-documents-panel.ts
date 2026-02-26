@@ -16,7 +16,10 @@ export const useDocumentsPanel = ({ token }: UseDocumentsPanelArgs) => {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
-  const { documentsQuery, uploadHealthQuery, documentEventsQuery } = useDocumentsPanelQueries(token, selectedDocumentId);
+  const { documentsQuery, uploadHealthQuery, documentEventsQuery } = useDocumentsPanelQueries(
+    token,
+    selectedDocumentId,
+  );
 
   const { uploadMutation, retryExtractMutation, removeDocumentMutation } = useDocumentsPanelMutations({
     token,
@@ -43,4 +46,3 @@ export const useDocumentsPanel = ({ token }: UseDocumentsPanelArgs) => {
     removeDocumentMutation,
   };
 };
-

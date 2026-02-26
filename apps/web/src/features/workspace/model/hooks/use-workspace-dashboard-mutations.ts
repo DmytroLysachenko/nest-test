@@ -24,4 +24,3 @@ export const useWorkspaceDashboardMutations = ({ token, clearSession }: UseWorks
     logoutMutation,
   };
 };
-

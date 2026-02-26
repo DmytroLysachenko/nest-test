@@ -111,7 +111,8 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
   const hardWorkModes = profile.workPreferences.hardConstraints.workModes;
   if (hardWorkModes.length) {
     const modes = hardWorkModes.filter((mode) => {
-      const aliases = mode === 'remote' ? ['remote', 'zdal', 'home'] : mode === 'hybrid' ? ['hybrid', 'hybryd'] : [mode];
+      const aliases =
+        mode === 'remote' ? ['remote', 'zdal', 'home'] : mode === 'hybrid' ? ['hybrid', 'hybryd'] : [mode];
       return aliases.some((alias) => text.toLowerCase().includes(alias));
     });
     if (!modes.length) {

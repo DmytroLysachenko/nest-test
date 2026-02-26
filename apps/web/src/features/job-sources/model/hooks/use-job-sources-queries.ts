@@ -30,4 +30,3 @@ export const useJobSourcesQueries = (token: string, selectedRunId: string | null
     diagnosticsQuery,
   };
 };
-

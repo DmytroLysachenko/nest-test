@@ -75,14 +75,7 @@ const buildDetails = (obj: Record<string, unknown>, offerObj?: Record<string, un
   const workModes = extractStringArray(obj.workModes);
   const workplace = pickString(offerObj?.displayWorkplace) ?? extractLocation(obj);
 
-  if (
-    !technologies &&
-    !positionLevels &&
-    !contractTypes &&
-    !workSchedules &&
-    !workModes &&
-    !workplace
-  ) {
+  if (!technologies && !positionLevels && !contractTypes && !workSchedules && !workModes && !workplace) {
     return undefined;
   }
 

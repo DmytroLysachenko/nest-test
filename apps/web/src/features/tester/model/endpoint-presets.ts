@@ -153,8 +153,7 @@ export const testerEndpointPresets: TesterEndpointPreset[] = [
         seniorities: ['junior'],
       },
       stepTwo: {
-        notes:
-          'Open to remote-first offers, can relocate in Tricity area for hybrid.',
+        notes: 'Open to remote-first offers, can relocate in Tricity area for hybrid.',
       },
     },
   },

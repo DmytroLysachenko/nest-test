@@ -3,9 +3,11 @@
 Last updated: 2026-02-25
 
 ## Purpose
+
 This document defines mandatory frontend architecture and coding standards for `apps/web`.
 
 Goals:
+
 - maintainability
 - scalability
 - testability
@@ -20,6 +22,7 @@ Goals:
 - Reusable UI primitives: shadcn-based `@repo/ui` and `src/shared/ui`
 
 Ownership boundaries:
+
 - `features/*` owns feature behavior and feature composition.
 - `shared/*` owns cross-feature abstractions and generic primitives.
 - `app/*` owns routing, top-level providers, and route-scoped composition only.
@@ -46,6 +49,7 @@ src/features/<feature>/
 ```
 
 Notes:
+
 - Simple feature variant is allowed when complexity is low (few files, read-only UI):
 
 ```text
@@ -75,6 +79,7 @@ src/shared/
 ```
 
 UI rules:
+
 - Prefer adding/reusing primitives in `shared/ui` before creating one-off feature-specific base components.
 - If a component may be reused across pages/features, move it to `shared/ui`.
 - Feature code should import UI primitives from `shared/ui/*` (not directly from `@repo/ui/components/*`).
@@ -115,6 +120,7 @@ UI rules:
   - `shared/lib/forms/set-root-server-error.ts` for form-root server error handling.
 
 Hook composition is mandatory for medium/large features:
+
 - `use-<feature>-queries.ts`:
   - contains only `useQuery` calls and query-derived selectors.
   - no write side-effects (`POST/PATCH/DELETE`) and no form submission orchestration.
@@ -126,12 +132,14 @@ Hook composition is mandatory for medium/large features:
   - must stay orchestration-only; avoid embedding raw transport logic.
 
 Anti-patterns (do not do):
+
 - one "god hook" with many unrelated reads/writes.
 - mixing API payload shaping, form validation, and UI rendering logic in one place.
 - direct `fetch` in controller hooks.
 - placing `useQuery`/`useMutation` directly in `ui/*` components (move to `model/hooks`).
 
 Data shaping:
+
 - Avoid exposing raw DTOs directly to UI when not needed.
 - Prefer one of:
   - API-level mapper (e.g. `get<Job>Preview`) in feature `api/`.
@@ -139,11 +147,13 @@ Data shaping:
 - Hook return value should be UI-ready (minimal required fields, no transport noise).
 
 Notifications:
+
 - Use `sonner` via `shared/lib/ui/toast.ts` only.
 - Success/error feedback for mutations should be shown through shared toast wrappers.
 - Keep toasts concise and action-oriented.
 
 Forms:
+
 - Default to React Hook Form + Zod for non-trivial forms.
 - Keep schemas in `features/<feature>/model/validation`.
 - Keep submit/mutation orchestration in hooks (`model/hooks`), not in route files.

@@ -161,7 +161,9 @@ export const OnboardingPage = () => {
                 values={seniorityValues}
                 selected={current.targetSeniority}
                 onToggle={(value) =>
-                  toggle(current.targetSeniority, value, (next) => setValue('targetSeniority', next, { shouldValidate: true }))
+                  toggle(current.targetSeniority, value, (next) =>
+                    setValue('targetSeniority', next, { shouldValidate: true }),
+                  )
                 }
               />
             </div>
@@ -172,7 +174,9 @@ export const OnboardingPage = () => {
                 values={workModes}
                 selected={current.hardWorkModes}
                 onToggle={(value) =>
-                  toggle(current.hardWorkModes, value, (next) => setValue('hardWorkModes', next, { shouldValidate: true }))
+                  toggle(current.hardWorkModes, value, (next) =>
+                    setValue('hardWorkModes', next, { shouldValidate: true }),
+                  )
                 }
               />
             </div>
@@ -183,7 +187,9 @@ export const OnboardingPage = () => {
                 values={workModes}
                 selected={current.softWorkModes}
                 onToggle={(value) =>
-                  toggle(current.softWorkModes, value, (next) => setValue('softWorkModes', next, { shouldValidate: true }))
+                  toggle(current.softWorkModes, value, (next) =>
+                    setValue('softWorkModes', next, { shouldValidate: true }),
+                  )
                 }
               />
             </div>
@@ -250,15 +256,21 @@ export const OnboardingPage = () => {
                   type="button"
                   variant="secondary"
                   onClick={() => {
-                    const server = onboarding.onboardingDraftQuery.data?.payload as Record<string, unknown> | null | undefined;
+                    const server = onboarding.onboardingDraftQuery.data?.payload as
+                      | Record<string, unknown>
+                      | null
+                      | undefined;
                     if (!server) {
                       return;
                     }
                     onboarding.patchDraft({
-                      desiredPositions: Array.isArray(server.desiredPositions) ? (server.desiredPositions as string[]) : [],
+                      desiredPositions: Array.isArray(server.desiredPositions)
+                        ? (server.desiredPositions as string[])
+                        : [],
                       jobDomains: Array.isArray(server.jobDomains) ? (server.jobDomains as string[]) : [],
                       coreSkills: Array.isArray(server.coreSkills) ? (server.coreSkills as string[]) : [],
-                      experienceYearsInRole: typeof server.experienceYearsInRole === 'number' ? server.experienceYearsInRole : null,
+                      experienceYearsInRole:
+                        typeof server.experienceYearsInRole === 'number' ? server.experienceYearsInRole : null,
                       targetSeniority: Array.isArray(server.targetSeniority)
                         ? (server.targetSeniority as Array<'intern' | 'junior' | 'mid' | 'senior' | 'lead' | 'manager'>)
                         : [],
@@ -269,40 +281,57 @@ export const OnboardingPage = () => {
                         ? (server.softWorkModes as Array<'remote' | 'hybrid' | 'onsite' | 'mobile'>)
                         : [],
                       hardContractTypes: Array.isArray(server.hardContractTypes)
-                        ? (server.hardContractTypes as Array<'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'>)
+                        ? (server.hardContractTypes as Array<
+                            'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'
+                          >)
                         : [],
                       softContractTypes: Array.isArray(server.softContractTypes)
-                        ? (server.softContractTypes as Array<'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'>)
+                        ? (server.softContractTypes as Array<
+                            'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'
+                          >)
                         : [],
                       sectionNotes: {
                         positions:
-                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'positions' in server.sectionNotes
+                          typeof server.sectionNotes === 'object' &&
+                          server.sectionNotes &&
+                          'positions' in server.sectionNotes
                             ? String((server.sectionNotes as Record<string, unknown>).positions ?? '')
                             : '',
                         domains:
-                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'domains' in server.sectionNotes
+                          typeof server.sectionNotes === 'object' &&
+                          server.sectionNotes &&
+                          'domains' in server.sectionNotes
                             ? String((server.sectionNotes as Record<string, unknown>).domains ?? '')
                             : '',
                         skills:
-                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'skills' in server.sectionNotes
+                          typeof server.sectionNotes === 'object' &&
+                          server.sectionNotes &&
+                          'skills' in server.sectionNotes
                             ? String((server.sectionNotes as Record<string, unknown>).skills ?? '')
                             : '',
                         experience:
-                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'experience' in server.sectionNotes
+                          typeof server.sectionNotes === 'object' &&
+                          server.sectionNotes &&
+                          'experience' in server.sectionNotes
                             ? String((server.sectionNotes as Record<string, unknown>).experience ?? '')
                             : '',
                         preferences:
-                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'preferences' in server.sectionNotes
+                          typeof server.sectionNotes === 'object' &&
+                          server.sectionNotes &&
+                          'preferences' in server.sectionNotes
                             ? String((server.sectionNotes as Record<string, unknown>).preferences ?? '')
                             : '',
                       },
                       generalNotes: typeof server.generalNotes === 'string' ? server.generalNotes : '',
                     });
                     onboarding.stepOneForm.reset({
-                      desiredPositions: Array.isArray(server.desiredPositions) ? (server.desiredPositions as string[]) : [],
+                      desiredPositions: Array.isArray(server.desiredPositions)
+                        ? (server.desiredPositions as string[])
+                        : [],
                       jobDomains: Array.isArray(server.jobDomains) ? (server.jobDomains as string[]) : [],
                       coreSkills: Array.isArray(server.coreSkills) ? (server.coreSkills as string[]) : [],
-                      experienceYearsInRole: typeof server.experienceYearsInRole === 'number' ? server.experienceYearsInRole : null,
+                      experienceYearsInRole:
+                        typeof server.experienceYearsInRole === 'number' ? server.experienceYearsInRole : null,
                       targetSeniority: Array.isArray(server.targetSeniority)
                         ? (server.targetSeniority as Array<'intern' | 'junior' | 'mid' | 'senior' | 'lead' | 'manager'>)
                         : [],
@@ -313,30 +342,44 @@ export const OnboardingPage = () => {
                         ? (server.softWorkModes as Array<'remote' | 'hybrid' | 'onsite' | 'mobile'>)
                         : [],
                       hardContractTypes: Array.isArray(server.hardContractTypes)
-                        ? (server.hardContractTypes as Array<'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'>)
+                        ? (server.hardContractTypes as Array<
+                            'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'
+                          >)
                         : [],
                       softContractTypes: Array.isArray(server.softContractTypes)
-                        ? (server.softContractTypes as Array<'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'>)
+                        ? (server.softContractTypes as Array<
+                            'uop' | 'b2b' | 'mandate' | 'specific-task' | 'internship'
+                          >)
                         : [],
                       sectionNotes: {
                         positions:
-                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'positions' in server.sectionNotes
+                          typeof server.sectionNotes === 'object' &&
+                          server.sectionNotes &&
+                          'positions' in server.sectionNotes
                             ? String((server.sectionNotes as Record<string, unknown>).positions ?? '')
                             : '',
                         domains:
-                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'domains' in server.sectionNotes
+                          typeof server.sectionNotes === 'object' &&
+                          server.sectionNotes &&
+                          'domains' in server.sectionNotes
                             ? String((server.sectionNotes as Record<string, unknown>).domains ?? '')
                             : '',
                         skills:
-                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'skills' in server.sectionNotes
+                          typeof server.sectionNotes === 'object' &&
+                          server.sectionNotes &&
+                          'skills' in server.sectionNotes
                             ? String((server.sectionNotes as Record<string, unknown>).skills ?? '')
                             : '',
                         experience:
-                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'experience' in server.sectionNotes
+                          typeof server.sectionNotes === 'object' &&
+                          server.sectionNotes &&
+                          'experience' in server.sectionNotes
                             ? String((server.sectionNotes as Record<string, unknown>).experience ?? '')
                             : '',
                         preferences:
-                          typeof server.sectionNotes === 'object' && server.sectionNotes && 'preferences' in server.sectionNotes
+                          typeof server.sectionNotes === 'object' &&
+                          server.sectionNotes &&
+                          'preferences' in server.sectionNotes
                             ? String((server.sectionNotes as Record<string, unknown>).preferences ?? '')
                             : '',
                       },
@@ -468,7 +511,9 @@ export const OnboardingPage = () => {
               </p>
               <p>
                 <span className="font-medium">Experience:</span>{' '}
-                {onboarding.draft.experienceYearsInRole == null ? 'n/a' : `${onboarding.draft.experienceYearsInRole} years`}
+                {onboarding.draft.experienceYearsInRole == null
+                  ? 'n/a'
+                  : `${onboarding.draft.experienceYearsInRole} years`}
               </p>
             </div>
 
@@ -491,7 +536,9 @@ export const OnboardingPage = () => {
                 onClick={() => onboarding.submitProfileMutation.mutate()}
                 disabled={onboarding.submitProfileMutation.isPending || !onboarding.hasReadyDocument}
               >
-                {onboarding.submitProfileMutation.isPending ? 'Generating profile...' : 'Generate profile and open dashboard'}
+                {onboarding.submitProfileMutation.isPending
+                  ? 'Generating profile...'
+                  : 'Generate profile and open dashboard'}
               </Button>
             </div>
             {onboarding.generationError ? <p className="text-sm text-rose-600">{onboarding.generationError}</p> : null}

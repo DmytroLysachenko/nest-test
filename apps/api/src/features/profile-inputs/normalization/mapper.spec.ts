@@ -4,8 +4,7 @@ describe('normalizeProfileInput', () => {
   it('normalizes mixed PL/EN input into canonical structure', () => {
     const result = normalizeProfileInput({
       targetRoles: 'Senior Frontend Developer, React Engineer',
-      notes:
-        'Szukam pracy zdalnie lub hybrydowo, B2B, Warszawa 30 km, min 20k PLN mies, angielski c1, bez polskiego',
+      notes: 'Szukam pracy zdalnie lub hybrydowo, B2B, Warszawa 30 km, min 20k PLN mies, angielski c1, bez polskiego',
     });
 
     expect(result.normalizedInput.roles.length).toBe(2);
@@ -73,9 +72,7 @@ describe('normalizeProfileInput', () => {
     );
     expect(result.normalizedInput.contractTypes).toEqual(expect.arrayContaining(['b2b', 'uop']));
     expect(result.normalizedInput.workModes).toEqual(expect.arrayContaining(['remote', 'hybrid']));
-    expect(result.normalizedInput.technologies).toEqual(
-      expect.arrayContaining(['node.js', 'docker', 'kubernetes']),
-    );
+    expect(result.normalizedInput.technologies).toEqual(expect.arrayContaining(['node.js', 'docker', 'kubernetes']));
     expect(result.normalizationMeta.status).toBe('ok');
     expect(result.normalizationMeta.rawSnapshot.intakePayload?.desiredPositions).toEqual(
       expect.arrayContaining(['Backend Developer']),

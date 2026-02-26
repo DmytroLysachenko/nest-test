@@ -39,4 +39,3 @@ export const useOnboardingQueries = (token: string | null) => {
     documentsQuery,
   };
 };
-

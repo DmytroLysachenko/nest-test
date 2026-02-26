@@ -58,4 +58,3 @@ describe('buildFiltersFromProfile', () => {
     expect(filters?.radiusKm).toBe(35);
   });
 });
-

@@ -50,11 +50,7 @@ const canonicalizeTechnology = (value: string) => {
   return value.trim();
 };
 
-const upsertWeighted = (
-  target: Array<{ value?: string; weight?: number }>,
-  value: string,
-  weight: number,
-) => {
+const upsertWeighted = (target: Array<{ value?: string; weight?: number }>, value: string, weight: number) => {
   const normalized = normalizeAscii(value);
   const existing = target.find((item) => item.value && normalizeAscii(item.value) === normalized);
   if (existing) {
@@ -64,8 +60,7 @@ const upsertWeighted = (
   target.push({ value: value.trim(), weight });
 };
 
-const uniqueStrings = (values: string[]) =>
-  Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+const uniqueStrings = (values: string[]) => Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 
 export const canonicalizeCandidateProfile = (
   profile: CandidateProfile,

@@ -30,13 +30,22 @@ export const WorkspaceDashboardPage = () => {
           <p className="text-sm text-slate-600">Signed in as {auth.user?.email ?? 'unknown user'}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/app/notebook" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+          <Link
+            href="/app/notebook"
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          >
             Open notebook
           </Link>
-          <Link href="/app/profile" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+          <Link
+            href="/app/profile"
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          >
             Manage profile
           </Link>
-          <Link href="/app/onboarding" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+          <Link
+            href="/app/onboarding"
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          >
             Recreate profile
           </Link>
           <Button variant="secondary" onClick={() => dashboard.logout()} disabled={dashboard.isLoggingOut}>
@@ -70,8 +79,14 @@ export const WorkspaceDashboardPage = () => {
               <p>Success rate: {(diagnostics.performance.successRate * 100).toFixed(1)}%</p>
             </div>
             <div className="space-y-1">
-              <p>Avg duration: {diagnostics.performance.avgDurationMs == null ? 'n/a' : `${diagnostics.performance.avgDurationMs} ms`}</p>
-              <p>P95 duration: {diagnostics.performance.p95DurationMs == null ? 'n/a' : `${diagnostics.performance.p95DurationMs} ms`}</p>
+              <p>
+                Avg duration:{' '}
+                {diagnostics.performance.avgDurationMs == null ? 'n/a' : `${diagnostics.performance.avgDurationMs} ms`}
+              </p>
+              <p>
+                P95 duration:{' '}
+                {diagnostics.performance.p95DurationMs == null ? 'n/a' : `${diagnostics.performance.p95DurationMs} ms`}
+              </p>
               <p>Avg scraped: {diagnostics.performance.avgScrapedCount ?? 'n/a'}</p>
             </div>
             <div className="space-y-1">
@@ -101,7 +116,9 @@ export const WorkspaceDashboardPage = () => {
                     <td className="py-2 text-slate-900">{offer.title}</td>
                     <td className="py-2 text-slate-700">{offer.company}</td>
                     <td className="py-2 text-slate-700">{offer.location ?? 'n/a'}</td>
-                    <td className="py-2 text-slate-700">{offer.matchScore == null ? 'n/a' : offer.matchScore.toFixed(2)}</td>
+                    <td className="py-2 text-slate-700">
+                      {offer.matchScore == null ? 'n/a' : offer.matchScore.toFixed(2)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

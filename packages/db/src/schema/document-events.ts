@@ -26,4 +26,3 @@ export const documentEventsTable = pgTable(
     userCreatedAtIdx: index('document_events_user_created_at_idx').on(table.userId, table.createdAt.desc()),
   }),
 );
-

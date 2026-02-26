@@ -25,4 +25,3 @@ export const buildAuthedQueryOptions = <TQueryFnData, TData = TQueryFnData>({
   ...(refetchInterval !== undefined ? { refetchInterval } : {}),
   ...(select ? { select } : {}),
 });
-

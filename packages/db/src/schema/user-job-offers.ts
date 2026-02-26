@@ -31,11 +31,7 @@ export const userJobOffersTable = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    uniqueUserOffer: uniqueIndex('user_job_offers_unique').on(
-      table.userId,
-      table.careerProfileId,
-      table.jobOfferId,
-    ),
+    uniqueUserOffer: uniqueIndex('user_job_offers_unique').on(table.userId, table.careerProfileId, table.jobOfferId),
     userStatusLastStatusAtIdx: index('user_job_offers_user_status_last_status_at_idx').on(
       table.userId,
       table.status,

@@ -27,30 +27,30 @@ Source URL:
 
 The mapping below is derived from UI active filters HTML in the same order as IDs in `itth`.
 
-| `itth` ID | Technology |
-|---|---|
-| `226` | iOS |
-| `89` | Hibernate |
-| `77` | Angular |
-| `73` | Node.js |
-| `75` | .NET |
-| `76` | React.js |
-| `62` | R |
-| `55` | Rust |
-| `54` | C |
-| `50` | Go |
-| `40` | PHP |
-| `41` | C++ |
-| `42` | TypeScript |
-| `39` | C# |
-| `38` | Java |
-| `37` | Python |
-| `33` | JavaScript |
-| `34` | HTML |
-| `36` | SQL |
-| `213` | AWS |
-| `212` | Android |
-| `86` | Ruby on Rails |
+| `itth` ID | Technology    |
+| --------- | ------------- |
+| `226`     | iOS           |
+| `89`      | Hibernate     |
+| `77`      | Angular       |
+| `73`      | Node.js       |
+| `75`      | .NET          |
+| `76`      | React.js      |
+| `62`      | R             |
+| `55`      | Rust          |
+| `54`      | C             |
+| `50`      | Go            |
+| `40`      | PHP           |
+| `41`      | C++           |
+| `42`      | TypeScript    |
+| `39`      | C#            |
+| `38`      | Java          |
+| `37`      | Python        |
+| `33`      | JavaScript    |
+| `34`      | HTML          |
+| `36`      | SQL           |
+| `213`     | AWS           |
+| `212`     | Android       |
+| `86`      | Ruby on Rails |
 
 ## Params Still To Verify Semantics
 
@@ -64,18 +64,18 @@ Source URL:
 
 The mapping below is derived from UI active filters HTML in the same order as IDs in `et`.
 
-| `et` ID | Position Level |
-|---|---|
-| `1` | starszy specjalista (Senior) |
-| `3` | ekspert |
-| `17` | kierownik / koordynator |
-| `4` | menedżer |
-| `18` | dyrektor |
-| `19` | prezes |
-| `5` | praktykant / stażysta |
-| `20` | asystent |
-| `6` | młodszy specjalista (Junior) |
-| `21` | specjalista (Mid / Regular) |
+| `et` ID | Position Level               |
+| ------- | ---------------------------- |
+| `1`     | starszy specjalista (Senior) |
+| `3`     | ekspert                      |
+| `17`    | kierownik / koordynator      |
+| `4`     | menedżer                     |
+| `18`    | dyrektor                     |
+| `19`    | prezes                       |
+| `5`     | praktykant / stażysta        |
+| `20`    | asystent                     |
+| `6`     | młodszy specjalista (Junior) |
+| `21`    | specjalista (Mid / Regular)  |
 
 ## Contract Type Mapping (`tc`)
 
@@ -85,16 +85,16 @@ Source URL:
 
 The mapping below is derived from UI active filters HTML in the same order as IDs in `tc`.
 
-| `tc` ID | Contract Type |
-|---|---|
-| `0` | umowa o pracę |
-| `1` | umowa o dzieło |
-| `2` | umowa zlecenie |
-| `3` | kontrakt B2B |
-| `4` | umowa na zastępstwo |
-| `5` | umowa agencyjna |
-| `6` | umowa o pracę tymczasową |
-| `7` | umowa o staż / praktyki |
+| `tc` ID | Contract Type            |
+| ------- | ------------------------ |
+| `0`     | umowa o pracę            |
+| `1`     | umowa o dzieło           |
+| `2`     | umowa zlecenie           |
+| `3`     | kontrakt B2B             |
+| `4`     | umowa na zastępstwo      |
+| `5`     | umowa agencyjna          |
+| `6`     | umowa o pracę tymczasową |
+| `7`     | umowa o staż / praktyki  |
 
 ## Work Dimension Mapping (`ws`)
 
@@ -104,11 +104,11 @@ Source URL:
 
 The mapping below is derived from UI active filters HTML in the same order as IDs in `ws`.
 
-| `ws` ID | Work Dimension |
-|---|---|
-| `1` | część etatu |
-| `2` | dodatkowa / tymczasowa |
-| `0` | pełny etat |
+| `ws` ID | Work Dimension         |
+| ------- | ---------------------- |
+| `1`     | część etatu            |
+| `2`     | dodatkowa / tymczasowa |
+| `0`     | pełny etat             |
 
 ## Publish Time Filter (Path Segment)
 
@@ -117,6 +117,7 @@ Observed path pattern:
 `/praca/ostatnich <N> dni;p,<N>`
 
 Observed values:
+
 - `p,1` -> ostatnich 24h
 - `p,3` -> ostatnich 3 dni
 - `p,7` -> ostatnich 7 dni
@@ -124,6 +125,7 @@ Observed values:
 - `p,30` -> ostatnich 30 dni
 
 Examples:
+
 - `https://it.pracuj.pl/praca/ostatnich%2024h;p,1`
 - `https://it.pracuj.pl/praca/ostatnich%203%20dni;p,3`
 - `https://it.pracuj.pl/praca/ostatnich%207%20dni;p,7`
@@ -143,9 +145,11 @@ Observed pattern:
 `/praca/<city>;wp`
 
 Example:
+
 - `https://it.pracuj.pl/praca/gdynia;wp?rd=10`
 
 Interpretation:
+
 - `<city>` is selected city/location.
 - `;wp` indicates location mode in path form.
 - `rd` appears to represent distance/radius from selected location (e.g. `rd=10` => +10 km).
@@ -157,14 +161,17 @@ Observed pattern:
 `/praca/<keyword phrase>;kw`
 
 Examples:
+
 - `https://it.pracuj.pl/praca/frontend%20developer;kw`
 - `https://it.pracuj.pl/praca/something%20here%20will%20be%20f;kw`
 
 Interpretation:
+
 - `<keyword phrase>` is free-text search query.
 - `;kw` marks keyword-search mode.
 
 Keyword search can be combined with query filters:
+
 - `https://it.pracuj.pl/praca/something;kw?its=gamedev`
 
 ---
@@ -181,43 +188,43 @@ Source URL:
 
 Mapping (as provided, same order as IDs in `cc`):
 
-| `cc` ID | Category |
-|---|---|
-| `5001` | Badania i rozwój |
-| `5002` | Bankowość |
-| `5003` | BHP / Ochrona środowiska |
-| `5004` | Call Center |
-| `5006` | Budownictwo |
-| `5005` | Energetyka |
-| `5036` | Doradztwo / Konsulting |
-| `5037` | Edukacja / Szkolenia |
-| `5007` | Franczyza / Własny biznes |
-| `5009` | Human Resources / Zasoby ludzkie |
-| `5011` | Hotelarstwo / Gastronomia / Turystyka |
-| `5010` | Finanse / Ekonomia |
-| `5008` | Internet / e-Commerce / Nowe media |
-| `5013` | Inżynieria |
-| `5014` | IT - Administracja |
-| `5015` | IT - Rozwój oprogramowania |
-| `5016` | Kontrola jakości |
-| `5034` | Inne |
-| `5012` | Zdrowie / Uroda / Rekreacja |
-| `5035` | Ubezpieczenia |
-| `5032` | Zakupy |
-| `5033` | Transport / Spedycja / Logistyka |
-| `5031` | Sprzedaż |
-| `5028` | Sektor publiczny |
-| `5027` | Reklama / Grafika / Kreacja / Fotografia |
-| `5026` | Public Relations |
-| `5025` | Produkcja |
-| `5024` | Prawo |
-| `5023` | Praca fizyczna |
-| `5022` | Obsługa klienta |
-| `5021` | Nieruchomości |
-| `5020` | Media / Sztuka / Rozrywka |
-| `5019` | Marketing |
-| `5018` | Łańcuch dostaw |
-| `5017` | Administracja biurowa |
+| `cc` ID | Category                                 |
+| ------- | ---------------------------------------- |
+| `5001`  | Badania i rozwój                         |
+| `5002`  | Bankowość                                |
+| `5003`  | BHP / Ochrona środowiska                 |
+| `5004`  | Call Center                              |
+| `5006`  | Budownictwo                              |
+| `5005`  | Energetyka                               |
+| `5036`  | Doradztwo / Konsulting                   |
+| `5037`  | Edukacja / Szkolenia                     |
+| `5007`  | Franczyza / Własny biznes                |
+| `5009`  | Human Resources / Zasoby ludzkie         |
+| `5011`  | Hotelarstwo / Gastronomia / Turystyka    |
+| `5010`  | Finanse / Ekonomia                       |
+| `5008`  | Internet / e-Commerce / Nowe media       |
+| `5013`  | Inżynieria                               |
+| `5014`  | IT - Administracja                       |
+| `5015`  | IT - Rozwój oprogramowania               |
+| `5016`  | Kontrola jakości                         |
+| `5034`  | Inne                                     |
+| `5012`  | Zdrowie / Uroda / Rekreacja              |
+| `5035`  | Ubezpieczenia                            |
+| `5032`  | Zakupy                                   |
+| `5033`  | Transport / Spedycja / Logistyka         |
+| `5031`  | Sprzedaż                                 |
+| `5028`  | Sektor publiczny                         |
+| `5027`  | Reklama / Grafika / Kreacja / Fotografia |
+| `5026`  | Public Relations                         |
+| `5025`  | Produkcja                                |
+| `5024`  | Prawo                                    |
+| `5023`  | Praca fizyczna                           |
+| `5022`  | Obsługa klienta                          |
+| `5021`  | Nieruchomości                            |
+| `5020`  | Media / Sztuka / Rozrywka                |
+| `5019`  | Marketing                                |
+| `5018`  | Łańcuch dostaw                           |
+| `5017`  | Administracja biurowa                    |
 
 ### Position Levels Mapping (`et`) for `www.pracuj.pl`
 
@@ -228,26 +235,28 @@ Source URL:
 Mapping from provided HTML (`data-test="section-position-level"`):
 
 | `et` ID | Position Level (`www.pracuj.pl`) |
-|---|---|
-| `1` | praktykant / stażysta |
-| `3` | asystent |
-| `17` | młodszy specjalista (Junior) |
-| `4` | specjalista (Mid / Regular) |
-| `18` | starszy specjalista (Senior) |
-| `19` | ekspert |
-| `5` | kierownik / koordynator |
-| `20` | menedżer |
-| `6` | dyrektor |
-| `21` | prezes |
-| `2` | pracownik fizyczny |
+| ------- | -------------------------------- |
+| `1`     | praktykant / stażysta            |
+| `3`     | asystent                         |
+| `17`    | młodszy specjalista (Junior)     |
+| `4`     | specjalista (Mid / Regular)      |
+| `18`    | starszy specjalista (Senior)     |
+| `19`    | ekspert                          |
+| `5`     | kierownik / koordynator          |
+| `20`    | menedżer                         |
+| `6`     | dyrektor                         |
+| `21`    | prezes                           |
+| `2`     | pracownik fizyczny               |
 
 Note:
+
 - `et` IDs are not guaranteed to map identically between `it.pracuj.pl` and `www.pracuj.pl`.
 - Treat mappings as source-specific dictionaries.
 
 ### Cross-Source Compatibility Notes (`www.pracuj.pl` vs `it.pracuj.pl`)
 
 Confirmed by product owner:
+
 - `tc` (contract type / rodzaj umowy) uses the same IDs in both sources.
 - `sal` is the same filter concept in both sources (`www.pracuj.pl` example: `?sal=1`).
 - Other filters are functionally aligned across sources:
@@ -257,5 +266,6 @@ Confirmed by product owner:
   - additional markers.
 
 Recommendation:
+
 - Keep shared dictionaries where IDs are confirmed equal (`tc`),
 - keep source-specific dictionaries where divergence is known (`et`).

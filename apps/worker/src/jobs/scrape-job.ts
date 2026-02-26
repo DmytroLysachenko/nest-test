@@ -47,13 +47,7 @@ const normalizeString = (value: string | null | undefined) => {
 };
 
 const sanitizeStringArray = (value: string[] | undefined) =>
-  Array.from(
-    new Set(
-      (value ?? [])
-        .map((item) => item.trim())
-        .filter(Boolean),
-    ),
-  );
+  Array.from(new Set((value ?? []).map((item) => item.trim()).filter(Boolean)));
 
 const canonicalOfferKey = (job: Pick<NormalizedJob, 'sourceId' | 'url'>) => {
   const sourceId = normalizeString(job.sourceId);
@@ -152,7 +146,8 @@ export const buildWorkerCallbackSignaturePayload = (
   payload: CallbackPayload,
   requestId: string | undefined,
   timestampSec: number,
-) => `${timestampSec}.${payload.sourceRunId ?? ''}.${payload.status}.${payload.runId}.${requestId ?? ''}.${payload.eventId ?? ''}`;
+) =>
+  `${timestampSec}.${payload.sourceRunId ?? ''}.${payload.status}.${payload.runId}.${requestId ?? ''}.${payload.eventId ?? ''}`;
 
 export const computeCallbackRetryDelayMs = (
   attempt: number,
@@ -194,7 +189,9 @@ const notifyCallback = async (
     try {
       const timestampSec = Math.floor(Date.now() / 1000);
       const signaturePayload = buildWorkerCallbackSignaturePayload(payload, requestId, timestampSec);
-      const signature = signingSecret ? createHmac('sha256', signingSecret).update(signaturePayload).digest('hex') : null;
+      const signature = signingSecret
+        ? createHmac('sha256', signingSecret).update(signaturePayload).digest('hex')
+        : null;
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -219,12 +216,7 @@ const notifyCallback = async (
     }
     if (attempt < options.retryAttempts) {
       await sleep(
-        computeCallbackRetryDelayMs(
-          attempt,
-          options.retryBackoffMs,
-          options.retryMaxDelayMs,
-          options.retryJitterPct,
-        ),
+        computeCallbackRetryDelayMs(attempt, options.retryBackoffMs, options.retryMaxDelayMs, options.retryJitterPct),
       );
     }
   }
@@ -366,12 +358,7 @@ export const runScrapeJob = async (
           profileDir: options.profileDir,
           skipUrls,
           skipResolver: (urls: string[]) =>
-            loadFreshOfferUrls(
-              options.databaseUrl,
-              'PRACUJ_PL',
-              urls,
-              options.detailCacheHours ?? 24,
-            ),
+            loadFreshOfferUrls(options.databaseUrl, 'PRACUJ_PL', urls, options.detailCacheHours ?? 24),
         },
       });
 
@@ -482,7 +469,10 @@ export const runScrapeJob = async (
             jobLinksDiscovered: aggregatedJobLinks.size,
             ignoredRecommendedLinks: aggregatedRecommendedLinks.size,
             dedupedInRunCount,
-            skippedFreshUrls: Math.max(0, aggregatedJobLinks.size - aggregatedPages.length - aggregatedBlockedUrls.length),
+            skippedFreshUrls: Math.max(
+              0,
+              aggregatedJobLinks.size - aggregatedPages.length - aggregatedBlockedUrls.length,
+            ),
             blockedPages: aggregatedBlockedUrls.length,
             hadZeroOffersStep,
           },
@@ -503,9 +493,9 @@ export const runScrapeJob = async (
         requestId: payload.requestId,
         source: payload.source,
         runId,
-      sourceRunId,
-      pages: aggregatedPages.length,
-      jobs: sanitizedJobs.length,
+        sourceRunId,
+        pages: aggregatedPages.length,
+        jobs: sanitizedJobs.length,
         blockedPages: aggregatedBlockedUrls.length,
         ignoredRecommendedLinks: aggregatedRecommendedLinks.size,
         dedupedInRunCount,

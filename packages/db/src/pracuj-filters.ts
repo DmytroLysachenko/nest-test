@@ -121,13 +121,7 @@ const cleanString = (value: string | undefined) => {
 };
 
 const normalizeStringList = (value?: string[]) =>
-  Array.from(
-    new Set(
-      (value ?? [])
-        .map((item) => item.trim())
-        .filter(Boolean),
-    ),
-  );
+  Array.from(new Set((value ?? []).map((item) => item.trim()).filter(Boolean)));
 
 const filterAllowed = (values: string[], allowed: Set<string>) => values.filter((value) => allowed.has(value));
 
@@ -147,7 +141,9 @@ export const normalizePracujFilters = (
   const dropped: ScrapeFilterNormalizationResult['dropped'] = {};
   const result: ScrapeFilters = {};
 
-  const positionLevelsRaw = normalizeStringList(input.positionLevels ?? input.employmentTypes ?? input.experienceLevels);
+  const positionLevelsRaw = normalizeStringList(
+    input.positionLevels ?? input.employmentTypes ?? input.experienceLevels,
+  );
   const specializationRaw = normalizeStringList(input.specializations);
   const technologiesRaw = normalizeStringList(input.technologies);
   const categoriesRaw = normalizeStringList(input.categories);
