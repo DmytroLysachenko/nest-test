@@ -1,15 +1,37 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { and, count, desc, eq, isNotNull } from 'drizzle-orm';
 import { careerProfilesTable, jobSourceRunsTable, profileInputsTable, userJobOffersTable } from '@repo/db';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { Drizzle } from '@/common/decorators';
+import type { Env } from '@/config/env';
+
+import { WorkspaceSummaryCache } from './workspace-summary-cache';
 
 @Injectable()
 export class WorkspaceService {
-  constructor(@Drizzle() private readonly db: NodePgDatabase) {}
+  private readonly cache: WorkspaceSummaryCache<any>;
+
+  constructor(
+    @Drizzle() private readonly db: NodePgDatabase,
+    private readonly configService: ConfigService<Env, true>,
+  ) {
+    const ttl = this.configService.get('WORKSPACE_SUMMARY_CACHE_TTL_SEC', { infer: true });
+    this.cache = new WorkspaceSummaryCache(ttl);
+  }
 
   async getSummary(userId: string) {
+    const cached = this.cache.get(userId);
+    if (cached) {
+      return cached;
+    }
+    const summary = await this.computeSummary(userId);
+    this.cache.set(userId, summary);
+    return summary;
+  }
+
+  private async computeSummary(userId: string) {
     const [profileInput] = await this.db
       .select({
         id: profileInputsTable.id,
