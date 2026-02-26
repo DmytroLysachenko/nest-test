@@ -1,6 +1,11 @@
 import { apiRequest } from '@/shared/lib/http/api-client';
 
-import type { EnqueueScrapeResponseDto, JobSourceRunDiagnosticsDto, JobSourceRunsListDto } from '@/shared/types/api';
+import type {
+  EnqueueScrapeResponseDto,
+  JobSourceRunDiagnosticsDto,
+  JobSourceRunDiagnosticsSummaryDto,
+  JobSourceRunsListDto,
+} from '@/shared/types/api';
 
 type EnqueueScrapePayload = {
   listingUrl?: string;
@@ -26,6 +31,12 @@ export const listJobSourceRuns = (token: string, status?: 'PENDING' | 'RUNNING' 
 
 export const getJobSourceRunDiagnostics = (token: string, runId: string) =>
   apiRequest<JobSourceRunDiagnosticsDto>(`/job-sources/runs/${runId}/diagnostics`, {
+    method: 'GET',
+    token,
+  });
+
+export const getJobSourceRunDiagnosticsSummary = (token: string, windowHours = 72) =>
+  apiRequest<JobSourceRunDiagnosticsSummaryDto>(`/job-sources/runs/diagnostics/summary?windowHours=${windowHours}`, {
     method: 'GET',
     token,
   });

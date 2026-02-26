@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-02-25
+Last updated: 2026-02-26
 
 ## Current Architecture
 
@@ -36,8 +36,10 @@ Last updated: 2026-02-25
 - API and worker enforce request body size limits (env-driven).
 - API validates scrape listing URL allowlist per source before enqueue.
 - Notebook supports ranking modes (`strict` / `approx` / `explore`) with explanation tags per offer.
+- Notebook ranking calibration is env-tunable (approx penalties/bonuses and explore unscored base).
 - Career profile exposes deterministic quality diagnostics endpoint.
 - Scrape runs expose diagnostics endpoint (relaxation trail + source stats).
+- Scrape runs expose aggregated diagnostics summary endpoint (`/job-sources/runs/diagnostics/summary`).
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.
 - Profile management page now includes direct document upload/confirm/extract flow with diagnostics visibility.
@@ -46,6 +48,7 @@ Last updated: 2026-02-25
 - Main `/app` workspace is notebook-first dashboard; users without ready profile are redirected to onboarding.
 - Onboarding draft persistence now supports both local draft and server-side draft recovery (`/onboarding/draft`).
 - Workspace summary read model (`/workspace/summary`) powers dashboard cards and onboarding guard decisions.
+- Workspace summary supports optional in-memory ttl cache (`WORKSPACE_SUMMARY_CACHE_TTL_SEC`).
 
 ## Data Model Highlights
 

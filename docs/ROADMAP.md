@@ -7,7 +7,9 @@ Last updated: 2026-02-24
 1. Frontend productization from internal tooling to user workflow UX.
    - Status: onboarding wizard + notebook-first dashboard implemented; server draft recovery and workspace summary read model added.
 2. Matching quality tuning (score calibration, stricter seniority/constraints behavior).
+   - Status: in progress (env-tunable notebook ranking calibration shipped).
 3. Scraper quality hardening and source-specific reliability.
+   - Status: in progress (run diagnostics summary + cache-first reuse + filter canonicalization improvements).
 4. CI quality gates (API/worker/web tests + smoke on protected branches).
    - Status: in progress (web e2e suite is now part of CI; smoke gate expansion pending branch policy alignment).
 

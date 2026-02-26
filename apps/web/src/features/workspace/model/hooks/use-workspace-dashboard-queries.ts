@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
+import { getJobSourceRunDiagnosticsSummary } from '@/features/job-sources/api/job-sources-api';
 import { getJobOffersPreview, listJobOffers } from '@/features/job-offers/api/job-offers-api';
 import { getWorkspaceSummary } from '@/features/workspace/api/workspace-api';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
@@ -25,9 +26,18 @@ export const useWorkspaceDashboardQueries = (token: string | null) => {
     }),
   );
 
+  const diagnosticsSummaryQuery = useQuery(
+    buildAuthedQueryOptions({
+      token,
+      queryKey: queryKeys.jobSources.diagnosticsSummary(token, 72),
+      queryFn: (authToken) => getJobSourceRunDiagnosticsSummary(authToken, 72),
+      refetchInterval: 30000,
+    }),
+  );
+
   return {
     summaryQuery,
     offersQuery,
+    diagnosticsSummaryQuery,
   };
 };
-

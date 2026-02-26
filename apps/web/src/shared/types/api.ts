@@ -299,6 +299,32 @@ export type JobSourceRunDiagnosticsDto = {
   };
 };
 
+export type JobSourceRunDiagnosticsSummaryDto = {
+  windowHours: number;
+  status: {
+    total: number;
+    pending: number;
+    running: number;
+    completed: number;
+    failed: number;
+  };
+  performance: {
+    avgDurationMs: number | null;
+    p95DurationMs: number | null;
+    avgScrapedCount: number | null;
+    avgTotalFound: number | null;
+    successRate: number;
+  };
+  failures: {
+    timeout: number;
+    network: number;
+    validation: number;
+    parse: number;
+    callback: number;
+    unknown: number;
+  };
+};
+
 export type JobSourceRunsListDto = {
   items: JobSourceRunDto[];
   total: number;

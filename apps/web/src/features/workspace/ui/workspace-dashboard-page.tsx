@@ -20,6 +20,7 @@ export const WorkspaceDashboardPage = () => {
 
   const summary = dashboard.summary;
   const offers = dashboard.offers;
+  const diagnostics = dashboard.diagnosticsSummary;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
@@ -58,6 +59,29 @@ export const WorkspaceDashboardPage = () => {
           <p className="text-sm text-slate-700">Scored offers: {summary.offers.scored}</p>
         </Card>
       </div>
+
+      {diagnostics ? (
+        <Card title="Scrape diagnostics (72h)" description="Aggregated run reliability and throughput metrics.">
+          <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-3">
+            <div className="space-y-1">
+              <p>Total runs: {diagnostics.status.total}</p>
+              <p>Completed: {diagnostics.status.completed}</p>
+              <p>Failed: {diagnostics.status.failed}</p>
+              <p>Success rate: {(diagnostics.performance.successRate * 100).toFixed(1)}%</p>
+            </div>
+            <div className="space-y-1">
+              <p>Avg duration: {diagnostics.performance.avgDurationMs == null ? 'n/a' : `${diagnostics.performance.avgDurationMs} ms`}</p>
+              <p>P95 duration: {diagnostics.performance.p95DurationMs == null ? 'n/a' : `${diagnostics.performance.p95DurationMs} ms`}</p>
+              <p>Avg scraped: {diagnostics.performance.avgScrapedCount ?? 'n/a'}</p>
+            </div>
+            <div className="space-y-1">
+              <p>Timeout failures: {diagnostics.failures.timeout}</p>
+              <p>Network failures: {diagnostics.failures.network}</p>
+              <p>Validation failures: {diagnostics.failures.validation}</p>
+            </div>
+          </div>
+        </Card>
+      ) : null}
 
       <Card title="Recent offers" description="Quick preview of top offers from your notebook.">
         {offers.length ? (

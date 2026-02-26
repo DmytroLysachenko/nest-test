@@ -55,3 +55,5 @@ pracuj-pl-cookies.json
 # Local smoke/runtime logs
 .tmp-test-logs/
 *.tmp.log
+.smoke-stack.log
+.profile-run-result.json

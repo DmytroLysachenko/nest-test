@@ -35,6 +35,8 @@ export const queryKeys = {
   },
   jobSources: {
     runs: (token: string | null) => ['job-sources', 'runs', token] as const,
+    diagnosticsSummary: (token: string | null, windowHours: number) =>
+      ['job-sources', 'diagnostics-summary', token, windowHours] as const,
   },
   jobOffers: {
     list: (

@@ -16,6 +16,11 @@ Day-to-day engineering runbook for local development and verification.
 
 1. API:
    - `API_BODY_LIMIT` (example: `1mb`)
+   - `WORKSPACE_SUMMARY_CACHE_TTL_SEC` (cache ttl for workspace summary read model)
+   - `JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS` (default summary window)
+   - `NOTEBOOK_APPROX_VIOLATION_PENALTY`
+   - `NOTEBOOK_APPROX_SCORED_BONUS`
+   - `NOTEBOOK_EXPLORE_UNSCORED_BASE`
 2. Worker:
    - `WORKER_MAX_BODY_BYTES` (example: `262144`)
    - `WORKER_CALLBACK_RETRY_MAX_DELAY_MS`
@@ -71,6 +76,7 @@ Day-to-day engineering runbook for local development and verification.
 13. notebook ranking mode contract (`strict` + `approx`)
 14. scrape diagnostics endpoint for completed run
 15. document upload-health endpoint
+16. scrape diagnostics summary endpoint
 
 ## Recovery Tips
 
