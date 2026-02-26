@@ -147,6 +147,7 @@ Forms:
 - Default to React Hook Form + Zod for non-trivial forms.
 - Keep schemas in `features/<feature>/model/validation`.
 - Keep submit/mutation orchestration in hooks (`model/hooks`), not in route files.
+- Use `shared/lib/forms/zod-form-resolver.ts` as the single resolver bridge for RHF + Zod typing.
 
 ## TypeScript Rules
 

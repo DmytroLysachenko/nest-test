@@ -1,6 +1,5 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -13,6 +12,7 @@ import {
 } from '@/features/tester/model/validation/tester-request-form-schema';
 import { env } from '@/shared/config/env';
 import { ApiError } from '@/shared/lib/http/api-error';
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 
 const formatJson = (value: unknown) => JSON.stringify(value, null, 2);
 const defaultPreset = testerEndpointPresets[0];
@@ -32,7 +32,7 @@ export const useTesterPage = (token: string) => {
   );
 
   const form = useForm<TesterRequestFormValues>({
-    resolver: zodResolver(testerRequestFormSchema),
+    resolver: zodFormResolver<TesterRequestFormValues>(testerRequestFormSchema),
     defaultValues: {
       service: selectedPreset.service,
       method: selectedPreset.method,

@@ -1,6 +1,6 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -13,7 +13,7 @@ export const useRegisterForm = () => {
   const [status, setStatus] = useState<string | null>(null);
 
   const form = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodFormResolver<RegisterFormValues>(registerSchema),
     defaultValues: {
       email: '',
       code: '',

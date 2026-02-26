@@ -1,6 +1,6 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useForm } from 'react-hook-form';
 
 import {
@@ -12,7 +12,7 @@ import { useJobMatchingQueries } from '@/features/job-matching/model/hooks/use-j
 
 export const useJobMatchingPanel = (token: string) => {
   const form = useForm<JobMatchingFormValues>({
-    resolver: zodResolver(jobMatchingFormSchema),
+    resolver: zodFormResolver<JobMatchingFormValues>(jobMatchingFormSchema),
     defaultValues: {
       jobDescription: '',
       minScore: '60',

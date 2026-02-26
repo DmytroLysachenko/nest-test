@@ -1,6 +1,6 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -16,7 +16,7 @@ type UseProfileInputEditorFormArgs = {
 
 export const useProfileInputEditorForm = ({ initialTargetRoles, initialNotes }: UseProfileInputEditorFormArgs) => {
   const form = useForm<ProfileInputEditorFormValues>({
-    resolver: zodResolver(profileInputEditorFormSchema),
+    resolver: zodFormResolver<ProfileInputEditorFormValues>(profileInputEditorFormSchema),
     defaultValues: {
       targetRoles: initialTargetRoles ?? '',
       notes: initialNotes ?? '',

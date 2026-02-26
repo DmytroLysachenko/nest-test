@@ -1,6 +1,6 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 
@@ -15,7 +15,7 @@ import type { CareerProfileSearchViewItemDto } from '@/shared/types/api';
 
 export const useCareerProfileSearchViewPanel = (token: string) => {
   const form = useForm<CareerProfileSearchViewFormValues>({
-    resolver: zodResolver(careerProfileSearchViewFormSchema),
+    resolver: zodFormResolver<CareerProfileSearchViewFormValues>(careerProfileSearchViewFormSchema),
     defaultValues: {
       status: 'READY',
       isActive: 'true',

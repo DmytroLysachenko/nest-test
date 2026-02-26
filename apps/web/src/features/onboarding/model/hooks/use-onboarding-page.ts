@@ -1,6 +1,6 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -19,7 +19,7 @@ export const useOnboardingPage = () => {
   const { latestCareerProfileQuery, onboardingDraftQuery, documentsQuery } = useOnboardingQueries(auth.token);
 
   const stepOneForm = useForm<OnboardingStepOneValues>({
-    resolver: zodResolver(onboardingStepOneSchema),
+    resolver: zodFormResolver<OnboardingStepOneValues>(onboardingStepOneSchema),
     defaultValues: {
       desiredPositions: draft.desiredPositions,
       jobDomains: draft.jobDomains,

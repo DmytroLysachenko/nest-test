@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useForm } from 'react-hook-form';
 
 import { useJobSourcesMutations } from '@/features/job-sources/model/hooks/use-job-sources-mutations';
@@ -17,7 +17,7 @@ export const useJobSourcesPanel = (token: string) => {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
   const form = useForm<EnqueueScrapeFormValues>({
-    resolver: zodResolver(enqueueScrapeSchema),
+    resolver: zodFormResolver<EnqueueScrapeFormValues>(enqueueScrapeSchema),
     defaultValues: {
       mode: 'profile',
       listingUrl: DEFAULT_LISTING_URL,

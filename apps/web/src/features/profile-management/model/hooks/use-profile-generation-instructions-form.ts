@@ -1,7 +1,7 @@
 'use client';
 
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 
 import {
   profileGenerationInstructionsSchema,
@@ -10,7 +10,7 @@ import {
 
 export const useProfileGenerationInstructionsForm = () =>
   useForm<ProfileGenerationInstructionsFormValues>({
-    resolver: zodResolver(profileGenerationInstructionsSchema),
+    resolver: zodFormResolver<ProfileGenerationInstructionsFormValues>(profileGenerationInstructionsSchema),
     defaultValues: {
       instructions: '',
     },

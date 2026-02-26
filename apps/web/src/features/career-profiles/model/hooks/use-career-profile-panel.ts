@@ -1,6 +1,6 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useForm } from 'react-hook-form';
 
 import { useCareerProfileMutations } from '@/features/career-profiles/model/hooks/use-career-profile-mutations';
@@ -12,7 +12,7 @@ import {
 
 export const useCareerProfilePanel = (token: string) => {
   const form = useForm<CareerProfileGenerationFormValues>({
-    resolver: zodResolver(careerProfileGenerationFormSchema),
+    resolver: zodFormResolver<CareerProfileGenerationFormValues>(careerProfileGenerationFormSchema),
     defaultValues: {
       instructions: '',
     },

@@ -1,6 +1,6 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useForm } from 'react-hook-form';
 
 import { useAuth } from '@/features/auth/model/context/auth-context';
@@ -13,7 +13,7 @@ export const useLoginForm = () => {
   const auth = useAuth();
 
   const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodFormResolver<LoginFormValues>(loginSchema),
     defaultValues: {
       email: '',
       password: '',
