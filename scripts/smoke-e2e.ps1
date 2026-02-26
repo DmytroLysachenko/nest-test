@@ -353,6 +353,18 @@ if ($null -eq $diagnosticsPayload.data.diagnostics.stats.jobLinksDiscovered) {
   throw 'Scrape diagnostics missing stats.jobLinksDiscovered.'
 }
 
+Write-Host '12.2) Verifying scrape diagnostics summary endpoint...'
+$stage = 'verify-scrape-diagnostics-summary'
+$diagnosticsSummary = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-sources/runs/diagnostics/summary?windowHours=168' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $diagnosticsSummary.StatusCode -Allowed @(200) -Context 'Get scrape diagnostics summary'
+$diagnosticsSummaryPayload = $diagnosticsSummary.Content | ConvertFrom-Json
+if ($null -eq $diagnosticsSummaryPayload.data.status.total) {
+  throw 'Scrape diagnostics summary missing status.total.'
+}
+if ($null -eq $diagnosticsSummaryPayload.data.performance.successRate) {
+  throw 'Scrape diagnostics summary missing performance.successRate.'
+}
+
 Write-Host '13) Verifying notebook offer actions (status/meta/history/score)...'
 $stage = 'notebook-actions'
 $offer = $matched[0]

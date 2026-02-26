@@ -758,6 +758,97 @@ export class JobSourcesService {
     };
   }
 
+  async getRunDiagnosticsSummary(userId: string, windowHours?: number) {
+    const defaultWindowHours = this.configService.get('JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS', { infer: true });
+    const effectiveWindowHours = windowHours ?? defaultWindowHours;
+    const cutoff = new Date(Date.now() - effectiveWindowHours * 60 * 60 * 1000);
+
+    const runs = await this.db
+      .select({
+        status: jobSourceRunsTable.status,
+        error: jobSourceRunsTable.error,
+        totalFound: jobSourceRunsTable.totalFound,
+        scrapedCount: jobSourceRunsTable.scrapedCount,
+        startedAt: jobSourceRunsTable.startedAt,
+        completedAt: jobSourceRunsTable.completedAt,
+      })
+      .from(jobSourceRunsTable)
+      .where(and(eq(jobSourceRunsTable.userId, userId), gte(jobSourceRunsTable.createdAt, cutoff)));
+
+    const status = {
+      total: runs.length,
+      pending: runs.filter((run) => run.status === 'PENDING').length,
+      running: runs.filter((run) => run.status === 'RUNNING').length,
+      completed: runs.filter((run) => run.status === 'COMPLETED').length,
+      failed: runs.filter((run) => run.status === 'FAILED').length,
+    };
+
+    const finalized = runs.filter((run) => run.status === 'COMPLETED' || run.status === 'FAILED');
+    const durations = finalized
+      .map((run) => {
+        if (!run.startedAt || !run.completedAt) {
+          return null;
+        }
+        return Math.max(0, run.completedAt.getTime() - run.startedAt.getTime());
+      })
+      .filter((value): value is number => typeof value === 'number');
+    const sortedDurations = [...durations].sort((a, b) => a - b);
+    const p95DurationMs = sortedDurations.length
+      ? sortedDurations[Math.max(0, Math.ceil(sortedDurations.length * 0.95) - 1)]
+      : null;
+    const avgDurationMs = durations.length
+      ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length)
+      : null;
+
+    const avgScrapedCount = finalized.length
+      ? Math.round(
+          finalized.reduce((sum, run) => sum + Number(run.scrapedCount ?? 0), 0) /
+            finalized.length,
+        )
+      : null;
+    const avgTotalFound = finalized.length
+      ? Math.round(
+          finalized.reduce((sum, run) => sum + Number(run.totalFound ?? 0), 0) /
+            finalized.length,
+        )
+      : null;
+    const successRate = status.total ? Number((status.completed / status.total).toFixed(4)) : 0;
+
+    const failures = runs
+      .filter((run) => run.status === 'FAILED')
+      .reduce(
+        (acc, run) => {
+          const failure = deriveFailureType(run.error);
+          if (!failure) {
+            return acc;
+          }
+          acc[failure] += 1;
+          return acc;
+        },
+        {
+          timeout: 0,
+          network: 0,
+          validation: 0,
+          parse: 0,
+          callback: 0,
+          unknown: 0,
+        },
+      );
+
+    return {
+      windowHours: effectiveWindowHours,
+      status,
+      performance: {
+        avgDurationMs,
+        p95DurationMs,
+        avgScrapedCount,
+        avgTotalFound,
+        successRate,
+      },
+      failures,
+    };
+  }
+
   private async tryReuseFromDatabase(input: {
     userId: string;
     careerProfileId: string;

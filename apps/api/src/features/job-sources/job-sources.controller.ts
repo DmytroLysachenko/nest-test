@@ -11,6 +11,8 @@ import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { JobSourcesService } from './job-sources.service';
 import { ScrapeRunDiagnosticsResponse } from './dto/run-diagnostics.response';
+import { ListRunDiagnosticsSummaryQuery } from './dto/list-run-diagnostics-summary.query';
+import { ScrapeRunDiagnosticsSummaryResponse } from './dto/run-diagnostics-summary.response';
 
 @ApiTags('job-sources')
 @ApiBearerAuth()
@@ -52,6 +54,16 @@ export class JobSourcesController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ) {
     return this.jobSourcesService.getRunDiagnostics(user.userId, id);
+  }
+
+  @Get('runs/diagnostics/summary')
+  @ApiOperation({ summary: 'Get aggregated scrape diagnostics summary' })
+  @ApiOkResponse({ type: ScrapeRunDiagnosticsSummaryResponse })
+  async getRunDiagnosticsSummary(
+    @CurrentUser() user: JwtValidateUser,
+    @Query() query: ListRunDiagnosticsSummaryQuery,
+  ) {
+    return this.jobSourcesService.getRunDiagnosticsSummary(user.userId, query.windowHours);
   }
 
   @Post('complete')

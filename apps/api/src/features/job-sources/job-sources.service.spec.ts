@@ -990,4 +990,61 @@ describe('JobSourcesService', () => {
     expect(diagnostics.diagnostics.hadZeroOffersStep).toBe(true);
     expect(diagnostics.diagnostics.stats.jobLinksDiscovered).toBe(12);
   });
+
+  it('returns aggregated diagnostics summary for recent runs', async () => {
+    const now = new Date('2026-02-26T10:00:00.000Z');
+    jest.spyOn(Date, 'now').mockReturnValue(now.getTime());
+
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            {
+              status: 'COMPLETED',
+              error: null,
+              totalFound: 10,
+              scrapedCount: 8,
+              startedAt: new Date('2026-02-26T08:00:00.000Z'),
+              completedAt: new Date('2026-02-26T08:02:00.000Z'),
+            },
+            {
+              status: 'FAILED',
+              error: '[timeout] worker timeout',
+              totalFound: 0,
+              scrapedCount: 0,
+              startedAt: new Date('2026-02-26T09:00:00.000Z'),
+              completedAt: new Date('2026-02-26T09:05:00.000Z'),
+            },
+            {
+              status: 'RUNNING',
+              error: null,
+              totalFound: null,
+              scrapedCount: null,
+              startedAt: new Date('2026-02-26T09:30:00.000Z'),
+              completedAt: null,
+            },
+          ]),
+        }),
+      }),
+      update: jest.fn(),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(
+      createConfigService({
+        JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS: 48,
+      }),
+      createLogger(),
+      db,
+    );
+    const summary = await service.getRunDiagnosticsSummary('user-11');
+
+    expect(summary.windowHours).toBe(48);
+    expect(summary.status.total).toBe(3);
+    expect(summary.status.completed).toBe(1);
+    expect(summary.status.failed).toBe(1);
+    expect(summary.status.running).toBe(1);
+    expect(summary.performance.avgDurationMs).toBe(210000);
+    expect(summary.failures.timeout).toBe(1);
+  });
 });
