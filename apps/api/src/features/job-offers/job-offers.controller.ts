@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -69,6 +70,7 @@ export class JobOffersController {
 
   @Post(':id/score')
   @ApiOperation({ summary: 'Score a job offer using LLM' })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async score(
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,

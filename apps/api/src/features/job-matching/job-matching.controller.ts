@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -20,6 +21,7 @@ export class JobMatchingController {
   @Post('score')
   @ApiOperation({ summary: 'Score job description against profile JSON' })
   @ApiOkResponse({ type: JobMatchResponse })
+  @Throttle({ default: { limit: 8, ttl: 60000 } })
   async score(@CurrentUser() user: JwtValidateUser, @Body() dto: ScoreJobDto) {
     return this.jobMatchingService.scoreJob(user.userId, dto);
   }

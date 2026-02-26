@@ -218,6 +218,60 @@ describe('JobSourcesService', () => {
     expect(result.status).toBe('accepted');
   });
 
+  it('rejects enqueue when user already has too many active runs', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    careerProfileId: 'profile-id',
+                    contentJson: candidateProfileFixture,
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ value: 2 }]),
+          }),
+        }),
+      insert: jest.fn(),
+      update: jest.fn(),
+    } as any;
+
+    const fetchMock = jest.spyOn(global, 'fetch' as any).mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ ok: true }),
+    } as any);
+
+    const service = new JobSourcesService(
+      createConfigService({
+        SCRAPE_MAX_ACTIVE_RUNS_PER_USER: 2,
+      }),
+      createLogger(),
+      db,
+    );
+
+    await expect(
+      service.enqueueScrape(
+        'user-id',
+        {
+          source: 'pracuj-pl',
+          filters: { keywords: 'react' },
+          limit: 10,
+        },
+        'request-id',
+      ),
+    ).rejects.toThrow('Too many active scrape runs');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('rejects listingUrl outside source allowlist', async () => {
     const db = {
       select: jest.fn().mockReturnValue({

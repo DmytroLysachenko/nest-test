@@ -37,6 +37,7 @@ export const EnvSchema = z.object({
     .regex(/^\d+(b|kb|mb)$/i)
     .default('1mb'),
   SCRAPE_DB_REUSE_HOURS: z.coerce.number().int().min(1).max(720).default(24),
+  SCRAPE_MAX_ACTIVE_RUNS_PER_USER: z.coerce.number().int().min(1).max(20).default(2),
   AUTO_SCORE_ON_INGEST: z.coerce.boolean().default(true),
   AUTO_SCORE_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(1),
   AUTO_SCORE_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(0),

@@ -2,6 +2,8 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from 'crypto';
 
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
   Optional,
@@ -9,7 +11,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Logger } from 'nestjs-pino';
 import {
@@ -149,6 +151,26 @@ export class JobSourcesService {
     const inferredSource = profileContext.profile ? inferPracujSource(profileContext.profile) : 'pracuj-pl-it';
     const source = (dto.source ?? inferredSource) as PracujSourceKind;
     const sourceEnum = mapSource(source);
+    const maxActiveRuns = this.configService.get('SCRAPE_MAX_ACTIVE_RUNS_PER_USER', { infer: true });
+    if (typeof maxActiveRuns === 'number' && maxActiveRuns > 0) {
+      const activeRunsResult = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(
+          and(
+            eq(jobSourceRunsTable.userId, userId),
+            inArray(jobSourceRunsTable.status, ['PENDING', 'RUNNING']),
+          ),
+        );
+      const [activeRuns] = Array.isArray(activeRunsResult) ? activeRunsResult : [];
+      const activeRunCount = Number(activeRuns?.value ?? 0);
+      if (activeRunCount >= maxActiveRuns) {
+        throw new HttpException(
+          `Too many active scrape runs (${activeRunCount}/${maxActiveRuns}). Wait for completion or retry later.`,
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
 
     const profileDerivedFilters = dto.filters ? undefined : profileContext.profile ? buildFiltersFromProfile(profileContext.profile) : undefined;
     const rawFilters = (dto.filters as ScrapeFiltersDto | undefined) ?? profileDerivedFilters;
