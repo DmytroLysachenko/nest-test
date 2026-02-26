@@ -41,6 +41,11 @@ export const EnvSchema = z.object({
   AUTO_SCORE_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(1),
   AUTO_SCORE_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(0),
   AUTO_SCORE_RETRY_ATTEMPTS: z.coerce.number().int().min(1).max(5).default(2),
+  NOTEBOOK_APPROX_VIOLATION_PENALTY: z.coerce.number().int().min(0).max(100).default(10),
+  NOTEBOOK_APPROX_SCORED_BONUS: z.coerce.number().int().min(0).max(100).default(10),
+  NOTEBOOK_EXPLORE_UNSCORED_BASE: z.coerce.number().int().min(0).max(100).default(0),
+  WORKSPACE_SUMMARY_CACHE_TTL_SEC: z.coerce.number().int().min(0).max(300).default(0),
+  JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS: z.coerce.number().int().min(1).max(720).default(72),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

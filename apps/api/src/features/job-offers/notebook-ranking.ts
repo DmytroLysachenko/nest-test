@@ -5,10 +5,22 @@ type JobOfferRow = {
 
 export type NotebookRankingMode = 'strict' | 'approx' | 'explore';
 
+export type NotebookRankingTuning = {
+  approxViolationPenalty: number;
+  approxScoredBonus: number;
+  exploreUnscoredBase: number;
+};
+
 type RankingResult = {
   include: boolean;
   rankingScore: number;
   explanationTags: string[];
+};
+
+const defaultTuning: NotebookRankingTuning = {
+  approxViolationPenalty: 10,
+  approxScoredBonus: 10,
+  exploreUnscoredBase: 0,
 };
 
 const getHardConstraintViolations = (matchMeta: Record<string, unknown> | null) => {
@@ -32,7 +44,15 @@ const deriveSkillTag = (matchMeta: Record<string, unknown> | null) => {
   return skills >= 25 ? 'skill_strong' : 'skill_partial';
 };
 
-export const computeNotebookOfferRanking = (offer: JobOfferRow, mode: NotebookRankingMode): RankingResult => {
+export const computeNotebookOfferRanking = (
+  offer: JobOfferRow,
+  mode: NotebookRankingMode,
+  tuning: Partial<NotebookRankingTuning> = {},
+): RankingResult => {
+  const resolvedTuning: NotebookRankingTuning = {
+    ...defaultTuning,
+    ...tuning,
+  };
   const hasScore = typeof offer.matchScore === 'number';
   const score = offer.matchScore ?? 0;
   const violations = getHardConstraintViolations(offer.matchMeta);
@@ -54,15 +74,14 @@ export const computeNotebookOfferRanking = (offer: JobOfferRow, mode: NotebookRa
   }
 
   if (mode === 'approx') {
-    const penalty = violations.length * 10;
-    const rankingScore = Math.max(0, score - penalty + (hasScore ? 10 : 0));
+    const penalty = violations.length * resolvedTuning.approxViolationPenalty;
+    const rankingScore = Math.max(0, score - penalty + (hasScore ? resolvedTuning.approxScoredBonus : 0));
     return { include: true, rankingScore, explanationTags };
   }
 
   return {
     include: true,
-    rankingScore: hasScore ? score : 0,
+    rankingScore: hasScore ? score : resolvedTuning.exploreUnscoredBase,
     explanationTags,
   };
 };
-

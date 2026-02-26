@@ -43,4 +43,39 @@ describe('computeNotebookOfferRanking', () => {
     expect(result.rankingScore).toBeLessThanOrEqual(70);
     expect(result.explanationTags).toContain('contract_gap');
   });
+
+  it('supports configurable approx penalties and bonuses', () => {
+    const result = computeNotebookOfferRanking(
+      {
+        matchScore: 50,
+        matchMeta: {
+          hardConstraintViolations: ['employmentType', 'location'],
+        },
+      },
+      'approx',
+      {
+        approxViolationPenalty: 5,
+        approxScoredBonus: 20,
+      },
+    );
+
+    expect(result.include).toBe(true);
+    expect(result.rankingScore).toBe(60);
+  });
+
+  it('supports configurable unscored explore base score', () => {
+    const result = computeNotebookOfferRanking(
+      {
+        matchScore: null,
+        matchMeta: null,
+      },
+      'explore',
+      {
+        exploreUnscoredBase: 25,
+      },
+    );
+
+    expect(result.include).toBe(true);
+    expect(result.rankingScore).toBe(25);
+  });
 });

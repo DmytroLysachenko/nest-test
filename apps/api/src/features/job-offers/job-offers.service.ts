@@ -11,7 +11,7 @@ import { GeminiService } from '@/common/modules/gemini/gemini.service';
 import type { Env } from '@/config/env';
 import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
 import { scoreCandidateAgainstJob } from '@/features/job-matching/candidate-matcher';
-import { computeNotebookOfferRanking, type NotebookRankingMode } from '@/features/job-offers/notebook-ranking';
+import { computeNotebookOfferRanking, type NotebookRankingMode, type NotebookRankingTuning } from '@/features/job-offers/notebook-ranking';
 
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
 
@@ -20,6 +20,7 @@ const LLM_SCORE_TIMEOUT_MS = 20000;
 @Injectable()
 export class JobOffersService {
   private readonly scoringModel: string;
+  private readonly rankingTuning: NotebookRankingTuning;
 
   constructor(
     @Drizzle() private readonly db: NodePgDatabase,
@@ -27,6 +28,11 @@ export class JobOffersService {
     private readonly configService: ConfigService<Env, true>,
   ) {
     this.scoringModel = this.configService.get('GEMINI_MODEL', { infer: true }) ?? 'gemini-1.5-flash';
+    this.rankingTuning = {
+      approxViolationPenalty: this.configService.get('NOTEBOOK_APPROX_VIOLATION_PENALTY', { infer: true }),
+      approxScoredBonus: this.configService.get('NOTEBOOK_APPROX_SCORED_BONUS', { infer: true }),
+      exploreUnscoredBase: this.configService.get('NOTEBOOK_EXPLORE_UNSCORED_BASE', { infer: true }),
+    };
   }
 
   async list(userId: string, query: ListJobOffersQuery) {
@@ -107,6 +113,7 @@ export class JobOffersService {
             matchMeta: (item.matchMeta as Record<string, unknown> | null) ?? null,
           },
           mode,
+          this.rankingTuning,
         );
 
         return {
