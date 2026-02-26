@@ -20,5 +20,6 @@ export const jobMatchesTable = pgTable('job_matches', {
   matchedRoles: jsonb('matched_roles'),
   matchedStrengths: jsonb('matched_strengths'),
   matchedKeywords: jsonb('matched_keywords'),
+  matchMeta: jsonb('match_meta'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
