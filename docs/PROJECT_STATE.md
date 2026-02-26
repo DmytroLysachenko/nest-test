@@ -42,6 +42,7 @@ Last updated: 2026-02-26
 - Scrape runs expose diagnostics endpoint (relaxation trail + source stats).
 - Scrape runs expose aggregated diagnostics summary endpoint (`/job-sources/runs/diagnostics/summary`).
 - Admin ops metrics endpoint available at `/ops/metrics`.
+- Job matching now persists explanation metadata on each scored match (`job_matches.match_meta`) and exposes audit export endpoints.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.
 - Profile management page now includes direct document upload/confirm/extract flow with diagnostics visibility.
@@ -67,14 +68,22 @@ Last updated: 2026-02-26
   - `preferred_work_modes`
   - `preferred_employment_types`
 
+`job_matches` now stores:
+
+- deterministic score summary fields (`score`, `is_match`, matched arrays)
+- persisted explanation metadata: `match_meta` (engine/audit/breakdown/violations)
+
 ## New API Read Model
 
 - `GET /api/career-profiles/search-view`
 - `GET /api/workspace/summary`
+- `GET /api/job-matching/audit`
+- `GET /api/job-matching/audit/export.csv`
 - Purpose:
   - fast filtering without parsing `content_json`
   - FE/tester support for profile diagnostics and search-readiness checks
   - dashboard aggregation with one API request
+  - support/debug audit export for match explanations
 
 ## Current Risks / Gaps
 

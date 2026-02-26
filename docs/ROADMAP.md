@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-02-24
+Last updated: 2026-02-26
 
 ## Now (Execution Priority)
 
@@ -20,6 +20,7 @@ Last updated: 2026-02-24
 1. Add cached query/read models for FE cards and dashboard widgets.
 2. Improve deterministic ranking calibration (mode thresholds + penalty tuning).
 3. Add score-explanation audit export for support/debug workflows.
+   - Status: completed (`/api/job-matching/audit` + `/api/job-matching/audit/export.csv` backed by persisted `job_matches.match_meta`).
 4. Expand diagnostics aggregation for long-running scrape history.
 5. Extend document diagnostics with percentile timing metrics per stage (upload/confirm/extract).
 

@@ -59,6 +59,7 @@ Day-to-day engineering runbook for local development and verification.
 2. Guided profile onboarding: `/app/onboarding`
 3. Internal endpoint tester (dev flag): `/app/tester`
 4. Admin ops metrics: `GET /api/ops/metrics`
+5. Job match audit export: `GET /api/job-matching/audit/export.csv`
 
 ## Smoke Coverage (Current)
 
@@ -80,6 +81,7 @@ Day-to-day engineering runbook for local development and verification.
 14. scrape diagnostics endpoint for completed run
 15. document upload-health endpoint
 16. scrape diagnostics summary endpoint
+17. job-matching audit json/csv endpoints
 
 ## Recovery Tips
 
