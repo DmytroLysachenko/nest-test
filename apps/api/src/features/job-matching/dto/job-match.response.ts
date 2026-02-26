@@ -37,6 +37,9 @@ export class JobMatchResponse {
   @ApiProperty({ type: [String], nullable: true })
   matchedKeywords!: string[] | null;
 
+  @ApiProperty({ nullable: true, type: Object })
+  matchMeta!: Record<string, unknown> | null;
+
   @ApiProperty()
   createdAt!: Date;
 }
@@ -64,10 +67,32 @@ export class JobMatchListItemResponse {
   createdAt!: Date;
 }
 
+export class JobMatchAuditListItemResponse extends JobMatchListItemResponse {
+  @ApiProperty()
+  jobDescription!: string;
+
+  @ApiProperty({ nullable: true, type: Object })
+  matchMeta!: Record<string, unknown> | null;
+}
+
 export class JobMatchListResponse {
   @ApiProperty({ type: [JobMatchListItemResponse] })
   items!: JobMatchListItemResponse[];
 
   @ApiProperty()
   total!: number;
+}
+
+export class JobMatchAuditListResponse {
+  @ApiProperty({ type: [JobMatchAuditListItemResponse] })
+  items!: JobMatchAuditListItemResponse[];
+
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  limit!: number;
+
+  @ApiProperty()
+  offset!: number;
 }

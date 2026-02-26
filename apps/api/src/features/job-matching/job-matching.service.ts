@@ -80,6 +80,7 @@ export class JobMatchingService {
         matchedRoles: profileJson.targetRoles.map((role) => role.title),
         matchedStrengths: profileJson.riskAndGrowth.transferableStrengths,
         matchedKeywords: profileJson.searchSignals.keywords.map((item) => item.value),
+        matchMeta,
       })
       .returning();
 
@@ -156,5 +157,45 @@ export class JobMatchingService {
     }
 
     return match;
+  }
+
+  async listMatchAudit(userId: string, query: ListJobMatchesQuery) {
+    const limit = query.limit ? Number(query.limit) : 50;
+    const offset = query.offset ? Number(query.offset) : 0;
+    const conditions = [eq(jobMatchesTable.userId, userId)];
+
+    if (query.isMatch !== undefined) {
+      conditions.push(eq(jobMatchesTable.isMatch, query.isMatch === 'true'));
+    }
+
+    const items = await this.db
+      .select({
+        id: jobMatchesTable.id,
+        careerProfileId: jobMatchesTable.careerProfileId,
+        profileVersion: jobMatchesTable.profileVersion,
+        score: jobMatchesTable.score,
+        minScore: jobMatchesTable.minScore,
+        isMatch: jobMatchesTable.isMatch,
+        jobDescription: jobMatchesTable.jobDescription,
+        matchMeta: jobMatchesTable.matchMeta,
+        createdAt: jobMatchesTable.createdAt,
+      })
+      .from(jobMatchesTable)
+      .where(and(...conditions))
+      .orderBy(desc(jobMatchesTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const [{ total }] = await this.db
+      .select({ total: sql<number>`count(*)` })
+      .from(jobMatchesTable)
+      .where(and(...conditions));
+
+    return {
+      items,
+      total: Number(total ?? 0),
+      limit,
+      offset,
+    };
   }
 }

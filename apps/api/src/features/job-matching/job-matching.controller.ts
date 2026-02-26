@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Header, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
@@ -9,7 +9,8 @@ import { JwtValidateUser } from '@/types/interface/jwt';
 import { JobMatchingService } from './job-matching.service';
 import { ScoreJobDto } from './dto/score-job.dto';
 import { ListJobMatchesQuery } from './dto/list-job-matches.query';
-import { JobMatchListResponse, JobMatchResponse } from './dto/job-match.response';
+import { JobMatchAuditListResponse, JobMatchListResponse, JobMatchResponse } from './dto/job-match.response';
+import { buildJobMatchAuditCsv } from './job-match-audit-export';
 
 @ApiTags('job-matching')
 @ApiBearerAuth()
@@ -31,6 +32,21 @@ export class JobMatchingController {
   @ApiOkResponse({ type: JobMatchListResponse })
   async list(@CurrentUser() user: JwtValidateUser, @Query() query: ListJobMatchesQuery) {
     return this.jobMatchingService.listMatches(user.userId, query);
+  }
+
+  @Get('audit')
+  @ApiOperation({ summary: 'List persisted job match audit metadata' })
+  @ApiOkResponse({ type: JobMatchAuditListResponse })
+  async listAudit(@CurrentUser() user: JwtValidateUser, @Query() query: ListJobMatchesQuery) {
+    return this.jobMatchingService.listMatchAudit(user.userId, query);
+  }
+
+  @Get('audit/export.csv')
+  @ApiOperation({ summary: 'Export persisted job match audit metadata as CSV' })
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  async exportAuditCsv(@CurrentUser() user: JwtValidateUser, @Query() query: ListJobMatchesQuery) {
+    const result = await this.jobMatchingService.listMatchAudit(user.userId, query);
+    return buildJobMatchAuditCsv(result.items);
   }
 
   @Get(':id')
