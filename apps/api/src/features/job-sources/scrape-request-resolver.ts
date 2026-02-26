@@ -41,6 +41,49 @@ const SPECIALIZATION_TO_ITS: Record<string, string> = {
   product: 'product-management',
 };
 
+const normalizeAscii = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+const CITY_ALIAS_TO_CANONICAL: Record<string, { city: string; radiusKm?: number }> = {
+  trojmiasto: { city: 'Gdynia', radiusKm: 35 },
+  tricity: { city: 'Gdynia', radiusKm: 35 },
+  'tri-city': { city: 'Gdynia', radiusKm: 35 },
+};
+
+const mapSpecializationToIts = (value: string): string | undefined => {
+  const normalized = normalizeAscii(value);
+  const direct = SPECIALIZATION_TO_ITS[normalized];
+  if (direct) {
+    return direct;
+  }
+
+  const entries = Object.entries(SPECIALIZATION_TO_ITS);
+  const fuzzy = entries.find(([key]) => normalized.includes(key));
+  return fuzzy?.[1];
+};
+
+const canonicalizeLocation = (city?: string, radiusKm?: number) => {
+  if (!city) {
+    return {
+      city: undefined,
+      radiusKm,
+    };
+  }
+  const normalized = normalizeAscii(city);
+  const alias = CITY_ALIAS_TO_CANONICAL[normalized];
+  if (!alias) {
+    return { city, radiusKm };
+  }
+  return {
+    city: alias.city,
+    radiusKm: radiusKm ?? alias.radiusKm,
+  };
+};
+
 const unique = <T>(values: Array<T | undefined | null>) =>
   Array.from(new Set(values.filter((value): value is T => value != null)));
 
@@ -73,7 +116,7 @@ export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilter
   const specializations = unique(
     profile.searchSignals.specializations
       .filter((item) => item.weight >= 0.35)
-      .map((item) => SPECIALIZATION_TO_ITS[item.value.toLowerCase()]),
+      .map((item) => mapSpecializationToIts(item.value)),
   );
 
   const keywordPool = [
@@ -90,6 +133,7 @@ export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilter
     ?? profile.workPreferences.softPreferences.locations[0]?.value.city;
   const radiusKm = profile.workPreferences.hardConstraints.locations[0]?.radiusKm
     ?? profile.workPreferences.softPreferences.locations[0]?.value.radiusKm;
+  const canonicalLocation = canonicalizeLocation(location, radiusKm);
 
   const minSalary =
     profile.workPreferences.hardConstraints.minSalary?.amount ?? profile.workPreferences.softPreferences.salary?.value.amount;
@@ -100,8 +144,8 @@ export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilter
     contractTypes: contractTypes.length ? contractTypes : undefined,
     specializations: specializations.length ? specializations : undefined,
     salaryMin: minSalary ?? undefined,
-    location: location ?? undefined,
-    radiusKm: radiusKm ?? undefined,
+    location: canonicalLocation.city ?? undefined,
+    radiusKm: canonicalLocation.radiusKm ?? undefined,
     keywords: keywords || undefined,
     noPolishRequired: profile.workPreferences.hardConstraints.noPolishRequired || undefined,
     onlyEmployerOffers: profile.workPreferences.hardConstraints.onlyEmployerOffers || undefined,
@@ -114,4 +158,3 @@ export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilter
 
   return hasAny ? filters : undefined;
 };
-

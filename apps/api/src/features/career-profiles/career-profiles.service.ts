@@ -16,6 +16,7 @@ import {
   type CandidateProfile,
   parseCandidateProfile,
 } from './schema/candidate-profile.schema';
+import { canonicalizeCandidateProfile } from './profile-canonicalization';
 
 const MIN_EXTRACTED_TEXT_CHARS = 700;
 
@@ -74,9 +75,15 @@ export class CareerProfilesService {
         (profileInput.normalizedInput as NormalizedProfileInput | null | undefined) ?? null,
         (profileInput.normalizationMeta as NormalizationMeta | null | undefined) ?? null,
       );
-      const contentJson = await this.geminiService.generateStructured(prompt, candidateProfileSchema, {
+      const rawContentJson = await this.geminiService.generateStructured(prompt, candidateProfileSchema, {
         retries: 2,
       });
+      const contentJson = canonicalizeCandidateProfile(rawContentJson, profileInput.normalizedInput as NormalizedProfileInput | null);
+      const parsedCanonical = parseCandidateProfile(contentJson);
+      if (!parsedCanonical.success) {
+        throw new BadRequestException('Canonicalized profile JSON does not match canonical schema');
+      }
+
       const content = this.toMarkdown(contentJson);
       const projection = this.buildSearchProjection(contentJson);
 
@@ -374,6 +381,8 @@ export class CareerProfilesService {
       'When inferring adjacent skills, set lower confidenceScore and mark competency isTransferable=true if not explicitly proven.',
       'Do not invent random experience. Every inferred item must be plausibly connected to evidence in provided documents.',
       'Respect seniority constraints strictly: never up-level candidate target to higher seniority than evidence supports.',
+      'For locations use concrete city names only (avoid region aliases like "Tricity/Trojmiasto"); include radius when possible.',
+      'If candidate states explicit minimum salary in input, preserve it in hardConstraints.minSalary.',
       'Be liberal with contract/work-mode flexibility in softPreferences, but keep hardConstraints conservative and user-safe.',
       'Hard minimum output richness: targetRoles>=1, competencies>=8, searchSignals.keywords>=12, searchSignals.technologies>=6.',
       'Use concise evidence snippets from provided input/docs.',
