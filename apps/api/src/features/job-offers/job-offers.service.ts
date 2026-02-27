@@ -34,8 +34,10 @@ export class JobOffersService {
     this.scoringModel = this.configService.get('GEMINI_MODEL', { infer: true }) ?? 'gemini-1.5-flash';
     this.rankingTuning = {
       approxViolationPenalty: this.configService.get('NOTEBOOK_APPROX_VIOLATION_PENALTY', { infer: true }),
+      approxMaxViolationPenalty: this.configService.get('NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY', { infer: true }),
       approxScoredBonus: this.configService.get('NOTEBOOK_APPROX_SCORED_BONUS', { infer: true }),
       exploreUnscoredBase: this.configService.get('NOTEBOOK_EXPLORE_UNSCORED_BASE', { infer: true }),
+      exploreRecencyWeight: this.configService.get('NOTEBOOK_EXPLORE_RECENCY_WEIGHT', { infer: true }),
     };
   }
 
@@ -121,20 +123,35 @@ export class JobOffersService {
           ...item,
           rankingScore: ranking.rankingScore,
           explanationTags: ranking.explanationTags,
+          __createdAtMs: new Date(item.createdAt).getTime(),
           __include: ranking.include,
         };
       })
       .filter((item) => item.__include)
       .sort((a, b) => {
         if (mode === 'explore') {
-          const left = new Date(b.createdAt).getTime();
-          const right = new Date(a.createdAt).getTime();
-          return left - right;
+          const byCreatedAt = b.__createdAtMs - a.__createdAtMs;
+          if (byCreatedAt !== 0) {
+            return byCreatedAt;
+          }
+          return a.id.localeCompare(b.id);
         }
         return (b.rankingScore ?? 0) - (a.rankingScore ?? 0);
       })
+      .map((item, index, arr) => {
+        if (mode !== 'explore') {
+          return item;
+        }
+        const denominator = Math.max(1, arr.length - 1);
+        const recencyRatio = denominator === 0 ? 1 : (arr.length - 1 - index) / denominator;
+        const recencyBoost = this.rankingTuning.exploreRecencyWeight * recencyRatio;
+        return {
+          ...item,
+          rankingScore: Number(((item.rankingScore ?? 0) + recencyBoost).toFixed(4)),
+        };
+      })
       .slice(offset, offset + limit)
-      .map(({ __include, ...item }) => item);
+      .map(({ __include, __createdAtMs, ...item }) => item);
 
     const [{ total }] = await this.db
       .select({ total: sql<number>`count(*)` })
@@ -146,6 +163,10 @@ export class JobOffersService {
       items: rankedItems,
       total: Number(total ?? 0),
       mode,
+      rankingMeta: {
+        mode,
+        tuning: this.rankingTuning,
+      },
     };
   }
 

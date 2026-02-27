@@ -55,6 +55,7 @@ describe('computeNotebookOfferRanking', () => {
       'approx',
       {
         approxViolationPenalty: 5,
+        approxMaxViolationPenalty: 50,
         approxScoredBonus: 20,
       },
     );
@@ -72,10 +73,31 @@ describe('computeNotebookOfferRanking', () => {
       'explore',
       {
         exploreUnscoredBase: 25,
+        exploreRecencyWeight: 7,
       },
     );
 
     expect(result.include).toBe(true);
     expect(result.rankingScore).toBe(25);
+  });
+
+  it('caps approx violation penalty using max cap', () => {
+    const result = computeNotebookOfferRanking(
+      {
+        matchScore: 50,
+        matchMeta: {
+          hardConstraintViolations: ['a', 'b', 'c', 'd'],
+        },
+      },
+      'approx',
+      {
+        approxViolationPenalty: 10,
+        approxMaxViolationPenalty: 15,
+        approxScoredBonus: 10,
+      },
+    );
+
+    expect(result.include).toBe(true);
+    expect(result.rankingScore).toBe(45);
   });
 });

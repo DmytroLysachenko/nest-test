@@ -7,8 +7,10 @@ export type NotebookRankingMode = 'strict' | 'approx' | 'explore';
 
 export type NotebookRankingTuning = {
   approxViolationPenalty: number;
+  approxMaxViolationPenalty: number;
   approxScoredBonus: number;
   exploreUnscoredBase: number;
+  exploreRecencyWeight: number;
 };
 
 type RankingResult = {
@@ -19,8 +21,10 @@ type RankingResult = {
 
 const defaultTuning: NotebookRankingTuning = {
   approxViolationPenalty: 10,
+  approxMaxViolationPenalty: 30,
   approxScoredBonus: 10,
   exploreUnscoredBase: 0,
+  exploreRecencyWeight: 5,
 };
 
 const getHardConstraintViolations = (matchMeta: Record<string, unknown> | null) => {
@@ -72,7 +76,10 @@ export const computeNotebookOfferRanking = (
   }
 
   if (mode === 'approx') {
-    const penalty = violations.length * resolvedTuning.approxViolationPenalty;
+    const penalty = Math.min(
+      violations.length * resolvedTuning.approxViolationPenalty,
+      resolvedTuning.approxMaxViolationPenalty,
+    );
     const rankingScore = Math.max(0, score - penalty + (hasScore ? resolvedTuning.approxScoredBonus : 0));
     return { include: true, rankingScore, explanationTags };
   }
