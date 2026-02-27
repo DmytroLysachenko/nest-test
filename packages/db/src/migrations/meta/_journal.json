@@ -134,6 +134,13 @@
       "when": 1772226028604,
       "tag": "0018_chemical_kulan_gath",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1772227851993,
+      "tag": "0019_fearless_betty_ross",
+      "breakpoints": true
     }
   ]
 }
