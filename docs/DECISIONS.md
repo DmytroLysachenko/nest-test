@@ -166,3 +166,34 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Replace multiple dashboard queries with one deterministic read model.
   - Reduce frontend orchestration complexity and inconsistent loading states.
+
+## 2026-02-27: Persistent Document Stage Duration Metrics
+
+- Decision:
+  - Add `document_stage_metrics` table for durable timing samples across document lifecycle stages.
+  - Persist stage durations when document events reach terminal milestones.
+  - Expose aggregated percentile diagnostics at `GET /documents/diagnostics/summary`.
+- Why:
+  - Timeline events alone are noisy for trend analysis and support triage.
+  - Percentile summaries enable reliable UX/read-model cards and operational diagnostics.
+
+## 2026-02-27: Scrape Diagnostics Summary Timeline Buckets
+
+- Decision:
+  - Extend `GET /job-sources/runs/diagnostics/summary` with optional timeline buckets:
+    - `includeTimeline=true`
+    - `bucket=hour|day`
+  - Add short-lived in-memory cache for repeated summary requests.
+- Why:
+  - Improve visibility of scrape reliability trends over longer windows.
+  - Reduce repeated aggregation cost during dashboard polling.
+
+## 2026-02-27: Notebook Ranking Calibration Guardrails
+
+- Decision:
+  - Cap `approx` mode hard-constraint penalties with `NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY`.
+  - Add configurable explore-mode recency weighting via `NOTEBOOK_EXPLORE_RECENCY_WEIGHT`.
+  - Keep `strict` mode trust-first behavior unchanged.
+- Why:
+  - Prevent over-penalization in `approx` while preserving deterministic ranking behavior.
+  - Make `explore` ordering predictable and tuneable without changing strict trust semantics.

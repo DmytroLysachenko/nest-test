@@ -146,6 +146,15 @@ if ($null -eq $uploadHealthPayload.data.ok) {
   throw 'Documents upload-health payload missing ok flag.'
 }
 
+Write-Host '5.2) Verifying document diagnostics summary endpoint...'
+$stage = 'documents-diagnostics-summary'
+$documentDiagnosticsSummary = Invoke-WebRequest -Uri 'http://localhost:3000/api/documents/diagnostics/summary?windowHours=168' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $documentDiagnosticsSummary.StatusCode -Allowed @(200) -Context 'Documents diagnostics summary'
+$documentDiagnosticsSummaryPayload = $documentDiagnosticsSummary.Content | ConvertFrom-Json
+if ($null -eq $documentDiagnosticsSummaryPayload.data.stages.EXTRACTION.successRate) {
+  throw 'Documents diagnostics summary missing stages.EXTRACTION.successRate.'
+}
+
 Write-Host '6) Verifying career-profile endpoints (latest/list/get/restore/documents)...'
 $stage = 'career-profiles'
 $careerLatest = Invoke-WebRequest -Uri 'http://localhost:3000/api/career-profiles/latest' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
@@ -383,7 +392,7 @@ if ($null -eq $diagnosticsPayload.data.diagnostics.stats.jobLinksDiscovered) {
 
 Write-Host '12.2) Verifying scrape diagnostics summary endpoint...'
 $stage = 'verify-scrape-diagnostics-summary'
-$diagnosticsSummary = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-sources/runs/diagnostics/summary?windowHours=168' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$diagnosticsSummary = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-sources/runs/diagnostics/summary?windowHours=168&includeTimeline=true&bucket=day' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $diagnosticsSummary.StatusCode -Allowed @(200) -Context 'Get scrape diagnostics summary'
 $diagnosticsSummaryPayload = $diagnosticsSummary.Content | ConvertFrom-Json
 if ($null -eq $diagnosticsSummaryPayload.data.status.total) {
@@ -391,6 +400,9 @@ if ($null -eq $diagnosticsSummaryPayload.data.status.total) {
 }
 if ($null -eq $diagnosticsSummaryPayload.data.performance.successRate) {
   throw 'Scrape diagnostics summary missing performance.successRate.'
+}
+if ($null -eq $diagnosticsSummaryPayload.data.timeline) {
+  throw 'Scrape diagnostics summary missing timeline.'
 }
 
 Write-Host '13) Verifying notebook offer actions (status/meta/history/score)...'

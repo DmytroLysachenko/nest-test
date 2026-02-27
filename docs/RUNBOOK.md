@@ -20,9 +20,12 @@ Day-to-day engineering runbook for local development and verification.
    - `ALLOWED_ORIGINS` must not be `*` in production mode
    - `WORKSPACE_SUMMARY_CACHE_TTL_SEC` (cache ttl for workspace summary read model)
    - `JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS` (default summary window)
+   - `DOCUMENT_DIAGNOSTICS_WINDOW_HOURS` (default document diagnostics window)
    - `NOTEBOOK_APPROX_VIOLATION_PENALTY`
+   - `NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY`
    - `NOTEBOOK_APPROX_SCORED_BONUS`
    - `NOTEBOOK_EXPLORE_UNSCORED_BASE`
+   - `NOTEBOOK_EXPLORE_RECENCY_WEIGHT`
 2. Worker:
    - `WORKER_MAX_BODY_BYTES` (example: `262144`)
    - `WORKER_CALLBACK_RETRY_MAX_DELAY_MS`
@@ -60,6 +63,7 @@ Day-to-day engineering runbook for local development and verification.
 3. Internal endpoint tester (dev flag): `/app/tester`
 4. Admin ops metrics: `GET /api/ops/metrics`
 5. Job match audit export: `GET /api/job-matching/audit/export.csv`
+6. Document diagnostics summary: `GET /api/documents/diagnostics/summary`
 
 ## Smoke Coverage (Current)
 
@@ -80,8 +84,9 @@ Day-to-day engineering runbook for local development and verification.
 13. notebook ranking mode contract (`strict` + `approx`)
 14. scrape diagnostics endpoint for completed run
 15. document upload-health endpoint
-16. scrape diagnostics summary endpoint
-17. job-matching audit json/csv endpoints
+16. document diagnostics summary endpoint
+17. scrape diagnostics summary endpoint (with timeline option)
+18. job-matching audit json/csv endpoints
 
 ## Recovery Tips
 

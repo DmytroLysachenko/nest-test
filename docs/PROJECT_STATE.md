@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-02-26
+Last updated: 2026-02-27
 
 ## Current Architecture
 
@@ -38,13 +38,16 @@ Last updated: 2026-02-26
 - API enforces per-user active scrape backpressure (`SCRAPE_MAX_ACTIVE_RUNS_PER_USER`).
 - Notebook supports ranking modes (`strict` / `approx` / `explore`) with explanation tags per offer.
 - Notebook ranking calibration is env-tunable (approx penalties/bonuses and explore unscored base).
+- Notebook ranking calibration now includes capped approx penalties and configurable explore recency weighting.
 - Career profile exposes deterministic quality diagnostics endpoint.
 - Scrape runs expose diagnostics endpoint (relaxation trail + source stats).
 - Scrape runs expose aggregated diagnostics summary endpoint (`/job-sources/runs/diagnostics/summary`).
+- Scrape diagnostics summary now supports optional timeline buckets (`hour` / `day`) and short-lived in-memory response cache.
 - Admin ops metrics endpoint available at `/ops/metrics`.
 - Job matching now persists explanation metadata on each scored match (`job_matches.match_meta`) and exposes audit export endpoints.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.
+- Documents now persist stage duration metrics (`document_stage_metrics`) and expose percentile summary endpoint (`/documents/diagnostics/summary`).
 - Profile management page now includes direct document upload/confirm/extract flow with diagnostics visibility.
 - New guided onboarding flow is available at `/app/onboarding` with persisted draft state and step-based UX.
 - Profile input now supports structured intake payload (`intake_payload`) used for deterministic normalization.
@@ -79,6 +82,7 @@ Last updated: 2026-02-26
 - `GET /api/workspace/summary`
 - `GET /api/job-matching/audit`
 - `GET /api/job-matching/audit/export.csv`
+- `GET /api/documents/diagnostics/summary`
 - Purpose:
   - fast filtering without parsing `content_json`
   - FE/tester support for profile diagnostics and search-readiness checks
