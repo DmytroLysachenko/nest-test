@@ -33,6 +33,17 @@ class OpsOffersMetricsResponse {
   unscoredUserOffers!: number;
 }
 
+class OpsLifecycleMetricsResponse {
+  @ApiProperty()
+  staleReconciledRuns!: number;
+
+  @ApiProperty()
+  retriesTriggered!: number;
+
+  @ApiProperty()
+  retrySuccessRate!: number;
+}
+
 export class OpsMetricsResponse {
   @ApiProperty()
   windowHours!: number;
@@ -45,4 +56,7 @@ export class OpsMetricsResponse {
 
   @ApiProperty({ type: OpsOffersMetricsResponse })
   offers!: OpsOffersMetricsResponse;
+
+  @ApiProperty({ type: OpsLifecycleMetricsResponse })
+  lifecycle!: OpsLifecycleMetricsResponse;
 }

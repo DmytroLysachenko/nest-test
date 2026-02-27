@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, count, eq, gte, isNull, inArray } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { jobSourceRunsTable, userJobOffersTable } from '@repo/db';
 
@@ -43,6 +43,31 @@ export class OpsService {
       .select({ value: count() })
       .from(jobSourceRunsTable)
       .where(and(eq(jobSourceRunsTable.status, 'FAILED'), gte(jobSourceRunsTable.createdAt, cutoff)));
+    const [staleReconciledRunsRow] = await this.db
+      .select({ value: count() })
+      .from(jobSourceRunsTable)
+      .where(
+        and(
+          eq(jobSourceRunsTable.status, 'FAILED'),
+          eq(jobSourceRunsTable.failureType, 'timeout'),
+          eq(jobSourceRunsTable.error, '[timeout] run stale watchdog'),
+          gte(jobSourceRunsTable.createdAt, cutoff),
+        ),
+      );
+    const [retriesTriggeredRow] = await this.db
+      .select({ value: count() })
+      .from(jobSourceRunsTable)
+      .where(and(isNotNull(jobSourceRunsTable.retryOfRunId), gte(jobSourceRunsTable.createdAt, cutoff)));
+    const [retryCompletedRow] = await this.db
+      .select({ value: count() })
+      .from(jobSourceRunsTable)
+      .where(
+        and(
+          isNotNull(jobSourceRunsTable.retryOfRunId),
+          eq(jobSourceRunsTable.status, 'COMPLETED'),
+          gte(jobSourceRunsTable.createdAt, cutoff),
+        ),
+      );
 
     const [totalUserOffersRow] = await this.db.select({ value: count() }).from(userJobOffersTable);
     const [unscoredUserOffersRow] = await this.db
@@ -52,6 +77,8 @@ export class OpsService {
 
     const totalRuns = Number(totalRunsRow?.value ?? 0);
     const completedRuns = Number(completedRunsRow?.value ?? 0);
+    const retriesTriggered = Number(retriesTriggeredRow?.value ?? 0);
+    const retryCompleted = Number(retryCompletedRow?.value ?? 0);
 
     return {
       windowHours,
@@ -69,6 +96,11 @@ export class OpsService {
       offers: {
         totalUserOffers: Number(totalUserOffersRow?.value ?? 0),
         unscoredUserOffers: Number(unscoredUserOffersRow?.value ?? 0),
+      },
+      lifecycle: {
+        staleReconciledRuns: Number(staleReconciledRunsRow?.value ?? 0),
+        retriesTriggered,
+        retrySuccessRate: retriesTriggered ? Number((retryCompleted / retriesTriggered).toFixed(4)) : 0,
       },
     };
   }
