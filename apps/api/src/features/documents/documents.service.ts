@@ -1,13 +1,15 @@
 import { randomUUID } from 'crypto';
 
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { documentEventsTable, documentsTable } from '@repo/db';
-import { and, desc, eq } from 'drizzle-orm';
+import { documentEventsTable, documentStageMetricsTable, documentsTable } from '@repo/db';
+import { and, desc, eq, gte } from 'drizzle-orm';
 import { Logger } from 'nestjs-pino';
 
 import { Drizzle } from '@/common/decorators';
 import { GcsService } from '@/common/modules/gcs/gcs.service';
+import type { Env } from '@/config/env';
 
 import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 import { ConfirmDocumentDto } from './dto/confirm-document.dto';
@@ -16,11 +18,15 @@ import { ExtractDocumentDto } from './dto/extract-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { SyncDocumentsDto } from './dto/sync-documents.dto';
 
+type DocumentMetricStage = 'UPLOAD_CONFIRM' | 'EXTRACTION' | 'TOTAL_PIPELINE';
+type DocumentMetricStatus = 'SUCCESS' | 'ERROR';
+
 @Injectable()
 export class DocumentsService {
   constructor(
     @Drizzle() private readonly db: NodePgDatabase,
     private readonly gcsService: GcsService,
+    private readonly configService: ConfigService<Env, true>,
     private readonly logger: Logger,
   ) {}
 
@@ -326,6 +332,62 @@ export class DocumentsService {
     };
   }
 
+  async getDiagnosticsSummary(userId: string, windowHours?: number) {
+    const defaultWindowHours = this.configService.get('DOCUMENT_DIAGNOSTICS_WINDOW_HOURS', { infer: true });
+    const effectiveWindowHours = windowHours ?? defaultWindowHours;
+    const cutoff = new Date(Date.now() - effectiveWindowHours * 60 * 60 * 1000);
+
+    const metrics = await this.db
+      .select({
+        documentId: documentStageMetricsTable.documentId,
+        stage: documentStageMetricsTable.stage,
+        status: documentStageMetricsTable.status,
+        durationMs: documentStageMetricsTable.durationMs,
+      })
+      .from(documentStageMetricsTable)
+      .where(and(eq(documentStageMetricsTable.userId, userId), gte(documentStageMetricsTable.createdAt, cutoff)));
+
+    const stages = ['UPLOAD_CONFIRM', 'EXTRACTION', 'TOTAL_PIPELINE'] as const;
+    const byStage = stages.reduce<Record<DocumentMetricStage, (typeof metrics)[number][]>>(
+      (acc, stage) => {
+        acc[stage] = metrics.filter((metric) => metric.stage === stage);
+        return acc;
+      },
+      {
+        UPLOAD_CONFIRM: [],
+        EXTRACTION: [],
+        TOTAL_PIPELINE: [],
+      },
+    );
+
+    const summarizeStage = (rows: (typeof metrics)[number][]) => {
+      const durations = rows.map((row) => row.durationMs).filter((value) => Number.isFinite(value));
+      const successful = rows.filter((row) => row.status === 'SUCCESS').length;
+
+      return {
+        count: rows.length,
+        successRate: rows.length ? Number((successful / rows.length).toFixed(4)) : 0,
+        avgDurationMs: durations.length ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length) : null,
+        p50DurationMs: this.computePercentile(durations, 0.5),
+        p95DurationMs: this.computePercentile(durations, 0.95),
+      };
+    };
+
+    return {
+      windowHours: effectiveWindowHours,
+      generatedAt: new Date().toISOString(),
+      totals: {
+        documentsWithMetrics: new Set(metrics.map((metric) => metric.documentId)).size,
+        samples: metrics.length,
+      },
+      stages: {
+        UPLOAD_CONFIRM: summarizeStage(byStage.UPLOAD_CONFIRM),
+        EXTRACTION: summarizeStage(byStage.EXTRACTION),
+        TOTAL_PIPELINE: summarizeStage(byStage.TOTAL_PIPELINE),
+      },
+    };
+  }
+
   async syncWithStorage(userId: string, dto: SyncDocumentsDto) {
     const dryRun = dto.dryRun ?? false;
     const deleteMissing = dto.deleteMissing ?? false;
@@ -560,6 +622,7 @@ export class DocumentsService {
     traceId?: string;
     meta?: Record<string, unknown>;
   }) {
+    const createdAt = new Date();
     try {
       await this.db.insert(documentEventsTable).values({
         documentId: input.documentId,
@@ -570,6 +633,15 @@ export class DocumentsService {
         errorCode: input.errorCode ?? null,
         traceId: input.traceId ?? null,
         meta: input.meta ?? null,
+        createdAt,
+      });
+
+      await this.recordStageMetric({
+        documentId: input.documentId,
+        userId: input.userId,
+        eventStage: input.stage,
+        eventStatus: input.status,
+        eventCreatedAt: createdAt,
       });
     } catch (error) {
       this.logger.warn(
@@ -582,5 +654,116 @@ export class DocumentsService {
         'Failed to persist document event',
       );
     }
+  }
+
+  private async recordStageMetric(input: {
+    documentId: string;
+    userId: string;
+    eventStage: string;
+    eventStatus: 'INFO' | 'SUCCESS' | 'ERROR';
+    eventCreatedAt: Date;
+  }) {
+    if (input.eventStage === 'SIGNED_UPLOAD_CONFIRMED' && input.eventStatus === 'SUCCESS') {
+      await this.persistMetricFromAnchor({
+        documentId: input.documentId,
+        userId: input.userId,
+        metricStage: 'UPLOAD_CONFIRM',
+        metricStatus: 'SUCCESS',
+        anchorStage: 'UPLOAD_URL_CREATED',
+        anchorStatus: 'SUCCESS',
+        terminalTime: input.eventCreatedAt,
+      });
+      return;
+    }
+
+    if (input.eventStage === 'EXTRACTION_READY' && input.eventStatus === 'SUCCESS') {
+      await this.persistMetricFromAnchor({
+        documentId: input.documentId,
+        userId: input.userId,
+        metricStage: 'EXTRACTION',
+        metricStatus: 'SUCCESS',
+        anchorStage: 'EXTRACTION_STARTED',
+        anchorStatus: 'INFO',
+        terminalTime: input.eventCreatedAt,
+      });
+      await this.persistMetricFromAnchor({
+        documentId: input.documentId,
+        userId: input.userId,
+        metricStage: 'TOTAL_PIPELINE',
+        metricStatus: 'SUCCESS',
+        anchorStage: 'UPLOAD_URL_CREATED',
+        anchorStatus: 'SUCCESS',
+        terminalTime: input.eventCreatedAt,
+      });
+      return;
+    }
+
+    if (input.eventStage === 'EXTRACTION_FAILED' && input.eventStatus === 'ERROR') {
+      await this.persistMetricFromAnchor({
+        documentId: input.documentId,
+        userId: input.userId,
+        metricStage: 'EXTRACTION',
+        metricStatus: 'ERROR',
+        anchorStage: 'EXTRACTION_STARTED',
+        anchorStatus: 'INFO',
+        terminalTime: input.eventCreatedAt,
+      });
+      await this.persistMetricFromAnchor({
+        documentId: input.documentId,
+        userId: input.userId,
+        metricStage: 'TOTAL_PIPELINE',
+        metricStatus: 'ERROR',
+        anchorStage: 'UPLOAD_URL_CREATED',
+        anchorStatus: 'SUCCESS',
+        terminalTime: input.eventCreatedAt,
+      });
+    }
+  }
+
+  private async persistMetricFromAnchor(input: {
+    documentId: string;
+    userId: string;
+    metricStage: DocumentMetricStage;
+    metricStatus: DocumentMetricStatus;
+    anchorStage: string;
+    anchorStatus: 'INFO' | 'SUCCESS' | 'ERROR';
+    terminalTime: Date;
+  }) {
+    const [anchor] = await this.db
+      .select({ createdAt: documentEventsTable.createdAt })
+      .from(documentEventsTable)
+      .where(
+        and(
+          eq(documentEventsTable.documentId, input.documentId),
+          eq(documentEventsTable.userId, input.userId),
+          eq(documentEventsTable.stage, input.anchorStage),
+          eq(documentEventsTable.status, input.anchorStatus),
+        ),
+      )
+      .orderBy(desc(documentEventsTable.createdAt))
+      .limit(1);
+
+    if (!anchor?.createdAt) {
+      return;
+    }
+
+    const durationMs = Math.max(0, input.terminalTime.getTime() - anchor.createdAt.getTime());
+    await this.db.insert(documentStageMetricsTable).values({
+      documentId: input.documentId,
+      userId: input.userId,
+      stage: input.metricStage,
+      status: input.metricStatus,
+      durationMs,
+      createdAt: input.terminalTime,
+    });
+  }
+
+  private computePercentile(values: number[], percentile: number): number | null {
+    if (!values.length) {
+      return null;
+    }
+    const sorted = [...values].sort((a, b) => a - b);
+    const index = Math.max(0, Math.ceil(sorted.length * percentile) - 1);
+    return sorted[index] ?? null;
   }
 }

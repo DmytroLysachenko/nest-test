@@ -14,6 +14,8 @@ import { UpdateDocumentDto } from './dto/update-document.dto';
 import { SyncDocumentsDto } from './dto/sync-documents.dto';
 import { DocumentEventResponse } from './dto/document-event.response';
 import { DocumentUploadHealthResponse } from './dto/document-upload-health.response';
+import { ListDocumentDiagnosticsSummaryQuery } from './dto/list-document-diagnostics-summary.query';
+import { DocumentDiagnosticsSummaryResponse } from './dto/document-diagnostics-summary.response';
 
 @ApiTags('documents')
 @ApiBearerAuth()
@@ -70,6 +72,13 @@ export class DocumentsController {
   @ApiOkResponse({ type: DocumentUploadHealthResponse })
   async uploadHealth(@CurrentUser() user: JwtValidateUser, @Headers('x-request-id') requestId: string | undefined) {
     return this.documentsService.checkUploadHealth(user.userId, requestId);
+  }
+
+  @Get('diagnostics/summary')
+  @ApiOperation({ summary: 'Get aggregated upload/extraction diagnostics summary' })
+  @ApiOkResponse({ type: DocumentDiagnosticsSummaryResponse })
+  async diagnosticsSummary(@CurrentUser() user: JwtValidateUser, @Query() query: ListDocumentDiagnosticsSummaryQuery) {
+    return this.documentsService.getDiagnosticsSummary(user.userId, query.windowHours);
   }
 
   @Post('sync')

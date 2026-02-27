@@ -47,6 +47,9 @@ export const EnvSchema = z.object({
   NOTEBOOK_EXPLORE_UNSCORED_BASE: z.coerce.number().int().min(0).max(100).default(0),
   WORKSPACE_SUMMARY_CACHE_TTL_SEC: z.coerce.number().int().min(0).max(300).default(0),
   JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS: z.coerce.number().int().min(1).max(720).default(72),
+  DOCUMENT_DIAGNOSTICS_WINDOW_HOURS: z.coerce.number().int().min(1).max(720).default(168),
+  NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY: z.coerce.number().int().min(0).max(100).default(30),
+  NOTEBOOK_EXPLORE_RECENCY_WEIGHT: z.coerce.number().int().min(0).max(100).default(5),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

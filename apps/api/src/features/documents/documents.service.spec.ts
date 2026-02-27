@@ -3,6 +3,19 @@ import { documentEventsTable, documentsTable } from '@repo/db';
 import { DocumentsService } from './documents.service';
 
 describe('DocumentsService', () => {
+  const createConfigService = (overrides: Partial<Record<string, number>> = {}) =>
+    ({
+      get: (key: string) => {
+        if (key in overrides) {
+          return overrides[key];
+        }
+        if (key === 'DOCUMENT_DIAGNOSTICS_WINDOW_HOURS') {
+          return 168;
+        }
+        return undefined;
+      },
+    }) as any;
+
   const createLogger = () =>
     ({
       warn: jest.fn(),
@@ -42,7 +55,7 @@ describe('DocumentsService', () => {
       createSignedUploadUrl: jest.fn().mockRejectedValue(new Error('no signing key')),
     } as any;
 
-    const service = new DocumentsService(db, gcsService, createLogger());
+    const service = new DocumentsService(db, gcsService, createConfigService(), createLogger());
 
     await expect(
       service.createUploadUrl(
@@ -65,11 +78,60 @@ describe('DocumentsService', () => {
       createSignedUploadUrl: jest.fn().mockRejectedValue(new Error('signing failed')),
     } as any;
 
-    const service = new DocumentsService(db, gcsService, createLogger());
+    const service = new DocumentsService(db, gcsService, createConfigService(), createLogger());
     const result = await service.checkUploadHealth('user-1', 'trace-2');
 
     expect(result.ok).toBe(false);
     expect(result.bucket.ok).toBe(true);
     expect(result.signedUrl.ok).toBe(false);
+  });
+
+  it('returns aggregated document diagnostics summary from stage metrics', async () => {
+    const now = new Date('2026-02-27T10:00:00.000Z');
+    jest.spyOn(Date, 'now').mockReturnValue(now.getTime());
+
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            {
+              documentId: 'doc-1',
+              stage: 'UPLOAD_CONFIRM',
+              status: 'SUCCESS',
+              durationMs: 1000,
+            },
+            {
+              documentId: 'doc-1',
+              stage: 'EXTRACTION',
+              status: 'SUCCESS',
+              durationMs: 8000,
+            },
+            {
+              documentId: 'doc-2',
+              stage: 'EXTRACTION',
+              status: 'ERROR',
+              durationMs: 12000,
+            },
+            {
+              documentId: 'doc-2',
+              stage: 'TOTAL_PIPELINE',
+              status: 'ERROR',
+              durationMs: 25000,
+            },
+          ]),
+        }),
+      }),
+    } as any;
+
+    const service = new DocumentsService(db, {} as any, createConfigService(), createLogger());
+    const summary = await service.getDiagnosticsSummary('user-1');
+
+    expect(summary.windowHours).toBe(168);
+    expect(summary.totals.documentsWithMetrics).toBe(2);
+    expect(summary.totals.samples).toBe(4);
+    expect(summary.stages.UPLOAD_CONFIRM.count).toBe(1);
+    expect(summary.stages.EXTRACTION.count).toBe(2);
+    expect(summary.stages.EXTRACTION.successRate).toBe(0.5);
+    expect(summary.stages.EXTRACTION.p95DurationMs).toBe(12000);
   });
 });
