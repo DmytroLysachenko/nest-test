@@ -1097,4 +1097,51 @@ describe('JobSourcesService', () => {
     expect(summary.performance.avgDurationMs).toBe(210000);
     expect(summary.failures.timeout).toBe(1);
   });
+
+  it('optionally includes timeline buckets in diagnostics summary', async () => {
+    const now = new Date('2026-02-26T10:00:00.000Z');
+    jest.spyOn(Date, 'now').mockReturnValue(now.getTime());
+
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            {
+              status: 'COMPLETED',
+              error: null,
+              totalFound: 5,
+              scrapedCount: 4,
+              startedAt: new Date('2026-02-26T08:00:00.000Z'),
+              completedAt: new Date('2026-02-26T08:04:00.000Z'),
+            },
+            {
+              status: 'FAILED',
+              error: '[network] blocked',
+              totalFound: 0,
+              scrapedCount: 0,
+              startedAt: new Date('2026-02-26T08:30:00.000Z'),
+              completedAt: new Date('2026-02-26T08:35:00.000Z'),
+            },
+          ]),
+        }),
+      }),
+      update: jest.fn(),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(
+      createConfigService({
+        JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS: 24,
+      }),
+      createLogger(),
+      db,
+    );
+    const summary = await service.getRunDiagnosticsSummary('user-12', 24, 'hour', true);
+
+    expect(summary.timeline).toBeDefined();
+    expect(summary.timeline).toHaveLength(1);
+    expect(summary.timeline?.[0]?.bucketStart).toBe('2026-02-26T08:00:00.000Z');
+    expect(summary.timeline?.[0]?.total).toBe(2);
+    expect(summary.timeline?.[0]?.successRate).toBe(0.5);
+  });
 });

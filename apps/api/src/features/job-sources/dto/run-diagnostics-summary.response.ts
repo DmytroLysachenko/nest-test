@@ -54,6 +54,26 @@ class ScrapeRunFailureSummary {
   unknown!: number;
 }
 
+class ScrapeRunTimelineItemResponse {
+  @ApiProperty()
+  bucketStart!: string;
+
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  completed!: number;
+
+  @ApiProperty()
+  failed!: number;
+
+  @ApiProperty({ nullable: true })
+  avgDurationMs!: number | null;
+
+  @ApiProperty()
+  successRate!: number;
+}
+
 export class ScrapeRunDiagnosticsSummaryResponse {
   @ApiProperty()
   windowHours!: number;
@@ -66,4 +86,7 @@ export class ScrapeRunDiagnosticsSummaryResponse {
 
   @ApiProperty({ type: ScrapeRunFailureSummary })
   failures!: ScrapeRunFailureSummary;
+
+  @ApiProperty({ type: [ScrapeRunTimelineItemResponse], required: false })
+  timeline?: ScrapeRunTimelineItemResponse[];
 }

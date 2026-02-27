@@ -59,7 +59,12 @@ export class JobSourcesController {
   @ApiOperation({ summary: 'Get aggregated scrape diagnostics summary' })
   @ApiOkResponse({ type: ScrapeRunDiagnosticsSummaryResponse })
   async getRunDiagnosticsSummary(@CurrentUser() user: JwtValidateUser, @Query() query: ListRunDiagnosticsSummaryQuery) {
-    return this.jobSourcesService.getRunDiagnosticsSummary(user.userId, query.windowHours);
+    return this.jobSourcesService.getRunDiagnosticsSummary(
+      user.userId,
+      query.windowHours,
+      query.bucket ?? 'day',
+      query.includeTimeline ?? false,
+    );
   }
 
   @Post('complete')

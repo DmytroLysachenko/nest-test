@@ -35,8 +35,22 @@ export const getJobSourceRunDiagnostics = (token: string, runId: string) =>
     token,
   });
 
-export const getJobSourceRunDiagnosticsSummary = (token: string, windowHours = 72) =>
-  apiRequest<JobSourceRunDiagnosticsSummaryDto>(`/job-sources/runs/diagnostics/summary?windowHours=${windowHours}`, {
+export const getJobSourceRunDiagnosticsSummary = (
+  token: string,
+  windowHours = 72,
+  options?: { includeTimeline?: boolean; bucket?: 'hour' | 'day' },
+) => {
+  const query = new URLSearchParams();
+  query.set('windowHours', String(windowHours));
+  if (options?.includeTimeline !== undefined) {
+    query.set('includeTimeline', String(options.includeTimeline));
+  }
+  if (options?.bucket) {
+    query.set('bucket', options.bucket);
+  }
+
+  return apiRequest<JobSourceRunDiagnosticsSummaryDto>(`/job-sources/runs/diagnostics/summary?${query.toString()}`, {
     method: 'GET',
     token,
   });
+};

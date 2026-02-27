@@ -34,6 +34,7 @@ import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
 import { buildFiltersFromProfile, inferPracujSource } from './scrape-request-resolver';
 import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
+import { RunDiagnosticsSummaryCache } from './run-diagnostics-summary-cache';
 
 type CallbackJobPayload = NonNullable<ScrapeCompleteDto['jobs']>[number];
 
@@ -128,6 +129,8 @@ const stableJson = (value: unknown) => JSON.stringify(canonicalize(value ?? null
 
 @Injectable()
 export class JobSourcesService {
+  private readonly diagnosticsSummaryCache = new RunDiagnosticsSummaryCache<any>(30000);
+
   constructor(
     private readonly configService: ConfigService<Env, true>,
     private readonly logger: Logger,
@@ -780,9 +783,19 @@ export class JobSourcesService {
     };
   }
 
-  async getRunDiagnosticsSummary(userId: string, windowHours?: number) {
+  async getRunDiagnosticsSummary(
+    userId: string,
+    windowHours?: number,
+    bucket: 'hour' | 'day' = 'day',
+    includeTimeline = false,
+  ) {
     const defaultWindowHours = this.configService.get('JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS', { infer: true });
     const effectiveWindowHours = windowHours ?? defaultWindowHours;
+    const cacheKey = `${userId}:${effectiveWindowHours}:${bucket}:${includeTimeline ? '1' : '0'}`;
+    const cached = this.diagnosticsSummaryCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
     const cutoff = new Date(Date.now() - effectiveWindowHours * 60 * 60 * 1000);
 
     const runs = await this.db
@@ -851,7 +864,7 @@ export class JobSourcesService {
         },
       );
 
-    return {
+    const summary = {
       windowHours: effectiveWindowHours,
       status,
       performance: {
@@ -862,7 +875,75 @@ export class JobSourcesService {
         successRate,
       },
       failures,
+      ...(includeTimeline ? { timeline: this.buildTimeline(finalized, bucket) } : {}),
     };
+
+    this.diagnosticsSummaryCache.set(cacheKey, summary);
+    return summary;
+  }
+
+  private buildTimeline(
+    runs: Array<{
+      status: string;
+      startedAt: Date | null;
+      completedAt: Date | null;
+    }>,
+    bucket: 'hour' | 'day',
+  ) {
+    const grouped = new Map<
+      string,
+      Array<{
+        status: string;
+        startedAt: Date | null;
+        completedAt: Date | null;
+      }>
+    >();
+
+    for (const run of runs) {
+      const stamp = run.completedAt ?? run.startedAt;
+      if (!stamp) {
+        continue;
+      }
+      const key = this.toBucketStartIso(stamp, bucket);
+      const items = grouped.get(key) ?? [];
+      items.push(run);
+      grouped.set(key, items);
+    }
+
+    return Array.from(grouped.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([bucketStart, items]) => {
+        const completed = items.filter((run) => run.status === 'COMPLETED').length;
+        const failed = items.filter((run) => run.status === 'FAILED').length;
+        const durations = items
+          .map((run) => {
+            if (!run.startedAt || !run.completedAt) {
+              return null;
+            }
+            return Math.max(0, run.completedAt.getTime() - run.startedAt.getTime());
+          })
+          .filter((value): value is number => typeof value === 'number');
+
+        return {
+          bucketStart,
+          total: items.length,
+          completed,
+          failed,
+          avgDurationMs: durations.length
+            ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length)
+            : null,
+          successRate: items.length ? Number((completed / items.length).toFixed(4)) : 0,
+        };
+      });
+  }
+
+  private toBucketStartIso(value: Date, bucket: 'hour' | 'day') {
+    const date = new Date(value);
+    date.setUTCMinutes(0, 0, 0);
+    if (bucket === 'day') {
+      date.setUTCHours(0, 0, 0, 0);
+    }
+    return date.toISOString();
   }
 
   private async tryReuseFromDatabase(input: {
