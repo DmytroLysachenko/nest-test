@@ -8,65 +8,35 @@ const createConfigService = (overrides: Record<string, unknown> = {}) =>
   }) as any;
 
 describe('OpsService', () => {
-  it('returns aggregated queue/scrape/offer metrics', async () => {
-    const db = {
-      select: jest.fn().mockImplementation((shape) => {
-        if ('value' in shape) {
-          return {
-            from: jest.fn().mockImplementation((table) => {
-              if (table === jobSourceRunsTable) {
-                return {
-                  where: jest
-                    .fn()
-                    .mockResolvedValueOnce([{ value: 3 }]) // active
-                    .mockResolvedValueOnce([{ value: 1 }]) // pending
-                    .mockResolvedValueOnce([{ value: 2 }]) // running
-                    .mockResolvedValueOnce([{ value: 10 }]) // total
-                    .mockResolvedValueOnce([{ value: 8 }]) // completed
-                    .mockResolvedValueOnce([{ value: 2 }]), // failed
-                };
-              }
-              if (table === userJobOffersTable) {
-                return {
-                  where: jest.fn().mockResolvedValueOnce([{ value: 4 }]),
-                };
-              }
-              return { where: jest.fn().mockResolvedValue([{ value: 0 }]) };
-            }),
-          };
-        }
-        return {
-          from: jest.fn().mockResolvedValue([{ value: 0 }]),
-        };
-      }),
-    } as any;
+  it('returns aggregated queue/scrape/offer/lifecycle metrics', async () => {
+    const runWhere = jest
+      .fn()
+      .mockResolvedValueOnce([{ value: 3 }]) // active
+      .mockResolvedValueOnce([{ value: 1 }]) // pending
+      .mockResolvedValueOnce([{ value: 2 }]) // running
+      .mockResolvedValueOnce([{ value: 10 }]) // total
+      .mockResolvedValueOnce([{ value: 8 }]) // completed
+      .mockResolvedValueOnce([{ value: 2 }]) // failed
+      .mockResolvedValueOnce([{ value: 1 }]) // stale reconciled
+      .mockResolvedValueOnce([{ value: 4 }]) // retries triggered
+      .mockResolvedValueOnce([{ value: 3 }]); // retry completed
+    const offerWhere = jest.fn().mockResolvedValueOnce([{ value: 4 }]); // unscored
 
-    // For total offers without where()
-    db.select
-      .mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 3 }]) }),
-      })
-      .mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 1 }]) }),
-      })
-      .mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 2 }]) }),
-      })
-      .mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 10 }]) }),
-      })
-      .mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 8 }]) }),
-      })
-      .mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 2 }]) }),
-      })
-      .mockReturnValueOnce({
-        from: jest.fn().mockResolvedValue([{ value: 40 }]),
-      })
-      .mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 4 }]) }),
-      });
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
+        .mockReturnValueOnce({ from: jest.fn().mockResolvedValue([{ value: 40 }]) }) // total offers
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: offerWhere }) }), // unscored
+    } as any;
 
     const service = new OpsService(
       db,
@@ -82,5 +52,8 @@ describe('OpsService', () => {
     expect(result.scrape.totalRuns).toBe(10);
     expect(result.scrape.successRate).toBe(0.8);
     expect(result.offers.unscoredUserOffers).toBe(4);
+    expect(result.lifecycle.staleReconciledRuns).toBe(1);
+    expect(result.lifecycle.retriesTriggered).toBe(4);
+    expect(result.lifecycle.retrySuccessRate).toBe(0.75);
   });
 });

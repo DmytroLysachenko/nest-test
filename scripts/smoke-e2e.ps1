@@ -404,6 +404,25 @@ if ($null -eq $diagnosticsSummaryPayload.data.performance.successRate) {
 if ($null -eq $diagnosticsSummaryPayload.data.timeline) {
   throw 'Scrape diagnostics summary missing timeline.'
 }
+if ($null -eq $diagnosticsSummaryPayload.data.lifecycle.retriedRuns) {
+  throw 'Scrape diagnostics summary missing lifecycle.retriedRuns.'
+}
+
+Write-Host '12.3) Verifying retry endpoint guard on completed run...'
+$stage = 'verify-scrape-retry-guard'
+$retryRejected = $false
+try {
+  Invoke-WebRequest -Uri "http://localhost:3000/api/job-sources/runs/$sourceRunId/retry" -Method Post -Headers $authHeaders -UseBasicParsing -TimeoutSec 20 | Out-Null
+} catch {
+  if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -in @(400, 409)) {
+    $retryRejected = $true
+  } else {
+    throw
+  }
+}
+if (-not $retryRejected) {
+  throw 'Retry endpoint should reject retry for completed run.'
+}
 
 Write-Host '13) Verifying notebook offer actions (status/meta/history/score)...'
 $stage = 'notebook-actions'

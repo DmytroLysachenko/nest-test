@@ -4,7 +4,18 @@ import { JobSourcesService } from './job-sources.service';
 
 const createConfigService = (overrides: Record<string, unknown> = {}) =>
   ({
-    get: jest.fn((key: string) => overrides[key]),
+    get: jest.fn((key: string) => {
+      if (key in overrides) {
+        return overrides[key];
+      }
+      if (key === 'SCRAPE_STALE_PENDING_MINUTES') {
+        return 15;
+      }
+      if (key === 'SCRAPE_STALE_RUNNING_MINUTES') {
+        return 60;
+      }
+      return undefined;
+    }),
   }) as any;
 
 const createLogger = () =>
@@ -1143,5 +1154,75 @@ describe('JobSourcesService', () => {
     expect(summary.timeline?.[0]?.bucketStart).toBe('2026-02-26T08:00:00.000Z');
     expect(summary.timeline?.[0]?.total).toBe(2);
     expect(summary.timeline?.[0]?.successRate).toBe(0.5);
+  });
+
+  it('marks stale pending/running runs as failed before listing', async () => {
+    const updateWhere = jest.fn().mockResolvedValue(undefined);
+    const db = {
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: updateWhere,
+        }),
+      }),
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  offset: jest.fn().mockResolvedValue([]),
+                }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ total: 0 }]),
+          }),
+        }),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    await service.listRuns('user-13', {});
+
+    expect(db.update).toHaveBeenCalledTimes(2);
+    expect(updateWhere).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects retry when run is not failed', async () => {
+    const db = {
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-1',
+                      source: 'PRACUJ_PL',
+                      listingUrl: 'https://it.pracuj.pl/praca',
+                      filters: null,
+                      status: 'COMPLETED',
+                      careerProfileId: 'profile-1',
+                      retryCount: 0,
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    await expect(service.retryRun('user-14', 'run-1')).rejects.toThrow('Only failed runs can be retried');
   });
 });
