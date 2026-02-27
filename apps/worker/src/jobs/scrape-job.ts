@@ -24,6 +24,8 @@ type CallbackPayload = {
   jobs?: NormalizedJob[];
   outputPath?: string;
   error?: string;
+  failureType?: ScrapeFailureType;
+  failureCode?: string;
   diagnostics?: {
     relaxationTrail?: string[];
     blockedUrls?: string[];
@@ -250,6 +252,8 @@ export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
   jobs: input.jobs,
   outputPath: input.outputPath,
   error: input.error,
+  failureType: input.failureType,
+  failureCode: input.failureCode,
   diagnostics: input.diagnostics,
 });
 
@@ -533,6 +537,8 @@ export const runScrapeJob = async (
           listingUrl,
           status: 'FAILED',
           error: `[${failureType}] ${errorMessage}`,
+          failureType,
+          failureCode: `WORKER_${failureType.toUpperCase()}`,
           diagnostics: {
             relaxationTrail: [],
             blockedUrls: [],

@@ -21,13 +21,30 @@ export const enqueueScrape = (token: string, payload: EnqueueScrapePayload) =>
     body: JSON.stringify(payload),
   });
 
-export const listJobSourceRuns = (token: string, status?: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED') => {
-  const query = status ? `?status=${status}` : '';
+export const listJobSourceRuns = (
+  token: string,
+  status?: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED',
+  retriedFrom?: string,
+) => {
+  const params = new URLSearchParams();
+  if (status) {
+    params.set('status', status);
+  }
+  if (retriedFrom) {
+    params.set('retriedFrom', retriedFrom);
+  }
+  const query = params.size ? `?${params.toString()}` : '';
   return apiRequest<JobSourceRunsListDto>(`/job-sources/runs${query}`, {
     method: 'GET',
     token,
   });
 };
+
+export const retryJobSourceRun = (token: string, runId: string) =>
+  apiRequest<EnqueueScrapeResponseDto>(`/job-sources/runs/${runId}/retry`, {
+    method: 'POST',
+    token,
+  });
 
 export const getJobSourceRunDiagnostics = (token: string, runId: string) =>
   apiRequest<JobSourceRunDiagnosticsDto>(`/job-sources/runs/${runId}/diagnostics`, {

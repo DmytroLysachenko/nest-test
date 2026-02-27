@@ -38,10 +38,14 @@ test('buildScrapeCallbackPayload emits failure callback fields', () => {
     listingUrl: 'https://it.pracuj.pl/praca?wm=home-office',
     status: 'FAILED',
     error: 'Cloudflare blocked request',
+    failureType: 'network',
+    failureCode: 'WORKER_NETWORK',
   });
 
   assert.equal(payload.status, 'FAILED');
   assert.equal(payload.error, 'Cloudflare blocked request');
+  assert.equal(payload.failureType, 'network');
+  assert.equal(payload.failureCode, 'WORKER_NETWORK');
   assert.equal(payload.scrapedCount, undefined);
 });
 

@@ -295,6 +295,8 @@ export type JobSourceRunDto = {
   completedAt: string | null;
   finalizedAt?: string | null;
   failureType?: 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown' | null;
+  retryOfRunId?: string | null;
+  retryCount?: number;
   createdAt: string;
 };
 
@@ -345,6 +347,11 @@ export type JobSourceRunDiagnosticsSummaryDto = {
     callback: number;
     unknown: number;
   };
+  lifecycle: {
+    reconciledStale: number;
+    retriedRuns: number;
+    retryCompleted: number;
+  };
   timeline?: Array<{
     bucketStart: string;
     total: number;
@@ -373,6 +380,8 @@ export type EnqueueScrapeResponseDto = {
   acceptedFilters?: Record<string, unknown> | null;
   intentFingerprint?: string;
   resolvedFromProfile?: boolean;
+  retriedFromRunId?: string;
+  retryCount?: number;
 };
 
 export type JobOfferStatus = 'NEW' | 'SEEN' | 'SAVED' | 'APPLIED' | 'DISMISSED';
