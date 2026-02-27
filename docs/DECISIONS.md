@@ -197,3 +197,29 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Prevent over-penalization in `approx` while preserving deterministic ranking behavior.
   - Make `explore` ordering predictable and tuneable without changing strict trust semantics.
+
+## 2026-02-27: Scrape Run Lifecycle Reconciliation and Retry Chain
+
+- Decision:
+  - Extend `job_source_runs` with lifecycle fields:
+    - `failure_type`
+    - `finalized_at`
+    - `retry_of_run_id`
+    - `retry_count`
+  - Reconcile stale `PENDING/RUNNING` runs lazily in API read/enqueue paths to terminal timeout failure.
+  - Add retry endpoint `POST /job-sources/runs/:id/retry` for failed runs only.
+- Why:
+  - Prevent indefinite non-terminal runs that block user workflows and distort queue metrics.
+  - Preserve deterministic lifecycle auditability for support/ops.
+  - Enable explicit user recovery path without mutating original failed runs.
+
+## 2026-02-27: Worker-to-API Failure Taxonomy Contract
+
+- Decision:
+  - Extend worker callback payload with explicit:
+    - `failureType`
+    - `failureCode`
+  - API persists `failure_type` and uses worker-provided value with legacy message-based fallback.
+- Why:
+  - Reduce fragility from regex-based error parsing.
+  - Improve consistency of diagnostics and ops metrics across callback paths.

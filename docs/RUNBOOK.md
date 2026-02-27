@@ -20,6 +20,8 @@ Day-to-day engineering runbook for local development and verification.
    - `ALLOWED_ORIGINS` must not be `*` in production mode
    - `WORKSPACE_SUMMARY_CACHE_TTL_SEC` (cache ttl for workspace summary read model)
    - `JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS` (default summary window)
+   - `SCRAPE_STALE_PENDING_MINUTES` (stale pending run timeout threshold)
+   - `SCRAPE_STALE_RUNNING_MINUTES` (stale running run timeout threshold)
    - `DOCUMENT_DIAGNOSTICS_WINDOW_HOURS` (default document diagnostics window)
    - `NOTEBOOK_APPROX_VIOLATION_PENALTY`
    - `NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY`
@@ -64,6 +66,7 @@ Day-to-day engineering runbook for local development and verification.
 4. Admin ops metrics: `GET /api/ops/metrics`
 5. Job match audit export: `GET /api/job-matching/audit/export.csv`
 6. Document diagnostics summary: `GET /api/documents/diagnostics/summary`
+7. Retry failed scrape run: `POST /api/job-sources/runs/:id/retry`
 
 ## Smoke Coverage (Current)
 
@@ -87,6 +90,7 @@ Day-to-day engineering runbook for local development and verification.
 16. document diagnostics summary endpoint
 17. scrape diagnostics summary endpoint (with timeline option)
 18. job-matching audit json/csv endpoints
+19. scrape retry endpoint guard (`completed` run retry rejection)
 
 ## Recovery Tips
 

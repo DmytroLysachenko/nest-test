@@ -43,7 +43,11 @@ Last updated: 2026-02-27
 - Scrape runs expose diagnostics endpoint (relaxation trail + source stats).
 - Scrape runs expose aggregated diagnostics summary endpoint (`/job-sources/runs/diagnostics/summary`).
 - Scrape diagnostics summary now supports optional timeline buckets (`hour` / `day`) and short-lived in-memory response cache.
+- Scrape runs now persist deterministic lifecycle fields (`failure_type`, `finalized_at`, `retry_of_run_id`, `retry_count`).
+- API lazily reconciles stale `PENDING/RUNNING` runs to terminal timeout failures.
+- Failed scrape runs can be retried via `POST /job-sources/runs/:id/retry` with retry-chain linkage.
 - Admin ops metrics endpoint available at `/ops/metrics`.
+- Ops metrics now expose scrape lifecycle counters (`staleReconciledRuns`, `retriesTriggered`, `retrySuccessRate`).
 - Job matching now persists explanation metadata on each scored match (`job_matches.match_meta`) and exposes audit export endpoints.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.

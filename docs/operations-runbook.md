@@ -43,6 +43,15 @@ Worker queue can be controlled via:
 
 When queue is full, worker returns `429` and API should retry later.
 
+## Failed Run Retry
+
+- User-triggered retry endpoint:
+  - `POST /api/job-sources/runs/:id/retry`
+- Constraints:
+  - only run owner
+  - only `FAILED` runs
+  - creates a new run linked via `retry_of_run_id` (original run remains immutable)
+
 ## Recommended SLO Baseline (MVP)
 
 - API availability: >= 99.5%

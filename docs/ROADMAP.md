@@ -9,7 +9,7 @@ Last updated: 2026-02-27
 2. Matching quality tuning (score calibration, stricter seniority/constraints behavior).
    - Status: in progress (capped approx penalties + explore recency weighting shipped; threshold tuning ongoing).
 3. Scraper quality hardening and source-specific reliability.
-   - Status: in progress (run diagnostics summary + cache-first reuse + filter canonicalization improvements + timeline buckets).
+   - Status: in progress (run diagnostics summary + cache-first reuse + filter canonicalization improvements + timeline buckets + stale-run reconciliation + retry endpoint).
 4. CI quality gates (API/worker/web tests + smoke on protected branches).
    - Status: in progress (web e2e suite is now part of CI; smoke gate expansion pending branch policy alignment).
 5. Reliability guardrails for scrape intake + admin ops visibility.
@@ -22,7 +22,7 @@ Last updated: 2026-02-27
 3. Add score-explanation audit export for support/debug workflows.
    - Status: completed (`/api/job-matching/audit` + `/api/job-matching/audit/export.csv` backed by persisted `job_matches.match_meta`).
 4. Expand diagnostics aggregation for long-running scrape history.
-   - Status: in progress (optional timeline buckets added to diagnostics summary).
+   - Status: in progress (optional timeline buckets + lifecycle counters added to diagnostics summary).
 5. Extend document diagnostics with percentile timing metrics per stage (upload/confirm/extract).
    - Status: in progress (`document_stage_metrics` + `/api/documents/diagnostics/summary` added).
 
