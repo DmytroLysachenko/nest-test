@@ -11,7 +11,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, count, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Logger } from 'nestjs-pino';
 import {
@@ -37,6 +37,7 @@ import { parseCandidateProfile } from '@/features/career-profiles/schema/candida
 import { RunDiagnosticsSummaryCache } from './run-diagnostics-summary-cache';
 
 type CallbackJobPayload = NonNullable<ScrapeCompleteDto['jobs']>[number];
+type RunFailureType = 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown';
 
 const mapSource = (source: string) => {
   if (source === 'pracuj-pl' || source === 'pracuj-pl-it' || source === 'pracuj-pl-general') {
@@ -110,6 +111,23 @@ const deriveFailureType = (error?: string | null) => {
   return 'unknown';
 };
 
+const toRunFailureType = (value?: string | null): RunFailureType | null => {
+  if (!value) {
+    return null;
+  }
+  if (value === 'timeout' || value === 'network' || value === 'validation' || value === 'parse' || value === 'callback') {
+    return value;
+  }
+  return 'unknown';
+};
+
+const mapSourceEnumToSlug = (source: string) => {
+  if (source === 'PRACUJ_PL') {
+    return 'pracuj-pl' as const;
+  }
+  throw new BadRequestException(`Unsupported source enum: ${source}`);
+};
+
 const canonicalize = (value: unknown): unknown => {
   if (Array.isArray(value)) {
     return value.map((item) => canonicalize(item));
@@ -139,6 +157,7 @@ export class JobSourcesService {
   ) {}
 
   async enqueueScrape(userId: string, dto: EnqueueScrapeDto, incomingRequestId?: string) {
+    await this.reconcileStaleRuns(userId);
     const requestId = incomingRequestId?.trim() || randomUUID();
     const profileContext = await this.getCareerProfileContext(userId, dto.careerProfileId);
     if (!profileContext?.careerProfileId) {
@@ -357,6 +376,7 @@ export class JobSourcesService {
         totalFound: jobSourceRunsTable.totalFound,
         scrapedCount: jobSourceRunsTable.scrapedCount,
         startedAt: jobSourceRunsTable.startedAt,
+        failureType: jobSourceRunsTable.failureType,
       })
       .from(jobSourceRunsTable)
       .where(eq(jobSourceRunsTable.id, dto.sourceRunId))
@@ -441,6 +461,7 @@ export class JobSourcesService {
 
     if (status === 'FAILED') {
       const completedAt = new Date();
+      const failureType = toRunFailureType(dto.failureType) ?? deriveFailureType(dto.error) ?? 'unknown';
       await this.db
         .update(jobSourceRunsTable)
         .set({
@@ -448,6 +469,8 @@ export class JobSourcesService {
           scrapedCount,
           totalFound,
           error: dto.error ?? 'Scrape failed in worker',
+          failureType,
+          finalizedAt: completedAt,
           completedAt,
         })
         .where(eq(jobSourceRunsTable.id, run.id));
@@ -457,7 +480,7 @@ export class JobSourcesService {
           sourceRunId: run.id,
           statusFrom,
           statusTo: 'FAILED',
-          failureType: deriveFailureType(dto.error),
+          failureType,
           totalFound,
           scrapedCount,
           durationMs: this.resolveRunDurationMs(run.startedAt ?? null, completedAt),
@@ -556,6 +579,8 @@ export class JobSourcesService {
         scrapedCount,
         totalFound,
         error: null,
+        failureType: null,
+        finalizedAt: new Date(),
         completedAt: new Date(),
       })
       .where(eq(jobSourceRunsTable.id, run.id));
@@ -676,9 +701,13 @@ export class JobSourcesService {
   }
 
   async listRuns(userId: string, query: ListJobSourceRunsQuery) {
+    await this.reconcileStaleRuns(userId);
     const conditions = [eq(jobSourceRunsTable.userId, userId)];
     if (query.status) {
       conditions.push(eq(jobSourceRunsTable.status, query.status as JobSourceRunStatus));
+    }
+    if (query.retriedFrom) {
+      conditions.push(eq(jobSourceRunsTable.retryOfRunId, query.retriedFrom));
     }
 
     const limit = query.limit ? Number(query.limit) : 20;
@@ -698,12 +727,17 @@ export class JobSourcesService {
       .where(and(...conditions));
 
     return {
-      items,
+      items: items.map((item) => ({
+        ...item,
+        finalizedAt: item.finalizedAt ?? item.completedAt,
+        failureType: toRunFailureType(item.failureType) ?? deriveFailureType(item.error),
+      })),
       total: Number(total ?? 0),
     };
   }
 
   async getRun(userId: string, runId: string) {
+    await this.reconcileStaleRuns(userId);
     const run = await this.db
       .select()
       .from(jobSourceRunsTable)
@@ -717,12 +751,65 @@ export class JobSourcesService {
 
     return {
       ...run,
-      finalizedAt: run.completedAt,
-      failureType: deriveFailureType(run.error),
+      finalizedAt: run.finalizedAt ?? run.completedAt,
+      failureType: toRunFailureType(run.failureType) ?? deriveFailureType(run.error),
+    };
+  }
+
+  async retryRun(userId: string, runId: string, requestId?: string) {
+    await this.reconcileStaleRuns(userId);
+    const run = await this.db
+      .select({
+        id: jobSourceRunsTable.id,
+        source: jobSourceRunsTable.source,
+        listingUrl: jobSourceRunsTable.listingUrl,
+        filters: jobSourceRunsTable.filters,
+        status: jobSourceRunsTable.status,
+        careerProfileId: jobSourceRunsTable.careerProfileId,
+        retryCount: jobSourceRunsTable.retryCount,
+      })
+      .from(jobSourceRunsTable)
+      .where(and(eq(jobSourceRunsTable.id, runId), eq(jobSourceRunsTable.userId, userId)))
+      .limit(1)
+      .then(([item]) => item);
+
+    if (!run) {
+      throw new NotFoundException('Job source run not found');
+    }
+    if (run.status !== 'FAILED') {
+      throw new BadRequestException('Only failed runs can be retried');
+    }
+
+    const result = await this.enqueueScrape(
+      userId,
+      {
+        source: mapSourceEnumToSlug(run.source),
+        listingUrl: run.listingUrl,
+        filters: (run.filters as Record<string, unknown> | undefined) as ScrapeFiltersDto | undefined,
+        careerProfileId: run.careerProfileId ?? undefined,
+        forceRefresh: true,
+      },
+      requestId,
+    );
+
+    const nextRetryCount = Number(run.retryCount ?? 0) + 1;
+    await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        retryOfRunId: run.id,
+        retryCount: nextRetryCount,
+      })
+      .where(eq(jobSourceRunsTable.id, result.sourceRunId));
+
+    return {
+      ...result,
+      retriedFromRunId: run.id,
+      retryCount: nextRetryCount,
     };
   }
 
   async getRunDiagnostics(userId: string, runId: string) {
+    await this.reconcileStaleRuns(userId);
     const run = await this.db
       .select()
       .from(jobSourceRunsTable)
@@ -760,7 +847,7 @@ export class JobSourcesService {
       source: run.source,
       status: run.status,
       listingUrl: run.listingUrl,
-      finalizedAt: run.completedAt,
+      finalizedAt: run.finalizedAt ?? run.completedAt,
       diagnostics: {
         relaxationTrail: Array.isArray(diagnostics.relaxationTrail)
           ? diagnostics.relaxationTrail.filter((item): item is string => typeof item === 'string')
@@ -789,6 +876,7 @@ export class JobSourcesService {
     bucket: 'hour' | 'day' = 'day',
     includeTimeline = false,
   ) {
+    await this.reconcileStaleRuns(userId);
     const defaultWindowHours = this.configService.get('JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS', { infer: true });
     const effectiveWindowHours = windowHours ?? defaultWindowHours;
     const cacheKey = `${userId}:${effectiveWindowHours}:${bucket}:${includeTimeline ? '1' : '0'}`;
@@ -802,6 +890,8 @@ export class JobSourcesService {
       .select({
         status: jobSourceRunsTable.status,
         error: jobSourceRunsTable.error,
+        failureType: jobSourceRunsTable.failureType,
+        retryOfRunId: jobSourceRunsTable.retryOfRunId,
         totalFound: jobSourceRunsTable.totalFound,
         scrapedCount: jobSourceRunsTable.scrapedCount,
         startedAt: jobSourceRunsTable.startedAt,
@@ -847,7 +937,7 @@ export class JobSourcesService {
       .filter((run) => run.status === 'FAILED')
       .reduce(
         (acc, run) => {
-          const failure = deriveFailureType(run.error);
+          const failure = toRunFailureType(run.failureType) ?? deriveFailureType(run.error);
           if (!failure) {
             return acc;
           }
@@ -864,6 +954,17 @@ export class JobSourcesService {
         },
       );
 
+    const lifecycle = {
+      reconciledStale: runs.filter(
+        (run) =>
+          run.status === 'FAILED' &&
+          (toRunFailureType(run.failureType) ?? deriveFailureType(run.error)) === 'timeout' &&
+          run.error === '[timeout] run stale watchdog',
+      ).length,
+      retriedRuns: runs.filter((run) => Boolean(run.retryOfRunId)).length,
+      retryCompleted: runs.filter((run) => Boolean(run.retryOfRunId) && run.status === 'COMPLETED').length,
+    };
+
     const summary = {
       windowHours: effectiveWindowHours,
       status,
@@ -875,6 +976,7 @@ export class JobSourcesService {
         successRate,
       },
       failures,
+      lifecycle,
       ...(includeTimeline ? { timeline: this.buildTimeline(finalized, bucket) } : {}),
     };
 
@@ -1136,14 +1238,73 @@ export class JobSourcesService {
   }
 
   private async markRunFailed(runId: string, error: string) {
+    const now = new Date();
+    const failureType = deriveFailureType(error) ?? 'unknown';
     await this.db
       .update(jobSourceRunsTable)
       .set({
         status: 'FAILED',
         error,
-        completedAt: new Date(),
+        failureType,
+        finalizedAt: now,
+        completedAt: now,
       })
       .where(and(eq(jobSourceRunsTable.id, runId), eq(jobSourceRunsTable.status, 'PENDING')));
+  }
+
+  private async reconcileStaleRuns(userId: string) {
+    if (typeof (this.db as any).update !== 'function') {
+      return;
+    }
+    const stalePendingMinutes = this.configService.get('SCRAPE_STALE_PENDING_MINUTES', { infer: true });
+    const staleRunningMinutes = this.configService.get('SCRAPE_STALE_RUNNING_MINUTES', { infer: true });
+    const now = new Date();
+    const stalePendingCutoff = new Date(now.getTime() - stalePendingMinutes * 60 * 1000);
+    const staleRunningCutoff = new Date(now.getTime() - staleRunningMinutes * 60 * 1000);
+    const staleError = '[timeout] run stale watchdog';
+
+    const updatePending = (this.db as any).update(jobSourceRunsTable);
+    if (!updatePending || typeof updatePending.set !== 'function') {
+      return;
+    }
+    await updatePending
+      .set({
+        status: 'FAILED',
+        error: staleError,
+        failureType: 'timeout',
+        finalizedAt: now,
+        completedAt: now,
+      })
+      .where(
+        and(
+          eq(jobSourceRunsTable.userId, userId),
+          eq(jobSourceRunsTable.status, 'PENDING'),
+          lt(jobSourceRunsTable.createdAt, stalePendingCutoff),
+        ),
+      );
+
+    const updateRunning = (this.db as any).update(jobSourceRunsTable);
+    if (!updateRunning || typeof updateRunning.set !== 'function') {
+      return;
+    }
+    await updateRunning
+      .set({
+        status: 'FAILED',
+        error: staleError,
+        failureType: 'timeout',
+        finalizedAt: now,
+        completedAt: now,
+      })
+      .where(
+        and(
+          eq(jobSourceRunsTable.userId, userId),
+          eq(jobSourceRunsTable.status, 'RUNNING'),
+          or(
+            lt(jobSourceRunsTable.startedAt, staleRunningCutoff),
+            and(isNull(jobSourceRunsTable.startedAt), lt(jobSourceRunsTable.createdAt, staleRunningCutoff)),
+          ),
+        ),
+      );
   }
 
   private async markRunRunning(runId: string) {
@@ -1152,6 +1313,8 @@ export class JobSourcesService {
       .set({
         status: 'RUNNING',
         error: null,
+        failureType: null,
+        finalizedAt: null,
       })
       .where(and(eq(jobSourceRunsTable.id, runId), eq(jobSourceRunsTable.status, 'PENDING')));
   }
@@ -1174,6 +1337,8 @@ export class JobSourcesService {
       status,
       runId: dto.runId,
       error: dto.error,
+      failureType: dto.failureType ?? null,
+      failureCode: dto.failureCode ?? null,
       jobCount: dto.jobs?.length ?? dto.scrapedCount ?? dto.jobCount ?? 0,
       diagnostics: dto.diagnostics ?? null,
     });

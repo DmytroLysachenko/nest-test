@@ -15,6 +15,7 @@ import {
 } from 'class-validator';
 
 const SCRAPE_COMPLETE_STATUS = ['COMPLETED', 'FAILED'] as const;
+const SCRAPE_FAILURE_TYPES = ['timeout', 'network', 'validation', 'parse', 'callback', 'unknown'] as const;
 
 class ScrapeResultJobDto {
   @ApiPropertyOptional()
@@ -197,6 +198,17 @@ export class ScrapeCompleteDto {
   @IsString()
   @MaxLength(1000)
   error?: string;
+
+  @ApiPropertyOptional({ description: 'Classified worker failure type', enum: SCRAPE_FAILURE_TYPES })
+  @IsOptional()
+  @IsIn(SCRAPE_FAILURE_TYPES)
+  failureType?: (typeof SCRAPE_FAILURE_TYPES)[number];
+
+  @ApiPropertyOptional({ description: 'Source-specific failure code from worker' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  failureCode?: string;
 
   @ApiPropertyOptional({ description: 'Normalized scraped jobs payload', type: [ScrapeResultJobDto] })
   @IsOptional()

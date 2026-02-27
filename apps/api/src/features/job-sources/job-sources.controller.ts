@@ -45,6 +45,16 @@ export class JobSourcesController {
     return this.jobSourcesService.getRun(user.userId, id);
   }
 
+  @Post('runs/:id/retry')
+  @ApiOperation({ summary: 'Retry a failed scrape run' })
+  async retryRun(
+    @CurrentUser() user: JwtValidateUser,
+    @Headers('x-request-id') requestId: string | undefined,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.jobSourcesService.retryRun(user.userId, id, requestId);
+  }
+
   @Get('runs/:id/diagnostics')
   @ApiOperation({ summary: 'Get scrape run diagnostics' })
   @ApiOkResponse({ type: ScrapeRunDiagnosticsResponse })

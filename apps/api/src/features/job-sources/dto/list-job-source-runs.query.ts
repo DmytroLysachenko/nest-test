@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
 const RUN_STATUS = ['PENDING', 'RUNNING', 'COMPLETED', 'FAILED'] as const;
 
@@ -21,4 +21,9 @@ export class ListJobSourceRunsQuery {
   @IsInt()
   @Min(0)
   offset?: number;
+
+  @ApiPropertyOptional({ description: 'Filter runs retried from specific failed run id' })
+  @IsOptional()
+  @IsUUID('4')
+  retriedFrom?: string;
 }
