@@ -148,6 +148,28 @@ export type DocumentUploadHealthDto = {
   };
 };
 
+export type DocumentDiagnosticsStageSummaryDto = {
+  count: number;
+  successRate: number;
+  avgDurationMs: number | null;
+  p50DurationMs: number | null;
+  p95DurationMs: number | null;
+};
+
+export type DocumentDiagnosticsSummaryDto = {
+  windowHours: number;
+  generatedAt: string;
+  totals: {
+    documentsWithMetrics: number;
+    samples: number;
+  };
+  stages: {
+    UPLOAD_CONFIRM: DocumentDiagnosticsStageSummaryDto;
+    EXTRACTION: DocumentDiagnosticsStageSummaryDto;
+    TOTAL_PIPELINE: DocumentDiagnosticsStageSummaryDto;
+  };
+};
+
 export type CareerProfileDto = {
   id: string;
   userId: string;
@@ -323,6 +345,14 @@ export type JobSourceRunDiagnosticsSummaryDto = {
     callback: number;
     unknown: number;
   };
+  timeline?: Array<{
+    bucketStart: string;
+    total: number;
+    completed: number;
+    failed: number;
+    avgDurationMs: number | null;
+    successRate: number;
+  }>;
 };
 
 export type JobSourceRunsListDto = {
@@ -377,6 +407,16 @@ export type JobOffersListDto = {
   items: JobOfferListItemDto[];
   total: number;
   mode: 'strict' | 'approx' | 'explore';
+  rankingMeta?: {
+    mode: 'strict' | 'approx' | 'explore';
+    tuning: {
+      approxViolationPenalty: number;
+      approxMaxViolationPenalty: number;
+      approxScoredBonus: number;
+      exploreUnscoredBase: number;
+      exploreRecencyWeight: number;
+    };
+  };
 };
 
 export type JobOfferHistoryDto = {

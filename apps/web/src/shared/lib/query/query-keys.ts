@@ -7,6 +7,8 @@ export const queryKeys = {
   },
   documents: {
     list: (token: string | null) => ['documents', token] as const,
+    diagnosticsSummary: (token: string | null, windowHours: number) =>
+      ['documents', 'diagnostics-summary', token, windowHours] as const,
   },
   careerProfiles: {
     latest: (token: string | null) => ['career-profiles', 'latest', token] as const,

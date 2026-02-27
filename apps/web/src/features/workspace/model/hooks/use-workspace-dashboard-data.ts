@@ -14,7 +14,8 @@ type UseWorkspaceDashboardDataArgs = {
 export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceDashboardDataArgs) => {
   const router = useRouter();
 
-  const { summaryQuery, offersQuery, diagnosticsSummaryQuery } = useWorkspaceDashboardQueries(token);
+  const { summaryQuery, offersQuery, diagnosticsSummaryQuery, documentDiagnosticsSummaryQuery } =
+    useWorkspaceDashboardQueries(token);
   const { logoutMutation } = useWorkspaceDashboardMutations({ token, clearSession });
 
   useEffect(() => {
@@ -33,12 +34,14 @@ export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceD
       summary: summaryQuery.data ?? null,
       offers: offersQuery.data ?? [],
       diagnosticsSummary: diagnosticsSummaryQuery.data ?? null,
+      documentDiagnosticsSummary: documentDiagnosticsSummaryQuery.data ?? null,
       isLoading,
       logout: logoutMutation.mutate,
       isLoggingOut: logoutMutation.isPending,
     }),
     [
       diagnosticsSummaryQuery.data,
+      documentDiagnosticsSummaryQuery.data,
       isLoading,
       logoutMutation.isPending,
       logoutMutation.mutate,

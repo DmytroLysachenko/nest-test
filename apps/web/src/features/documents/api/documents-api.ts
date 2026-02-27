@@ -1,6 +1,6 @@
 import { apiRequest } from '@/shared/lib/http/api-client';
 
-import type { DocumentDto, DocumentEventDto, DocumentUploadHealthDto } from '@/shared/types/api';
+import type { DocumentDiagnosticsSummaryDto, DocumentDto, DocumentEventDto, DocumentUploadHealthDto } from '@/shared/types/api';
 
 type CreateUploadUrlPayload = {
   type: 'CV' | 'LINKEDIN' | 'OTHER';
@@ -49,6 +49,12 @@ export const listDocumentEvents = (token: string, documentId: string) =>
 
 export const getDocumentUploadHealth = (token: string) =>
   apiRequest<DocumentUploadHealthDto>('/documents/upload-health', {
+    method: 'GET',
+    token,
+  });
+
+export const getDocumentDiagnosticsSummary = (token: string, windowHours = 168) =>
+  apiRequest<DocumentDiagnosticsSummaryDto>(`/documents/diagnostics/summary?windowHours=${windowHours}`, {
     method: 'GET',
     token,
   });

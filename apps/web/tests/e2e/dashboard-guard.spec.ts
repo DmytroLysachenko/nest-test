@@ -38,6 +38,52 @@ test('dashboard redirects to onboarding when summary requires it', async ({ page
       body: JSON.stringify({ success: true, data: { items: [], total: 0, mode: 'strict' } }),
     });
   });
+  await page.route('**/api/job-sources/runs/diagnostics/summary**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          windowHours: 72,
+          status: { total: 0, pending: 0, running: 0, completed: 0, failed: 0 },
+          performance: {
+            avgDurationMs: null,
+            p95DurationMs: null,
+            avgScrapedCount: null,
+            avgTotalFound: null,
+            successRate: 0,
+          },
+          failures: { timeout: 0, network: 0, validation: 0, parse: 0, callback: 0, unknown: 0 },
+        },
+      }),
+    });
+  });
+  await page.route('**/api/documents/diagnostics/summary**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          windowHours: 168,
+          generatedAt: '2026-02-27T00:00:00.000Z',
+          totals: { documentsWithMetrics: 0, samples: 0 },
+          stages: {
+            UPLOAD_CONFIRM: { count: 0, successRate: 0, avgDurationMs: null, p50DurationMs: null, p95DurationMs: null },
+            EXTRACTION: { count: 0, successRate: 0, avgDurationMs: null, p50DurationMs: null, p95DurationMs: null },
+            TOTAL_PIPELINE: {
+              count: 0,
+              successRate: 0,
+              avgDurationMs: null,
+              p50DurationMs: null,
+              p95DurationMs: null,
+            },
+          },
+        },
+      }),
+    });
+  });
 
   await page.route('**/api/career-profiles/latest', async (route) => {
     await route.fulfill({

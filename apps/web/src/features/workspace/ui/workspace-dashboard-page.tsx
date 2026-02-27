@@ -21,6 +21,7 @@ export const WorkspaceDashboardPage = () => {
   const summary = dashboard.summary;
   const offers = dashboard.offers;
   const diagnostics = dashboard.diagnosticsSummary;
+  const documentDiagnostics = dashboard.documentDiagnosticsSummary;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
@@ -93,6 +94,47 @@ export const WorkspaceDashboardPage = () => {
               <p>Timeout failures: {diagnostics.failures.timeout}</p>
               <p>Network failures: {diagnostics.failures.network}</p>
               <p>Validation failures: {diagnostics.failures.validation}</p>
+            </div>
+          </div>
+        </Card>
+      ) : null}
+
+      {documentDiagnostics ? (
+        <Card
+          title={`Document diagnostics (${documentDiagnostics.windowHours}h)`}
+          description="Upload and extraction stage timings from persisted metrics."
+        >
+          <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-3">
+            <div className="space-y-1">
+              <p>Samples: {documentDiagnostics.totals.samples}</p>
+              <p>Documents: {documentDiagnostics.totals.documentsWithMetrics}</p>
+            </div>
+            <div className="space-y-1">
+              <p>
+                Upload confirm p95:{' '}
+                {documentDiagnostics.stages.UPLOAD_CONFIRM.p95DurationMs == null
+                  ? 'n/a'
+                  : `${documentDiagnostics.stages.UPLOAD_CONFIRM.p95DurationMs} ms`}
+              </p>
+              <p>
+                Extraction p95:{' '}
+                {documentDiagnostics.stages.EXTRACTION.p95DurationMs == null
+                  ? 'n/a'
+                  : `${documentDiagnostics.stages.EXTRACTION.p95DurationMs} ms`}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p>
+                Pipeline success:{' '}
+                {(documentDiagnostics.stages.TOTAL_PIPELINE.successRate * 100).toFixed(1)}
+                %
+              </p>
+              <p>
+                Pipeline avg:{' '}
+                {documentDiagnostics.stages.TOTAL_PIPELINE.avgDurationMs == null
+                  ? 'n/a'
+                  : `${documentDiagnostics.stages.TOTAL_PIPELINE.avgDurationMs} ms`}
+              </p>
             </div>
           </div>
         </Card>
