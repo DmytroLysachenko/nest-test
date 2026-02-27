@@ -127,6 +127,13 @@
       "when": 1772142844283,
       "tag": "0017_hard_northstar",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1772226028604,
+      "tag": "0018_chemical_kulan_gath",
+      "breakpoints": true
     }
   ]
 }

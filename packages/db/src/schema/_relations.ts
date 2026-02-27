@@ -7,6 +7,7 @@ import { profileInputsTable } from './profile-inputs';
 import { onboardingDraftsTable } from './onboarding-drafts';
 import { documentsTable } from './documents';
 import { documentEventsTable } from './document-events';
+import { documentStageMetricsTable } from './document-stage-metrics';
 import { careerProfilesTable } from './career-profiles';
 import { jobMatchesTable } from './job-matches';
 import { jobSourceRunsTable } from './job-source-runs';
@@ -23,6 +24,7 @@ export const usersRelations = relations(usersTable, ({ one, many }) => ({
   onboardingDrafts: many(onboardingDraftsTable),
   documents: many(documentsTable),
   documentEvents: many(documentEventsTable),
+  documentStageMetrics: many(documentStageMetricsTable),
   careerProfiles: many(careerProfilesTable),
   jobMatches: many(jobMatchesTable),
   jobOffers: many(userJobOffersTable),
@@ -63,6 +65,7 @@ export const documentsRelations = relations(documentsTable, ({ one, many }) => (
     references: [usersTable.id],
   }),
   events: many(documentEventsTable),
+  stageMetrics: many(documentStageMetricsTable),
 }));
 
 export const documentEventsRelations = relations(documentEventsTable, ({ one }) => ({
@@ -72,6 +75,17 @@ export const documentEventsRelations = relations(documentEventsTable, ({ one }) 
   }),
   document: one(documentsTable, {
     fields: [documentEventsTable.documentId],
+    references: [documentsTable.id],
+  }),
+}));
+
+export const documentStageMetricsRelations = relations(documentStageMetricsTable, ({ one }) => ({
+  user: one(usersTable, {
+    fields: [documentStageMetricsTable.userId],
+    references: [usersTable.id],
+  }),
+  document: one(documentsTable, {
+    fields: [documentStageMetricsTable.documentId],
     references: [documentsTable.id],
   }),
 }));

@@ -7,6 +7,7 @@ import * as profileInputs from './profile-inputs';
 import * as onboardingDrafts from './onboarding-drafts';
 import * as documents from './documents';
 import * as documentEvents from './document-events';
+import * as documentStageMetrics from './document-stage-metrics';
 import * as careerProfiles from './career-profiles';
 import * as jobMatches from './job-matches';
 import * as jobSourceRuns from './job-source-runs';
@@ -24,6 +25,7 @@ export * from './profile-inputs';
 export * from './onboarding-drafts';
 export * from './documents';
 export * from './document-events';
+export * from './document-stage-metrics';
 export * from './career-profiles';
 export * from './job-matches';
 export * from './job-source-runs';
@@ -45,6 +47,7 @@ const schema = {
   ...onboardingDrafts,
   ...documents,
   ...documentEvents,
+  ...documentStageMetrics,
   ...careerProfiles,
   ...jobMatches,
   ...jobSourceRuns,
