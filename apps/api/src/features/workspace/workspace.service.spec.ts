@@ -18,6 +18,11 @@ describe('WorkspaceService', () => {
       })),
     }) as any;
 
+  const createConfigServiceMock = () =>
+    ({
+      get: jest.fn().mockReturnValue(60),
+    }) as any;
+
   it('marks onboarding required when profile input and ready profile are missing', async () => {
     const values: unknown[][] = [
       [], // profile input
@@ -31,7 +36,7 @@ describe('WorkspaceService', () => {
 
     const db = createDbMock(values);
 
-    const service = new WorkspaceService(db);
+    const service = new WorkspaceService(db, createConfigServiceMock());
     const summary = await service.getSummary('user-1');
 
     expect(summary.workflow.needsOnboarding).toBe(true);
@@ -51,7 +56,7 @@ describe('WorkspaceService', () => {
 
     const db = createDbMock(values);
 
-    const service = new WorkspaceService(db);
+    const service = new WorkspaceService(db, createConfigServiceMock());
     const summary = await service.getSummary('user-1');
 
     expect(summary.workflow.needsOnboarding).toBe(false);
