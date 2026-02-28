@@ -4,8 +4,11 @@ import Link from 'next/link';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { useWorkspaceDashboardData } from '@/features/workspace/model/hooks/use-workspace-dashboard-data';
+import { env } from '@/shared/config/env';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
+
+const testerEnabled = process.env.NODE_ENV !== 'production' && env.NEXT_PUBLIC_ENABLE_TESTER;
 
 export const WorkspaceDashboardPage = () => {
   const auth = useRequireAuth();
@@ -31,6 +34,11 @@ export const WorkspaceDashboardPage = () => {
           <p className="text-sm text-slate-600">Signed in as {auth.user?.email ?? 'unknown user'}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {testerEnabled ? (
+            <Link href="/app/tester" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+              Open tester
+            </Link>
+          ) : null}
           <Link
             href="/app/notebook"
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
