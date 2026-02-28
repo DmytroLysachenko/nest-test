@@ -15,6 +15,38 @@ import {
 import { defaultOnboardingDraft } from '@/features/onboarding/model/types/onboarding-draft';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
+const toStepOneFormValues = (
+  draft: Pick<
+    OnboardingStepOneValues,
+    | 'desiredPositions'
+    | 'jobDomains'
+    | 'coreSkills'
+    | 'experienceYearsInRole'
+    | 'targetSeniority'
+    | 'hardWorkModes'
+    | 'softWorkModes'
+    | 'hardContractTypes'
+    | 'softContractTypes'
+    | 'sectionNotes'
+    | 'generalNotes'
+  >,
+) => ({
+  desiredPositions: draft.desiredPositions,
+  jobDomains: draft.jobDomains,
+  coreSkills: draft.coreSkills,
+  experienceYearsInRole: draft.experienceYearsInRole,
+  targetSeniority: draft.targetSeniority,
+  hardWorkModes: draft.hardWorkModes,
+  softWorkModes: draft.softWorkModes,
+  hardContractTypes: draft.hardContractTypes,
+  softContractTypes: draft.softContractTypes,
+  sectionNotes: draft.sectionNotes,
+  generalNotes: draft.generalNotes,
+});
+
+const normalizeStringArray = <T extends string>(values: Array<T | undefined> | undefined): T[] =>
+  (values ?? []).filter((value): value is T => typeof value === 'string');
+
 export const useOnboardingPage = () => {
   const auth = useRequireAuth();
   const { draft, step, setStep, patchDraft, resetDraft } = useOnboardingDraftStore();
@@ -23,19 +55,7 @@ export const useOnboardingPage = () => {
 
   const stepOneForm = useForm<OnboardingStepOneValues>({
     resolver: zodFormResolver<OnboardingStepOneValues>(onboardingStepOneSchema),
-    defaultValues: {
-      desiredPositions: draft.desiredPositions,
-      jobDomains: draft.jobDomains,
-      coreSkills: draft.coreSkills,
-      experienceYearsInRole: draft.experienceYearsInRole,
-      targetSeniority: draft.targetSeniority,
-      hardWorkModes: draft.hardWorkModes,
-      softWorkModes: draft.softWorkModes,
-      hardContractTypes: draft.hardContractTypes,
-      softContractTypes: draft.softContractTypes,
-      sectionNotes: draft.sectionNotes,
-      generalNotes: draft.generalNotes,
-    },
+    defaultValues: toStepOneFormValues(draft),
   });
 
   const { submitProfileMutation, saveDraftMutation, clearDraftMutation } = useOnboardingMutations({
@@ -57,6 +77,44 @@ export const useOnboardingPage = () => {
   const generationError = submitProfileMutation.error
     ? toUserErrorMessage(submitProfileMutation.error, 'Failed to generate profile')
     : null;
+
+  useEffect(() => {
+    if (useOnboardingDraftStore.persist.hasHydrated()) {
+      stepOneForm.reset(toStepOneFormValues(useOnboardingDraftStore.getState().draft));
+    }
+
+    const unsubscribe = useOnboardingDraftStore.persist.onFinishHydration((state) => {
+      stepOneForm.reset(toStepOneFormValues(state.draft));
+    });
+
+    return unsubscribe;
+  }, [stepOneForm]);
+
+  useEffect(() => {
+    const subscription = stepOneForm.watch((values) => {
+      patchDraft({
+        desiredPositions: normalizeStringArray(values.desiredPositions),
+        jobDomains: normalizeStringArray(values.jobDomains),
+        coreSkills: normalizeStringArray(values.coreSkills),
+        experienceYearsInRole: values.experienceYearsInRole ?? null,
+        targetSeniority: normalizeStringArray(values.targetSeniority),
+        hardWorkModes: normalizeStringArray(values.hardWorkModes),
+        softWorkModes: normalizeStringArray(values.softWorkModes),
+        hardContractTypes: normalizeStringArray(values.hardContractTypes),
+        softContractTypes: normalizeStringArray(values.softContractTypes),
+        sectionNotes: {
+          positions: values.sectionNotes?.positions ?? '',
+          domains: values.sectionNotes?.domains ?? '',
+          skills: values.sectionNotes?.skills ?? '',
+          experience: values.sectionNotes?.experience ?? '',
+          preferences: values.sectionNotes?.preferences ?? '',
+        },
+        generalNotes: values.generalNotes ?? '',
+      });
+    });
+
+    return () => subscription.unsubscribe();
+  }, [patchDraft, stepOneForm]);
 
   useEffect(() => {
     const server = onboardingDraftQuery.data?.payload as Record<string, unknown> | null | undefined;

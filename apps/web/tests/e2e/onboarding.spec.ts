@@ -247,3 +247,83 @@ test('onboarding loads server draft into form', async ({ page }) => {
   await page.getByRole('button', { name: 'Load server draft' }).click();
   await expect(page.getByText('Backend Developer ×')).toBeVisible();
 });
+
+test('onboarding keeps step-one values after reload via local draft persistence', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('career_assistant_access_token', 'test-access-token');
+    window.localStorage.setItem('career_assistant_refresh_token', 'test-refresh-token');
+  });
+
+  await page.route('**/api/user', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          id: 'user-1',
+          email: 'user@example.com',
+        },
+      }),
+    });
+  });
+
+  await page.route('**/api/career-profiles/latest', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: null }),
+    });
+  });
+
+  await page.route('**/api/onboarding/draft', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: null }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { id: 'draft-1', payload: {} } }),
+    });
+  });
+
+  await page.route('**/api/documents/upload-health', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          traceId: 'trace-1',
+          ok: true,
+          bucket: { ok: true, reason: null },
+          signedUrl: { ok: true, reason: null },
+        },
+      }),
+    });
+  });
+
+  await page.route('**/api/documents', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: [] }),
+    });
+  });
+
+  await page.goto('/app/onboarding', { waitUntil: 'domcontentloaded' });
+
+  await page.getByPlaceholder('e.g. Frontend Developer').fill('Data Engineer');
+  await page.getByPlaceholder('e.g. Frontend Developer').press('Enter');
+  await page.getByLabel('General notes').fill('Need roles with data platform ownership.');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+
+  await expect(page.getByText(/Data Engineer/)).toBeVisible();
+  await expect(page.getByLabel('General notes')).toHaveValue('Need roles with data platform ownership.');
+});
