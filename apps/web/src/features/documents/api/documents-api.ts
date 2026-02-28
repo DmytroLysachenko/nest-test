@@ -65,11 +65,11 @@ export const removeDocument = (token: string, documentId: string) =>
     token,
   });
 
-export const uploadFileToSignedUrl = async (uploadUrl: string, file: File) => {
+export const uploadFileToSignedUrl = async (uploadUrl: string, file: File, mimeType: string) => {
   const response = await fetch(uploadUrl, {
     method: 'PUT',
     headers: {
-      'Content-Type': file.type,
+      'Content-Type': mimeType,
     },
     body: file,
   });

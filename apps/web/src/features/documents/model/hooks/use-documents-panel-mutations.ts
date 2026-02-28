@@ -32,6 +32,12 @@ export const useDocumentsPanelMutations = ({
   setError,
 }: UseDocumentsPanelMutationsArgs) => {
   const queryClient = useQueryClient();
+  const resolveMimeType = (file: File) => {
+    if (file.type) {
+      return file.type;
+    }
+    return file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream';
+  };
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
@@ -40,16 +46,17 @@ export const useDocumentsPanelMutations = ({
       }
 
       setActiveStage('create-url');
+      const mimeType = resolveMimeType(selectedFile);
       const uploadData = await createUploadUrl(token, {
         type: detectDocumentType(selectedFile.name),
         originalName: selectedFile.name,
-        mimeType: selectedFile.type,
+        mimeType,
         size: selectedFile.size,
       });
 
       setSelectedDocumentId(uploadData.document.id);
       setActiveStage('upload');
-      await uploadFileToSignedUrl(uploadData.uploadUrl, selectedFile);
+      await uploadFileToSignedUrl(uploadData.uploadUrl, selectedFile, mimeType);
       setActiveStage('confirm');
       await confirmDocumentUpload(token, uploadData.document.id);
       return uploadData.document.id;
