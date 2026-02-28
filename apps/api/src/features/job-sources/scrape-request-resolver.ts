@@ -41,6 +41,30 @@ const SPECIALIZATION_TO_ITS: Record<string, string> = {
   product: 'product-management',
 };
 
+const SPECIALIZATION_TO_SEARCH_KEYWORD: Record<string, string> = {
+  frontend: 'frontend',
+  backend: 'backend',
+  fullstack: 'fullstack',
+  devops: 'devops',
+  data: 'data',
+  qa: 'qa',
+  security: 'security',
+  product: 'product',
+};
+
+const ROLE_SPECIALIZATION_HINTS: Array<{ specialization: keyof typeof SPECIALIZATION_TO_SEARCH_KEYWORD; hints: string[] }> = [
+  { specialization: 'frontend', hints: ['frontend', 'front-end', 'front end', 'ui'] },
+  { specialization: 'backend', hints: ['backend', 'back-end', 'back end', 'api'] },
+  { specialization: 'fullstack', hints: ['fullstack', 'full-stack', 'full stack'] },
+  { specialization: 'devops', hints: ['devops', 'platform'] },
+  { specialization: 'data', hints: ['data', 'analytics', 'bi', 'ml', 'ai'] },
+  { specialization: 'qa', hints: ['qa', 'test', 'testing', 'quality assurance'] },
+  { specialization: 'security', hints: ['security', 'secops', 'appsec'] },
+  { specialization: 'product', hints: ['product', 'product manager', 'pm'] },
+];
+
+const SENIORITY_SEARCH_TOKENS = new Set(['intern', 'junior', 'mid', 'senior', 'lead', 'manager']);
+
 const normalizeAscii = (value: string) =>
   value
     .normalize('NFD')
@@ -87,6 +111,58 @@ const canonicalizeLocation = (city?: string, radiusKm?: number) => {
 const unique = <T>(values: Array<T | undefined | null>) =>
   Array.from(new Set(values.filter((value): value is T => value != null)));
 
+const inferRoleSpecialization = (roleTitle: string) => {
+  const normalized = normalizeAscii(roleTitle);
+  for (const entry of ROLE_SPECIALIZATION_HINTS) {
+    if (entry.hints.some((hint) => normalized.includes(hint))) {
+      return entry.specialization;
+    }
+  }
+  return undefined;
+};
+
+const buildKeywordPhraseFromRole = (
+  roleTitle: string,
+  fallbackSeniority?: string,
+  fallbackSpecialization?: string,
+) => {
+  const normalized = normalizeAscii(roleTitle).replace(/[()]/g, ' ');
+  const roleTokens = normalized.split(/[^a-z0-9+.#-]+/).filter(Boolean);
+  const roleSeniority = roleTokens.find((token) => SENIORITY_SEARCH_TOKENS.has(token));
+  const seniority = roleSeniority ?? fallbackSeniority;
+  const specialization = inferRoleSpecialization(roleTitle) ?? fallbackSpecialization;
+  if (!specialization) {
+    return undefined;
+  }
+  const specializationKeyword = SPECIALIZATION_TO_SEARCH_KEYWORD[specialization] ?? specialization;
+  return [seniority, specializationKeyword].filter(Boolean).join(' ');
+};
+
+const buildFocusedKeywords = (
+  profile: CandidateProfile,
+  mappedSpecializations: string[],
+  seniority: string | undefined,
+) => {
+  const sortedRoles = [...profile.targetRoles].sort((a, b) => {
+    if (a.priority !== b.priority) {
+      return a.priority - b.priority;
+    }
+    return b.confidenceScore - a.confidenceScore;
+  });
+  const fallbackSpecialization = mappedSpecializations[0];
+  for (const role of sortedRoles) {
+    const phrase = buildKeywordPhraseFromRole(role.title, seniority, fallbackSpecialization);
+    if (phrase) {
+      return phrase;
+    }
+  }
+  if (fallbackSpecialization) {
+    const specializationKeyword = SPECIALIZATION_TO_SEARCH_KEYWORD[fallbackSpecialization] ?? fallbackSpecialization;
+    return [seniority, specializationKeyword].filter(Boolean).join(' ');
+  }
+  return undefined;
+};
+
 export const inferPracujSource = (profile: CandidateProfile): PracujSourceKind => {
   const specializations = profile.searchSignals.specializations.map((item) => item.value.toLowerCase());
   const technologies = profile.searchSignals.technologies.map((item) => item.value.toLowerCase());
@@ -112,20 +188,13 @@ export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilter
   const primarySeniority = profile.candidateCore.seniority.primary;
   const secondarySeniority = profile.candidateCore.seniority.secondary;
   const seniority = unique([primarySeniority, ...secondarySeniority]);
+  const primarySeniorityToken = primarySeniority ?? secondarySeniority[0];
   const positionLevels = unique(seniority.map((value) => SENIORITY_TO_POSITION_LEVEL[value]));
 
-  const hardWorkModes = profile.workPreferences.hardConstraints.workModes;
-  const softWorkModes = profile.workPreferences.softPreferences.workModes
-    .filter((item) => item.weight >= 0.4)
-    .map((item) => item.value);
-  const workModes = unique([...hardWorkModes, ...softWorkModes].map((value) => WORK_MODE_TO_PRACUJ[value]));
+  const workModes = unique(profile.workPreferences.hardConstraints.workModes.map((value) => WORK_MODE_TO_PRACUJ[value]));
 
-  const hardEmploymentTypes = profile.workPreferences.hardConstraints.employmentTypes;
-  const softEmploymentTypes = profile.workPreferences.softPreferences.employmentTypes
-    .filter((item) => item.weight >= 0.4)
-    .map((item) => item.value);
   const contractTypes = unique(
-    [...hardEmploymentTypes, ...softEmploymentTypes].map((value) => CONTRACT_TO_PRACUJ[value]),
+    profile.workPreferences.hardConstraints.employmentTypes.map((value) => CONTRACT_TO_PRACUJ[value]),
   );
 
   const specializations = unique(
@@ -134,23 +203,13 @@ export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilter
       .map((item) => mapSpecializationToIts(item.value)),
   );
 
-  const keywordPool = [
-    ...profile.searchSignals.keywords.filter((item) => item.weight >= 0.3).map((item) => item.value),
-    ...profile.targetRoles.map((item) => item.title),
-  ];
-  const keywords = unique(keywordPool.map((value) => value.trim().replace(/\s+/g, ' ')).filter(Boolean)).join(' ');
+  const keywords = buildFocusedKeywords(profile, specializations, primarySeniorityToken);
 
-  const location =
-    profile.workPreferences.hardConstraints.locations[0]?.city ??
-    profile.workPreferences.softPreferences.locations[0]?.value.city;
-  const radiusKm =
-    profile.workPreferences.hardConstraints.locations[0]?.radiusKm ??
-    profile.workPreferences.softPreferences.locations[0]?.value.radiusKm;
+  const location = profile.workPreferences.hardConstraints.locations[0]?.city;
+  const radiusKm = profile.workPreferences.hardConstraints.locations[0]?.radiusKm;
   const canonicalLocation = canonicalizeLocation(location, radiusKm);
 
-  const minSalary =
-    profile.workPreferences.hardConstraints.minSalary?.amount ??
-    profile.workPreferences.softPreferences.salary?.value.amount;
+  const minSalary = profile.workPreferences.hardConstraints.minSalary?.amount;
 
   const filters: ScrapeFilters = {
     positionLevels: positionLevels.length ? positionLevels : undefined,
@@ -160,7 +219,7 @@ export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilter
     salaryMin: minSalary ?? undefined,
     location: canonicalLocation.city ?? undefined,
     radiusKm: canonicalLocation.radiusKm ?? undefined,
-    keywords: keywords || undefined,
+    keywords: keywords ?? undefined,
     noPolishRequired: profile.workPreferences.hardConstraints.noPolishRequired || undefined,
     onlyEmployerOffers: profile.workPreferences.hardConstraints.onlyEmployerOffers || undefined,
     onlyWithProjectDescription: profile.workPreferences.hardConstraints.onlyWithProjectDescription || undefined,
