@@ -57,3 +57,9 @@ pracuj-pl-cookies.json
 *.tmp.log
 .smoke-stack.log
 .profile-run-result.json
+
+# Playwright/e2e temp artifacts
+**/.last-run
+**/.last-run.json
+apps/web/test-results/
+apps/web/playwright-report/
