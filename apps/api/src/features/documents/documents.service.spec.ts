@@ -134,4 +134,25 @@ describe('DocumentsService', () => {
     expect(summary.stages.EXTRACTION.successRate).toBe(0.5);
     expect(summary.stages.EXTRACTION.p95DurationMs).toBe(12000);
   });
+
+  it('returns empty diagnostics summary when metrics schema is missing', async () => {
+    const logger = createLogger();
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockRejectedValue(Object.assign(new Error('relation does not exist'), { code: '42P01' })),
+        }),
+      }),
+    } as any;
+
+    const service = new DocumentsService(db, {} as any, createConfigService(), logger);
+    const summary = await service.getDiagnosticsSummary('user-1');
+
+    expect(summary.totals.documentsWithMetrics).toBe(0);
+    expect(summary.totals.samples).toBe(0);
+    expect(summary.stages.UPLOAD_CONFIRM.count).toBe(0);
+    expect(summary.stages.EXTRACTION.count).toBe(0);
+    expect(summary.stages.TOTAL_PIPELINE.count).toBe(0);
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+  });
 });

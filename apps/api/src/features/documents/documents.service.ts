@@ -337,15 +337,35 @@ export class DocumentsService {
     const effectiveWindowHours = windowHours ?? defaultWindowHours;
     const cutoff = new Date(Date.now() - effectiveWindowHours * 60 * 60 * 1000);
 
-    const metrics = await this.db
-      .select({
-        documentId: documentStageMetricsTable.documentId,
-        stage: documentStageMetricsTable.stage,
-        status: documentStageMetricsTable.status,
-        durationMs: documentStageMetricsTable.durationMs,
-      })
-      .from(documentStageMetricsTable)
-      .where(and(eq(documentStageMetricsTable.userId, userId), gte(documentStageMetricsTable.createdAt, cutoff)));
+    let metrics: Array<{
+      documentId: string;
+      stage: string;
+      status: string;
+      durationMs: number;
+    }> = [];
+    try {
+      metrics = await this.db
+        .select({
+          documentId: documentStageMetricsTable.documentId,
+          stage: documentStageMetricsTable.stage,
+          status: documentStageMetricsTable.status,
+          durationMs: documentStageMetricsTable.durationMs,
+        })
+        .from(documentStageMetricsTable)
+        .where(and(eq(documentStageMetricsTable.userId, userId), gte(documentStageMetricsTable.createdAt, cutoff)));
+    } catch (error) {
+      if (!this.isMissingDiagnosticsSchemaError(error)) {
+        throw error;
+      }
+      this.logger.warn(
+        {
+          userId,
+          windowHours: effectiveWindowHours,
+          reason: error instanceof Error ? error.message : 'Unknown DB error',
+        },
+        'Document diagnostics metrics table is unavailable; returning empty summary',
+      );
+    }
 
     const stages = ['UPLOAD_CONFIRM', 'EXTRACTION', 'TOTAL_PIPELINE'] as const;
     const byStage = stages.reduce<Record<DocumentMetricStage, (typeof metrics)[number][]>>(
@@ -765,5 +785,13 @@ export class DocumentsService {
     const sorted = [...values].sort((a, b) => a - b);
     const index = Math.max(0, Math.ceil(sorted.length * percentile) - 1);
     return sorted[index] ?? null;
+  }
+
+  private isMissingDiagnosticsSchemaError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+    const code = 'code' in error ? (error as { code?: string }).code : undefined;
+    return code === '42P01' || code === '42703' || code === '42883';
   }
 }
