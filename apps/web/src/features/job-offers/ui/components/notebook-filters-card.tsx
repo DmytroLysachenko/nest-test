@@ -3,6 +3,7 @@
 import { Label } from '@/shared/ui/label';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
+import { Button } from '@/shared/ui/button';
 
 import type { JobOfferStatus } from '@/shared/types/api';
 
@@ -20,6 +21,9 @@ type NotebookFiltersCardProps = {
   onTagChange: (value: string) => void;
   onSearchChange: (value: string) => void;
   total: number;
+  isEnqueueingScrape: boolean;
+  onEnqueueProfileScrape: () => void;
+  enqueueStatus: string | null;
 };
 
 export const NotebookFiltersCard = ({
@@ -34,6 +38,9 @@ export const NotebookFiltersCard = ({
   onTagChange,
   onSearchChange,
   total,
+  isEnqueueingScrape,
+  onEnqueueProfileScrape,
+  enqueueStatus,
 }: NotebookFiltersCardProps) => (
   <Card
     title="Job Notebook"
@@ -106,6 +113,12 @@ export const NotebookFiltersCard = ({
       </div>
     </div>
 
-    <p className="mt-3 text-xs text-slate-500">Total: {total}</p>
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <p className="text-xs text-slate-500">Total: {total}</p>
+      <Button type="button" variant="secondary" onClick={onEnqueueProfileScrape} disabled={isEnqueueingScrape}>
+        {isEnqueueingScrape ? 'Enqueuing scrape...' : 'Enqueue profile scrape'}
+      </Button>
+      {enqueueStatus ? <p className="text-xs text-slate-600">{enqueueStatus}</p> : null}
+    </div>
   </Card>
 );

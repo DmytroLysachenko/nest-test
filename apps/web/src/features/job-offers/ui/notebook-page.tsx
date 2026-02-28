@@ -29,6 +29,15 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
         tag={notebook.filters.tag}
         search={notebook.filters.search}
         total={notebook.listQuery.data?.total ?? 0}
+        isEnqueueingScrape={notebook.enqueueProfileScrapeMutation.isPending}
+        onEnqueueProfileScrape={() => notebook.enqueueProfileScrapeMutation.mutate()}
+        enqueueStatus={
+          notebook.enqueueProfileScrapeMutation.data
+            ? notebook.enqueueProfileScrapeMutation.data.status === 'reused'
+              ? `Reused recent run (${notebook.enqueueProfileScrapeMutation.data.sourceRunId.slice(0, 8)})`
+              : `Queued run ${notebook.enqueueProfileScrapeMutation.data.sourceRunId.slice(0, 8)}`
+            : null
+        }
         onStatusChange={(value) => notebook.setNotebookFilter('status', value)}
         onModeChange={(value) => notebook.setNotebookFilter('mode', value)}
         onHasScoreChange={(value) => notebook.setNotebookFilter('hasScore', value)}

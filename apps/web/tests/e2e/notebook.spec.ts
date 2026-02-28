@@ -86,6 +86,22 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
     });
   });
 
+  await page.route('**/api/job-sources/scrape', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          ok: true,
+          sourceRunId: 'run-2',
+          status: 'accepted',
+          acceptedAt: '2026-02-01T00:00:00.000Z',
+        },
+      }),
+    });
+  });
+
   await page.route('**/api/job-offers?**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -188,6 +204,11 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
   await expect(page.getByText('Job Notebook')).toBeVisible({ timeout: 15000 });
   await expect(page.getByText('Backend Developer')).toBeVisible();
   await expect(page.getByLabel('Mode')).toHaveValue('strict');
+
+  const scrapeRequest = page.waitForRequest('**/api/job-sources/scrape');
+  await page.getByRole('button', { name: 'Enqueue profile scrape' }).click();
+  const scrapePayload = (await scrapeRequest).postDataJSON();
+  expect(scrapePayload).toEqual({ limit: 20 });
 
   await page
     .getByRole('button', { name: /Backend Developer/ })

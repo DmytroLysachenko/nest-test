@@ -38,7 +38,7 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     listParams,
     selectedId,
   });
-  const { statusMutation, metaMutation, scoreMutation } = useNotebookMutations({ token });
+  const { statusMutation, metaMutation, scoreMutation, enqueueProfileScrapeMutation } = useNotebookMutations({ token });
 
   const canPrev = pagination.offset > 0;
   const canNext = (listQuery.data?.items.length ?? 0) === pagination.limit;
@@ -52,7 +52,12 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     pagination,
     canPrev,
     canNext,
-    isBusy: statusMutation.isPending || metaMutation.isPending || scoreMutation.isPending,
+    isBusy:
+      statusMutation.isPending ||
+      metaMutation.isPending ||
+      scoreMutation.isPending ||
+      enqueueProfileScrapeMutation.isPending,
+    enqueueProfileScrapeMutation,
     setNotebookSelectedOffer,
     setNotebookFilter,
     setNotebookOffset,

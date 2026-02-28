@@ -109,7 +109,7 @@ export const useWorkflowState = (token: string | null) => {
       allowProfileGeneration: hasProfileInput && hasReadyDocuments,
       allowJobMatching: hasReadyCareerProfile,
       allowScrapeEnqueue: hasReadyCareerProfile,
-      allowNotebook: hasCompletedRun || hasNotebookOffers,
+      allowNotebook: hasReadyCareerProfile || hasCompletedRun || hasNotebookOffers,
     };
   }, [
     careerProfileQuery.data,
