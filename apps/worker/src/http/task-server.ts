@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { createServer } from 'http';
 import type { IncomingMessage, ServerResponse } from 'http';
 
+import { OAuth2Client } from 'google-auth-library';
 import type { Logger } from 'pino';
 
 import type { WorkerEnv } from '../config/env';
@@ -52,12 +53,51 @@ const formatError = (error: unknown) => {
   return { value: error };
 };
 
-const verifyAuth = (req: IncomingMessage, env: WorkerEnv) => {
-  if (!env.TASKS_AUTH_TOKEN) {
+const oidcClient = new OAuth2Client();
+
+const verifyAuth = async (req: IncomingMessage, env: WorkerEnv, logger: Logger) => {
+  const header = req.headers.authorization;
+  if (!header) {
+    return false;
+  }
+  if (env.TASKS_AUTH_TOKEN && header === `Bearer ${env.TASKS_AUTH_TOKEN}`) {
     return true;
   }
-  const header = req.headers.authorization;
-  return header === `Bearer ${env.TASKS_AUTH_TOKEN}`;
+
+  if (env.QUEUE_PROVIDER !== 'cloud-tasks' || !header.startsWith('Bearer ')) {
+    return false;
+  }
+
+  const idToken = header.slice('Bearer '.length).trim();
+  if (!idToken) {
+    return false;
+  }
+
+  try {
+    const audience = env.TASKS_OIDC_AUDIENCE ?? env.TASKS_URL;
+    const ticket = await oidcClient.verifyIdToken({
+      idToken,
+      audience,
+    });
+    const payload = ticket.getPayload();
+    if (!payload) {
+      return false;
+    }
+    if (env.TASKS_SERVICE_ACCOUNT_EMAIL && payload.email !== env.TASKS_SERVICE_ACCOUNT_EMAIL) {
+      logger.warn(
+        { expected: env.TASKS_SERVICE_ACCOUNT_EMAIL, actual: payload.email ?? null },
+        'Rejected task request with unexpected OIDC service account',
+      );
+      return false;
+    }
+    return true;
+  } catch (error) {
+    logger.warn(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Rejected task request with invalid OIDC token',
+    );
+    return false;
+  }
 };
 
 const scrapePayloadSchema = taskEnvelopeSchema.shape.payload;
@@ -111,6 +151,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       outputMode: env.WORKER_OUTPUT_MODE,
       callbackUrl: env.WORKER_CALLBACK_URL,
       callbackToken: env.WORKER_CALLBACK_TOKEN,
+      callbackOidcAudience: env.WORKER_CALLBACK_OIDC_AUDIENCE,
       callbackSigningSecret: env.WORKER_CALLBACK_SIGNING_SECRET,
       callbackRetryAttempts: env.WORKER_CALLBACK_RETRY_ATTEMPTS,
       callbackRetryBackoffMs: env.WORKER_CALLBACK_RETRY_BACKOFF_MS,
@@ -134,7 +175,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
 
     if (req.method !== 'POST' || (req.url !== '/tasks' && req.url !== '/scrape')) {
       if (req.method === 'POST' && req.url === '/callbacks/replay') {
-        if (!verifyAuth(req, env)) {
+        if (!(await verifyAuth(req, env, logger))) {
           sendJson(res, 401, { error: 'Unauthorized' });
           return;
         }
@@ -143,6 +184,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
             env.WORKER_DEAD_LETTER_DIR,
             logger,
             env.WORKER_CALLBACK_SIGNING_SECRET,
+            env.WORKER_CALLBACK_OIDC_AUDIENCE,
           );
           sendJson(res, 200, { ok: true, ...result });
         } catch (error) {
@@ -156,7 +198,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       return;
     }
 
-    if (!verifyAuth(req, env)) {
+    if (!(await verifyAuth(req, env, logger))) {
       sendJson(res, 401, { error: 'Unauthorized' });
       return;
     }

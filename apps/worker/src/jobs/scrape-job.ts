@@ -3,6 +3,7 @@ import type { Logger } from 'pino';
 import type { PracujSourceKind, ScrapeFilters } from '@repo/db';
 
 import { persistDeadLetter } from './callback-dead-letter';
+import { resolveOutboundAuthorizationHeader } from './oidc-auth';
 import { relaxPracujFiltersOnce } from './pracuj-filter-relaxation';
 import { resolvePipeline, runPipeline } from './scrape-pipelines';
 import { saveOutput } from '../output/save-output';
@@ -158,6 +159,7 @@ export const buildWorkerCallbackSignaturePayload = (
 const notifyHeartbeat = async (
   url: string,
   token: string | undefined,
+  oidcAudience: string | undefined,
   signingSecret: string | undefined,
   requestId: string | undefined,
   payload: {
@@ -182,12 +184,13 @@ const notifyHeartbeat = async (
     : null;
 
   try {
+    const authorization = await resolveOutboundAuthorizationHeader(token, oidcAudience);
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(requestId ? { 'x-request-id': requestId } : {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(authorization ? { Authorization: authorization } : {}),
         ...(signature ? { 'x-worker-signature': signature, 'x-worker-timestamp': String(timestampSec) } : {}),
       },
       body: JSON.stringify(payload),
@@ -235,6 +238,7 @@ export const computeCallbackRetryDelayMs = (
 const notifyCallback = async (
   url: string,
   token: string | undefined,
+  oidcAudience: string | undefined,
   signingSecret: string | undefined,
   requestId: string | undefined,
   payload: CallbackPayload,
@@ -250,6 +254,7 @@ const notifyCallback = async (
   let lastError: unknown;
   for (let attempt = 1; attempt <= options.retryAttempts; attempt += 1) {
     try {
+      const authorization = await resolveOutboundAuthorizationHeader(token, oidcAudience);
       const timestampSec = Math.floor(Date.now() / 1000);
       const signaturePayload = buildWorkerCallbackSignaturePayload(payload, requestId, timestampSec);
       const signature = signingSecret
@@ -260,7 +265,7 @@ const notifyCallback = async (
         headers: {
           'Content-Type': 'application/json',
           ...(requestId ? { 'x-request-id': requestId } : {}),
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(authorization ? { Authorization: authorization } : {}),
           ...(signature ? { 'x-worker-signature': signature, 'x-worker-timestamp': String(timestampSec) } : {}),
         },
         body: JSON.stringify(payload),
@@ -344,6 +349,7 @@ export const runScrapeJob = async (
     callbackRetryJitterPct?: number;
     heartbeatIntervalMs?: number;
     callbackDeadLetterDir?: string;
+    callbackOidcAudience?: string;
     scrapeTimeoutMs?: number;
     databaseUrl?: string;
   },
@@ -364,6 +370,7 @@ export const runScrapeJob = async (
       payload.heartbeatUrl ??
       (callbackUrl ? callbackUrl.replace(/\/job-sources\/complete\/?$/i, `/job-sources/runs/${sourceRunId}/heartbeat`) : undefined);
     const callbackToken = payload.callbackToken ?? options.callbackToken;
+    const callbackOidcAudience = options.callbackOidcAudience;
     const callbackSigningSecret = options.callbackSigningSecret;
     const heartbeatIntervalMs = options.heartbeatIntervalMs ?? 10000;
     let lastHeartbeatAt = 0;
@@ -391,6 +398,7 @@ export const runScrapeJob = async (
       await notifyHeartbeat(
         heartbeatUrl,
         callbackToken,
+        callbackOidcAudience,
         callbackSigningSecret,
         payload.requestId,
         {
@@ -606,6 +614,7 @@ export const runScrapeJob = async (
       await notifyCallback(
         callbackUrl,
         callbackToken,
+        callbackOidcAudience,
         callbackSigningSecret,
         payload.requestId,
         buildScrapeCallbackPayload({
@@ -681,11 +690,13 @@ export const runScrapeJob = async (
     const failureType = classifyScrapeError(error);
     const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
     const callbackToken = payload.callbackToken ?? options.callbackToken;
+    const callbackOidcAudience = options.callbackOidcAudience;
     const callbackSigningSecret = options.callbackSigningSecret;
     if (callbackUrl) {
       await notifyCallback(
         callbackUrl,
         callbackToken,
+        callbackOidcAudience,
         callbackSigningSecret,
         payload.requestId,
         buildScrapeCallbackPayload({

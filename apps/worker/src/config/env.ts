@@ -30,8 +30,10 @@ const envSchema = z.object({
   TASKS_QUEUE: z.string().optional(),
   TASKS_URL: z.string().url().optional(),
   TASKS_SERVICE_ACCOUNT_EMAIL: z.string().optional(),
+  TASKS_OIDC_AUDIENCE: z.string().url().optional(),
   WORKER_CALLBACK_URL: z.string().url().optional(),
   WORKER_CALLBACK_TOKEN: z.string().optional(),
+  WORKER_CALLBACK_OIDC_AUDIENCE: z.string().url().optional(),
   WORKER_CALLBACK_SIGNING_SECRET: z.string().optional(),
   WORKER_CALLBACK_RETRY_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
   WORKER_CALLBACK_RETRY_BACKOFF_MS: z.coerce.number().int().min(100).max(10000).default(1000),
@@ -77,11 +79,16 @@ export const loadEnv = () => {
   const env = parsed.data;
 
   if (env.QUEUE_PROVIDER === 'cloud-tasks') {
-    const missing = ['TASKS_PROJECT_ID', 'TASKS_LOCATION', 'TASKS_QUEUE', 'TASKS_URL', 'TASKS_AUTH_TOKEN'].filter(
+    const missing = ['TASKS_PROJECT_ID', 'TASKS_LOCATION', 'TASKS_QUEUE', 'TASKS_URL'].filter(
       (key) => !env[key as keyof WorkerEnv],
     );
     if (missing.length) {
       throw new Error(`Missing Cloud Tasks env vars: ${missing.join(', ')}`);
+    }
+    if (!env.TASKS_AUTH_TOKEN && !env.TASKS_SERVICE_ACCOUNT_EMAIL) {
+      throw new Error(
+        'Cloud Tasks auth is not configured: set TASKS_AUTH_TOKEN or TASKS_SERVICE_ACCOUNT_EMAIL',
+      );
     }
 
     const taskUrl = new URL(env.TASKS_URL!);
@@ -93,6 +100,19 @@ export const loadEnv = () => {
     }
     if (env.TASKS_SERVICE_ACCOUNT_EMAIL && !env.TASKS_SERVICE_ACCOUNT_EMAIL.includes('@')) {
       throw new Error('TASKS_SERVICE_ACCOUNT_EMAIL is invalid');
+    }
+    if (env.TASKS_OIDC_AUDIENCE) {
+      const audienceUrl = new URL(env.TASKS_OIDC_AUDIENCE);
+      if (env.NODE_ENV === 'production' && audienceUrl.protocol !== 'https:') {
+        throw new Error('TASKS_OIDC_AUDIENCE must use https in production mode');
+      }
+    }
+  }
+
+  if (env.NODE_ENV === 'production' && env.WORKER_CALLBACK_OIDC_AUDIENCE) {
+    const callbackAudienceUrl = new URL(env.WORKER_CALLBACK_OIDC_AUDIENCE);
+    if (callbackAudienceUrl.protocol !== 'https:') {
+      throw new Error('WORKER_CALLBACK_OIDC_AUDIENCE must use https in production mode');
     }
   }
 

@@ -4,6 +4,8 @@ import { isAbsolute, join, resolve } from 'path';
 
 import type { Logger } from 'pino';
 
+import { resolveOutboundAuthorizationHeader } from './oidc-auth';
+
 type DeadLetterPayload = {
   callbackUrl: string;
   callbackToken?: string;
@@ -49,6 +51,7 @@ export const replayDeadLetters = async (
   deadLetterDir: string | undefined,
   logger: Logger,
   callbackSigningSecret?: string,
+  callbackOidcAudience?: string,
 ) => {
   const dir = resolveDeadLetterDir(deadLetterDir);
   const filenames = await readdir(dir).catch(() => []);
@@ -67,12 +70,13 @@ export const replayDeadLetters = async (
       const signature = callbackSigningSecret
         ? createHmac('sha256', callbackSigningSecret).update(buildSignaturePayload(entry, timestampSec)).digest('hex')
         : null;
+      const authorization = await resolveOutboundAuthorizationHeader(entry.callbackToken, callbackOidcAudience);
       const response = await fetch(entry.callbackUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(entry.requestId ? { 'x-request-id': entry.requestId } : {}),
-          ...(entry.callbackToken ? { Authorization: `Bearer ${entry.callbackToken}` } : {}),
+          ...(authorization ? { Authorization: authorization } : {}),
           ...(signature ? { 'x-worker-signature': signature, 'x-worker-timestamp': String(timestampSec) } : {}),
         },
         body: JSON.stringify(entry.payload),

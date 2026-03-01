@@ -28,6 +28,8 @@ export const EnvSchema = z.object({
   WORKER_AUTH_TOKEN: z.string().optional(),
   WORKER_CALLBACK_URL: z.string().url().optional(),
   WORKER_CALLBACK_TOKEN: z.string().optional(),
+  WORKER_CALLBACK_OIDC_AUDIENCE: z.string().url().optional(),
+  WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL: z.string().optional(),
   WORKER_CALLBACK_SIGNING_SECRET: z.string().optional(),
   WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC: z.coerce.number().int().min(30).max(3600).default(300),
   WORKER_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600000).default(5000),
@@ -63,6 +65,18 @@ export const validateEnv = (env: Record<string, unknown>): Env => {
   const parsed = EnvSchema.safeParse(env);
   if (!parsed.success) {
     throw new Error(parsed.error.message || 'Invalid environment variables');
+  }
+  if (parsed.data.NODE_ENV === 'production' && parsed.data.WORKER_CALLBACK_OIDC_AUDIENCE) {
+    const audienceUrl = new URL(parsed.data.WORKER_CALLBACK_OIDC_AUDIENCE);
+    if (audienceUrl.protocol !== 'https:') {
+      throw new Error('WORKER_CALLBACK_OIDC_AUDIENCE must use https in production mode');
+    }
+  }
+  if (
+    parsed.data.WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL &&
+    !parsed.data.WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL.includes('@')
+  ) {
+    throw new Error('WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL is invalid');
   }
   return parsed.data;
 };

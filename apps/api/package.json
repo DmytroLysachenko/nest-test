@@ -6,6 +6,7 @@
     "@google-cloud/storage": "^7.15.2",
     "@google-cloud/vertexai": "^1.5.1",
     "@google/generative-ai": "^0.21.0",
+    "google-auth-library": "^9.15.1",
     "pdf-parse": "^1.1.1",
     "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/axios": "^4.0.0",

@@ -13,6 +13,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { and, count, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { OAuth2Client } from 'google-auth-library';
 import { Logger } from 'nestjs-pino';
 import {
   careerProfilesTable,
@@ -159,6 +160,7 @@ const canonicalize = (value: unknown): unknown => {
 };
 
 const stableJson = (value: unknown) => JSON.stringify(canonicalize(value ?? null));
+const workerOidcClient = new OAuth2Client();
 
 @Injectable()
 export class JobSourcesService {
@@ -388,6 +390,7 @@ export class JobSourcesService {
     workerSignature?: string,
     workerTimestamp?: string,
   ) {
+    await this.verifyWorkerCallbackAuthorization(authorization);
     this.verifyWorkerSignature(
       {
         sourceRunId: dto.sourceRunId,
@@ -400,14 +403,6 @@ export class JobSourcesService {
       workerTimestamp,
     );
     const callbackEventId = dto.eventId?.trim() || null;
-
-    const token = this.configService.get('WORKER_CALLBACK_TOKEN', { infer: true });
-    if (token) {
-      const header = authorization ?? '';
-      if (header !== `Bearer ${token}`) {
-        throw new UnauthorizedException('Invalid worker callback token');
-      }
-    }
 
     const run = await this.db
       .select({
@@ -697,6 +692,7 @@ export class JobSourcesService {
     workerSignature?: string,
     workerTimestamp?: string,
   ) {
+    await this.verifyWorkerCallbackAuthorization(authorization);
     this.verifyWorkerSignature(
       {
         sourceRunId: runId,
@@ -708,14 +704,6 @@ export class JobSourcesService {
       workerSignature,
       workerTimestamp,
     );
-
-    const token = this.configService.get('WORKER_CALLBACK_TOKEN', { infer: true });
-    if (token) {
-      const header = authorization ?? '';
-      if (header !== `Bearer ${token}`) {
-        throw new UnauthorizedException('Invalid worker callback token');
-      }
-    }
 
     const run = await this.db
       .select({
@@ -799,6 +787,49 @@ export class JobSourcesService {
     const expected = createHmac('sha256', signingSecret).update(base).digest('hex');
     if (!this.constantTimeEqual(signatureHeader, expected)) {
       throw new UnauthorizedException('Invalid worker callback signature');
+    }
+  }
+
+  private async verifyWorkerCallbackAuthorization(authorization?: string) {
+    const staticToken = this.configService.get('WORKER_CALLBACK_TOKEN', { infer: true });
+    if (staticToken) {
+      if ((authorization ?? '') !== `Bearer ${staticToken}`) {
+        throw new UnauthorizedException('Invalid worker callback token');
+      }
+      return;
+    }
+
+    const audience = this.configService.get('WORKER_CALLBACK_OIDC_AUDIENCE', { infer: true });
+    if (!audience) {
+      return;
+    }
+
+    if (!authorization?.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Missing worker callback bearer token');
+    }
+    const idToken = authorization.slice('Bearer '.length).trim();
+    if (!idToken) {
+      throw new UnauthorizedException('Missing worker callback bearer token');
+    }
+
+    try {
+      const ticket = await workerOidcClient.verifyIdToken({
+        idToken,
+        audience,
+      });
+      const payload = ticket.getPayload();
+      if (!payload) {
+        throw new UnauthorizedException('Invalid worker callback OIDC token');
+      }
+      const expectedEmail = this.configService.get('WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL', { infer: true });
+      if (expectedEmail && payload.email !== expectedEmail) {
+        throw new UnauthorizedException('Invalid worker callback service account');
+      }
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new UnauthorizedException('Invalid worker callback OIDC token');
     }
   }
 
