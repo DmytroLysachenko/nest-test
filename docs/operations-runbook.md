@@ -74,3 +74,14 @@ When queue is full, worker returns `429` and API should retry later.
 4. Replay dead-letter callbacks.
 5. Re-run smoke test: `pnpm smoke:e2e`.
 6. Verify release candidate artifact metadata (`ref`, `sha`, `created_at`) before promotion.
+
+## Deployment Verification
+
+After production promotion, run:
+
+```bash
+API_BASE_URL=<api-url> \
+WORKER_BASE_URL=<worker-url> \
+WEB_BASE_URL=<web-url> \
+./scripts/verify-deployment.sh
+```

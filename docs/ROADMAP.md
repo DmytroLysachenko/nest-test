@@ -14,6 +14,8 @@ Last updated: 2026-03-01
    - Status: in progress (split verify/smoke workflows implemented; protected-branch policy enforcement pending repo settings).
 5. Reliability guardrails for scrape intake + admin ops visibility.
    - Status: in progress (per-user scrape backpressure + admin metrics endpoint + explicit run-state transition guards + enqueue idempotency + retry-depth cap implemented).
+6. Staging/production deployment pipeline with rollback automation.
+   - Status: in progress (release-candidate image build/push + manual Cloud Run promotion + post-deploy verification implemented; rollback automation pending).
 
 ## Next
 
@@ -35,7 +37,7 @@ Last updated: 2026-03-01
    - metrics
    - alerting
    - trace correlation across API/worker callbacks
-4. Staging/production deployment pipeline with rollback automation.
+4. Full rollback automation for staging/production deployment pipeline.
 
 ## Definition of Done (for each milestone item)
 

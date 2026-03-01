@@ -287,3 +287,13 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Reduce misconfiguration risk in production deployments.
   - Improve traceability for queue dispatch incidents.
+
+## 2026-03-01: GCP Release Candidate and Manual Cloud Run Promotion
+
+- Decision:
+  - Build and push `api`, `worker`, and `web` images to Artifact Registry in release-candidate workflow.
+  - Promote to production by manually deploying pinned SHA images to Cloud Run.
+  - Run post-deploy health verification script across web/api/worker endpoints.
+- Why:
+  - Ensure artifact immutability between staging and production.
+  - Keep production promotion operator-controlled and auditable.

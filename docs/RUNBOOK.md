@@ -75,6 +75,25 @@ Day-to-day engineering runbook for local development and verification.
    - `Release Candidate / build-and-validate` must pass
    - production promotion is manual via `Promote To Prod`
 
+## GCP Release/Promotion Variables
+
+Configure repository/environment variables:
+
+1. `vars.GCP_PROJECT_ID`
+2. `vars.GCP_REGION`
+3. `vars.GAR_REPOSITORY`
+4. `vars.GCP_API_SERVICE`
+5. `vars.GCP_WORKER_SERVICE`
+6. `vars.GCP_WEB_SERVICE`
+7. `vars.GCP_API_BASE_URL`
+8. `vars.GCP_WORKER_BASE_URL`
+9. `vars.GCP_WEB_BASE_URL`
+
+Configure repository/environment secrets:
+
+1. `secrets.GCP_WORKLOAD_IDENTITY_PROVIDER`
+2. `secrets.GCP_DEPLOYER_SERVICE_ACCOUNT`
+
 ## Web Entry Routes
 
 1. Main dashboard: `/app`
