@@ -27,29 +27,40 @@ function Require-Value {
 try {
 Write-Host '== E2E Smoke =='
 
-Write-Host '1) Seeding minimal fixture data...'
-$stage = 'seed-fixtures'
-pnpm --filter @repo/db seed:e2e | Out-Host
+$apiBaseUrl = ($env:API_BASE_URL ?? 'http://localhost:3000').TrimEnd('/')
+$workerBaseUrl = ($env:WORKER_BASE_URL ?? 'http://localhost:4001').TrimEnd('/')
+$webBaseUrl = ($env:WEB_BASE_URL ?? 'http://localhost:3002').TrimEnd('/')
+$smokeEmail = $env:SMOKE_EMAIL ?? 'admin@example.com'
+$smokePassword = $env:SMOKE_PASSWORD ?? 'admin123'
+$skipSeed = @('1', 'true', 'yes') -contains (($env:SMOKE_SKIP_SEED ?? '').ToLower())
+
+if (-not $skipSeed) {
+  Write-Host '1) Seeding minimal fixture data...'
+  $stage = 'seed-fixtures'
+  pnpm --filter @repo/db seed:e2e | Out-Host
+} else {
+  Write-Host '1) Skipping fixture seeding (SMOKE_SKIP_SEED=true)...'
+}
 
 Write-Host '2) Checking service health endpoints...'
 $stage = 'health-checks'
-$apiHealth = Invoke-WebRequest -Uri 'http://localhost:3000/health' -UseBasicParsing -TimeoutSec 15
+$apiHealth = Invoke-WebRequest -Uri "$apiBaseUrl/health" -UseBasicParsing -TimeoutSec 15
 Assert-StatusCode -Actual $apiHealth.StatusCode -Allowed @(200) -Context 'API health'
 
-$workerHealth = Invoke-WebRequest -Uri 'http://localhost:4001/health' -UseBasicParsing -TimeoutSec 15
+$workerHealth = Invoke-WebRequest -Uri "$workerBaseUrl/health" -UseBasicParsing -TimeoutSec 15
 Assert-StatusCode -Actual $workerHealth.StatusCode -Allowed @(200) -Context 'Worker health'
 
-$webHome = Invoke-WebRequest -Uri 'http://localhost:3002/health' -UseBasicParsing -TimeoutSec 15
+$webHome = Invoke-WebRequest -Uri "$webBaseUrl/health" -UseBasicParsing -TimeoutSec 15
 Assert-StatusCode -Actual $webHome.StatusCode -Allowed @(200) -Context 'Web health'
 
 Write-Host '3) Authenticating fixture user...'
 $stage = 'auth-login'
 $loginBody = @{
-  email    = 'admin@example.com'
-  password = 'admin123'
+  email    = $smokeEmail
+  password = $smokePassword
 } | ConvertTo-Json
 
-$login = Invoke-WebRequest -Uri 'http://localhost:3000/api/auth/login' -Method Post -ContentType 'application/json' -Body $loginBody -UseBasicParsing -TimeoutSec 20
+$login = Invoke-WebRequest -Uri "$apiBaseUrl/api/auth/login" -Method Post -ContentType 'application/json' -Body $loginBody -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $login.StatusCode -Allowed @(200, 201) -Context 'Auth login'
 
 $loginPayload = $login.Content | ConvertFrom-Json
@@ -72,7 +83,7 @@ $refreshBody = @{
   refreshToken = $refreshToken
 } | ConvertTo-Json
 
-$refresh = Invoke-WebRequest -Uri 'http://localhost:3000/api/auth/refresh' -Method Post -ContentType 'application/json' -Body $refreshBody -UseBasicParsing -TimeoutSec 20
+$refresh = Invoke-WebRequest -Uri "$apiBaseUrl/api/auth/refresh" -Method Post -ContentType 'application/json' -Body $refreshBody -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $refresh.StatusCode -Allowed @(200, 201) -Context 'Auth refresh'
 $refreshPayload = $refresh.Content | ConvertFrom-Json
 $token = $refreshPayload.data.accessToken
@@ -85,12 +96,12 @@ $authHeaders = @{
   Authorization = "Bearer $token"
 }
 
-$me = Invoke-WebRequest -Uri 'http://localhost:3000/api/user' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$me = Invoke-WebRequest -Uri "$apiBaseUrl/api/user" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $me.StatusCode -Allowed @(200) -Context 'Current user with refreshed access token'
 
 $invalidRefreshFailed = $false
 try {
-  Invoke-WebRequest -Uri 'http://localhost:3000/api/auth/refresh' -Method Post -ContentType 'application/json' -Body (@{ refreshToken = 'invalid-token' } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 20 | Out-Null
+  Invoke-WebRequest -Uri "$apiBaseUrl/api/auth/refresh" -Method Post -ContentType 'application/json' -Body (@{ refreshToken = 'invalid-token' } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 20 | Out-Null
 } catch {
   if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -in @(401, 400)) {
     $invalidRefreshFailed = $true
@@ -109,10 +120,10 @@ $profileInputBody = @{
   notes       = 'Smoke test profile input'
 } | ConvertTo-Json
 
-$profileCreate = Invoke-WebRequest -Uri 'http://localhost:3000/api/profile-inputs' -Method Post -Headers $authHeaders -ContentType 'application/json' -Body $profileInputBody -UseBasicParsing -TimeoutSec 20
+$profileCreate = Invoke-WebRequest -Uri "$apiBaseUrl/api/profile-inputs" -Method Post -Headers $authHeaders -ContentType 'application/json' -Body $profileInputBody -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $profileCreate.StatusCode -Allowed @(200, 201) -Context 'Create profile input'
 
-$profileLatest = Invoke-WebRequest -Uri 'http://localhost:3000/api/profile-inputs/latest' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$profileLatest = Invoke-WebRequest -Uri "$apiBaseUrl/api/profile-inputs/latest" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $profileLatest.StatusCode -Allowed @(200) -Context 'Get latest profile input'
 $profileLatestPayload = $profileLatest.Content | ConvertFrom-Json
 if (-not $profileLatestPayload.data) {
@@ -121,25 +132,25 @@ if (-not $profileLatestPayload.data) {
 
 Write-Host '5.05) Verifying onboarding draft CRUD endpoints...'
 $stage = 'onboarding-draft'
-$draftPut = Invoke-WebRequest -Uri 'http://localhost:3000/api/onboarding/draft' -Method Put -Headers $authHeaders -ContentType 'application/json' -Body (@{
+$draftPut = Invoke-WebRequest -Uri "$apiBaseUrl/api/onboarding/draft" -Method Put -Headers $authHeaders -ContentType 'application/json' -Body (@{
   payload = @{
     desiredPositions = @('Backend Developer')
     coreSkills = @('Node.js', 'TypeScript', 'PostgreSQL')
   }
 } | ConvertTo-Json -Depth 6) -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $draftPut.StatusCode -Allowed @(200, 201) -Context 'Upsert onboarding draft'
-$draftGet = Invoke-WebRequest -Uri 'http://localhost:3000/api/onboarding/draft' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$draftGet = Invoke-WebRequest -Uri "$apiBaseUrl/api/onboarding/draft" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $draftGet.StatusCode -Allowed @(200) -Context 'Get onboarding draft'
 $draftPayload = $draftGet.Content | ConvertFrom-Json
 if (-not $draftPayload.data.payload) {
   throw 'Onboarding draft payload missing.'
 }
-$draftDelete = Invoke-WebRequest -Uri 'http://localhost:3000/api/onboarding/draft' -Method Delete -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$draftDelete = Invoke-WebRequest -Uri "$apiBaseUrl/api/onboarding/draft" -Method Delete -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $draftDelete.StatusCode -Allowed @(200) -Context 'Delete onboarding draft'
 
 Write-Host '5.1) Verifying document upload-health endpoint...'
 $stage = 'documents-upload-health'
-$uploadHealth = Invoke-WebRequest -Uri 'http://localhost:3000/api/documents/upload-health' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$uploadHealth = Invoke-WebRequest -Uri "$apiBaseUrl/api/documents/upload-health" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $uploadHealth.StatusCode -Allowed @(200) -Context 'Documents upload-health'
 $uploadHealthPayload = $uploadHealth.Content | ConvertFrom-Json
 if ($null -eq $uploadHealthPayload.data.ok) {
@@ -148,7 +159,7 @@ if ($null -eq $uploadHealthPayload.data.ok) {
 
 Write-Host '5.2) Verifying document diagnostics summary endpoint...'
 $stage = 'documents-diagnostics-summary'
-$documentDiagnosticsSummary = Invoke-WebRequest -Uri 'http://localhost:3000/api/documents/diagnostics/summary?windowHours=168' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$documentDiagnosticsSummary = Invoke-WebRequest -Uri "$apiBaseUrl/api/documents/diagnostics/summary?windowHours=168" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $documentDiagnosticsSummary.StatusCode -Allowed @(200) -Context 'Documents diagnostics summary'
 $documentDiagnosticsSummaryPayload = $documentDiagnosticsSummary.Content | ConvertFrom-Json
 if ($null -eq $documentDiagnosticsSummaryPayload.data.stages.EXTRACTION.successRate) {
@@ -157,7 +168,7 @@ if ($null -eq $documentDiagnosticsSummaryPayload.data.stages.EXTRACTION.successR
 
 Write-Host '6) Verifying career-profile endpoints (latest/list/get/restore/documents)...'
 $stage = 'career-profiles'
-$careerLatest = Invoke-WebRequest -Uri 'http://localhost:3000/api/career-profiles/latest' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$careerLatest = Invoke-WebRequest -Uri "$apiBaseUrl/api/career-profiles/latest" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $careerLatest.StatusCode -Allowed @(200) -Context 'Get latest career profile'
 $careerLatestPayload = $careerLatest.Content | ConvertFrom-Json
 $careerLatestData = $careerLatestPayload.data
@@ -171,7 +182,7 @@ if ($careerLatestData.contentJson.schemaVersion -ne '1.0.0') {
 
 Write-Host '6.1) Verifying workspace summary endpoint...'
 $stage = 'workspace-summary'
-$workspaceSummary = Invoke-WebRequest -Uri 'http://localhost:3000/api/workspace/summary' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$workspaceSummary = Invoke-WebRequest -Uri "$apiBaseUrl/api/workspace/summary" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $workspaceSummary.StatusCode -Allowed @(200) -Context 'Get workspace summary'
 $workspaceSummaryPayload = $workspaceSummary.Content | ConvertFrom-Json
 if ($null -eq $workspaceSummaryPayload.data.workflow.needsOnboarding) {
@@ -180,7 +191,7 @@ if ($null -eq $workspaceSummaryPayload.data.workflow.needsOnboarding) {
 
 Write-Host '6.2) Verifying ops metrics endpoint...'
 $stage = 'ops-metrics'
-$opsMetrics = Invoke-WebRequest -Uri 'http://localhost:3000/api/ops/metrics' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$opsMetrics = Invoke-WebRequest -Uri "$apiBaseUrl/api/ops/metrics" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $opsMetrics.StatusCode -Allowed @(200) -Context 'Get ops metrics'
 $opsMetricsPayload = $opsMetrics.Content | ConvertFrom-Json
 if ($null -eq $opsMetricsPayload.data.queue.activeRuns) {
@@ -193,7 +204,7 @@ if ($null -eq $opsMetricsPayload.data.callback.totalEvents) {
   throw 'Ops metrics missing callback.totalEvents.'
 }
 
-$careerList = Invoke-WebRequest -Uri 'http://localhost:3000/api/career-profiles?limit=10' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$careerList = Invoke-WebRequest -Uri "$apiBaseUrl/api/career-profiles?limit=10" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $careerList.StatusCode -Allowed @(200) -Context 'List career profile versions'
 $careerListPayload = $careerList.Content | ConvertFrom-Json
 if (-not $careerListPayload.data.items) {
@@ -206,14 +217,14 @@ if (-not $activeCareerProfile) {
 $careerProfileId = $activeCareerProfile.id
 Require-Value -Value $careerProfileId -Message 'Active career profile id is missing.'
 
-$careerById = Invoke-WebRequest -Uri "http://localhost:3000/api/career-profiles/$careerProfileId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$careerById = Invoke-WebRequest -Uri "$apiBaseUrl/api/career-profiles/$careerProfileId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $careerById.StatusCode -Allowed @(200) -Context 'Get career profile by id'
 $careerByIdPayload = $careerById.Content | ConvertFrom-Json
 if ($careerByIdPayload.data.id -ne $careerProfileId) {
   throw "Career profile by id mismatch. expected=$careerProfileId got=$($careerByIdPayload.data.id)"
 }
 
-$careerDocs = Invoke-WebRequest -Uri "http://localhost:3000/api/career-profiles/$careerProfileId/documents" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$careerDocs = Invoke-WebRequest -Uri "$apiBaseUrl/api/career-profiles/$careerProfileId/documents" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $careerDocs.StatusCode -Allowed @(200) -Context 'Get career profile documents'
 $careerDocsPayload = $careerDocs.Content | ConvertFrom-Json
 if ($null -eq $careerDocsPayload.data) {
@@ -221,11 +232,11 @@ if ($null -eq $careerDocsPayload.data) {
 }
 $documentIdForDiagnostics = @($careerDocsPayload.data | Select-Object -First 1).id
 if ($documentIdForDiagnostics) {
-  $documentEvents = Invoke-WebRequest -Uri "http://localhost:3000/api/documents/$documentIdForDiagnostics/events" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+  $documentEvents = Invoke-WebRequest -Uri "$apiBaseUrl/api/documents/$documentIdForDiagnostics/events" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
   Assert-StatusCode -Actual $documentEvents.StatusCode -Allowed @(200) -Context 'Document diagnostics timeline'
 }
 
-$restore = Invoke-WebRequest -Uri "http://localhost:3000/api/career-profiles/$careerProfileId/restore" -Method Post -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$restore = Invoke-WebRequest -Uri "$apiBaseUrl/api/career-profiles/$careerProfileId/restore" -Method Post -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $restore.StatusCode -Allowed @(200, 201) -Context 'Restore career profile version'
 $restorePayload = $restore.Content | ConvertFrom-Json
 if ($restorePayload.data.id -ne $careerProfileId -or $restorePayload.data.isActive -ne $true) {
@@ -234,7 +245,7 @@ if ($restorePayload.data.id -ne $careerProfileId -or $restorePayload.data.isActi
 
 Write-Host '7) Verifying denormalized career-profile search-view endpoint...'
 $stage = 'career-profiles-search-view'
-$searchView = Invoke-WebRequest -Uri 'http://localhost:3000/api/career-profiles/search-view?status=READY&isActive=true&keyword=react&technology=typescript&seniority=mid&limit=10' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$searchView = Invoke-WebRequest -Uri "$apiBaseUrl/api/career-profiles/search-view?status=READY&isActive=true&keyword=react&technology=typescript&seniority=mid&limit=10" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $searchView.StatusCode -Allowed @(200) -Context 'List career profile search view'
 $searchViewPayload = $searchView.Content | ConvertFrom-Json
 if (-not $searchViewPayload.data.items -or $searchViewPayload.data.items.Count -lt 1) {
@@ -258,7 +269,7 @@ $jobMatchingBody = @{
   minScore = 0
 } | ConvertTo-Json
 
-$jobMatch = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-matching/score' -Method Post -Headers $authHeaders -ContentType 'application/json' -Body $jobMatchingBody -UseBasicParsing -TimeoutSec 30
+$jobMatch = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-matching/score" -Method Post -Headers $authHeaders -ContentType 'application/json' -Body $jobMatchingBody -UseBasicParsing -TimeoutSec 30
 Assert-StatusCode -Actual $jobMatch.StatusCode -Allowed @(200, 201) -Context 'Score job description'
 $jobMatchPayload = $jobMatch.Content | ConvertFrom-Json
 Require-Value -Value $jobMatchPayload.data.matchId -Message 'Job match score response missing matchId.'
@@ -273,7 +284,7 @@ if ($null -eq $jobMatchPayload.data.breakdown -or $null -eq $jobMatchPayload.dat
 }
 
 $matchId = $jobMatchPayload.data.matchId
-$jobMatches = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-matching?limit=10' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$jobMatches = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-matching?limit=10" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $jobMatches.StatusCode -Allowed @(200) -Context 'List job matches'
 $jobMatchesPayload = $jobMatches.Content | ConvertFrom-Json
 $createdMatch = @($jobMatchesPayload.data.items | Where-Object { $_.id -eq $matchId } | Select-Object -First 1)
@@ -281,7 +292,7 @@ if (-not $createdMatch) {
   throw "Scored job match id=$matchId not found in job-matching list."
 }
 
-$jobMatchById = Invoke-WebRequest -Uri "http://localhost:3000/api/job-matching/$matchId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$jobMatchById = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-matching/$matchId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $jobMatchById.StatusCode -Allowed @(200) -Context 'Get job match by id'
 $jobMatchByIdPayload = $jobMatchById.Content | ConvertFrom-Json
 if ($jobMatchByIdPayload.data.id -ne $matchId) {
@@ -290,7 +301,7 @@ if ($jobMatchByIdPayload.data.id -ne $matchId) {
 
 Write-Host '8.1) Verifying job-matching audit endpoints...'
 $stage = 'job-matching-audit'
-$jobMatchAudit = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-matching/audit?limit=10' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$jobMatchAudit = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-matching/audit?limit=10" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $jobMatchAudit.StatusCode -Allowed @(200) -Context 'List job match audit'
 $jobMatchAuditPayload = $jobMatchAudit.Content | ConvertFrom-Json
 $auditItem = @($jobMatchAuditPayload.data.items | Where-Object { $_.id -eq $matchId } | Select-Object -First 1)
@@ -301,7 +312,7 @@ if ($null -eq $auditItem.matchMeta) {
   throw 'Job match audit item missing matchMeta.'
 }
 
-$jobMatchAuditCsv = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-matching/audit/export.csv?limit=10' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$jobMatchAuditCsv = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-matching/audit/export.csv?limit=10" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $jobMatchAuditCsv.StatusCode -Allowed @(200) -Context 'Export job match audit csv'
 if ($jobMatchAuditCsv.Content -notmatch 'id,careerProfileId,profileVersion,score') {
   throw 'Job match audit CSV header missing expected columns.'
@@ -309,7 +320,7 @@ if ($jobMatchAuditCsv.Content -notmatch 'id,careerProfileId,profileVersion,score
 
 Write-Host '9) Reading job source runs...'
 $stage = 'job-source-runs'
-$runs = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-sources/runs' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$runs = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $runs.StatusCode -Allowed @(200) -Context 'List job source runs'
 
 Write-Host '10) Enqueueing scrape task through API...'
@@ -325,7 +336,7 @@ $scrapeHeaders = @{
   'x-request-id' = "smoke-$([Guid]::NewGuid().ToString())"
 }
 
-$scrape = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-sources/scrape' -Method Post -Headers $scrapeHeaders -ContentType 'application/json' -Body $scrapeBody -UseBasicParsing -TimeoutSec 45
+$scrape = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/scrape" -Method Post -Headers $scrapeHeaders -ContentType 'application/json' -Body $scrapeBody -UseBasicParsing -TimeoutSec 45
 Assert-StatusCode -Actual $scrape.StatusCode -Allowed @(200, 201, 202) -Context 'Enqueue scrape'
 
 $scrapePayload = $scrape.Content | ConvertFrom-Json
@@ -342,7 +353,7 @@ $finalFailureType = $null
 while ((Get-Date) -lt $deadline) {
   Start-Sleep -Seconds 5
   try {
-    $run = Invoke-WebRequest -Uri "http://localhost:3000/api/job-sources/runs/$sourceRunId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+    $run = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$sourceRunId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
   } catch {
     if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 429) {
       Write-Host 'Rate limited while polling run status, retrying...'
@@ -365,7 +376,7 @@ if ($finalStatus -ne 'COMPLETED') {
 
 Write-Host '12) Verifying persisted user job offers for this run...'
 $stage = 'verify-persisted-offers'
-$offers = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-offers?mode=strict&limit=100' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$offers = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers?mode=strict&limit=100" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $offers.StatusCode -Allowed @(200) -Context 'List job offers'
 $offersPayload = $offers.Content | ConvertFrom-Json
 $offersMode = $offersPayload.data.mode
@@ -373,7 +384,7 @@ if ($offersMode -ne 'strict') {
   throw "Expected strict ranking mode in response. got=$offersMode"
 }
 
-$offersApprox = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-offers?mode=approx&limit=100' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$offersApprox = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers?mode=approx&limit=100" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $offersApprox.StatusCode -Allowed @(200) -Context 'List job offers (approx mode)'
 $offersApproxPayload = $offersApprox.Content | ConvertFrom-Json
 if ($offersApproxPayload.data.mode -ne 'approx') {
@@ -386,7 +397,7 @@ if ($matched.Count -lt 1) {
 
 Write-Host '12.1) Verifying scrape diagnostics endpoint...'
 $stage = 'verify-scrape-diagnostics'
-$diagnostics = Invoke-WebRequest -Uri "http://localhost:3000/api/job-sources/runs/$sourceRunId/diagnostics" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$diagnostics = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$sourceRunId/diagnostics" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $diagnostics.StatusCode -Allowed @(200) -Context 'Get scrape run diagnostics'
 $diagnosticsPayload = $diagnostics.Content | ConvertFrom-Json
 if ($diagnosticsPayload.data.runId -ne $sourceRunId) {
@@ -401,7 +412,7 @@ if ($null -eq $diagnosticsPayload.data.heartbeatAt) {
 
 Write-Host '12.2) Verifying scrape diagnostics summary endpoint...'
 $stage = 'verify-scrape-diagnostics-summary'
-$diagnosticsSummary = Invoke-WebRequest -Uri 'http://localhost:3000/api/job-sources/runs/diagnostics/summary?windowHours=168&includeTimeline=true&bucket=day' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$diagnosticsSummary = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/diagnostics/summary?windowHours=168&includeTimeline=true&bucket=day" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $diagnosticsSummary.StatusCode -Allowed @(200) -Context 'Get scrape diagnostics summary'
 $diagnosticsSummaryPayload = $diagnosticsSummary.Content | ConvertFrom-Json
 if ($null -eq $diagnosticsSummaryPayload.data.status.total) {
@@ -421,7 +432,7 @@ Write-Host '12.3) Verifying retry endpoint guard on completed run...'
 $stage = 'verify-scrape-retry-guard'
 $retryRejected = $false
 try {
-  Invoke-WebRequest -Uri "http://localhost:3000/api/job-sources/runs/$sourceRunId/retry" -Method Post -Headers $authHeaders -UseBasicParsing -TimeoutSec 20 | Out-Null
+  Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$sourceRunId/retry" -Method Post -Headers $authHeaders -UseBasicParsing -TimeoutSec 20 | Out-Null
 } catch {
   if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -in @(400, 409)) {
     $retryRejected = $true
@@ -441,20 +452,20 @@ if ([string]::IsNullOrWhiteSpace($offerId)) {
   throw "Missing user job offer id for sourceRunId=$sourceRunId"
 }
 
-$statusUpdate = Invoke-WebRequest -Uri "http://localhost:3000/api/job-offers/$offerId/status" -Method Patch -Headers $authHeaders -ContentType 'application/json' -Body (@{ status = 'SAVED' } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 20
+$statusUpdate = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/$offerId/status" -Method Patch -Headers $authHeaders -ContentType 'application/json' -Body (@{ status = 'SAVED' } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $statusUpdate.StatusCode -Allowed @(200) -Context 'Update job offer status'
 
-$metaUpdate = Invoke-WebRequest -Uri "http://localhost:3000/api/job-offers/$offerId/meta" -Method Patch -Headers $authHeaders -ContentType 'application/json' -Body (@{ notes = 'smoke-note'; tags = @('smoke','backend') } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 20
+$metaUpdate = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/$offerId/meta" -Method Patch -Headers $authHeaders -ContentType 'application/json' -Body (@{ notes = 'smoke-note'; tags = @('smoke','backend') } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $metaUpdate.StatusCode -Allowed @(200) -Context 'Update job offer meta'
 
-$history = Invoke-WebRequest -Uri "http://localhost:3000/api/job-offers/$offerId/history" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+$history = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/$offerId/history" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $history.StatusCode -Allowed @(200) -Context 'Get job offer history'
 $historyPayload = $history.Content | ConvertFrom-Json
 if (-not $historyPayload.data.statusHistory) {
   throw 'Status history payload missing'
 }
 
-$score = Invoke-WebRequest -Uri "http://localhost:3000/api/job-offers/$offerId/score" -Method Post -Headers $authHeaders -ContentType 'application/json' -Body (@{ minScore = 0 } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 45
+$score = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/$offerId/score" -Method Post -Headers $authHeaders -ContentType 'application/json' -Body (@{ minScore = 0 } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 45
 Assert-StatusCode -Actual $score.StatusCode -Allowed @(200, 201) -Context 'Score job offer'
 $scorePayload = $score.Content | ConvertFrom-Json
 if ($null -eq $scorePayload.data.score) {
@@ -472,3 +483,6 @@ Write-Host "Smoke test passed. sourceRunId=$sourceRunId offers=$($matched.Count)
   Write-Host "Smoke test failed at stage: $stage" -ForegroundColor Red
   throw
 }
+
+
+
