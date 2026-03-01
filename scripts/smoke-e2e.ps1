@@ -186,6 +186,12 @@ $opsMetricsPayload = $opsMetrics.Content | ConvertFrom-Json
 if ($null -eq $opsMetricsPayload.data.queue.activeRuns) {
   throw 'Ops metrics missing queue.activeRuns.'
 }
+if ($null -eq $opsMetricsPayload.data.queue.runningWithoutHeartbeat) {
+  throw 'Ops metrics missing queue.runningWithoutHeartbeat.'
+}
+if ($null -eq $opsMetricsPayload.data.callback.totalEvents) {
+  throw 'Ops metrics missing callback.totalEvents.'
+}
 
 $careerList = Invoke-WebRequest -Uri 'http://localhost:3000/api/career-profiles?limit=10' -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $careerList.StatusCode -Allowed @(200) -Context 'List career profile versions'
@@ -388,6 +394,9 @@ if ($diagnosticsPayload.data.runId -ne $sourceRunId) {
 }
 if ($null -eq $diagnosticsPayload.data.diagnostics.stats.jobLinksDiscovered) {
   throw 'Scrape diagnostics missing stats.jobLinksDiscovered.'
+}
+if ($null -eq $diagnosticsPayload.data.heartbeatAt) {
+  throw 'Scrape diagnostics missing heartbeatAt.'
 }
 
 Write-Host '12.2) Verifying scrape diagnostics summary endpoint...'

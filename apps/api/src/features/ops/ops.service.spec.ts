@@ -14,6 +14,8 @@ describe('OpsService', () => {
       .mockResolvedValueOnce([{ value: 3 }]) // active
       .mockResolvedValueOnce([{ value: 1 }]) // pending
       .mockResolvedValueOnce([{ value: 2 }]) // running
+      .mockResolvedValueOnce([{ value: 1 }]) // running without heartbeat
+      .mockResolvedValueOnce([{ value: 1 }]) // running with stale heartbeat
       .mockResolvedValueOnce([{ value: 10 }]) // total
       .mockResolvedValueOnce([{ value: 8 }]) // completed
       .mockResolvedValueOnce([{ value: 2 }]) // failed
@@ -34,8 +36,24 @@ describe('OpsService', () => {
         .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
         .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
         .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
         .mockReturnValueOnce({ from: jest.fn().mockResolvedValue([{ value: 40 }]) }) // total offers
-        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: offerWhere }) }), // unscored
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: offerWhere }) }) // unscored
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([
+              {
+                status: 'FAILED',
+                payload: JSON.stringify({ failureType: 'network', failureCode: 'WORKER_NETWORK' }),
+              },
+              {
+                status: 'COMPLETED',
+                payload: JSON.stringify({}),
+              },
+            ]),
+          }),
+        }),
     } as any;
 
     const service = new OpsService(
@@ -49,11 +67,16 @@ describe('OpsService', () => {
 
     expect(result.windowHours).toBe(72);
     expect(result.queue.activeRuns).toBe(3);
+    expect(result.queue.runningWithoutHeartbeat).toBe(2);
     expect(result.scrape.totalRuns).toBe(10);
     expect(result.scrape.successRate).toBe(0.8);
     expect(result.offers.unscoredUserOffers).toBe(4);
     expect(result.lifecycle.staleReconciledRuns).toBe(1);
     expect(result.lifecycle.retriesTriggered).toBe(4);
     expect(result.lifecycle.retrySuccessRate).toBe(0.75);
+    expect(result.callback.totalEvents).toBe(2);
+    expect(result.callback.failedEvents).toBe(1);
+    expect(result.callback.failuresByType.network).toBe(1);
+    expect(result.callback.failuresByCode.WORKER_NETWORK).toBe(1);
   });
 });

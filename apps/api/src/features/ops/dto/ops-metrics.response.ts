@@ -9,6 +9,9 @@ class OpsQueueMetricsResponse {
 
   @ApiProperty()
   runningRuns!: number;
+
+  @ApiProperty()
+  runningWithoutHeartbeat!: number;
 }
 
 class OpsScrapeMetricsResponse {
@@ -44,6 +47,23 @@ class OpsLifecycleMetricsResponse {
   retrySuccessRate!: number;
 }
 
+class OpsCallbackMetricsResponse {
+  @ApiProperty()
+  totalEvents!: number;
+
+  @ApiProperty()
+  completedEvents!: number;
+
+  @ApiProperty()
+  failedEvents!: number;
+
+  @ApiProperty({ type: Object })
+  failuresByType!: Record<string, number>;
+
+  @ApiProperty({ type: Object })
+  failuresByCode!: Record<string, number>;
+}
+
 export class OpsMetricsResponse {
   @ApiProperty()
   windowHours!: number;
@@ -59,4 +79,7 @@ export class OpsMetricsResponse {
 
   @ApiProperty({ type: OpsLifecycleMetricsResponse })
   lifecycle!: OpsLifecycleMetricsResponse;
+
+  @ApiProperty({ type: OpsCallbackMetricsResponse })
+  callback!: OpsCallbackMetricsResponse;
 }

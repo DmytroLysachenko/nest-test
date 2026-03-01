@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, count, eq, gte, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, isNotNull, isNull, lt } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { jobSourceRunsTable, userJobOffersTable } from '@repo/db';
+import { jobSourceCallbackEventsTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
 
 import { Drizzle } from '@/common/decorators';
 import type { Env } from '@/config/env';
@@ -30,6 +30,26 @@ export class OpsService {
       .select({ value: count() })
       .from(jobSourceRunsTable)
       .where(eq(jobSourceRunsTable.status, 'RUNNING'));
+    const staleHeartbeatCutoff = new Date(Date.now() - 2 * 60 * 1000);
+    const [runningWithoutHeartbeatRow] = await this.db
+      .select({ value: count() })
+      .from(jobSourceRunsTable)
+      .where(
+        and(
+          eq(jobSourceRunsTable.status, 'RUNNING'),
+          isNull(jobSourceRunsTable.lastHeartbeatAt),
+        ),
+      );
+    const [runningStaleHeartbeatRow] = await this.db
+      .select({ value: count() })
+      .from(jobSourceRunsTable)
+      .where(
+        and(
+          eq(jobSourceRunsTable.status, 'RUNNING'),
+          isNotNull(jobSourceRunsTable.lastHeartbeatAt),
+          lt(jobSourceRunsTable.lastHeartbeatAt, staleHeartbeatCutoff),
+        ),
+      );
 
     const [totalRunsRow] = await this.db
       .select({ value: count() })
@@ -74,11 +94,46 @@ export class OpsService {
       .select({ value: count() })
       .from(userJobOffersTable)
       .where(isNull(userJobOffersTable.matchScore));
+    const callbackEvents = await this.db
+      .select({
+        status: jobSourceCallbackEventsTable.status,
+        payload: jobSourceCallbackEventsTable.payload,
+      })
+      .from(jobSourceCallbackEventsTable)
+      .where(gte(jobSourceCallbackEventsTable.createdAt, cutoff));
 
     const totalRuns = Number(totalRunsRow?.value ?? 0);
     const completedRuns = Number(completedRunsRow?.value ?? 0);
     const retriesTriggered = Number(retriesTriggeredRow?.value ?? 0);
     const retryCompleted = Number(retryCompletedRow?.value ?? 0);
+    const failuresByType: Record<string, number> = {};
+    const failuresByCode: Record<string, number> = {};
+    let completedEvents = 0;
+    let failedEvents = 0;
+    for (const item of callbackEvents) {
+      if (item.status === 'COMPLETED') {
+        completedEvents += 1;
+      }
+      if (item.status === 'FAILED') {
+        failedEvents += 1;
+      }
+      if (!item.payload) {
+        continue;
+      }
+      try {
+        const parsed = JSON.parse(item.payload) as Record<string, unknown>;
+        const type = typeof parsed.failureType === 'string' && parsed.failureType.trim() ? parsed.failureType.trim() : null;
+        const code = typeof parsed.failureCode === 'string' && parsed.failureCode.trim() ? parsed.failureCode.trim() : null;
+        if (type) {
+          failuresByType[type] = (failuresByType[type] ?? 0) + 1;
+        }
+        if (code) {
+          failuresByCode[code] = (failuresByCode[code] ?? 0) + 1;
+        }
+      } catch {
+        // Ignore malformed payloads to keep metrics endpoint resilient.
+      }
+    }
 
     return {
       windowHours,
@@ -86,6 +141,8 @@ export class OpsService {
         activeRuns: Number(activeRunsRow?.value ?? 0),
         pendingRuns: Number(pendingRunsRow?.value ?? 0),
         runningRuns: Number(runningRunsRow?.value ?? 0),
+        runningWithoutHeartbeat:
+          Number(runningWithoutHeartbeatRow?.value ?? 0) + Number(runningStaleHeartbeatRow?.value ?? 0),
       },
       scrape: {
         totalRuns,
@@ -101,6 +158,13 @@ export class OpsService {
         staleReconciledRuns: Number(staleReconciledRunsRow?.value ?? 0),
         retriesTriggered,
         retrySuccessRate: retriesTriggered ? Number((retryCompleted / retriesTriggered).toFixed(4)) : 0,
+      },
+      callback: {
+        totalEvents: callbackEvents.length,
+        completedEvents,
+        failedEvents,
+        failuresByType,
+        failuresByCode,
       },
     };
   }
