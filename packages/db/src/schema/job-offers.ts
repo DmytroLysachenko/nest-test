@@ -24,5 +24,6 @@ export const jobOffersTable = pgTable(
   (table) => ({
     uniqueSourceUrl: uniqueIndex('job_offers_source_url_unique').on(table.source, table.url),
     sourceFetchedAtIdx: index('job_offers_source_fetched_at_idx').on(table.source, table.fetchedAt.desc()),
+    sourceRunFetchedAtIdx: index('job_offers_source_run_fetched_at_idx').on(table.source, table.runId, table.fetchedAt.desc()),
   }),
 );

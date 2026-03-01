@@ -28,6 +28,7 @@ export const handleTask = async (
     callbackRetryBackoffMs?: number;
     callbackRetryMaxDelayMs?: number;
     callbackRetryJitterPct?: number;
+    heartbeatIntervalMs?: number;
     callbackDeadLetterDir?: string;
     scrapeTimeoutMs?: number;
     databaseUrl?: string;
@@ -56,6 +57,7 @@ export const handleTask = async (
         callbackRetryBackoffMs: options.callbackRetryBackoffMs,
         callbackRetryMaxDelayMs: options.callbackRetryMaxDelayMs,
         callbackRetryJitterPct: options.callbackRetryJitterPct,
+        heartbeatIntervalMs: options.heartbeatIntervalMs,
         callbackDeadLetterDir: options.callbackDeadLetterDir,
         scrapeTimeoutMs: options.scrapeTimeoutMs,
         databaseUrl: options.databaseUrl,

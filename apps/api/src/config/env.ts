@@ -31,6 +31,7 @@ export const EnvSchema = z.object({
   WORKER_CALLBACK_SIGNING_SECRET: z.string().optional(),
   WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC: z.coerce.number().int().min(30).max(3600).default(300),
   WORKER_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600000).default(5000),
+  WORKER_TASK_MAX_PAYLOAD_BYTES: z.coerce.number().int().min(1024).max(5_000_000).default(262_144),
   API_BODY_LIMIT: z
     .string()
     .trim()
@@ -38,6 +39,8 @@ export const EnvSchema = z.object({
     .default('1mb'),
   SCRAPE_DB_REUSE_HOURS: z.coerce.number().int().min(1).max(720).default(24),
   SCRAPE_MAX_ACTIVE_RUNS_PER_USER: z.coerce.number().int().min(1).max(20).default(2),
+  SCRAPE_ENQUEUE_IDEMPOTENCY_TTL_SEC: z.coerce.number().int().min(0).max(600).default(30),
+  SCRAPE_MAX_RETRY_CHAIN_DEPTH: z.coerce.number().int().min(1).max(20).default(5),
   AUTO_SCORE_ON_INGEST: z.coerce.boolean().default(true),
   AUTO_SCORE_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(1),
   AUTO_SCORE_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(0),

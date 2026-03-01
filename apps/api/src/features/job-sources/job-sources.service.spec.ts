@@ -281,6 +281,70 @@ describe('JobSourcesService', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('suppresses duplicate enqueue for same user intent within idempotency window', async () => {
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([
+                {
+                  careerProfileId: 'profile-id',
+                  contentJson: candidateProfileFixture,
+                },
+              ]),
+            }),
+          }),
+        }),
+      }),
+      insert: jest.fn().mockImplementation((table) => {
+        if (table === jobSourceRunsTable) {
+          return {
+            values: jest.fn().mockReturnValue({
+              returning: jest.fn().mockResolvedValue([{ id: 'run-dup-1', createdAt: new Date() }]),
+            }),
+          };
+        }
+        throw new Error('Unexpected insert table');
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+    } as any;
+
+    const fetchMock = jest.spyOn(global, 'fetch' as any).mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ ok: true }),
+    } as any);
+
+    const service = new JobSourcesService(
+      createConfigService({
+        WORKER_TASK_URL: 'http://localhost:4001/tasks',
+        WORKER_REQUEST_TIMEOUT_MS: 5000,
+        SCRAPE_ENQUEUE_IDEMPOTENCY_TTL_SEC: 60,
+      }),
+      createLogger(),
+      db,
+    );
+
+    await service.enqueueScrape(
+      'user-id',
+      { source: 'pracuj-pl', filters: { keywords: 'react' }, limit: 10, forceRefresh: true },
+      'request-id-1',
+    );
+
+    await expect(
+      service.enqueueScrape(
+        'user-id',
+        { source: 'pracuj-pl', filters: { keywords: 'react' }, limit: 10, forceRefresh: true },
+        'request-id-2',
+      ),
+    ).rejects.toThrow('Duplicate scrape enqueue detected');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects listingUrl outside source allowlist', async () => {
     const db = {
       select: jest.fn().mockReturnValue({
@@ -1156,6 +1220,89 @@ describe('JobSourcesService', () => {
     expect(summary.timeline?.[0]?.successRate).toBe(0.5);
   });
 
+  it('accepts worker heartbeat and upgrades pending run to running', async () => {
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-heartbeat-1',
+                      status: 'PENDING',
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const result = await service.heartbeatRun('run-heartbeat-1', {
+      runId: 'worker-run-1',
+      phase: 'listing_fetch',
+      attempt: 1,
+      pagesVisited: 2,
+      jobLinksDiscovered: 8,
+      normalizedOffers: 1,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'RUNNING',
+    });
+    expect(db.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects invalid pending-to-completed transition for callback finalization', async () => {
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-transition-1',
+                      source: 'PRACUJ_PL',
+                      userId: 'user-transition-1',
+                      careerProfileId: 'profile-transition-1',
+                      status: 'PENDING',
+                      totalFound: null,
+                      scrapedCount: null,
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn(),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    await expect(
+      service.completeScrape({
+        sourceRunId: 'run-transition-1',
+        status: 'COMPLETED',
+        scrapedCount: 0,
+        totalFound: 0,
+      }),
+    ).rejects.toThrow('Invalid scrape run status transition: PENDING -> COMPLETED');
+  });
+
   it('marks stale pending/running runs as failed before listing', async () => {
     const updateWhere = jest.fn().mockResolvedValue(undefined);
     const db = {
@@ -1224,5 +1371,46 @@ describe('JobSourcesService', () => {
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
     await expect(service.retryRun('user-14', 'run-1')).rejects.toThrow('Only failed runs can be retried');
+  });
+
+  it('rejects retry when retry chain depth exceeds configured cap', async () => {
+    const db = {
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-99',
+                      source: 'PRACUJ_PL',
+                      listingUrl: 'https://it.pracuj.pl/praca',
+                      filters: null,
+                      status: 'FAILED',
+                      careerProfileId: 'profile-99',
+                      retryCount: 5,
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+    } as any;
+
+    const service = new JobSourcesService(
+      createConfigService({
+        SCRAPE_MAX_RETRY_CHAIN_DEPTH: 5,
+      }),
+      createLogger(),
+      db,
+    );
+    await expect(service.retryRun('user-99', 'run-99')).rejects.toThrow('Retry chain depth exceeded');
   });
 });

@@ -34,7 +34,12 @@ export const enqueueCloudTask = async (task: TaskEnvelope, env: WorkerEnv, logge
   const client = new CloudTasksClient();
   const parent = client.queuePath(config.projectId, config.location, config.queue);
 
-  const body = Buffer.from(JSON.stringify(task)).toString('base64');
+  const serialized = JSON.stringify(task);
+  const payloadBytes = Buffer.byteLength(serialized);
+  if (payloadBytes > env.WORKER_MAX_BODY_BYTES) {
+    throw new Error(`Cloud task payload too large (${payloadBytes} > ${env.WORKER_MAX_BODY_BYTES})`);
+  }
+  const body = Buffer.from(serialized).toString('base64');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -61,6 +66,19 @@ export const enqueueCloudTask = async (task: TaskEnvelope, env: WorkerEnv, logge
   };
 
   const [response] = await client.createTask(request);
-  logger.info({ taskName: response.name }, 'Cloud Task enqueued');
+  const dispatchName = response.name ?? '';
+  const taskId = dispatchName.includes('/') ? dispatchName.split('/').pop() : dispatchName;
+  logger.info(
+    {
+      queueProvider: 'cloud-tasks',
+      queuePath: parent,
+      taskName: response.name,
+      taskId,
+      sourceRunId: task.payload.sourceRunId ?? null,
+      requestId: task.payload.requestId ?? null,
+      payloadBytes,
+    },
+    'Cloud Task enqueued',
+  );
   return response;
 };

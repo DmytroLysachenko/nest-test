@@ -14,6 +14,7 @@ import { JobSourcesService } from './job-sources.service';
 import { ScrapeRunDiagnosticsResponse } from './dto/run-diagnostics.response';
 import { ListRunDiagnosticsSummaryQuery } from './dto/list-run-diagnostics-summary.query';
 import { ScrapeRunDiagnosticsSummaryResponse } from './dto/run-diagnostics-summary.response';
+import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';
 
 @ApiTags('job-sources')
 @ApiBearerAuth()
@@ -88,5 +89,19 @@ export class JobSourcesController {
     @Body() dto: ScrapeCompleteDto,
   ) {
     return this.jobSourcesService.completeScrape(dto, authorization, requestId, workerSignature, workerTimestamp);
+  }
+
+  @Post('runs/:id/heartbeat')
+  @Public()
+  @ApiOperation({ summary: 'Worker heartbeat callback for active scrape runs' })
+  async heartbeat(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-worker-signature') workerSignature: string | undefined,
+    @Headers('x-worker-timestamp') workerTimestamp: string | undefined,
+    @Headers('x-request-id') requestId: string | undefined,
+    @Body() dto: ScrapeHeartbeatDto,
+  ) {
+    return this.jobSourcesService.heartbeatRun(id, dto, authorization, requestId, workerSignature, workerTimestamp);
   }
 }

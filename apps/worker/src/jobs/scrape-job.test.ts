@@ -21,12 +21,20 @@ test('buildScrapeCallbackPayload emits completed callback fields', () => {
     totalFound: 14,
     jobCount: 8,
     jobLinkCount: 14,
+    diagnostics: {
+      attemptCount: 2,
+      adaptiveDelayApplied: 500,
+      blockedRate: 0.25,
+      finalPolicy: 'adaptive-delay:2500',
+    },
   });
 
   assert.equal(payload.status, 'COMPLETED');
   assert.equal(payload.scrapedCount, 8);
   assert.equal(payload.totalFound, 14);
   assert.equal(payload.error, undefined);
+  assert.equal(payload.diagnostics?.attemptCount, 2);
+  assert.equal(payload.diagnostics?.adaptiveDelayApplied, 500);
 });
 
 test('buildScrapeCallbackPayload emits failure callback fields', () => {

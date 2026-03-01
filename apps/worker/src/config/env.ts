@@ -37,6 +37,7 @@ const envSchema = z.object({
   WORKER_CALLBACK_RETRY_BACKOFF_MS: z.coerce.number().int().min(100).max(10000).default(1000),
   WORKER_CALLBACK_RETRY_MAX_DELAY_MS: z.coerce.number().int().min(100).max(60000).default(10000),
   WORKER_CALLBACK_RETRY_JITTER_PCT: z.coerce.number().min(0).max(1).default(0.2),
+  WORKER_HEARTBEAT_INTERVAL_MS: z.coerce.number().int().min(1000).max(120000).default(10000),
   WORKER_DEAD_LETTER_DIR: z.string().optional(),
   WORKER_MAX_BODY_BYTES: z.coerce.number().int().min(1024).max(5_000_000).default(262_144),
   DATABASE_URL: z.string().min(1).optional(),
@@ -76,11 +77,22 @@ export const loadEnv = () => {
   const env = parsed.data;
 
   if (env.QUEUE_PROVIDER === 'cloud-tasks') {
-    const missing = ['TASKS_PROJECT_ID', 'TASKS_LOCATION', 'TASKS_QUEUE', 'TASKS_URL'].filter(
+    const missing = ['TASKS_PROJECT_ID', 'TASKS_LOCATION', 'TASKS_QUEUE', 'TASKS_URL', 'TASKS_AUTH_TOKEN'].filter(
       (key) => !env[key as keyof WorkerEnv],
     );
     if (missing.length) {
       throw new Error(`Missing Cloud Tasks env vars: ${missing.join(', ')}`);
+    }
+
+    const taskUrl = new URL(env.TASKS_URL!);
+    if (!taskUrl.pathname.endsWith('/tasks') && !taskUrl.pathname.endsWith('/scrape')) {
+      throw new Error('TASKS_URL must end with /tasks or /scrape for cloud-tasks provider');
+    }
+    if (env.NODE_ENV === 'production' && taskUrl.protocol !== 'https:') {
+      throw new Error('TASKS_URL must use https in production mode');
+    }
+    if (env.TASKS_SERVICE_ACCOUNT_EMAIL && !env.TASKS_SERVICE_ACCOUNT_EMAIL.includes('@')) {
+      throw new Error('TASKS_SERVICE_ACCOUNT_EMAIL is invalid');
     }
   }
 

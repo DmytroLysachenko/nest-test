@@ -6,6 +6,7 @@ export type ScrapeSourceJob = {
   sourceRunId?: string;
   requestId?: string;
   callbackUrl?: string;
+  heartbeatUrl?: string;
   callbackToken?: string;
   userId?: string;
   careerProfileId?: string;

@@ -19,6 +19,8 @@ export const jobSourceRunsTable = pgTable(
     error: text('error'),
     failureType: varchar('failure_type', { length: 32 }),
     finalizedAt: timestamp('finalized_at', { withTimezone: true }),
+    lastHeartbeatAt: timestamp('last_heartbeat_at', { withTimezone: true }),
+    progress: jsonb('progress'),
     retryOfRunId: uuid('retry_of_run_id').references((): any => jobSourceRunsTable.id, { onDelete: 'set null' }),
     retryCount: integer('retry_count').default(0).notNull(),
     startedAt: timestamp('started_at', { withTimezone: true }),
@@ -31,7 +33,14 @@ export const jobSourceRunsTable = pgTable(
       table.status,
       table.createdAt.desc(),
     ),
+    userCreatedAtIdx: index('job_source_runs_user_created_at_idx').on(table.userId, table.createdAt.desc()),
+    userHeartbeatIdx: index('job_source_runs_user_heartbeat_at_idx').on(table.userId, table.lastHeartbeatAt.desc()),
     statusCreatedAtIdx: index('job_source_runs_status_created_at_idx').on(table.status, table.createdAt.desc()),
     retryChainIdx: index('job_source_runs_retry_of_created_at_idx').on(table.retryOfRunId, table.createdAt.desc()),
+    sourceRunFetchedAtIdx: index('job_source_runs_source_status_created_at_idx').on(
+      table.source,
+      table.status,
+      table.createdAt.desc(),
+    ),
   }),
 );

@@ -116,6 +116,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       callbackRetryBackoffMs: env.WORKER_CALLBACK_RETRY_BACKOFF_MS,
       callbackRetryMaxDelayMs: env.WORKER_CALLBACK_RETRY_MAX_DELAY_MS,
       callbackRetryJitterPct: env.WORKER_CALLBACK_RETRY_JITTER_PCT,
+      heartbeatIntervalMs: env.WORKER_HEARTBEAT_INTERVAL_MS,
       callbackDeadLetterDir: env.WORKER_DEAD_LETTER_DIR,
       scrapeTimeoutMs: env.WORKER_TASK_TIMEOUT_MS,
       databaseUrl: env.DATABASE_URL,
@@ -178,6 +179,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
 
       logger.info(
         {
+          queueProvider: env.QUEUE_PROVIDER,
           requestId,
           taskName: task.name,
           runId: task.payload.runId ?? null,
@@ -192,6 +194,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
           ok: false,
           status: 'rejected',
           reason: 'Queue is full',
+          queueProvider: env.QUEUE_PROVIDER,
           requestId,
           queue: runner.getStats(),
         });
@@ -201,6 +204,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       sendJson(res, 202, {
         ok: true,
         status: 'accepted',
+        queueProvider: env.QUEUE_PROVIDER,
         requestId,
         runId: task.payload.runId ?? null,
         sourceRunId: task.payload.sourceRunId ?? null,

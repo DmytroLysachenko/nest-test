@@ -8,7 +8,7 @@ const logger = createLogger(env);
 const server = createTaskServer(env, logger);
 
 server.listen(env.WORKER_PORT, () => {
-  logger.info({ port: env.WORKER_PORT }, 'Worker task server listening');
+  logger.info({ port: env.WORKER_PORT, queueProvider: env.QUEUE_PROVIDER }, 'Worker task server listening');
 });
 
 const shutdown = (signal: string) => {

@@ -37,6 +37,11 @@ export const userJobOffersTable = pgTable(
       table.status,
       table.lastStatusAt.desc(),
     ),
+    userSourceRunLastStatusAtIdx: index('user_job_offers_user_source_run_last_status_at_idx').on(
+      table.userId,
+      table.sourceRunId,
+      table.lastStatusAt.desc(),
+    ),
     tagsGinIdx: index('user_job_offers_tags_gin_idx').using('gin', table.tags),
   }),
 );

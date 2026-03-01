@@ -32,12 +32,27 @@ import { EnqueueScrapeDto } from './dto/enqueue-scrape.dto';
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
+import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';
 import { buildFiltersFromProfile, inferPracujSource } from './scrape-request-resolver';
 import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
 import { RunDiagnosticsSummaryCache } from './run-diagnostics-summary-cache';
 
 type CallbackJobPayload = NonNullable<ScrapeCompleteDto['jobs']>[number];
 type RunFailureType = 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown';
+type RunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+type WorkerSignaturePayload = {
+  sourceRunId: string;
+  status: string;
+  runId?: string;
+  eventId?: string;
+};
+
+const ALLOWED_STATUS_TRANSITIONS: Record<RunStatus, readonly RunStatus[]> = {
+  PENDING: ['RUNNING', 'FAILED'],
+  RUNNING: ['COMPLETED', 'FAILED'],
+  COMPLETED: [],
+  FAILED: [],
+};
 
 const mapSource = (source: string) => {
   if (source === 'pracuj-pl' || source === 'pracuj-pl-it' || source === 'pracuj-pl-general') {
@@ -148,6 +163,7 @@ const stableJson = (value: unknown) => JSON.stringify(canonicalize(value ?? null
 @Injectable()
 export class JobSourcesService {
   private readonly diagnosticsSummaryCache = new RunDiagnosticsSummaryCache<any>(30000);
+  private readonly enqueueIdempotencyWindow = new Map<string, number>();
 
   constructor(
     private readonly configService: ConfigService<Env, true>,
@@ -203,6 +219,12 @@ export class JobSourcesService {
 
     const intentFingerprint = this.computeIntentFingerprint(source, listingUrl, normalizedFilters ?? null);
     const resolvedFromProfile = !dto.filters && !dto.source && Boolean(profileContext.profile);
+    if (this.shouldSuppressDuplicateEnqueue(userId, intentFingerprint)) {
+      throw new HttpException(
+        'Duplicate scrape enqueue detected for the same intent. Retry after a short delay.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
 
     if (!dto.forceRefresh) {
       const reuse = await this.tryReuseFromDatabase({
@@ -266,6 +288,7 @@ export class JobSourcesService {
     const workerUrl = this.configService.get('WORKER_TASK_URL', { infer: true });
     const authToken = this.configService.get('WORKER_AUTH_TOKEN', { infer: true });
     const callbackUrl = this.resolveWorkerCallbackUrl();
+    const heartbeatUrl = this.resolveWorkerHeartbeatUrl(run.id);
     const callbackToken = this.configService.get('WORKER_CALLBACK_TOKEN', { infer: true });
     if (!workerUrl) {
       await this.markRunFailed(run.id, 'Worker task URL is not configured');
@@ -277,6 +300,27 @@ export class JobSourcesService {
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
+      const workerPayload = {
+        source,
+        sourceRunId: run.id,
+        requestId,
+        callbackUrl,
+        heartbeatUrl,
+        callbackToken,
+        listingUrl,
+        limit: dto.limit,
+        userId,
+        careerProfileId,
+        filters: normalizedFilters,
+      };
+      const serializedPayload = JSON.stringify(workerPayload);
+      const maxPayloadBytes = this.configService.get('WORKER_TASK_MAX_PAYLOAD_BYTES', { infer: true });
+      const payloadBytes = Buffer.byteLength(serializedPayload);
+      if (payloadBytes > maxPayloadBytes) {
+        await this.markRunFailed(run.id, `Worker payload too large: ${payloadBytes} > ${maxPayloadBytes}`);
+        throw new BadRequestException(`Worker payload exceeds max size (${maxPayloadBytes} bytes)`);
+      }
+
       const response = await fetch(workerUrl, {
         method: 'POST',
         headers: {
@@ -284,18 +328,7 @@ export class JobSourcesService {
           'x-request-id': requestId,
           ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
-        body: JSON.stringify({
-          source,
-          sourceRunId: run.id,
-          requestId,
-          callbackUrl,
-          callbackToken,
-          listingUrl,
-          limit: dto.limit,
-          userId,
-          careerProfileId,
-          filters: normalizedFilters,
-        }),
+        body: serializedPayload,
         signal: controller.signal,
       });
 
@@ -355,7 +388,17 @@ export class JobSourcesService {
     workerSignature?: string,
     workerTimestamp?: string,
   ) {
-    this.verifyWorkerCallbackSignature(dto, requestId, workerSignature, workerTimestamp);
+    this.verifyWorkerSignature(
+      {
+        sourceRunId: dto.sourceRunId,
+        status: dto.status ?? 'COMPLETED',
+        runId: dto.runId,
+        eventId: dto.eventId,
+      },
+      requestId,
+      workerSignature,
+      workerTimestamp,
+    );
     const callbackEventId = dto.eventId?.trim() || null;
 
     const token = this.configService.get('WORKER_CALLBACK_TOKEN', { infer: true });
@@ -462,18 +505,14 @@ export class JobSourcesService {
     if (status === 'FAILED') {
       const completedAt = new Date();
       const failureType = toRunFailureType(dto.failureType) ?? deriveFailureType(dto.error) ?? 'unknown';
-      await this.db
-        .update(jobSourceRunsTable)
-        .set({
-          status: 'FAILED',
-          scrapedCount,
-          totalFound,
-          error: dto.error ?? 'Scrape failed in worker',
-          failureType,
-          finalizedAt: completedAt,
-          completedAt,
-        })
-        .where(eq(jobSourceRunsTable.id, run.id));
+      await this.transitionRunStatus(run.id, run.status as RunStatus, 'FAILED', {
+        scrapedCount,
+        totalFound,
+        error: dto.error ?? 'Scrape failed in worker',
+        failureType,
+        finalizedAt: completedAt,
+        completedAt,
+      });
       this.logger.warn(
         {
           requestId,
@@ -572,18 +611,15 @@ export class JobSourcesService {
         });
     }
 
-    await this.db
-      .update(jobSourceRunsTable)
-      .set({
-        status: 'COMPLETED',
-        scrapedCount,
-        totalFound,
-        error: null,
-        failureType: null,
-        finalizedAt: new Date(),
-        completedAt: new Date(),
-      })
-      .where(eq(jobSourceRunsTable.id, run.id));
+    const finalizedAt = new Date();
+    await this.transitionRunStatus(run.id, run.status as RunStatus, 'COMPLETED', {
+      scrapedCount,
+      totalFound,
+      error: null,
+      failureType: null,
+      finalizedAt,
+      completedAt: finalizedAt,
+    });
 
     if (!run.userId || !run.careerProfileId) {
       return {
@@ -653,8 +689,85 @@ export class JobSourcesService {
     };
   }
 
-  private verifyWorkerCallbackSignature(
-    dto: ScrapeCompleteDto,
+  async heartbeatRun(
+    runId: string,
+    dto: ScrapeHeartbeatDto,
+    authorization?: string,
+    requestId?: string,
+    workerSignature?: string,
+    workerTimestamp?: string,
+  ) {
+    this.verifyWorkerSignature(
+      {
+        sourceRunId: runId,
+        status: 'HEARTBEAT',
+        runId: dto.runId,
+        eventId: 'heartbeat',
+      },
+      requestId,
+      workerSignature,
+      workerTimestamp,
+    );
+
+    const token = this.configService.get('WORKER_CALLBACK_TOKEN', { infer: true });
+    if (token) {
+      const header = authorization ?? '';
+      if (header !== `Bearer ${token}`) {
+        throw new UnauthorizedException('Invalid worker callback token');
+      }
+    }
+
+    const run = await this.db
+      .select({
+        id: jobSourceRunsTable.id,
+        status: jobSourceRunsTable.status,
+      })
+      .from(jobSourceRunsTable)
+      .where(eq(jobSourceRunsTable.id, runId))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!run) {
+      throw new NotFoundException('Job source run not found');
+    }
+
+    if (run.status === 'COMPLETED' || run.status === 'FAILED') {
+      return { ok: true, status: run.status, ignored: true };
+    }
+
+    const now = new Date();
+    const progress = {
+      phase: dto.phase ?? null,
+      attempt: dto.attempt ?? null,
+      pagesVisited: dto.pagesVisited ?? 0,
+      jobLinksDiscovered: dto.jobLinksDiscovered ?? 0,
+      normalizedOffers: dto.normalizedOffers ?? 0,
+      meta: dto.meta ?? null,
+      updatedAt: now.toISOString(),
+    };
+
+    const resolvedStatus = run.status === 'PENDING' ? 'RUNNING' : (run.status as RunStatus);
+    await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        status: resolvedStatus,
+        error: null,
+        failureType: null,
+        finalizedAt: null,
+        lastHeartbeatAt: now,
+        progress,
+      })
+      .where(eq(jobSourceRunsTable.id, run.id));
+
+    return {
+      ok: true,
+      status: resolvedStatus,
+      heartbeatAt: now.toISOString(),
+    };
+  }
+
+  private verifyWorkerSignature(
+    input: WorkerSignaturePayload,
     requestId: string | undefined,
     signatureHeader: string | undefined,
     timestampHeader: string | undefined,
@@ -667,10 +780,9 @@ export class JobSourcesService {
     if (!signatureHeader || !timestampHeader) {
       throw new UnauthorizedException('Missing worker callback signature headers');
     }
-    if (!dto.eventId?.trim()) {
+    if (input.status !== 'HEARTBEAT' && !input.eventId?.trim()) {
       throw new UnauthorizedException('Missing worker callback event id');
     }
-
     const timestampSec = Number(timestampHeader);
     if (!Number.isFinite(timestampSec)) {
       throw new UnauthorizedException('Invalid worker callback signature timestamp');
@@ -682,9 +794,8 @@ export class JobSourcesService {
       throw new UnauthorizedException('Expired worker callback signature timestamp');
     }
 
-    const status = dto.status ?? 'COMPLETED';
-    const eventId = dto.eventId ?? '';
-    const base = `${timestampSec}.${dto.sourceRunId}.${status}.${dto.runId ?? ''}.${requestId ?? ''}.${eventId}`;
+    const eventId = input.eventId ?? '';
+    const base = `${timestampSec}.${input.sourceRunId}.${input.status}.${input.runId ?? ''}.${requestId ?? ''}.${eventId}`;
     const expected = createHmac('sha256', signingSecret).update(base).digest('hex');
     if (!this.constantTimeEqual(signatureHeader, expected)) {
       throw new UnauthorizedException('Invalid worker callback signature');
@@ -779,6 +890,10 @@ export class JobSourcesService {
     if (run.status !== 'FAILED') {
       throw new BadRequestException('Only failed runs can be retried');
     }
+    const maxRetryDepth = this.configService.get('SCRAPE_MAX_RETRY_CHAIN_DEPTH', { infer: true });
+    if (Number(run.retryCount ?? 0) >= maxRetryDepth) {
+      throw new BadRequestException(`Retry chain depth exceeded (${maxRetryDepth})`);
+    }
 
     const result = await this.enqueueScrape(
       userId,
@@ -848,6 +963,8 @@ export class JobSourcesService {
       status: run.status,
       listingUrl: run.listingUrl,
       finalizedAt: run.finalizedAt ?? run.completedAt,
+      heartbeatAt: run.lastHeartbeatAt ?? null,
+      progress: (run.progress as Record<string, unknown> | null) ?? null,
       diagnostics: {
         relaxationTrail: Array.isArray(diagnostics.relaxationTrail)
           ? diagnostics.relaxationTrail.filter((item): item is string => typeof item === 'string')
@@ -856,6 +973,10 @@ export class JobSourcesService {
           ? diagnostics.blockedUrls.filter((item): item is string => typeof item === 'string')
           : [],
         hadZeroOffersStep: Boolean(diagnostics.hadZeroOffersStep),
+        attemptCount: Number(diagnostics.attemptCount ?? 0),
+        adaptiveDelayApplied: Number(diagnostics.adaptiveDelayApplied ?? 0),
+        blockedRate: Number(diagnostics.blockedRate ?? 0),
+        finalPolicy: normalizeString(String(diagnostics.finalPolicy ?? '')) ?? null,
         stats: {
           totalFound: run.totalFound ?? null,
           scrapedCount: run.scrapedCount ?? null,
@@ -1159,6 +1280,27 @@ export class JobSourcesService {
     };
   }
 
+  private shouldSuppressDuplicateEnqueue(userId: string, intentFingerprint: string) {
+    const ttlSec = this.configService.get('SCRAPE_ENQUEUE_IDEMPOTENCY_TTL_SEC', { infer: true });
+    if (!ttlSec || ttlSec <= 0) {
+      return false;
+    }
+    const now = Date.now();
+    const cutoff = now - ttlSec * 1000;
+    for (const [key, timestamp] of this.enqueueIdempotencyWindow.entries()) {
+      if (timestamp < cutoff) {
+        this.enqueueIdempotencyWindow.delete(key);
+      }
+    }
+    const key = `${userId}:${intentFingerprint}`;
+    const previous = this.enqueueIdempotencyWindow.get(key);
+    if (previous && previous >= cutoff) {
+      return true;
+    }
+    this.enqueueIdempotencyWindow.set(key, now);
+    return false;
+  }
+
   private async getCareerProfileContext(userId: string, requestedCareerProfileId?: string | null) {
     const conditions = requestedCareerProfileId
       ? and(
@@ -1237,19 +1379,82 @@ export class JobSourcesService {
     return `http://${host}:${port}/${normalizedPrefix}/job-sources/complete`;
   }
 
+  private resolveWorkerHeartbeatUrl(runId: string) {
+    const configured = this.configService.get('WORKER_CALLBACK_URL', { infer: true });
+    if (configured) {
+      try {
+        const parsed = new URL(configured);
+        const basePath = parsed.pathname.replace(/\/job-sources\/complete\/?$/i, '');
+        parsed.pathname = `${basePath}/job-sources/runs/${runId}/heartbeat`;
+        return parsed.toString();
+      } catch {
+        return configured.replace(/\/job-sources\/complete\/?$/i, `/job-sources/runs/${runId}/heartbeat`);
+      }
+    }
+
+    const host = this.configService.get('HOST', { infer: true }) ?? 'localhost';
+    const port = this.configService.get('PORT', { infer: true }) ?? 3000;
+    const prefix = this.configService.get('API_PREFIX', { infer: true }) ?? 'api';
+    const normalizedPrefix = prefix.replace(/^\/+|\/+$/g, '');
+    return `http://${host}:${port}/${normalizedPrefix}/job-sources/runs/${runId}/heartbeat`;
+  }
+
+  private assertAllowedRunTransition(from: RunStatus, to: RunStatus) {
+    if (from === to) {
+      return;
+    }
+    const allowed = ALLOWED_STATUS_TRANSITIONS[from];
+    if (!allowed.includes(to)) {
+      throw new BadRequestException(`Invalid scrape run status transition: ${from} -> ${to}`);
+    }
+  }
+
+  private async transitionRunStatus(
+    runId: string,
+    fromStatus: RunStatus,
+    toStatus: RunStatus,
+    fields: Partial<{
+      scrapedCount: number;
+      totalFound: number | null;
+      error: string | null;
+      failureType: RunFailureType | null;
+      finalizedAt: Date | null;
+      completedAt: Date | null;
+      lastHeartbeatAt: Date | null;
+      progress: Record<string, unknown> | null;
+      startedAt: Date | null;
+    }> = {},
+  ) {
+    this.assertAllowedRunTransition(fromStatus, toStatus);
+
+    const result = await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        status: toStatus,
+        ...fields,
+      })
+      .where(and(eq(jobSourceRunsTable.id, runId), eq(jobSourceRunsTable.status, fromStatus)));
+
+    if (result && typeof (result as { returning?: unknown }).returning === 'function') {
+      const rows = await (result as unknown as { returning: (selection: Record<string, unknown>) => Promise<Array<{ id: string }>> }).returning({
+        id: jobSourceRunsTable.id,
+      });
+      return rows.length > 0;
+    }
+
+    await result;
+    return true;
+  }
+
   private async markRunFailed(runId: string, error: string) {
     const now = new Date();
     const failureType = deriveFailureType(error) ?? 'unknown';
-    await this.db
-      .update(jobSourceRunsTable)
-      .set({
-        status: 'FAILED',
-        error,
-        failureType,
-        finalizedAt: now,
-        completedAt: now,
-      })
-      .where(and(eq(jobSourceRunsTable.id, runId), eq(jobSourceRunsTable.status, 'PENDING')));
+    await this.transitionRunStatus(runId, 'PENDING', 'FAILED', {
+      error,
+      failureType,
+      finalizedAt: now,
+      completedAt: now,
+    });
   }
 
   private async reconcileStaleRuns(userId: string) {
@@ -1300,7 +1505,8 @@ export class JobSourcesService {
           eq(jobSourceRunsTable.userId, userId),
           eq(jobSourceRunsTable.status, 'RUNNING'),
           or(
-            lt(jobSourceRunsTable.startedAt, staleRunningCutoff),
+            lt(jobSourceRunsTable.lastHeartbeatAt, staleRunningCutoff),
+            and(isNull(jobSourceRunsTable.lastHeartbeatAt), lt(jobSourceRunsTable.startedAt, staleRunningCutoff)),
             and(isNull(jobSourceRunsTable.startedAt), lt(jobSourceRunsTable.createdAt, staleRunningCutoff)),
           ),
         ),
@@ -1308,15 +1514,11 @@ export class JobSourcesService {
   }
 
   private async markRunRunning(runId: string) {
-    await this.db
-      .update(jobSourceRunsTable)
-      .set({
-        status: 'RUNNING',
-        error: null,
-        failureType: null,
-        finalizedAt: null,
-      })
-      .where(and(eq(jobSourceRunsTable.id, runId), eq(jobSourceRunsTable.status, 'PENDING')));
+    await this.transitionRunStatus(runId, 'PENDING', 'RUNNING', {
+      error: null,
+      failureType: null,
+      finalizedAt: null,
+    });
   }
 
   private resolveRunDurationMs(startedAt: Date | null, completedAt: Date) {

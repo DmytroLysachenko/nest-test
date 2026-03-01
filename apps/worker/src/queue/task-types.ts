@@ -21,6 +21,7 @@ export const taskEnvelopeSchema = z.object({
     sourceRunId: z.string().uuid().optional(),
     requestId: z.string().optional(),
     callbackUrl: z.string().url().optional(),
+    heartbeatUrl: z.string().url().optional(),
     callbackToken: z.string().optional(),
     userId: z.string().uuid().optional(),
     careerProfileId: z.string().uuid().optional(),

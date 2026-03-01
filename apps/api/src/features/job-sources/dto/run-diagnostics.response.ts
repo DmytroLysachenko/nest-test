@@ -36,6 +36,18 @@ class ScrapeRunDiagnosticsPayloadResponse {
   @ApiProperty()
   hadZeroOffersStep!: boolean;
 
+  @ApiProperty()
+  attemptCount!: number;
+
+  @ApiProperty()
+  adaptiveDelayApplied!: number;
+
+  @ApiProperty()
+  blockedRate!: number;
+
+  @ApiProperty({ nullable: true })
+  finalPolicy!: string | null;
+
   @ApiProperty({ type: ScrapeRunDiagnosticsStatsResponse })
   stats!: ScrapeRunDiagnosticsStatsResponse;
 }
@@ -55,6 +67,12 @@ export class ScrapeRunDiagnosticsResponse {
 
   @ApiProperty({ nullable: true })
   finalizedAt!: Date | null;
+
+  @ApiProperty({ nullable: true })
+  heartbeatAt!: Date | null;
+
+  @ApiProperty({ nullable: true, type: Object })
+  progress!: Record<string, unknown> | null;
 
   @ApiProperty({ type: ScrapeRunDiagnosticsPayloadResponse })
   diagnostics!: ScrapeRunDiagnosticsPayloadResponse;

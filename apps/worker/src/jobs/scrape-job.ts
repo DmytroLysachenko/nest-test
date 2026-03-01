@@ -36,6 +36,10 @@ type CallbackPayload = {
     skippedFreshUrls?: number;
     blockedPages?: number;
     hadZeroOffersStep?: boolean;
+    attemptCount?: number;
+    adaptiveDelayApplied?: number;
+    blockedRate?: number;
+    finalPolicy?: string;
   };
 };
 
@@ -150,6 +154,63 @@ export const buildWorkerCallbackSignaturePayload = (
   timestampSec: number,
 ) =>
   `${timestampSec}.${payload.sourceRunId ?? ''}.${payload.status}.${payload.runId}.${requestId ?? ''}.${payload.eventId ?? ''}`;
+
+const notifyHeartbeat = async (
+  url: string,
+  token: string | undefined,
+  signingSecret: string | undefined,
+  requestId: string | undefined,
+  payload: {
+    sourceRunId?: string;
+    runId?: string;
+    phase: 'listing_fetch' | 'detail_fetch' | 'normalize' | 'callback';
+    attempt: number;
+    pagesVisited: number;
+    jobLinksDiscovered: number;
+    normalizedOffers: number;
+    meta?: Record<string, unknown>;
+  },
+  logger: Logger,
+) => {
+  if (!payload.sourceRunId) {
+    return;
+  }
+  const timestampSec = Math.floor(Date.now() / 1000);
+  const signaturePayload = `${timestampSec}.${payload.sourceRunId}.HEARTBEAT.${payload.runId ?? ''}.${requestId ?? ''}.heartbeat`;
+  const signature = signingSecret
+    ? createHmac('sha256', signingSecret).update(signaturePayload).digest('hex')
+    : null;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(requestId ? { 'x-request-id': requestId } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(signature ? { 'x-worker-signature': signature, 'x-worker-timestamp': String(timestampSec) } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      logger.warn(
+        { requestId, sourceRunId: payload.sourceRunId, status: response.status, body: text, phase: payload.phase },
+        'Heartbeat rejected',
+      );
+    }
+  } catch (error) {
+    logger.warn(
+      {
+        requestId,
+        sourceRunId: payload.sourceRunId,
+        phase: payload.phase,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      'Failed to send scrape heartbeat',
+    );
+  }
+};
 
 export const computeCallbackRetryDelayMs = (
   attempt: number,
@@ -281,6 +342,7 @@ export const runScrapeJob = async (
     callbackRetryBackoffMs?: number;
     callbackRetryMaxDelayMs?: number;
     callbackRetryJitterPct?: number;
+    heartbeatIntervalMs?: number;
     callbackDeadLetterDir?: string;
     scrapeTimeoutMs?: number;
     databaseUrl?: string;
@@ -298,8 +360,52 @@ export const runScrapeJob = async (
 
   try {
     const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
+    const heartbeatUrl =
+      payload.heartbeatUrl ??
+      (callbackUrl ? callbackUrl.replace(/\/job-sources\/complete\/?$/i, `/job-sources/runs/${sourceRunId}/heartbeat`) : undefined);
     const callbackToken = payload.callbackToken ?? options.callbackToken;
     const callbackSigningSecret = options.callbackSigningSecret;
+    const heartbeatIntervalMs = options.heartbeatIntervalMs ?? 10000;
+    let lastHeartbeatAt = 0;
+    let attemptsExecuted = 0;
+    let adaptiveDetailDelayMs = options.detailDelayMs;
+    let adaptiveDelayApplied = 0;
+
+    const emitHeartbeat = async (
+      phase: 'listing_fetch' | 'detail_fetch' | 'normalize' | 'callback',
+      attempt: number,
+      pagesVisited: number,
+      jobLinksDiscovered: number,
+      normalizedOffers: number,
+      force = false,
+      meta?: Record<string, unknown>,
+    ) => {
+      if (!heartbeatUrl || !sourceRunId) {
+        return;
+      }
+      const now = Date.now();
+      if (!force && now - lastHeartbeatAt < heartbeatIntervalMs) {
+        return;
+      }
+      lastHeartbeatAt = now;
+      await notifyHeartbeat(
+        heartbeatUrl,
+        callbackToken,
+        callbackSigningSecret,
+        payload.requestId,
+        {
+          sourceRunId,
+          runId,
+          phase,
+          attempt,
+          pagesVisited,
+          jobLinksDiscovered,
+          normalizedOffers,
+          meta,
+        },
+        logger,
+      );
+    };
 
     const timeoutMs = options.scrapeTimeoutMs ?? 180000;
     let timeoutRef: NodeJS.Timeout | null = null;
@@ -332,6 +438,7 @@ export const runScrapeJob = async (
     let hadZeroOffersStep = false;
 
     for (let attempt = 1; attempt <= maxRelaxationAttempts; attempt += 1) {
+      attemptsExecuted = attempt;
       if (attempt > 1 && relaxReason) {
         logger.info(
           {
@@ -344,6 +451,13 @@ export const runScrapeJob = async (
           'Retrying scrape with relaxed filters',
         );
       }
+      await emitHeartbeat(
+        'listing_fetch',
+        attempt,
+        aggregatedPages.length,
+        aggregatedJobLinks.size,
+        aggregatedNormalized.length,
+      );
 
       const remaining = Math.max(1, requestedLimit - collectedKeys.size);
       const pipelinePromise = runPipeline(payload.source, {
@@ -354,7 +468,7 @@ export const runScrapeJob = async (
         options: {
           listingDelayMs: options.listingDelayMs,
           listingCooldownMs: options.listingCooldownMs,
-          detailDelayMs: options.detailDelayMs,
+          detailDelayMs: adaptiveDetailDelayMs,
           listingOnly: options.listingOnly,
           detailHost: options.detailHost,
           detailCookiesPath: options.detailCookiesPath,
@@ -367,6 +481,13 @@ export const runScrapeJob = async (
       });
 
       const { crawlResult, parsedJobs, normalized } = await Promise.race([pipelinePromise, timeoutPromiseTemplate]);
+      await emitHeartbeat(
+        'detail_fetch',
+        attempt,
+        aggregatedPages.length + crawlResult.pages.length,
+        aggregatedJobLinks.size + crawlResult.jobLinks.length,
+        aggregatedNormalized.length + normalized.length,
+      );
       listingHtml = crawlResult.listingHtml;
       listingData = crawlResult.listingData;
       listingSummaries = crawlResult.listingSummaries;
@@ -393,6 +514,16 @@ export const runScrapeJob = async (
         }
         aggregatedNormalizedKeys.add(key);
         aggregatedNormalized.push(item);
+      }
+
+      const blockedRate =
+        crawlResult.jobLinks.length > 0
+          ? Number((crawlResult.blockedUrls.length / crawlResult.jobLinks.length).toFixed(4))
+          : 0;
+      if (!options.listingOnly && blockedRate >= 0.2) {
+        const nextDelay = Math.min(10000, Math.max(500, (adaptiveDetailDelayMs ?? 0) + 500));
+        adaptiveDelayApplied += Math.max(0, nextDelay - (adaptiveDetailDelayMs ?? 0));
+        adaptiveDetailDelayMs = nextDelay;
       }
 
       if (collectedKeys.size >= requestedLimit) {
@@ -427,6 +558,15 @@ export const runScrapeJob = async (
 
     const sanitizedJobs = sanitizeCallbackJobs(aggregatedNormalized);
     const dedupedInRunCount = Math.max(0, aggregatedNormalized.length - sanitizedJobs.length);
+    await emitHeartbeat(
+      'normalize',
+      attemptsExecuted,
+      aggregatedPages.length,
+      aggregatedJobLinks.size,
+      sanitizedJobs.length,
+      true,
+      { dedupedInRunCount },
+    );
     const outputPath = await saveOutput(
       {
         source: payload.source,
@@ -448,6 +588,21 @@ export const runScrapeJob = async (
     );
 
     if (callbackUrl) {
+      const blockedRate =
+        aggregatedJobLinks.size > 0
+          ? Number((aggregatedBlockedUrls.length / aggregatedJobLinks.size).toFixed(4))
+          : 0;
+      const finalPolicy =
+        adaptiveDelayApplied > 0 ? `adaptive-delay:${adaptiveDetailDelayMs ?? options.detailDelayMs ?? 0}` : 'default';
+      await emitHeartbeat(
+        'callback',
+        attemptsExecuted,
+        aggregatedPages.length,
+        aggregatedJobLinks.size,
+        sanitizedJobs.length,
+        true,
+        { finalPolicy, blockedRate },
+      );
       await notifyCallback(
         callbackUrl,
         callbackToken,
@@ -479,6 +634,10 @@ export const runScrapeJob = async (
             ),
             blockedPages: aggregatedBlockedUrls.length,
             hadZeroOffersStep,
+            attemptCount: attemptsExecuted,
+            adaptiveDelayApplied,
+            blockedRate,
+            finalPolicy,
           },
         }),
         {
@@ -549,6 +708,10 @@ export const runScrapeJob = async (
             skippedFreshUrls: 0,
             blockedPages: 0,
             hadZeroOffersStep: false,
+            attemptCount: 1,
+            adaptiveDelayApplied: 0,
+            blockedRate: 0,
+            finalPolicy: 'failed',
           },
         }),
         {
