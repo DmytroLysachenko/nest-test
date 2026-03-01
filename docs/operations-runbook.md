@@ -18,6 +18,11 @@ If `WORKER_CALLBACK_SIGNING_SECRET` is enabled:
 
 Replay/idempotency events are stored in `job_source_callback_events`.
 
+If `WORKER_CALLBACK_OIDC_AUDIENCE` is enabled in API:
+
+- worker sends bearer ID token (Cloud Run service identity)
+- API verifies token audience and optionally verifies caller email claim
+
 ## Dead-letter Recovery
 
 CLI replay:
@@ -32,6 +37,9 @@ HTTP replay endpoint (same auth as `/tasks`):
 curl -X POST http://localhost:4001/callbacks/replay \
   -H "Authorization: Bearer <TASKS_AUTH_TOKEN>"
 ```
+
+For Cloud Tasks OIDC mode, replay endpoint auth can also use a valid ID token
+for the configured audience and service account.
 
 ## Queue Backpressure
 

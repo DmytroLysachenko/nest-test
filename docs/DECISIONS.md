@@ -281,7 +281,11 @@ ADR-lite log for major architectural and contract decisions.
 ## 2026-03-01: Cloud Tasks Production Contract Tightening
 
 - Decision:
-  - Require `TASKS_AUTH_TOKEN` for cloud-tasks provider mode.
+  - Require Cloud Tasks auth configuration for provider mode:
+    - static bearer token via `TASKS_AUTH_TOKEN`, or
+    - OIDC identity via `TASKS_SERVICE_ACCOUNT_EMAIL`.
+  - Worker task endpoint accepts either static token auth or verified Cloud Tasks OIDC ID tokens.
+  - Support explicit OIDC audience override with `TASKS_OIDC_AUDIENCE` (fallback to `TASKS_URL`).
   - Require `TASKS_URL` to end with `/tasks` or `/scrape` and enforce `https` in production.
   - Emit provider telemetry (`queueProvider`, `taskId`, `payloadBytes`) at enqueue.
 - Why:
@@ -297,3 +301,15 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Ensure artifact immutability between staging and production.
   - Keep production promotion operator-controlled and auditable.
+
+## 2026-03-01: Worker Callback OIDC Authentication for API
+
+- Decision:
+  - Support OIDC verification for worker callback endpoints (`/job-sources/complete`, `/job-sources/runs/:id/heartbeat`) using:
+    - `WORKER_CALLBACK_OIDC_AUDIENCE`
+    - optional `WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL` claim pinning.
+  - Keep static `WORKER_CALLBACK_TOKEN` support for local/dev compatibility.
+  - Worker callback sender mints outbound ID token headers when `WORKER_CALLBACK_OIDC_AUDIENCE` is configured.
+- Why:
+  - Remove shared static callback token requirement in Cloud Run service-to-service calls.
+  - Improve production secret hygiene while preserving deterministic callback authentication.

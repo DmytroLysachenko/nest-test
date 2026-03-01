@@ -54,6 +54,8 @@ Last updated: 2026-03-01
 - Admin ops metrics endpoint available at `/ops/metrics`.
 - Ops metrics now expose scrape lifecycle counters (`staleReconciledRuns`, `retriesTriggered`, `retrySuccessRate`).
 - Ops metrics now expose callback event breakdown (`failuresByType`, `failuresByCode`) and heartbeat freshness indicator (`runningWithoutHeartbeat`).
+- Worker Cloud Tasks ingress now supports both static bearer auth and verified OIDC ID tokens (service account + audience).
+- API worker callbacks now support OIDC bearer verification (audience + optional worker service-account email pinning) as an alternative to static callback token.
 - Job matching now persists explanation metadata on each scored match (`job_matches.match_meta`) and exposes audit export endpoints.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.

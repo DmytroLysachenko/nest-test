@@ -31,13 +31,18 @@ Day-to-day engineering runbook for local development and verification.
    - `WORKER_TASK_MAX_PAYLOAD_BYTES`
    - `SCRAPE_ENQUEUE_IDEMPOTENCY_TTL_SEC`
    - `SCRAPE_MAX_RETRY_CHAIN_DEPTH`
+   - `WORKER_CALLBACK_OIDC_AUDIENCE` (optional OIDC audience for worker callback auth)
+   - `WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL` (optional expected worker service account email claim)
 2. Worker:
   - `WORKER_MAX_BODY_BYTES` (example: `262144`)
   - `WORKER_CALLBACK_RETRY_MAX_DELAY_MS`
   - `WORKER_CALLBACK_RETRY_JITTER_PCT`
   - `WORKER_HEARTBEAT_INTERVAL_MS`
   - `QUEUE_PROVIDER` (`local` or `cloud-tasks`)
-  - `TASKS_AUTH_TOKEN` (required for `cloud-tasks`)
+  - `TASKS_AUTH_TOKEN` (optional if OIDC is used)
+  - `TASKS_SERVICE_ACCOUNT_EMAIL` (required when using Cloud Tasks OIDC)
+  - `TASKS_OIDC_AUDIENCE` (optional explicit ID token audience; defaults to `TASKS_URL`)
+  - `WORKER_CALLBACK_OIDC_AUDIENCE` (optional OIDC audience used for worker -> API callbacks)
 
 ## Core Commands
 
