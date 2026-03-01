@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-02-27
+Last updated: 2026-03-01
 
 ## Current Architecture
 
@@ -46,8 +46,14 @@ Last updated: 2026-02-27
 - Scrape runs now persist deterministic lifecycle fields (`failure_type`, `finalized_at`, `retry_of_run_id`, `retry_count`).
 - API lazily reconciles stale `PENDING/RUNNING` runs to terminal timeout failures.
 - Failed scrape runs can be retried via `POST /job-sources/runs/:id/retry` with retry-chain linkage.
+- Scrape run state transitions are now guard-railed by explicit lifecycle rules (`PENDING -> RUNNING|FAILED`, `RUNNING -> COMPLETED|FAILED`).
+- Worker now emits authenticated scrape heartbeats to API (`/job-sources/runs/:id/heartbeat`) with lightweight progress payloads.
+- Stale run reconciliation now prioritizes `last_heartbeat_at` over legacy timestamp-only heuristics.
+- API scrape enqueue now applies short-window idempotency suppression for duplicate intents.
+- Scrape retry now enforces configurable retry-chain depth cap.
 - Admin ops metrics endpoint available at `/ops/metrics`.
 - Ops metrics now expose scrape lifecycle counters (`staleReconciledRuns`, `retriesTriggered`, `retrySuccessRate`).
+- Ops metrics now expose callback event breakdown (`failuresByType`, `failuresByCode`) and heartbeat freshness indicator (`runningWithoutHeartbeat`).
 - Job matching now persists explanation metadata on each scored match (`job_matches.match_meta`) and exposes audit export endpoints.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.
@@ -99,3 +105,5 @@ Last updated: 2026-02-27
 - Some e2e scenarios still rely on live external scraping source behavior.
 - Frontend standards are now explicitly documented in `docs/FRONTEND_STANDARDS.md`; continue enforcing via ESLint and reviews.
 - Worker queue is still in-memory (acceptable for now, not crash-resilient across process restarts).
+- Matching remains trust-first and now applies stronger ambiguity/context penalties for low-quality offer metadata.
+- CI now uses split quality gates (`CI Verify`, `Smoke Gate`) and release candidate + manual promote workflows.

@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-02-27
+Last updated: 2026-03-01
 
 ## Now (Execution Priority)
 
@@ -9,16 +9,17 @@ Last updated: 2026-02-27
 2. Matching quality tuning (score calibration, stricter seniority/constraints behavior).
    - Status: in progress (capped approx penalties + explore recency weighting shipped; threshold tuning ongoing).
 3. Scraper quality hardening and source-specific reliability.
-   - Status: in progress (run diagnostics summary + cache-first reuse + filter canonicalization improvements + timeline buckets + stale-run reconciliation + retry endpoint).
+   - Status: in progress (run diagnostics summary + cache-first reuse + filter canonicalization improvements + timeline buckets + stale-run reconciliation + retry endpoint + worker heartbeat progress callbacks + transition guards).
 4. CI quality gates (API/worker/web tests + smoke on protected branches).
-   - Status: in progress (web e2e suite is now part of CI; smoke gate expansion pending branch policy alignment).
+   - Status: in progress (split verify/smoke workflows implemented; protected-branch policy enforcement pending repo settings).
 5. Reliability guardrails for scrape intake + admin ops visibility.
-   - Status: in progress (per-user scrape backpressure + admin metrics endpoint implemented).
+   - Status: in progress (per-user scrape backpressure + admin metrics endpoint + explicit run-state transition guards + enqueue idempotency + retry-depth cap implemented).
 
 ## Next
 
 1. Add cached query/read models for FE cards and dashboard widgets.
 2. Improve deterministic ranking calibration (mode thresholds + penalty tuning).
+   - Status: in progress (trust-first matcher now includes stronger ambiguity/context penalties and improved employment alias handling).
 3. Add score-explanation audit export for support/debug workflows.
    - Status: completed (`/api/job-matching/audit` + `/api/job-matching/audit/export.csv` backed by persisted `job_matches.match_meta`).
 4. Expand diagnostics aggregation for long-running scrape history.

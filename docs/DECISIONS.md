@@ -223,3 +223,67 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Reduce fragility from regex-based error parsing.
   - Improve consistency of diagnostics and ops metrics across callback paths.
+
+## 2026-03-01: Scrape Run Transition State Machine
+
+- Decision:
+  - Enforce explicit run lifecycle transitions only:
+    - `PENDING -> RUNNING|FAILED`
+    - `RUNNING -> COMPLETED|FAILED`
+  - Reject invalid transitions deterministically in API service orchestration.
+- Why:
+  - Prevent silent lifecycle drift and contradictory terminal states.
+  - Keep retry/reconciliation/diagnostics logic coherent and auditable.
+
+## 2026-03-01: Worker Heartbeat Progress Contract
+
+- Decision:
+  - Add authenticated worker heartbeat callback:
+    - `POST /job-sources/runs/:id/heartbeat`
+  - Persist `job_source_runs.last_heartbeat_at` and lightweight `progress` payload.
+  - Reconcile stale runs using heartbeat-aware thresholds.
+- Why:
+  - Improve stale-run detection accuracy for long-running scrape jobs.
+  - Provide deterministic visibility into in-flight run phases without final callback wait.
+
+## 2026-03-01: Query Path Index Reinforcement for Notebook/Matching
+
+- Decision:
+  - Add targeted indexes for hot read patterns across:
+    - `job_source_runs`
+    - `user_job_offers`
+    - `job_matches`
+    - `job_offers`
+- Why:
+  - Reduce latency variance under larger user/run histories.
+  - Keep notebook/matching read models predictable with current architecture.
+
+## 2026-03-01: CI Gate Split + Staging Release Candidate Workflow
+
+- Decision:
+  - Replace monolithic CI with split workflows:
+    - `CI Verify` (lint/typecheck/tests/build/e2e)
+    - `Smoke Gate` (cross-service smoke)
+  - Add `Release Candidate` workflow and manual `Promote To Prod` workflow.
+- Why:
+  - Improve failure isolation and debugging speed.
+  - Enforce release artifact traceability before production promotion.
+
+## 2026-03-01: Scrape Enqueue Idempotency + Retry Depth Guard
+
+- Decision:
+  - Add short-window enqueue idempotency suppression keyed by user+intent fingerprint.
+  - Add configurable max retry chain depth guard for scrape reruns.
+- Why:
+  - Prevent duplicate active run storms under client retry spikes.
+  - Avoid unbounded retry chains that degrade throughput and supportability.
+
+## 2026-03-01: Cloud Tasks Production Contract Tightening
+
+- Decision:
+  - Require `TASKS_AUTH_TOKEN` for cloud-tasks provider mode.
+  - Require `TASKS_URL` to end with `/tasks` or `/scrape` and enforce `https` in production.
+  - Emit provider telemetry (`queueProvider`, `taskId`, `payloadBytes`) at enqueue.
+- Why:
+  - Reduce misconfiguration risk in production deployments.
+  - Improve traceability for queue dispatch incidents.

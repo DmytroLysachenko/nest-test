@@ -59,6 +59,13 @@ When queue is full, worker returns `429` and API should retry later.
 - Scrape run completion (without manual replay): >= 95%
 - p95 API latency (non-LLM endpoints): <= 600ms
 
+## Alert Thresholds (Initial)
+
+- Heartbeat stale ratio (`runningWithoutHeartbeat / runningRuns`): alert at `> 0.25` for 5 min.
+- Callback failed event ratio (`failedEvents / totalEvents`): alert at `> 0.10` for 10 min.
+- Retry success rate: alert at `< 0.70` for 30 min.
+- Scrape success rate in `/ops/metrics`: alert at `< 0.90` for 30 min.
+
 ## Incident Checklist
 
 1. Confirm service health endpoints.
@@ -66,3 +73,4 @@ When queue is full, worker returns `429` and API should retry later.
 3. Check worker queue saturation (`/health` queue stats).
 4. Replay dead-letter callbacks.
 5. Re-run smoke test: `pnpm smoke:e2e`.
+6. Verify release candidate artifact metadata (`ref`, `sha`, `created_at`) before promotion.

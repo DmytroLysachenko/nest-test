@@ -28,10 +28,16 @@ Day-to-day engineering runbook for local development and verification.
    - `NOTEBOOK_APPROX_SCORED_BONUS`
    - `NOTEBOOK_EXPLORE_UNSCORED_BASE`
    - `NOTEBOOK_EXPLORE_RECENCY_WEIGHT`
+   - `WORKER_TASK_MAX_PAYLOAD_BYTES`
+   - `SCRAPE_ENQUEUE_IDEMPOTENCY_TTL_SEC`
+   - `SCRAPE_MAX_RETRY_CHAIN_DEPTH`
 2. Worker:
-   - `WORKER_MAX_BODY_BYTES` (example: `262144`)
-   - `WORKER_CALLBACK_RETRY_MAX_DELAY_MS`
-   - `WORKER_CALLBACK_RETRY_JITTER_PCT`
+  - `WORKER_MAX_BODY_BYTES` (example: `262144`)
+  - `WORKER_CALLBACK_RETRY_MAX_DELAY_MS`
+  - `WORKER_CALLBACK_RETRY_JITTER_PCT`
+  - `WORKER_HEARTBEAT_INTERVAL_MS`
+  - `QUEUE_PROVIDER` (`local` or `cloud-tasks`)
+  - `TASKS_AUTH_TOKEN` (required for `cloud-tasks`)
 
 ## Core Commands
 
@@ -58,6 +64,17 @@ Day-to-day engineering runbook for local development and verification.
 4. End-to-end smoke:
    - `pnpm smoke:e2e`
 
+## CI Branch Protection
+
+1. Require passing checks before merge:
+   - `CI Verify / lint`
+   - `CI Verify / typecheck`
+   - `CI Verify / test-build`
+   - `Smoke Gate / smoke`
+2. For release promotions:
+   - `Release Candidate / build-and-validate` must pass
+   - production promotion is manual via `Promote To Prod`
+
 ## Web Entry Routes
 
 1. Main dashboard: `/app`
@@ -67,6 +84,7 @@ Day-to-day engineering runbook for local development and verification.
 5. Job match audit export: `GET /api/job-matching/audit/export.csv`
 6. Document diagnostics summary: `GET /api/documents/diagnostics/summary`
 7. Retry failed scrape run: `POST /api/job-sources/runs/:id/retry`
+8. Worker heartbeat callback (internal): `POST /api/job-sources/runs/:id/heartbeat`
 
 ## Smoke Coverage (Current)
 
@@ -91,6 +109,8 @@ Day-to-day engineering runbook for local development and verification.
 17. scrape diagnostics summary endpoint (with timeline option)
 18. job-matching audit json/csv endpoints
 19. scrape retry endpoint guard (`completed` run retry rejection)
+20. scrape heartbeat callback + run progress persistence
+21. transition guard for invalid run lifecycle state changes
 
 ## Recovery Tips
 
