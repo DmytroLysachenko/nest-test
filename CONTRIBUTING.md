@@ -58,3 +58,5 @@ This repository follows strict consistency rules to keep the codebase readable, 
 - [ ] Lint, typecheck, and tests pass for changed packages.
 - [ ] Env/config changes documented.
 - [ ] Docs updated when behavior or workflows changed.
+- [ ] Required CI checks pass: `CI Verify` + `Smoke Gate`.
+- [ ] If release-related, release candidate workflow and artifact metadata are attached.

@@ -1,0 +1,22 @@
+name: Promote To Prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: 'Release commit SHA to promote'
+        required: true
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Validate release input
+        run: |
+          test -n "${{ inputs.release_sha }}" || (echo "release_sha is required" && exit 1)
+          echo "Promoting release SHA=${{ inputs.release_sha }}"
+      - name: Manual promotion marker
+        run: |
+          echo "Manual production promotion approved for ${{ inputs.release_sha }}"
+          echo "Hook deployment tooling here (Helm/Terraform/Cloud Run/etc)."
