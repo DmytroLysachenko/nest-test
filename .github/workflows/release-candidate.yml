@@ -19,6 +19,11 @@ jobs:
       CI: true
     steps:
       - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
       - uses: pnpm/action-setup@v4
         with:
           version: 10.11.0
@@ -29,21 +34,36 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Validate required release env names
         run: |
-          test -n "${{ secrets.RC_DATABASE_URL }}" || (echo "Missing RC_DATABASE_URL" && exit 1)
-          test -n "${{ secrets.RC_GCS_BUCKET }}" || (echo "Missing RC_GCS_BUCKET" && exit 1)
+          test -n "${{ vars.GCP_PROJECT_ID }}" || (echo "Missing vars.GCP_PROJECT_ID" && exit 1)
+          test -n "${{ vars.GCP_REGION }}" || (echo "Missing vars.GCP_REGION" && exit 1)
+          test -n "${{ vars.GAR_REPOSITORY }}" || (echo "Missing vars.GAR_REPOSITORY" && exit 1)
       - run: pnpm build
       - run: pnpm --filter @repo/db migrate -- --dry-run || true
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+      - name: Build and push API image
+        run: |
+          docker build -f apps/api/Dockerfile -t ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/api:${{ github.sha }} .
+          docker push ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/api:${{ github.sha }}
+      - name: Build and push Worker image
+        run: |
+          docker build -f apps/worker/Dockerfile -t ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/worker:${{ github.sha }} .
+          docker push ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/worker:${{ github.sha }}
+      - name: Build and push Web image
+        run: |
+          docker build -f apps/web/Dockerfile -t ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/web:${{ github.sha }} .
+          docker push ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/web:${{ github.sha }}
       - name: Build release metadata
         run: |
           mkdir -p .release
           echo "ref=${GITHUB_REF}" > .release/metadata.txt
           echo "sha=${GITHUB_SHA}" >> .release/metadata.txt
           echo "created_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> .release/metadata.txt
+          echo "api_image=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/api:${{ github.sha }}" >> .release/metadata.txt
+          echo "worker_image=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/worker:${{ github.sha }}" >> .release/metadata.txt
+          echo "web_image=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/web:${{ github.sha }}" >> .release/metadata.txt
       - uses: actions/upload-artifact@v4
         with:
           name: release-candidate-${{ github.sha }}
           path: |
             .release/metadata.txt
-            apps/api/dist
-            apps/worker/dist
-            apps/web/.next

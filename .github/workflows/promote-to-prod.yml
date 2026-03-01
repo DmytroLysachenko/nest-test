@@ -11,12 +11,53 @@ jobs:
   promote:
     runs-on: ubuntu-latest
     environment: production
+    env:
+      IMAGE_BASE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
       - name: Validate release input
         run: |
           test -n "${{ inputs.release_sha }}" || (echo "release_sha is required" && exit 1)
+          test -n "${{ vars.GCP_PROJECT_ID }}" || (echo "Missing vars.GCP_PROJECT_ID" && exit 1)
+          test -n "${{ vars.GCP_REGION }}" || (echo "Missing vars.GCP_REGION" && exit 1)
+          test -n "${{ vars.GAR_REPOSITORY }}" || (echo "Missing vars.GAR_REPOSITORY" && exit 1)
+          test -n "${{ vars.GCP_API_SERVICE }}" || (echo "Missing vars.GCP_API_SERVICE" && exit 1)
+          test -n "${{ vars.GCP_WORKER_SERVICE }}" || (echo "Missing vars.GCP_WORKER_SERVICE" && exit 1)
+          test -n "${{ vars.GCP_WEB_SERVICE }}" || (echo "Missing vars.GCP_WEB_SERVICE" && exit 1)
+          test -n "${{ vars.GCP_API_BASE_URL }}" || (echo "Missing vars.GCP_API_BASE_URL" && exit 1)
+          test -n "${{ vars.GCP_WORKER_BASE_URL }}" || (echo "Missing vars.GCP_WORKER_BASE_URL" && exit 1)
+          test -n "${{ vars.GCP_WEB_BASE_URL }}" || (echo "Missing vars.GCP_WEB_BASE_URL" && exit 1)
           echo "Promoting release SHA=${{ inputs.release_sha }}"
-      - name: Manual promotion marker
+      - name: Deploy API image
         run: |
-          echo "Manual production promotion approved for ${{ inputs.release_sha }}"
-          echo "Hook deployment tooling here (Helm/Terraform/Cloud Run/etc)."
+          gcloud run deploy "${{ vars.GCP_API_SERVICE }}" \
+            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --region="${{ vars.GCP_REGION }}" \
+            --image="${IMAGE_BASE}/api:${{ inputs.release_sha }}" \
+            --platform=managed
+      - name: Deploy Worker image
+        run: |
+          gcloud run deploy "${{ vars.GCP_WORKER_SERVICE }}" \
+            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --region="${{ vars.GCP_REGION }}" \
+            --image="${IMAGE_BASE}/worker:${{ inputs.release_sha }}" \
+            --platform=managed
+      - name: Deploy Web image
+        run: |
+          gcloud run deploy "${{ vars.GCP_WEB_SERVICE }}" \
+            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --region="${{ vars.GCP_REGION }}" \
+            --image="${IMAGE_BASE}/web:${{ inputs.release_sha }}" \
+            --platform=managed
+      - name: Post-deploy verify
+        run: |
+          chmod +x ./scripts/verify-deployment.sh
+          API_BASE_URL="${{ vars.GCP_API_BASE_URL }}" \
+          WORKER_BASE_URL="${{ vars.GCP_WORKER_BASE_URL }}" \
+          WEB_BASE_URL="${{ vars.GCP_WEB_BASE_URL }}" \
+          ./scripts/verify-deployment.sh
