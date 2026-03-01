@@ -39,7 +39,7 @@ const hasHardConstraintsPass = (violations: string[]) => violations.length === 0
 
 const deriveSkillTag = (matchMeta: Record<string, unknown> | null) => {
   const breakdown = matchMeta?.breakdown as Record<string, unknown> | undefined;
-  const skills = typeof breakdown?.skills === 'number' ? breakdown.skills : null;
+  const skills = typeof breakdown?.competencyFit === 'number' ? breakdown.competencyFit : null;
   if (skills === null) {
     return null;
   }

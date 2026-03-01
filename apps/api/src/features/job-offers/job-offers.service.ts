@@ -104,7 +104,7 @@ export class JobOffersService {
       .from(userJobOffersTable)
       .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
       .where(and(...conditions))
-      .orderBy(desc(userJobOffersTable.createdAt))
+      .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt))
       .limit(fetchWindow)
       .offset(fetchOffset);
 

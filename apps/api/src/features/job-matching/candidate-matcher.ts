@@ -17,32 +17,58 @@ const SENIORITY_ORDER: Record<'intern' | 'junior' | 'mid' | 'senior' | 'lead' | 
   manager: 6,
 };
 
+const normalizeAscii = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+const normalizeString = (value: string | null | undefined) => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+};
+
 const detectJobSeniority = (text: string) => {
-  const input = text.toLowerCase();
-  if (/(intern|trainee|praktykant|stażyst|staż)/i.test(input)) {
-    return 'intern' as const;
+  const input = normalizeAscii(text);
+  const matches: Array<keyof typeof SENIORITY_ORDER> = [];
+
+  if (/(intern|trainee|praktykant|stazysta|staz)/i.test(input)) {
+    matches.push('intern');
   }
-  if (/(junior|młodszy)/i.test(input)) {
-    return 'junior' as const;
+  if (/(junior|mlodszy)/i.test(input)) {
+    matches.push('junior');
   }
   if (/(mid|regular|specjalista)/i.test(input)) {
-    return 'mid' as const;
+    matches.push('mid');
   }
   if (/(senior|starszy)/i.test(input)) {
-    return 'senior' as const;
+    matches.push('senior');
   }
   if (/(lead|tech lead|principal)/i.test(input)) {
-    return 'lead' as const;
+    matches.push('lead');
   }
-  if (/(manager|menedżer|kierownik|head of)/i.test(input)) {
-    return 'manager' as const;
+  if (/(manager|menedzer|kierownik|head of)/i.test(input)) {
+    matches.push('manager');
   }
-  return null;
+
+  const unique = Array.from(new Set(matches));
+  if (!unique.length) {
+    return { detected: null, ambiguous: false as const, matches: [] as string[] };
+  }
+
+  const detected = unique.reduce((acc, current) =>
+    SENIORITY_ORDER[current] > SENIORITY_ORDER[acc] ? current : acc,
+  );
+
+  return {
+    detected,
+    ambiguous: unique.length > 1,
+    matches: unique,
+  };
 };
 
 const tokenize = (value: string) =>
-  value
-    .toLowerCase()
+  normalizeAscii(value)
     .split(/[^a-z0-9+#.]+/g)
     .map((token) => token.replace(/^\.+|\.+$/g, ''))
     .filter((token) => token.length > 1);
@@ -60,23 +86,34 @@ const parseAmountCandidates = (value: string) =>
 
 const confidenceWeight = (score: number) => Math.max(0.2, Math.min(1, score));
 
+const EMPLOYMENT_ALIASES: Record<string, string[]> = {
+  b2b: ['b2b', 'kontrakt'],
+  uop: ['uop', 'employment contract', 'umowa o prace'],
+  mandate: ['mandate', 'umowa zlecenie'],
+  internship: ['internship', 'intern', 'staz'],
+};
+
 export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: JobContext) => {
   const text = [context.title, context.text, context.location, context.employmentType, context.salaryText]
     .filter(Boolean)
     .join(' ');
+  const normalizedText = normalizeAscii(text);
   const jobTokens = asTokenSet(text);
   const hardViolations: string[] = [];
   const softGaps: string[] = [];
   const matchedCompetencies: Array<{ name: string; confidenceScore: number; importance: string }> = [];
   const primarySeniority = profile.candidateCore.seniority.primary;
   const maxAllowedSeniorityOrder = primarySeniority ? SENIORITY_ORDER[primarySeniority] : null;
-  const detectedJobSeniority = detectJobSeniority(text);
+  const senioritySignal = detectJobSeniority(text);
 
-  if (maxAllowedSeniorityOrder && detectedJobSeniority) {
-    const jobOrder = SENIORITY_ORDER[detectedJobSeniority];
+  if (maxAllowedSeniorityOrder && senioritySignal.detected) {
+    const jobOrder = SENIORITY_ORDER[senioritySignal.detected];
     if (jobOrder > maxAllowedSeniorityOrder) {
       hardViolations.push('seniority');
     }
+  }
+  if (senioritySignal.ambiguous) {
+    softGaps.push('seniority:ambiguous');
   }
 
   const competencyTotalWeight = profile.competencies.reduce((acc, item) => {
@@ -111,9 +148,8 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
   const hardWorkModes = profile.workPreferences.hardConstraints.workModes;
   if (hardWorkModes.length) {
     const modes = hardWorkModes.filter((mode) => {
-      const aliases =
-        mode === 'remote' ? ['remote', 'zdal', 'home'] : mode === 'hybrid' ? ['hybrid', 'hybryd'] : [mode];
-      return aliases.some((alias) => text.toLowerCase().includes(alias));
+      const aliases = mode === 'remote' ? ['remote', 'zdal', 'home'] : mode === 'hybrid' ? ['hybrid', 'hybryd'] : [mode];
+      return aliases.some((alias) => normalizedText.includes(alias));
     });
     if (!modes.length) {
       hardViolations.push('workModes');
@@ -122,8 +158,11 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
 
   const hardEmploymentTypes = profile.workPreferences.hardConstraints.employmentTypes;
   if (hardEmploymentTypes.length) {
-    const types = hardEmploymentTypes.filter((type) => text.toLowerCase().includes(type.toLowerCase()));
-    if (!types.length) {
+    const aliasHits = hardEmploymentTypes.filter((type) => {
+      const aliases = EMPLOYMENT_ALIASES[type] ?? [type];
+      return aliases.some((alias) => normalizedText.includes(alias));
+    });
+    if (!aliasHits.length) {
       hardViolations.push('employmentTypes');
     }
   }
@@ -143,7 +182,7 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
         : item.value === 'hybrid'
           ? ['hybrid', 'hybryd']
           : [item.value];
-    const matched = aliases.some((alias) => text.toLowerCase().includes(alias));
+    const matched = aliases.some((alias) => normalizedText.includes(alias));
     if (!matched) {
       softGaps.push(`workMode:${item.value}`);
       return acc;
@@ -152,7 +191,8 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
   }, 0);
 
   const softEmploymentTypeScore = profile.workPreferences.softPreferences.employmentTypes.reduce((acc, item) => {
-    const matched = text.toLowerCase().includes(item.value.toLowerCase());
+    const aliases = EMPLOYMENT_ALIASES[item.value] ?? [item.value];
+    const matched = aliases.some((alias) => normalizedText.includes(alias));
     if (!matched) {
       softGaps.push(`employmentType:${item.value}`);
       return acc;
@@ -173,9 +213,13 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
     : 0;
 
   const competencyScore = competencyTotalWeight > 0 ? (competencyMatchedWeight / competencyTotalWeight) * 48 : 0;
+  const contextPenalty =
+    (normalizeString(context.title ?? '') ? 0 : 5) +
+    ((context.text ?? '').trim().length >= 80 ? 0 : 5) +
+    (senioritySignal.ambiguous ? 4 : 0);
 
   const breakdown = {
-    competencyFit: Math.round(competencyScore),
+    competencyFit: Math.round(Math.max(0, competencyScore - contextPenalty)),
     roleFit: Math.round(roleScore),
     keywordFit: Math.round(keywordScore),
     softWorkModes: Math.round(softWorkModeScore),
