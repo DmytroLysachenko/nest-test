@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3002 --hostname localhost",
     "build": "next build",
-    "start": "next dev --port 3002 --hostname localhost",
+    "start": "next start --port 3002 --hostname 0.0.0.0",
     "start:prod": "next start --port 3002 --hostname localhost",
     "lint": "eslint .",
     "check-types": "tsc --noEmit --pretty",
