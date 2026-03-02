@@ -6,9 +6,11 @@ const env = loadEnv();
 const logger = createLogger(env);
 
 const server = createTaskServer(env, logger);
+const cloudRunPort = Number(process.env.PORT);
+const listenPort = Number.isFinite(cloudRunPort) && cloudRunPort > 0 ? cloudRunPort : env.WORKER_PORT;
 
-server.listen(env.WORKER_PORT, () => {
-  logger.info({ port: env.WORKER_PORT, queueProvider: env.QUEUE_PROVIDER }, 'Worker task server listening');
+server.listen(listenPort, () => {
+  logger.info({ port: listenPort, queueProvider: env.QUEUE_PROVIDER }, 'Worker task server listening');
 });
 
 const shutdown = (signal: string) => {
