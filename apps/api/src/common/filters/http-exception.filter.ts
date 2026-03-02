@@ -1,6 +1,16 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 
+const FRIENDLY_MESSAGES: Partial<Record<number, string>> = {
+  [HttpStatus.BAD_REQUEST]: 'Request validation failed.',
+  [HttpStatus.UNAUTHORIZED]: 'Invalid credentials or unauthorized request.',
+  [HttpStatus.FORBIDDEN]: 'You do not have permission to perform this action.',
+  [HttpStatus.NOT_FOUND]: 'Requested resource was not found.',
+  [HttpStatus.CONFLICT]: 'Request conflicts with current state.',
+  [HttpStatus.TOO_MANY_REQUESTS]: 'Too many requests. Please try again later.',
+  [HttpStatus.INTERNAL_SERVER_ERROR]: 'Something went wrong. Please try again.',
+};
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
@@ -49,10 +59,44 @@ export class HttpExceptionFilter implements ExceptionFilter {
     message: string;
     details?: string[];
   } {
+    const sanitizeMessage = (status: number, message: string) => {
+      const normalized = message.trim();
+      if (
+        status === HttpStatus.UNAUTHORIZED ||
+        status === HttpStatus.FORBIDDEN ||
+        status === HttpStatus.NOT_FOUND ||
+        status === HttpStatus.CONFLICT ||
+        status === HttpStatus.TOO_MANY_REQUESTS
+      ) {
+        return FRIENDLY_MESSAGES[status]!;
+      }
+      if (status >= 500) {
+        return FRIENDLY_MESSAGES[HttpStatus.INTERNAL_SERVER_ERROR]!;
+      }
+
+      // Guard against accidental leakage of SQL/stack internals in 4xx payloads.
+      const lower = normalized.toLowerCase();
+      if (
+        lower.includes('failed query') ||
+        lower.includes('syntax error at or near') ||
+        lower.includes('sql') ||
+        lower.includes('relation "') ||
+        lower.includes('stack')
+      ) {
+        return FRIENDLY_MESSAGES[status] ?? 'Request failed.';
+      }
+
+      return normalized || FRIENDLY_MESSAGES[status] || 'Request failed.';
+    };
+
     if (exception instanceof HttpException) {
+      const status = exception.getStatus();
       const res = exception.getResponse();
       if (typeof res === 'string') {
-        return { error: exception.name, message: res };
+        return {
+          error: exception.name,
+          message: sanitizeMessage(status, res),
+        };
       }
       if (typeof res === 'object' && res !== null) {
         const obj = res as any;
@@ -60,14 +104,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const details = Array.isArray(rawMessage) ? rawMessage : undefined;
         return {
           error: obj.error || exception.name,
-          message: Array.isArray(rawMessage) ? 'Validation failed' : rawMessage,
+          message: Array.isArray(rawMessage)
+            ? FRIENDLY_MESSAGES[HttpStatus.BAD_REQUEST]!
+            : sanitizeMessage(status, String(rawMessage)),
           details,
         };
       }
     }
     return {
       error: 'INTERNAL_SERVER_ERROR',
-      message: (exception as any)?.message || 'Internal server error',
+      message: FRIENDLY_MESSAGES[HttpStatus.INTERNAL_SERVER_ERROR]!,
     };
   }
 }

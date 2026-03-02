@@ -33,12 +33,18 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, password: string) {
-    const user = await this.db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.email, email))
-      .limit(1)
-      .then((res) => res[0]);
+    let user: typeof usersTable.$inferSelect | undefined;
+    try {
+      user = await this.db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.email, email))
+        .limit(1)
+        .then((res) => res[0]);
+    } catch (error) {
+      this.logger.error({ error }, 'User lookup failed during login');
+      throw new InternalServerErrorException('Login service unavailable');
+    }
 
     if (!user) {
       throw new UserNotFoundException('User not found');
