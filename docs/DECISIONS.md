@@ -140,9 +140,9 @@ ADR-lite log for major architectural and contract decisions.
 ## 2026-02-25: Guided Onboarding + Notebook-First App Entry
 
 - Decision:
-  - Add `/app/onboarding` as primary guided flow (preferences -> documents -> review/generate).
-  - Route users without ready profile from `/app` to onboarding.
-  - Keep `/app` focused on notebook-first dashboard summary.
+  - Add `/onboarding` as primary guided flow (preferences -> documents -> review/generate).
+  - Route users without ready profile from `/` to onboarding.
+  - Keep `/` focused on notebook-first dashboard summary.
 - Why:
   - Reduces cognitive load from panel-heavy internal-tool layout.
   - Aligns product UX with user journey and improves completion rate.

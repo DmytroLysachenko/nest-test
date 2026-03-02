@@ -132,7 +132,7 @@ test('onboarding flow saves structured input and triggers generation', async ({ 
     });
   });
 
-  await page.goto('/app/onboarding', { waitUntil: 'domcontentloaded' });
+  await page.goto('/onboarding', { waitUntil: 'domcontentloaded' });
 
   await expect(page.getByText('Build your job-search profile')).toBeVisible();
 
@@ -241,7 +241,7 @@ test('onboarding loads server draft into form', async ({ page }) => {
     });
   });
 
-  await page.goto('/app/onboarding', { waitUntil: 'domcontentloaded' });
+  await page.goto('/onboarding', { waitUntil: 'domcontentloaded' });
 
   await expect(page.getByRole('button', { name: 'Load server draft' })).toBeVisible();
   await page.getByRole('button', { name: 'Load server draft' }).click();
@@ -317,7 +317,7 @@ test('onboarding keeps step-one values after reload via local draft persistence'
     });
   });
 
-  await page.goto('/app/onboarding', { waitUntil: 'domcontentloaded' });
+  await page.goto('/onboarding', { waitUntil: 'domcontentloaded' });
 
   await page.getByPlaceholder('e.g. Frontend Developer').fill('Data Engineer');
   await page.getByPlaceholder('e.g. Frontend Developer').press('Enter');

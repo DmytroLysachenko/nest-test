@@ -1,5 +1,5 @@
 import { OnboardingPage } from '@/features/onboarding';
 
-export default function AppOnboardingRoute() {
+export default function OnboardingRoute() {
   return <OnboardingPage />;
 }

@@ -7,7 +7,7 @@ import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { NotebookPage } from '@/features/job-offers';
 import { useWorkflowState } from '@/features/workflow/model/use-workflow-state';
 
-export default function AppNotebookRoute() {
+export default function NotebookRoute() {
   const router = useRouter();
   const auth = useRequireAuth();
   const workflow = useWorkflowState(auth.token);
@@ -17,23 +17,21 @@ export default function AppNotebookRoute() {
       return;
     }
     if (!workflow.isLoading && !workflow.allowNotebook) {
-      router.replace('/app?blocked=notebook');
+      router.replace('/?blocked=notebook');
     }
   }, [auth.token, router, workflow.allowNotebook, workflow.isLoading]);
 
   if (!auth.token) {
-    return <main className="mx-auto max-w-6xl px-4 py-10 text-sm text-slate-500">Checking session...</main>;
+    return <main className="app-page text-muted-foreground text-sm">Checking session...</main>;
   }
 
   if (workflow.isLoading) {
-    return <main className="mx-auto max-w-6xl px-4 py-10 text-sm text-slate-500">Checking notebook readiness...</main>;
+    return <main className="app-page text-muted-foreground text-sm">Checking notebook readiness...</main>;
   }
 
   if (!workflow.allowNotebook) {
     return (
-      <main className="mx-auto max-w-6xl px-4 py-10 text-sm text-slate-500">
-        Notebook is locked until a scrape run completes.
-      </main>
+      <main className="app-page text-muted-foreground text-sm">Notebook is locked until a scrape run completes.</main>
     );
   }
 

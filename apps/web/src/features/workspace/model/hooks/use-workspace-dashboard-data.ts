@@ -23,7 +23,7 @@ export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceD
       return;
     }
     if (summaryQuery.data.workflow.needsOnboarding) {
-      router.replace('/app/onboarding');
+      router.replace('/onboarding');
     }
   }, [router, summaryQuery.data, summaryQuery.isLoading, token]);
 

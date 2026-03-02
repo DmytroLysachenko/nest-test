@@ -61,9 +61,9 @@ Last updated: 2026-03-02
 - Documents expose upload health and per-document diagnostics timeline endpoints.
 - Documents now persist stage duration metrics (`document_stage_metrics`) and expose percentile summary endpoint (`/documents/diagnostics/summary`).
 - Profile management page now includes direct document upload/confirm/extract flow with diagnostics visibility.
-- New guided onboarding flow is available at `/app/onboarding` with persisted draft state and step-based UX.
+- New guided onboarding flow is available at `/onboarding` with persisted draft state and step-based UX.
 - Profile input now supports structured intake payload (`intake_payload`) used for deterministic normalization.
-- Main `/app` workspace is notebook-first dashboard; users without ready profile are redirected to onboarding.
+- Main `/` workspace is notebook-first dashboard; users without ready profile are redirected to onboarding.
 - Onboarding draft persistence now supports both local draft and server-side draft recovery (`/onboarding/draft`).
 - Workspace summary read model (`/workspace/summary`) powers dashboard cards and onboarding guard decisions.
 - Workspace summary supports optional in-memory ttl cache (`WORKSPACE_SUMMARY_CACHE_TTL_SEC`).

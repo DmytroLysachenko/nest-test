@@ -124,6 +124,6 @@ test('dashboard redirects to onboarding when summary requires it', async ({ page
     });
   });
 
-  await page.goto('/app', { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(/\/app\/onboarding$/);
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await expect(page).toHaveURL(/\/onboarding$/);
 });

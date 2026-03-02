@@ -68,7 +68,7 @@ export const useOnboardingMutations = ({ token, draft, resetDraft }: UseOnboardi
         queryKeys.onboarding.draft(token),
       ]);
       toastSuccess('Profile created successfully');
-      router.push('/app');
+      router.push('/');
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : 'Failed to generate profile';

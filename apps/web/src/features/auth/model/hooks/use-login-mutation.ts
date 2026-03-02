@@ -2,13 +2,13 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import type { UseFormReturn } from 'react-hook-form';
 
 import { login } from '@/features/auth/api/auth-api';
 import { getLatestCareerProfile } from '@/features/career-profiles/api/career-profiles-api';
 import { getLatestProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
 import { setRootServerError } from '@/shared/lib/forms/set-root-server-error';
 
+import type { UseFormReturn } from 'react-hook-form';
 import type { LoginFormValues } from '@/features/auth/model/validation/auth-schemas';
 import type { UserDto } from '@/shared/types/api';
 
@@ -31,13 +31,13 @@ export const useLoginMutation = ({ form, setSession }: UseLoginMutationArgs) => 
         ]);
 
         if (!profileInput || latestProfile?.status !== 'READY') {
-          router.push('/app/onboarding');
+          router.push('/onboarding');
           return;
         }
 
-        router.push('/app');
+        router.push('/');
       } catch {
-        router.push('/app');
+        router.push('/');
       }
     },
     onError: (error: unknown) => {

@@ -135,9 +135,9 @@ For exact variable-level mapping and secret sources, use:
 
 ## Web Entry Routes
 
-1. Main dashboard: `/app`
-2. Guided profile onboarding: `/app/onboarding`
-3. Internal endpoint tester (dev flag): `/app/tester`
+1. Main dashboard: `/`
+2. Guided profile onboarding: `/onboarding`
+3. Internal endpoint tester (dev flag): `/tester`
 4. Admin ops metrics: `GET /api/ops/metrics`
 5. Job match audit export: `GET /api/job-matching/audit/export.csv`
 6. Document diagnostics summary: `GET /api/documents/diagnostics/summary`

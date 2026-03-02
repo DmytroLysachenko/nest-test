@@ -1,5 +1,5 @@
 import { ProfileManagementPage } from '@/features/profile-management';
 
-export default function AppProfileManagementRoute() {
+export default function ProfileRoute() {
   return <ProfileManagementPage />;
 }

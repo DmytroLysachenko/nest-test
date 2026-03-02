@@ -1,5 +1,5 @@
 import { WorkspaceDashboardPage } from '@/features/workspace';
 
-export default function AppDashboardPageRoute() {
+export default function DashboardPageRoute() {
   return <WorkspaceDashboardPage />;
 }

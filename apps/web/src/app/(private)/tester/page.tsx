@@ -5,7 +5,7 @@ import { env } from '@/shared/config/env';
 
 const testerEnabled = process.env.NODE_ENV !== 'production' && env.NEXT_PUBLIC_ENABLE_TESTER;
 
-export default function AppTesterRoute() {
+export default function TesterRoute() {
   if (!testerEnabled) {
     notFound();
   }
