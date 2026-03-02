@@ -22,7 +22,14 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
       - name: Validate release input
         run: |
+          require_https() {
+            case "$1" in
+              https://*) return 0 ;;
+              *) echo "Expected https URL, got: $1" && return 1 ;;
+            esac
+          }
           test -n "${{ inputs.release_sha }}" || (echo "release_sha is required" && exit 1)
+          echo "${{ inputs.release_sha }}" | grep -Eq '^[0-9a-f]{40}$' || (echo "release_sha must be a full 40-char git SHA" && exit 1)
           test -n "${{ vars.GCP_PROJECT_ID }}" || (echo "Missing vars.GCP_PROJECT_ID" && exit 1)
           test -n "${{ vars.GCP_REGION }}" || (echo "Missing vars.GCP_REGION" && exit 1)
           test -n "${{ vars.GAR_REPOSITORY }}" || (echo "Missing vars.GAR_REPOSITORY" && exit 1)
@@ -32,6 +39,9 @@ jobs:
           test -n "${{ vars.GCP_API_BASE_URL }}" || (echo "Missing vars.GCP_API_BASE_URL" && exit 1)
           test -n "${{ vars.GCP_WORKER_BASE_URL }}" || (echo "Missing vars.GCP_WORKER_BASE_URL" && exit 1)
           test -n "${{ vars.GCP_WEB_BASE_URL }}" || (echo "Missing vars.GCP_WEB_BASE_URL" && exit 1)
+          require_https "${{ vars.GCP_API_BASE_URL }}" || exit 1
+          require_https "${{ vars.GCP_WORKER_BASE_URL }}" || exit 1
+          require_https "${{ vars.GCP_WEB_BASE_URL }}" || exit 1
           echo "Promoting release SHA=${{ inputs.release_sha }}"
       - name: Deploy API image
         run: |
