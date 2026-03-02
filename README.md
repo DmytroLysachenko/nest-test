@@ -24,6 +24,7 @@ Read these instead of expanding this README:
 - Key architecture decisions: `docs/DECISIONS.md`
 - Frontend architecture standards: `docs/FRONTEND_STANDARDS.md`
 - Local run/test commands: `docs/RUNBOOK.md`
+- GCP runtime/deploy matrix: `docs/GCP_DEPLOY_MATRIX.md`
 - Operational recovery: `docs/operations-runbook.md`
 - Scraper mapping reference: `docs/pracuj-query-mapping.md`
 

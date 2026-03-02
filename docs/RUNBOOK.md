@@ -82,6 +82,10 @@ Day-to-day engineering runbook for local development and verification.
 
 ## GCP Release/Promotion Variables
 
+Canonical source for deployment/runtime values is:
+
+- `docs/GCP_DEPLOY_MATRIX.md`
+
 Configure repository/environment variables:
 
 1. `vars.GCP_PROJECT_ID`
@@ -98,6 +102,36 @@ Configure repository/environment secrets:
 
 1. `secrets.GCP_WORKLOAD_IDENTITY_PROVIDER`
 2. `secrets.GCP_DEPLOYER_SERVICE_ACCOUNT`
+
+## Cloud Run Runtime Contract
+
+For exact variable-level mapping and secret sources, use:
+
+- `docs/GCP_DEPLOY_MATRIX.md`
+
+1. API:
+   - `PORT` is provided by Cloud Run (app already binds from env).
+   - `ALLOWED_ORIGINS` must be explicit in production (no `*`).
+2. Worker:
+   - `QUEUE_PROVIDER=local` for current production flow (API -> worker `/tasks` HTTP enqueue).
+   - Worker binds to Cloud Run `PORT` when present; local fallback is `WORKER_PORT`.
+   - Recommended service env: `WORKER_PORT=4001` for local only, `PORT` from Cloud Run in production.
+3. Web:
+   - Production start binds `0.0.0.0` and reads `PORT` (Cloud Run compatible).
+   - `NEXT_PUBLIC_API_URL` must point to deployed API base URL (with `/api` suffix).
+   - `NEXT_PUBLIC_ENABLE_TESTER=false` in production.
+
+## First Production Rollout Checklist
+
+1. Merge to main and ensure `CI Verify` + `Smoke Gate` are green.
+2. Create release tag:
+   - `git tag rc-YYYYMMDD-01`
+   - `git push origin rc-YYYYMMDD-01`
+3. Wait for `Release Candidate / build-and-validate` to publish images.
+4. Run `Promote To Prod` with full 40-char release SHA.
+5. Validate health via workflow post-deploy verify.
+6. Run smoke against deployed URLs:
+   - `API_BASE_URL=<api-url> WORKER_BASE_URL=<worker-url> WEB_BASE_URL=<web-url> SMOKE_SKIP_SEED=true pnpm smoke:e2e`
 
 ## Web Entry Routes
 

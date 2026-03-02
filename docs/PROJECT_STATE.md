@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-03-01
+Last updated: 2026-03-02
 
 ## Current Architecture
 
@@ -111,3 +111,6 @@ Last updated: 2026-03-01
 - CI now uses split quality gates (`CI Verify`, `Smoke Gate`) and release candidate + manual promote workflows.
 - Release candidate now builds and pushes api/worker/web container images to GCP Artifact Registry.
 - Manual production promotion now deploys pinned SHA images to Cloud Run and runs post-deploy health verification.
+- Web production runtime now binds `0.0.0.0:$PORT` for Cloud Run compatibility.
+- Worker runtime now prioritizes Cloud Run `PORT` with local fallback to `WORKER_PORT`.
+- Canonical deployment/runtime env+secret contract is documented in `docs/GCP_DEPLOY_MATRIX.md`.

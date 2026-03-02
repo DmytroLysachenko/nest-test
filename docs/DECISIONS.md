@@ -313,3 +313,24 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Remove shared static callback token requirement in Cloud Run service-to-service calls.
   - Improve production secret hygiene while preserving deterministic callback authentication.
+
+## 2026-03-02: Cloud Run Runtime Port/Host Contract Hardening
+
+- Decision:
+  - Web production start must bind `0.0.0.0` and use Cloud Run `PORT` dynamically.
+  - Worker runtime must prefer Cloud Run `PORT` when present, with `WORKER_PORT` as local fallback.
+  - Production promotion workflow validates full release SHA format and enforces `https` deployment base URLs.
+- Why:
+  - Prevent startup failures caused by fixed localhost/port assumptions in managed runtime.
+  - Reduce production rollout errors by failing fast on invalid promotion inputs.
+
+## 2026-03-02: Canonical GCP Deploy Matrix
+
+- Decision:
+  - Introduce `docs/GCP_DEPLOY_MATRIX.md` as the single source of truth for:
+    - repository-level CI/CD variables and secrets
+    - service-level runtime env and secret mapping
+    - Cloud Run baseline settings and rollout sequence
+- Why:
+  - Reduce deployment drift between docs, workflows, and Cloud Run configuration.
+  - Make first and repeat promotions deterministic and easier to audit.
