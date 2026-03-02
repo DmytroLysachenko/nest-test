@@ -17,7 +17,7 @@ export const TesterPage = ({ token }: TesterPageProps) => {
   const testerPage = useTesterPage(token);
 
   if (!testerPage.mounted) {
-    return <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 md:py-8" />;
+    return <main className="app-page flex max-w-6xl flex-col gap-4" />;
   }
 
   const {
@@ -27,7 +27,7 @@ export const TesterPage = ({ token }: TesterPageProps) => {
   } = testerPage.form;
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 md:py-8">
+    <main className="app-page flex max-w-6xl flex-col gap-4">
       <CareerProfileSearchViewPanel token={token} />
 
       <Card
@@ -41,7 +41,7 @@ export const TesterPage = ({ token }: TesterPageProps) => {
               id="tester-preset"
               value={testerPage.selectedPresetId}
               onChange={(event) => testerPage.setSelectedPresetId(event.target.value)}
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+              className="app-select"
             >
               {testerEndpointPresets.map((preset) => (
                 <option key={preset.id} value={preset.id}>
@@ -53,15 +53,15 @@ export const TesterPage = ({ token }: TesterPageProps) => {
               Apply preset
             </Button>
             {testerPage.selectedPreset?.notes ? (
-              <p className="text-xs text-slate-500">{testerPage.selectedPreset.notes}</p>
+              <p className="text-muted-foreground text-xs">{testerPage.selectedPreset.notes}</p>
             ) : null}
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium text-slate-800">Environment targets</p>
-            <p className="text-xs text-slate-600">API base: {testerPage.targets.apiBaseUrl}</p>
-            <p className="text-xs text-slate-600">Worker base: {testerPage.targets.workerBaseUrl}</p>
-            <p className="text-xs text-slate-600">
+            <p className="text-foreground text-sm font-medium">Environment targets</p>
+            <p className="text-muted-foreground text-xs">API base: {testerPage.targets.apiBaseUrl}</p>
+            <p className="text-muted-foreground text-xs">Worker base: {testerPage.targets.workerBaseUrl}</p>
+            <p className="text-muted-foreground text-xs">
               User token attached: {watch('useApiToken') === 'yes' ? 'yes' : 'no'}
             </p>
           </div>
@@ -73,11 +73,7 @@ export const TesterPage = ({ token }: TesterPageProps) => {
           <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-1">
               <Label htmlFor="tester-service">Service</Label>
-              <select
-                id="tester-service"
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                {...register('service')}
-              >
+              <select id="tester-service" className="app-select" {...register('service')}>
                 <option value="api">API</option>
                 <option value="worker">Worker</option>
               </select>
@@ -85,11 +81,7 @@ export const TesterPage = ({ token }: TesterPageProps) => {
 
             <div className="space-y-1">
               <Label htmlFor="tester-method">Method</Label>
-              <select
-                id="tester-method"
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                {...register('method')}
-              >
+              <select id="tester-method" className="app-select" {...register('method')}>
                 <option value="GET">GET</option>
                 <option value="POST">POST</option>
                 <option value="PUT">PUT</option>
@@ -100,11 +92,7 @@ export const TesterPage = ({ token }: TesterPageProps) => {
 
             <div className="space-y-1">
               <Label htmlFor="tester-api-auth">Attach API bearer token</Label>
-              <select
-                id="tester-api-auth"
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                {...register('useApiToken')}
-              >
+              <select id="tester-api-auth" className="app-select" {...register('useApiToken')}>
                 <option value="yes">yes</option>
                 <option value="no">no</option>
               </select>
@@ -153,23 +141,19 @@ export const TesterPage = ({ token }: TesterPageProps) => {
         {testerPage.mutation.data ? (
           <div className="space-y-4">
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-slate-900">Request</p>
-              <pre className="max-h-80 overflow-auto rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800">
-                {testerPage.formatJson(testerPage.mutation.data.request)}
-              </pre>
+              <p className="text-foreground text-sm font-semibold">Request</p>
+              <pre className="app-code max-h-80">{testerPage.formatJson(testerPage.mutation.data.request)}</pre>
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="text-foreground text-sm font-semibold">
                 Response: {testerPage.mutation.data.response.status}{' '}
                 {testerPage.mutation.data.response.ok ? '(ok)' : '(error)'}
               </p>
-              <pre className="max-h-96 overflow-auto rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800">
-                {testerPage.formatJson(testerPage.mutation.data.response)}
-              </pre>
+              <pre className="app-code">{testerPage.formatJson(testerPage.mutation.data.response)}</pre>
             </div>
           </div>
         ) : (
-          <p className="text-sm text-slate-500">No requests sent yet.</p>
+          <p className="text-muted-foreground text-sm">No requests sent yet.</p>
         )}
       </Card>
     </main>

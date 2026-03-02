@@ -1,20 +1,25 @@
 import { type ReactNode } from 'react';
 import { Card as ShadcnCard, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/card';
+import { cn } from '@repo/ui/lib/utils';
 
 type CardProps = {
   title: string;
   description?: string;
   children: ReactNode;
+  className?: string;
+  contentClassName?: string;
 };
 
-export const Card = ({ title, description, children }: CardProps) => {
+export const Card = ({ title, description, children, className, contentClassName }: CardProps) => {
   return (
-    <ShadcnCard className="border-slate-200 bg-white/90 backdrop-blur">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        {description ? <CardDescription>{description}</CardDescription> : null}
+    <ShadcnCard className={cn('border-border/80 bg-card/90 rounded-2xl shadow-sm backdrop-blur-sm', className)}>
+      <CardHeader className="gap-2 px-5 pt-5">
+        <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+        {description ? (
+          <CardDescription className="text-muted-foreground text-sm">{description}</CardDescription>
+        ) : null}
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className={cn('px-5 pb-5', contentClassName)}>{children}</CardContent>
     </ShadcnCard>
   );
 };

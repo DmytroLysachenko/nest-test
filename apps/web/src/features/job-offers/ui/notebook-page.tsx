@@ -21,7 +21,7 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
   }, [setLastVisitedSection]);
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-6 md:py-8">
+    <main className="app-page flex flex-col gap-4">
       <NotebookFiltersCard
         status={notebook.filters.status}
         mode={notebook.filters.mode}
@@ -45,7 +45,7 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
         onSearchChange={(value) => notebook.setNotebookFilter('search', value)}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
         <NotebookOffersListCard
           offers={notebook.listQuery.data?.items ?? []}
           selectedId={notebook.selectedId}

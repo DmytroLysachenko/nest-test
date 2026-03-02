@@ -37,9 +37,9 @@ export const TagInput = ({ label, placeholder, values, onChange, disabled = fals
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-slate-800">
+      <p className="text-foreground text-sm font-medium">
         {label}{' '}
-        <span className="text-xs font-normal text-slate-500">
+        <span className="text-muted-foreground text-xs font-normal">
           ({values.length}/{maxItems})
         </span>
       </p>
@@ -67,16 +67,16 @@ export const TagInput = ({ label, placeholder, values, onChange, disabled = fals
               key={value}
               type="button"
               disabled={disabled}
-              className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs text-slate-700 hover:bg-slate-200 disabled:opacity-60"
+              className="app-badge hover:bg-muted/85 disabled:opacity-60"
               onClick={() => removeTag(value)}
               title="Remove"
             >
-              {value} ×
+              {value} x
             </button>
           ))}
         </div>
       ) : (
-        <p className="text-xs text-slate-500">No values added yet.</p>
+        <p className="text-muted-foreground text-xs">No values added yet.</p>
       )}
       {values.length >= maxItems ? <p className="text-xs text-amber-700">Maximum number of items reached.</p> : null}
     </div>

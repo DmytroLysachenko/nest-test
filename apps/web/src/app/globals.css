@@ -1,15 +1,89 @@
 @import '@repo/ui/globals.css';
 
 :root {
-  --canvas: #f4f1ea;
-  --text: #0f172a;
+  --background: oklch(0.95 0.011 75.34);
+  --foreground: oklch(0.24 0.019 268.83);
+  --card: oklch(0.98 0.007 84.57);
+  --card-foreground: oklch(0.24 0.019 268.83);
+  --popover: oklch(0.99 0.004 84.57);
+  --popover-foreground: oklch(0.24 0.019 268.83);
+  --primary: oklch(0.57 0.19 40.17);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.89 0.016 79.52);
+  --secondary-foreground: oklch(0.31 0.02 266.12);
+  --muted: oklch(0.92 0.012 80.04);
+  --muted-foreground: oklch(0.47 0.02 262.13);
+  --accent: oklch(0.86 0.12 42.45);
+  --accent-foreground: oklch(0.25 0.015 261.33);
+  --destructive: oklch(0.61 0.21 25.34);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.88 0.01 82.13);
+  --input: oklch(0.99 0.003 80.12);
+  --ring: oklch(0.57 0.19 40.17);
+  --radius: 0.95rem;
+  --sidebar: oklch(0.19 0.015 264.19);
+  --sidebar-foreground: oklch(0.96 0.005 80.12);
+  --sidebar-primary: oklch(0.57 0.19 40.17);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.27 0.016 264.51);
+  --sidebar-accent-foreground: oklch(0.96 0.005 80.12);
+  --sidebar-border: oklch(0.31 0.01 265.13);
+  --sidebar-ring: oklch(0.57 0.19 40.17);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-heading);
 }
 
 body {
   background:
-    radial-gradient(1200px 400px at 100% -20%, rgba(251, 191, 36, 0.2), transparent 60%),
-    radial-gradient(900px 300px at 0% 0%, rgba(20, 184, 166, 0.14), transparent 55%),
-    var(--canvas);
-  color: var(--text);
-  font-family: 'Space Grotesk', 'Segoe UI', 'Inter', sans-serif;
+    radial-gradient(1200px 460px at 110% -16%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 60%),
+    radial-gradient(960px 360px at -8% 0%, color-mix(in oklab, var(--primary) 14%, transparent), transparent 58%),
+    var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), 'Segoe UI', sans-serif;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display), var(--font-body), 'Segoe UI', sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  .app-page {
+    @apply mx-auto w-full max-w-7xl px-4 py-6 md:px-6 md:py-8;
+  }
+
+  .app-page-header {
+    @apply border-border/80 bg-card/85 rounded-2xl border p-5 shadow-sm backdrop-blur-sm;
+  }
+
+  .app-title {
+    @apply text-foreground text-2xl font-semibold md:text-3xl;
+  }
+
+  .app-subtitle {
+    @apply text-muted-foreground text-sm;
+  }
+
+  .app-select {
+    @apply border-border bg-input text-foreground shadow-xs focus:border-ring focus-visible:ring-ring/30 h-10 w-full rounded-xl border px-3 text-sm outline-none transition-colors focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .app-muted-panel {
+    @apply border-border/80 bg-muted/50 rounded-xl border p-3;
+  }
+
+  .app-badge {
+    @apply border-border bg-muted text-secondary-foreground inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium;
+  }
+
+  .app-code {
+    @apply border-border/80 bg-muted/55 text-foreground max-h-96 overflow-auto rounded-xl border p-3 text-xs;
+  }
 }

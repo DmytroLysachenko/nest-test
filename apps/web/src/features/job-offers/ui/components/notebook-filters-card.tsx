@@ -53,7 +53,7 @@ export const NotebookFiltersCard = ({
           id="notebook-status"
           value={status}
           onChange={(event) => onStatusChange(event.target.value as 'ALL' | JobOfferStatus)}
-          className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+          className="app-select"
         >
           <option value="ALL">ALL</option>
           {STATUSES.map((statusOption) => (
@@ -70,7 +70,7 @@ export const NotebookFiltersCard = ({
           id="notebook-mode"
           value={mode}
           onChange={(event) => onModeChange(event.target.value as 'strict' | 'approx' | 'explore')}
-          className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+          className="app-select"
         >
           <option value="strict">strict</option>
           <option value="approx">approx</option>
@@ -84,7 +84,7 @@ export const NotebookFiltersCard = ({
           id="notebook-has-score"
           value={hasScore}
           onChange={(event) => onHasScoreChange(event.target.value as 'all' | 'yes' | 'no')}
-          className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+          className="app-select"
         >
           <option value="all">all</option>
           <option value="yes">yes</option>
@@ -114,11 +114,11 @@ export const NotebookFiltersCard = ({
     </div>
 
     <div className="mt-3 flex flex-wrap items-center gap-2">
-      <p className="text-xs text-slate-500">Total: {total}</p>
+      <p className="text-muted-foreground text-xs">Total: {total}</p>
       <Button type="button" variant="secondary" onClick={onEnqueueProfileScrape} disabled={isEnqueueingScrape}>
         {isEnqueueingScrape ? 'Enqueuing scrape...' : 'Enqueue profile scrape'}
       </Button>
-      {enqueueStatus ? <p className="text-xs text-slate-600">{enqueueStatus}</p> : null}
+      {enqueueStatus ? <p className="text-secondary-foreground text-xs">{enqueueStatus}</p> : null}
     </div>
   </Card>
 );

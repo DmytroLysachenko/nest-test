@@ -35,23 +35,19 @@ export const NotebookOffersListCard = ({
             type="button"
             onClick={() => onSelectOffer(offer.id)}
             className={`w-full rounded-md border p-3 text-left text-sm transition ${
-              selectedId === offer.id ? 'border-sky-400 bg-sky-50' : 'border-slate-200 bg-white hover:border-slate-300'
+              selectedId === offer.id ? 'border-primary bg-accent/20' : 'border-border bg-card hover:border-primary/35'
             }`}
           >
-            <p className="font-semibold text-slate-900">{offer.title}</p>
-            <p className="text-slate-600">{offer.company ?? 'Unknown company'}</p>
-            <p className="text-xs text-slate-500">{offer.location ?? 'Unknown location'}</p>
+            <p className="text-foreground font-semibold">{offer.title}</p>
+            <p className="text-secondary-foreground">{offer.company ?? 'Unknown company'}</p>
+            <p className="text-muted-foreground text-xs">{offer.location ?? 'Unknown location'}</p>
             <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              <span className="rounded bg-slate-100 px-2 py-1">status: {offer.status}</span>
-              <span className="rounded bg-slate-100 px-2 py-1">score: {offer.matchScore ?? 'n/a'}</span>
-              {offer.rankingScore !== undefined ? (
-                <span className="rounded bg-slate-100 px-2 py-1">rank: {offer.rankingScore}</span>
-              ) : null}
-              {offer.sourceRunId ? (
-                <span className="rounded bg-slate-100 px-2 py-1">run: {offer.sourceRunId.slice(0, 8)}</span>
-              ) : null}
+              <span className="app-badge">status: {offer.status}</span>
+              <span className="app-badge">score: {offer.matchScore ?? 'n/a'}</span>
+              {offer.rankingScore !== undefined ? <span className="app-badge">rank: {offer.rankingScore}</span> : null}
+              {offer.sourceRunId ? <span className="app-badge">run: {offer.sourceRunId.slice(0, 8)}</span> : null}
               {(offer.explanationTags ?? []).slice(0, 3).map((tag) => (
-                <span key={tag} className="rounded bg-slate-100 px-2 py-1">
+                <span key={tag} className="app-badge">
                   {tag}
                 </span>
               ))}
@@ -59,7 +55,7 @@ export const NotebookOffersListCard = ({
           </button>
         ))
       ) : (
-        <p className="text-sm text-slate-500">No offers found for current filters.</p>
+        <p className="text-muted-foreground text-sm">No offers found for current filters.</p>
       )}
     </div>
 
@@ -67,7 +63,7 @@ export const NotebookOffersListCard = ({
       <Button type="button" variant="secondary" disabled={!canPrev} onClick={onPrev}>
         Previous
       </Button>
-      <p className="text-xs text-slate-500">Offset: {offset}</p>
+      <p className="text-muted-foreground text-xs">Offset: {offset}</p>
       <Button type="button" variant="secondary" disabled={!canNext} onClick={onNext}>
         Next
       </Button>

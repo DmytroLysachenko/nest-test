@@ -36,7 +36,7 @@ export const NotebookOfferDetailsCard = ({
   if (!offer) {
     return (
       <Card title="Offer details" description="Select an offer from the list to inspect and edit it.">
-        <p className="text-sm text-slate-500">No offer selected.</p>
+        <p className="text-muted-foreground text-sm">No offer selected.</p>
       </Card>
     );
   }
@@ -46,13 +46,13 @@ export const NotebookOfferDetailsCard = ({
   return (
     <Card title="Offer details" description={offer.title}>
       <div className="space-y-3 text-sm">
-        <p className="text-slate-700">
+        <p className="text-secondary-foreground">
           {offer.company ?? 'Unknown company'} | {offer.location ?? 'Unknown location'}
         </p>
-        <p className="text-slate-700">
+        <p className="text-secondary-foreground">
           Current status: <span className="font-semibold">{offer.status}</span>
         </p>
-        <p className="text-slate-700">
+        <p className="text-secondary-foreground">
           Current score: <span className="font-semibold">{offer.matchScore ?? 'n/a'}</span>
         </p>
 
@@ -100,30 +100,32 @@ export const NotebookOfferDetailsCard = ({
           </Button>
           {offer.sourceRunId ? (
             <Link
-              href="/app/tester"
-              className="inline-flex items-center rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-700"
+              href="/tester"
+              className="border-border bg-card text-secondary-foreground inline-flex items-center rounded-xl border px-3 py-2 text-xs"
             >
               Open tester for run: {offer.sourceRunId.slice(0, 8)}
             </Link>
           ) : null}
         </div>
 
-        <details className="rounded-md border border-slate-200 bg-slate-50 p-2">
-          <summary className="cursor-pointer font-medium text-slate-800">Score explanation (matchMeta)</summary>
-          <pre className="mt-2 max-h-48 overflow-auto text-xs text-slate-700">{JSON.stringify(matchMeta, null, 2)}</pre>
+        <details className="app-muted-panel">
+          <summary className="text-foreground cursor-pointer font-medium">Score explanation (matchMeta)</summary>
+          <pre className="text-secondary-foreground mt-2 max-h-48 overflow-auto text-xs">
+            {JSON.stringify(matchMeta, null, 2)}
+          </pre>
         </details>
 
-        <details className="rounded-md border border-slate-200 bg-slate-50 p-2">
-          <summary className="cursor-pointer font-medium text-slate-800">Description</summary>
-          <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-slate-700">
+        <details className="app-muted-panel">
+          <summary className="text-foreground cursor-pointer font-medium">Description</summary>
+          <pre className="text-secondary-foreground mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs">
             {offer.description}
           </pre>
         </details>
 
         {history ? (
-          <details className="rounded-md border border-slate-200 bg-slate-50 p-2" open>
-            <summary className="cursor-pointer font-medium text-slate-800">Status history</summary>
-            <div className="mt-2 space-y-1 text-xs text-slate-700">
+          <details className="app-muted-panel" open>
+            <summary className="text-foreground cursor-pointer font-medium">Status history</summary>
+            <div className="text-secondary-foreground mt-2 space-y-1 text-xs">
               {(history.statusHistory ?? []).map((entry, index) => (
                 <p key={`${entry.status}-${entry.changedAt}-${index}`}>
                   {entry.changedAt}: {entry.status}

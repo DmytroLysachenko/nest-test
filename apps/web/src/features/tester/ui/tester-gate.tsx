@@ -8,7 +8,7 @@ export const TesterGate = () => {
   const auth = useRequireAuth();
 
   if (!auth.token) {
-    return <main className="mx-auto max-w-6xl px-4 py-10 text-sm text-slate-500">Checking session...</main>;
+    return <main className="app-page text-muted-foreground text-sm">Checking session...</main>;
   }
 
   return <TesterPage token={auth.token} />;

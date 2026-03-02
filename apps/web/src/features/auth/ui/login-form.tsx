@@ -16,19 +16,19 @@ export const LoginForm = () => {
 
   return (
     <form
-      className="flex w-full max-w-md flex-col gap-3 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+      className="border-border/80 bg-card/95 flex w-full flex-col gap-3 rounded-2xl border p-7 shadow-sm backdrop-blur-sm"
       onSubmit={loginForm.submit}
     >
-      <h1 className="text-xl font-semibold text-slate-900">Sign in</h1>
-      <p className="text-sm text-slate-500">Use your account to access the workflow dashboard.</p>
+      <h1 className="text-foreground text-2xl font-semibold">Sign in</h1>
+      <p className="text-muted-foreground text-sm">Use your account to access the workflow dashboard.</p>
 
-      <Label htmlFor="login-email" className="text-slate-700">
+      <Label htmlFor="login-email" className="text-foreground/90">
         Email
       </Label>
       <Input id="login-email" type="email" placeholder="you@example.com" {...register('email')} />
       {errors.email?.message ? <p className="text-sm text-rose-600">{errors.email.message}</p> : null}
 
-      <Label htmlFor="login-password" className="text-slate-700">
+      <Label htmlFor="login-password" className="text-foreground/90">
         Password
       </Label>
       <Input id="login-password" type="password" placeholder="********" {...register('password')} />
@@ -40,9 +40,9 @@ export const LoginForm = () => {
         {loginForm.isSubmitting ? 'Signing in...' : 'Sign in'}
       </Button>
 
-      <p className="text-sm text-slate-500">
+      <p className="text-muted-foreground text-sm">
         No account yet?{' '}
-        <Link className="font-semibold text-slate-900 underline" href="/register">
+        <Link className="text-foreground font-semibold underline" href="/register">
           Register
         </Link>
       </p>

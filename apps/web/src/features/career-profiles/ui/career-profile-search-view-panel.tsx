@@ -26,11 +26,7 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
         <div className="grid gap-3 md:grid-cols-4">
           <div className="space-y-1">
             <Label htmlFor="cp-status">Status</Label>
-            <select
-              id="cp-status"
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-              {...register('status')}
-            >
+            <select id="cp-status" className="app-select" {...register('status')}>
               <option value="READY">READY</option>
               <option value="PENDING">PENDING</option>
               <option value="FAILED">FAILED</option>
@@ -38,11 +34,7 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
           </div>
           <div className="space-y-1">
             <Label htmlFor="cp-active">Is active</Label>
-            <select
-              id="cp-active"
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-              {...register('isActive')}
-            >
+            <select id="cp-active" className="app-select" {...register('isActive')}>
               <option value="true">true</option>
               <option value="false">false</option>
             </select>

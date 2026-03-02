@@ -1,8 +1,20 @@
+import { Plus_Jakarta_Sans, Sora } from 'next/font/google';
+
 import { Providers } from '@/app/providers';
 
 import type { Metadata } from 'next';
 
 import './globals.css';
+
+const bodyFont = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-body',
+});
+
+const headingFont = Sora({
+  subsets: ['latin'],
+  variable: '--font-heading',
+});
 
 export const metadata: Metadata = {
   title: 'Career Search Assistant',
@@ -16,7 +28,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-stone-100 text-slate-900 antialiased">
+      <body
+        className={`${bodyFont.variable} ${headingFont.variable} bg-background text-foreground min-h-screen antialiased`}
+      >
         <Providers>{children}</Providers>
       </body>
     </html>

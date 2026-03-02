@@ -34,7 +34,7 @@ export const ProfileManagementPage = () => {
   } = useProfileManagementData({ token: auth.token });
 
   if (!auth.token) {
-    return <main className="mx-auto max-w-6xl px-4 py-10 text-sm text-slate-500">Checking session...</main>;
+    return <main className="app-page text-muted-foreground text-sm">Checking session...</main>;
   }
 
   const documents = documentsQuery.data ?? [];
@@ -42,17 +42,17 @@ export const ProfileManagementPage = () => {
   const canGenerate = readyDocumentsCount > 0;
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 md:py-8">
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
+    <main className="app-page flex flex-col gap-6">
+      <header className="app-page-header flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-slate-900">Profile Management</h1>
-          <p className="text-sm text-slate-700">
+          <h1 className="app-title text-2xl">Profile Management</h1>
+          <p className="app-subtitle mt-1">
             Manage profile input, documents readiness, and career profile version lifecycle.
           </p>
         </div>
         <Link
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700"
-          href="/app"
+          className="border-border bg-card text-secondary-foreground rounded-xl border px-3 py-2 text-xs font-medium"
+          href="/"
         >
           Back to workspace
         </Link>

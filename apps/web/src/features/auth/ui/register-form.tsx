@@ -16,13 +16,13 @@ export const RegisterForm = () => {
 
   return (
     <form
-      className="flex w-full max-w-md flex-col gap-3 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+      className="border-border/80 bg-card/95 flex w-full flex-col gap-3 rounded-2xl border p-7 shadow-sm backdrop-blur-sm"
       onSubmit={registerForm.submit}
     >
-      <h1 className="text-xl font-semibold text-slate-900">Create account</h1>
-      <p className="text-sm text-slate-500">Request a verification code first, then complete registration.</p>
+      <h1 className="text-foreground text-2xl font-semibold">Create account</h1>
+      <p className="text-muted-foreground text-sm">Request a verification code first, then complete registration.</p>
 
-      <Label htmlFor="register-email" className="text-slate-700">
+      <Label htmlFor="register-email" className="text-foreground/90">
         Email
       </Label>
       <Input id="register-email" type="email" placeholder="you@example.com" {...register('email')} />
@@ -37,7 +37,7 @@ export const RegisterForm = () => {
         {registerForm.isSendingCode ? 'Sending code...' : 'Send verification code'}
       </Button>
 
-      <Label htmlFor="register-code" className="text-slate-700">
+      <Label htmlFor="register-code" className="text-foreground/90">
         Verification code
       </Label>
       <Input
@@ -50,13 +50,13 @@ export const RegisterForm = () => {
       />
       {errors.code?.message ? <p className="text-sm text-rose-600">{errors.code.message}</p> : null}
 
-      <Label htmlFor="register-password" className="text-slate-700">
+      <Label htmlFor="register-password" className="text-foreground/90">
         Password
       </Label>
       <Input id="register-password" type="password" {...register('password')} />
       {errors.password?.message ? <p className="text-sm text-rose-600">{errors.password.message}</p> : null}
 
-      <Label htmlFor="register-confirm-password" className="text-slate-700">
+      <Label htmlFor="register-confirm-password" className="text-foreground/90">
         Confirm password
       </Label>
       <Input id="register-confirm-password" type="password" {...register('confirmPassword')} />
@@ -71,9 +71,9 @@ export const RegisterForm = () => {
         {registerForm.isSubmitting ? 'Creating account...' : 'Create account'}
       </Button>
 
-      <p className="text-sm text-slate-500">
+      <p className="text-muted-foreground text-sm">
         Already registered?{' '}
-        <Link className="font-semibold text-slate-900 underline" href="/login">
+        <Link className="text-foreground font-semibold underline" href="/login">
           Sign in
         </Link>
       </p>

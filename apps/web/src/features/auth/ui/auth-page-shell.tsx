@@ -5,5 +5,7 @@ type AuthPageShellProps = {
 };
 
 export const AuthPageShell = ({ children }: AuthPageShellProps) => (
-  <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center px-4 py-10">{children}</main>
+  <main className="mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center px-4 py-10">
+    <div className="w-full max-w-md">{children}</div>
+  </main>
 );

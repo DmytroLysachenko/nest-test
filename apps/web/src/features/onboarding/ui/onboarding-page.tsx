@@ -33,7 +33,9 @@ const ToggleGroup = <T extends string>({
           key={value}
           type="button"
           className={`rounded-full border px-3 py-1 text-xs ${
-            isActive ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700'
+            isActive
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border bg-card text-secondary-foreground'
           }`}
           onClick={() => onToggle(value)}
         >
@@ -55,10 +57,10 @@ const StepIndicator = ({ step }: { step: 1 | 2 | 3 }) => (
         key={item.id}
         className={`rounded-lg border p-3 text-sm ${
           step === item.id
-            ? 'border-slate-900 bg-slate-900 text-white'
+            ? 'border-primary bg-primary text-primary-foreground'
             : step > item.id
               ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
-              : 'border-slate-200 bg-slate-50 text-slate-600'
+              : 'border-border bg-muted/50 text-muted-foreground'
         }`}
       >
         {item.label}
@@ -79,12 +81,12 @@ export const OnboardingPage = () => {
 
   useEffect(() => {
     if (onboarding.latestCareerProfileQuery.data?.status === 'READY') {
-      router.replace('/app');
+      router.replace('/');
     }
   }, [onboarding.latestCareerProfileQuery.data?.status, router]);
 
   if (!onboarding.auth.token) {
-    return <main className="mx-auto max-w-5xl px-4 py-8 text-sm text-slate-500">Checking session...</main>;
+    return <main className="app-page text-muted-foreground max-w-5xl text-sm">Checking session...</main>;
   }
 
   const current = watch();
@@ -97,7 +99,7 @@ export const OnboardingPage = () => {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6">
+    <main className="app-page flex max-w-5xl flex-col gap-4">
       <Card
         title="Build your job-search profile"
         description="Follow the guided flow: define preferences, upload documents, review data, then generate profile."
@@ -111,7 +113,7 @@ export const OnboardingPage = () => {
           description="Provide role, domain, skills and constraints. This input is persisted locally until generation."
         >
           <form className="space-y-4" onSubmit={onboarding.saveStepOne}>
-            <p className="text-xs text-slate-500">
+            <p className="text-muted-foreground text-xs">
               Fields marked by behavior are required for progressing. Optional notes improve profile quality.
             </p>
             <TagInput
@@ -156,7 +158,7 @@ export const OnboardingPage = () => {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-800">Target seniority</p>
+              <p className="text-foreground text-sm font-medium">Target seniority</p>
               <ToggleGroup
                 values={seniorityValues}
                 selected={current.targetSeniority}
@@ -169,7 +171,7 @@ export const OnboardingPage = () => {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-800">Hard work-mode constraints</p>
+              <p className="text-foreground text-sm font-medium">Hard work-mode constraints</p>
               <ToggleGroup
                 values={workModes}
                 selected={current.hardWorkModes}
@@ -182,7 +184,7 @@ export const OnboardingPage = () => {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-800">Soft work-mode preferences</p>
+              <p className="text-foreground text-sm font-medium">Soft work-mode preferences</p>
               <ToggleGroup
                 values={workModes}
                 selected={current.softWorkModes}
@@ -195,7 +197,7 @@ export const OnboardingPage = () => {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-800">Hard contract constraints</p>
+              <p className="text-foreground text-sm font-medium">Hard contract constraints</p>
               <ToggleGroup
                 values={contractTypes}
                 selected={current.hardContractTypes}
@@ -208,7 +210,7 @@ export const OnboardingPage = () => {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-800">Soft contract preferences</p>
+              <p className="text-foreground text-sm font-medium">Soft contract preferences</p>
               <ToggleGroup
                 values={contractTypes}
                 selected={current.softContractTypes}
@@ -246,7 +248,7 @@ export const OnboardingPage = () => {
 
             <div className="flex items-center justify-between gap-3">
               <div className="space-y-1">
-                <p className="text-xs text-slate-500">Draft is saved automatically in local storage.</p>
+                <p className="text-muted-foreground text-xs">Draft is saved automatically in local storage.</p>
                 {onboarding.stepOneForm.formState.isDirty ? (
                   <p className="text-xs text-amber-700">You have unsaved local changes in this step.</p>
                 ) : null}
@@ -471,7 +473,7 @@ export const OnboardingPage = () => {
           description="Upload PDF files and run extraction. Content quality matters more than format details."
         >
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
+            <p className="text-muted-foreground text-sm">
               Supported now: PDF upload. After extraction, move to review and generation.
             </p>
             <DocumentsPanel token={onboarding.auth.token} />
@@ -498,8 +500,8 @@ export const OnboardingPage = () => {
           description="Check all data before running AI generation. You can always go back and edit."
         >
           <div className="space-y-4">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-              <p className="font-semibold text-slate-900">Input summary</p>
+            <div className="app-muted-panel text-sm">
+              <p className="text-foreground font-semibold">Input summary</p>
               <p className="mt-1">
                 <span className="font-medium">Positions:</span> {onboarding.draft.desiredPositions.join(', ') || 'n/a'}
               </p>
