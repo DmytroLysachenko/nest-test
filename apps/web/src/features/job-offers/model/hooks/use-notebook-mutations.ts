@@ -52,10 +52,7 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
         limit: 20,
       }),
     onSuccess: async (result) => {
-      await invalidateQueryKeys(queryClient, [
-        queryKeys.jobSources.runs(token),
-        ['job-offers', token],
-      ]);
+      await invalidateQueryKeys(queryClient, [queryKeys.jobSources.runs(token), ['job-offers', token]]);
       toastSuccess(
         result.status === 'reused'
           ? 'Scrape served from recent cached run'

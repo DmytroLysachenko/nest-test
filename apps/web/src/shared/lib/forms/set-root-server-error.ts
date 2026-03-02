@@ -1,7 +1,7 @@
-import type { FieldValues, Path, UseFormReturn } from 'react-hook-form';
-
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { toastError } from '@/shared/lib/ui/toast';
+
+import type { FieldValues, Path, UseFormReturn } from 'react-hook-form';
 
 type SetRootServerErrorOptions = {
   fallbackMessage: string;

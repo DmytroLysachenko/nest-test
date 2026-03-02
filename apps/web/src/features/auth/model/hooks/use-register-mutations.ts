@@ -2,12 +2,12 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import type { UseFormReturn } from 'react-hook-form';
 
 import { register, sendRegisterCode } from '@/features/auth/api/auth-api';
 import { setRootServerError } from '@/shared/lib/forms/set-root-server-error';
 import { toastSuccess } from '@/shared/lib/ui/toast';
 
+import type { UseFormReturn } from 'react-hook-form';
 import type { RegisterFormValues } from '@/features/auth/model/validation/auth-schemas';
 
 type UseRegisterMutationsArgs = {

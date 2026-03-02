@@ -1,9 +1,9 @@
 'use client';
 
-import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useRegisterMutations } from '@/features/auth/model/hooks/use-register-mutations';
 import { registerSchema } from '@/features/auth/model/validation/auth-schemas';
 

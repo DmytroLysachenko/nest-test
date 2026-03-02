@@ -1,8 +1,8 @@
 'use client';
 
-import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useForm } from 'react-hook-form';
 
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import {
   jobMatchingFormSchema,
   type JobMatchingFormValues,

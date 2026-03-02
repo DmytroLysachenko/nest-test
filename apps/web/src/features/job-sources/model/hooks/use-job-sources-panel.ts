@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useForm } from 'react-hook-form';
 
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useJobSourcesMutations } from '@/features/job-sources/model/hooks/use-job-sources-mutations';
 import { useJobSourcesQueries } from '@/features/job-sources/model/hooks/use-job-sources-queries';
 import {

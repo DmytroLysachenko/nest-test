@@ -1,7 +1,6 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { UseFormReturn } from 'react-hook-form';
 
 import { createProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
 import { setRootServerError } from '@/shared/lib/forms/set-root-server-error';
@@ -9,6 +8,7 @@ import { invalidateQueryKeys } from '@/shared/lib/query/invalidate-query-keys';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 import { toastSuccess } from '@/shared/lib/ui/toast';
 
+import type { UseFormReturn } from 'react-hook-form';
 import type { ProfileInputFormValues } from '@/features/profile-inputs/model/validation/profile-input-form-schema';
 
 export const useProfileInputMutations = (token: string, form: UseFormReturn<ProfileInputFormValues>) => {

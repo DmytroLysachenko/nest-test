@@ -1,9 +1,9 @@
 'use client';
 
-import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { useOnboardingMutations } from '@/features/onboarding/model/hooks/use-onboarding-mutations';
 import { useOnboardingQueries } from '@/features/onboarding/model/hooks/use-onboarding-queries';

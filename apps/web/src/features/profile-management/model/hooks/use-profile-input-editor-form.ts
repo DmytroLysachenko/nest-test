@@ -1,9 +1,9 @@
 'use client';
 
-import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import {
   profileInputEditorFormSchema,
   type ProfileInputEditorFormValues,

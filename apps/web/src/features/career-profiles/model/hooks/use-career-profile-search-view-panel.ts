@@ -1,9 +1,9 @@
 'use client';
 
-import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 
+import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
 import { getCareerProfilesSearchView } from '@/features/career-profiles/api/career-profiles-api';
 import {
   careerProfileSearchViewFormSchema,

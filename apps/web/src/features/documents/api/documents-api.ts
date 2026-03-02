@@ -1,6 +1,11 @@
 import { apiRequest } from '@/shared/lib/http/api-client';
 
-import type { DocumentDiagnosticsSummaryDto, DocumentDto, DocumentEventDto, DocumentUploadHealthDto } from '@/shared/types/api';
+import type {
+  DocumentDiagnosticsSummaryDto,
+  DocumentDto,
+  DocumentEventDto,
+  DocumentUploadHealthDto,
+} from '@/shared/types/api';
 
 type CreateUploadUrlPayload = {
   type: 'CV' | 'LINKEDIN' | 'OTHER';
