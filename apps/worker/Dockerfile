@@ -16,7 +16,7 @@ RUN corepack enable
 
 COPY . .
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts
-RUN pnpm --filter @repo/db build
+COPY --from=builder /app/packages/db/dist ./packages/db/dist
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
 
 WORKDIR /app/apps/worker
