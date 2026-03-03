@@ -9,7 +9,7 @@ Last updated: 2026-03-01
 2. Matching quality tuning (score calibration, stricter seniority/constraints behavior).
    - Status: in progress (capped approx penalties + explore recency weighting shipped; threshold tuning ongoing).
 3. Scraper quality hardening and source-specific reliability.
-   - Status: in progress (run diagnostics summary + cache-first reuse + filter canonicalization improvements + timeline buckets + stale-run reconciliation + retry endpoint + worker heartbeat progress callbacks + transition guards).
+   - Status: in progress (callback attempt ordering + payload hash validation + deterministic offer identity key + ops replay/reconcile endpoints added).
 4. CI quality gates (API/worker/web tests + smoke on protected branches).
    - Status: in progress (split verify/smoke workflows implemented; protected-branch policy enforcement pending repo settings).
 5. Reliability guardrails for scrape intake + admin ops visibility.

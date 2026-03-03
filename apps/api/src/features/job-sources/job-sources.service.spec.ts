@@ -706,7 +706,7 @@ describe('JobSourcesService', () => {
     });
 
     expect(result).toMatchObject({ ok: true, status: 'FAILED', inserted: 0 });
-    expect(db.insert).not.toHaveBeenCalled();
+    expect(db.insert).not.toHaveBeenCalledWith(userJobOffersTable);
     expect(updatePayloads.at(-1)?.status).toBe('FAILED');
   });
 
@@ -1142,6 +1142,147 @@ describe('JobSourcesService', () => {
       idempotent: true,
       reasonCode: 'DUPLICATE_EVENT_ID',
     });
+    expect(db.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects callback event when payload hash conflicts for same event id', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) =>
+                  Promise.resolve(
+                    cb([
+                      {
+                        id: 'run-10',
+                        source: 'PRACUJ_PL',
+                        userId: 'user-10',
+                        careerProfileId: 'profile-10',
+                        status: 'RUNNING',
+                        totalFound: null,
+                        scrapedCount: null,
+                      },
+                    ]),
+                  ),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) =>
+                  Promise.resolve(
+                    cb([
+                      {
+                        id: 'event-row-1',
+                        payloadHash: 'abc123',
+                      },
+                    ]),
+                  ),
+              }),
+            }),
+          }),
+        }),
+      update: jest.fn(),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const result = await service.completeScrape({
+      sourceRunId: 'run-10',
+      eventId: 'event-10',
+      attemptNo: 2,
+      payloadHash: 'different-hash',
+      status: 'COMPLETED',
+      scrapedCount: 1,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'RUNNING',
+      inserted: 0,
+      idempotent: true,
+      reasonCode: 'CONFLICTING_EVENT_PAYLOAD',
+    });
+    expect(db.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects stale callback attempt when attempt number is older than latest accepted attempt', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) =>
+                  Promise.resolve(
+                    cb([
+                      {
+                        id: 'run-11',
+                        source: 'PRACUJ_PL',
+                        userId: 'user-11',
+                        careerProfileId: 'profile-11',
+                        status: 'RUNNING',
+                        totalFound: null,
+                        scrapedCount: null,
+                      },
+                    ]),
+                  ),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) => Promise.resolve(cb([])),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      value: 3,
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      update: jest.fn(),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const result = await service.completeScrape({
+      sourceRunId: 'run-11',
+      eventId: 'event-11',
+      attemptNo: 2,
+      payloadHash: 'hash-11',
+      status: 'COMPLETED',
+      scrapedCount: 1,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'RUNNING',
+      inserted: 0,
+      idempotent: true,
+      reasonCode: 'STALE_ATTEMPT',
+    });
+    expect(db.insert).not.toHaveBeenCalled();
     expect(db.update).not.toHaveBeenCalled();
   });
 

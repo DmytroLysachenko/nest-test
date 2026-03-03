@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { NotFoundException, ServiceUnavailableException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, count, eq, gte, inArray, isNotNull, isNull, lt } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, isNotNull, isNull, lt } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { jobSourceCallbackEventsTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
 
@@ -166,5 +166,108 @@ export class OpsService {
         failuresByCode,
       },
     };
+  }
+
+  async listCallbackEvents(input: { status?: string; sourceRunId?: string; limit?: number; offset?: number }) {
+    const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
+    const offset = Math.max(input.offset ?? 0, 0);
+    const conditions = [];
+    if (input.status) {
+      conditions.push(eq(jobSourceCallbackEventsTable.status, input.status));
+    }
+    if (input.sourceRunId) {
+      conditions.push(eq(jobSourceCallbackEventsTable.sourceRunId, input.sourceRunId));
+    }
+
+    const rows = await this.db
+      .select({
+        id: jobSourceCallbackEventsTable.id,
+        sourceRunId: jobSourceCallbackEventsTable.sourceRunId,
+        eventId: jobSourceCallbackEventsTable.eventId,
+        attemptNo: jobSourceCallbackEventsTable.attemptNo,
+        payloadHash: jobSourceCallbackEventsTable.payloadHash,
+        status: jobSourceCallbackEventsTable.status,
+        emittedAt: jobSourceCallbackEventsTable.emittedAt,
+        receivedAt: jobSourceCallbackEventsTable.receivedAt,
+        requestId: jobSourceCallbackEventsTable.requestId,
+      })
+      .from(jobSourceCallbackEventsTable)
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(jobSourceCallbackEventsTable.receivedAt))
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      items: rows,
+      limit,
+      offset,
+    };
+  }
+
+  async replayDeadLetters(requestId?: string) {
+    const workerTaskUrl = this.configService.get('WORKER_TASK_URL', { infer: true });
+    const workerAuthToken = this.configService.get('WORKER_AUTH_TOKEN', { infer: true });
+    if (!workerTaskUrl) {
+      throw new ServiceUnavailableException('WORKER_TASK_URL is not configured');
+    }
+
+    const replayUrl = workerTaskUrl.replace(/\/tasks\/?$/i, '/callbacks/replay');
+    const response = await fetch(replayUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(workerAuthToken ? { Authorization: `Bearer ${workerAuthToken}` } : {}),
+        ...(requestId ? { 'x-request-id': requestId } : {}),
+      },
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      throw new ServiceUnavailableException(`Worker dead-letter replay failed: ${text}`);
+    }
+
+    return text ? (JSON.parse(text) as Record<string, unknown>) : { ok: true };
+  }
+
+  async reconcileRun(runId: string) {
+    const run = await this.db
+      .select({
+        id: jobSourceRunsTable.id,
+        status: jobSourceRunsTable.status,
+        lastHeartbeatAt: jobSourceRunsTable.lastHeartbeatAt,
+        createdAt: jobSourceRunsTable.createdAt,
+      })
+      .from(jobSourceRunsTable)
+      .where(eq(jobSourceRunsTable.id, runId))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!run) {
+      throw new NotFoundException('Job source run not found');
+    }
+
+    if (run.status === 'COMPLETED' || run.status === 'FAILED') {
+      return { ok: true, status: run.status, reconciled: false, reason: 'already-finalized' };
+    }
+
+    const staleRunningMinutes = this.configService.get('SCRAPE_STALE_RUNNING_MINUTES', { infer: true });
+    const cutoff = new Date(Date.now() - staleRunningMinutes * 60 * 1000);
+    const reference = run.lastHeartbeatAt ?? run.createdAt;
+    if (!reference || reference >= cutoff) {
+      return { ok: true, status: run.status, reconciled: false, reason: 'not-stale' };
+    }
+
+    const now = new Date();
+    await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        status: 'FAILED',
+        error: '[timeout] reconcile endpoint stale run',
+        failureType: 'timeout',
+        finalizedAt: now,
+        completedAt: now,
+      })
+      .where(eq(jobSourceRunsTable.id, run.id));
+
+    return { ok: true, status: 'FAILED', reconciled: true };
   }
 }

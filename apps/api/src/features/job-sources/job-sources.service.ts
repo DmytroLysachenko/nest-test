@@ -20,6 +20,7 @@ import {
   careerProfilesTable,
   jobOffersTable,
   jobSourceCallbackEventsTable,
+  jobSourceRunAttemptsTable,
   jobSourceRunsTable,
   userJobOffersTable,
 } from '@repo/db';
@@ -48,6 +49,12 @@ type WorkerSignaturePayload = {
   runId?: string;
   eventId?: string;
 };
+type CallbackEventRegisterResult =
+  | { accepted: true; payloadHash: string; attemptNo: number; emittedAt: Date | null }
+  | {
+      accepted: false;
+      reasonCode: 'DUPLICATE_EVENT_ID' | 'CONFLICTING_EVENT_PAYLOAD' | 'STALE_ATTEMPT' | 'ATTEMPT_ORDER_VIOLATION';
+    };
 
 const ALLOWED_STATUS_TRANSITIONS: Record<RunStatus, readonly RunStatus[]> = {
   PENDING: ['RUNNING', 'FAILED'],
@@ -167,6 +174,46 @@ const canonicalize = (value: unknown): unknown => {
 };
 
 const stableJson = (value: unknown) => JSON.stringify(canonicalize(value ?? null));
+const computeSha256Hex = (value: unknown) => createHash('sha256').update(stableJson(value)).digest('hex');
+const normalizeOfferUrl = (value: string) => {
+  try {
+    const parsed = new URL(value);
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().toLowerCase();
+  } catch {
+    return value.toLowerCase();
+  }
+};
+const computeOfferIdentityKey = (job: { sourceId?: string | null; url: string }) => {
+  const sourceId = normalizeString(job.sourceId);
+  if (sourceId) {
+    return `source:${sourceId.toLowerCase()}`;
+  }
+  return `url:${normalizeOfferUrl(job.url)}`;
+};
+const resolveCallbackPayloadHash = (dto: ScrapeCompleteDto) =>
+  normalizeString(dto.payloadHash) ??
+  computeSha256Hex({
+    eventId: normalizeString(dto.eventId),
+    source: normalizeString(dto.source),
+    runId: normalizeString(dto.runId),
+    sourceRunId: dto.sourceRunId,
+    attemptNo: dto.attemptNo ?? 1,
+    emittedAt: normalizeString(dto.emittedAt),
+    listingUrl: normalizeString(dto.listingUrl),
+    status: dto.status ?? 'COMPLETED',
+    scrapedCount: dto.scrapedCount ?? null,
+    totalFound: dto.totalFound ?? null,
+    jobCount: dto.jobCount ?? null,
+    jobLinkCount: dto.jobLinkCount ?? null,
+    outputPath: normalizeString(dto.outputPath),
+    error: normalizeString(dto.error),
+    failureType: normalizeString(dto.failureType),
+    failureCode: normalizeString(dto.failureCode),
+    jobs: dto.jobs ?? [],
+    diagnostics: dto.diagnostics ?? null,
+  });
 const workerOidcClient = new OAuth2Client();
 const WORKER_TASK_SCHEMA_VERSION = '1' as const;
 const WORKER_OIDC_ISSUERS = new Set(['https://accounts.google.com', 'accounts.google.com']);
@@ -521,11 +568,34 @@ export class JobSourcesService {
       throw new NotFoundException('Job source run not found');
     }
 
+    const callbackAttemptNo = Math.max(1, dto.attemptNo ?? 1);
+    const callbackProvidedPayloadHash = normalizeString(dto.payloadHash);
+    const callbackPayloadHash = callbackProvidedPayloadHash ?? resolveCallbackPayloadHash(dto);
+    const callbackEmittedAt = dto.emittedAt ? new Date(dto.emittedAt) : null;
+    if (dto.emittedAt && Number.isNaN(callbackEmittedAt?.getTime())) {
+      throw new BadRequestException('Invalid emittedAt timestamp');
+    }
+
     if (callbackEventId) {
-      const accepted = await this.registerCallbackEvent(run.id, callbackEventId, dto, requestId);
-      if (!accepted) {
+      const callbackEvent = await this.registerCallbackEvent(
+        run.id,
+        callbackEventId,
+        dto,
+        requestId,
+        callbackAttemptNo,
+        callbackProvidedPayloadHash,
+        callbackEmittedAt,
+      );
+      if (!callbackEvent.accepted) {
+        const reasonCode = (callbackEvent as Extract<CallbackEventRegisterResult, { accepted: false }>).reasonCode;
         this.logger.log(
-          { requestId, sourceRunId: run.id, eventId: callbackEventId, idempotent: true },
+          {
+            requestId,
+            sourceRunId: run.id,
+            eventId: callbackEventId,
+            idempotent: true,
+            reasonCode,
+          },
           'Duplicate callback event ignored',
         );
         return {
@@ -533,7 +603,7 @@ export class JobSourcesService {
           status: run.status,
           inserted: 0,
           idempotent: true,
-          reasonCode: 'DUPLICATE_EVENT_ID',
+          reasonCode,
           warning: 'Duplicate callback event ignored',
         };
       }
@@ -599,6 +669,15 @@ export class JobSourcesService {
     if (status === 'FAILED') {
       const completedAt = new Date();
       const failureType = toRunFailureType(dto.failureType) ?? deriveFailureType(dto.error) ?? 'unknown';
+      await this.registerRunAttempt(run.id, callbackAttemptNo, {
+        status: 'FAILED',
+        payloadHash: callbackPayloadHash,
+        emittedAt: callbackEmittedAt,
+        completedAt,
+        failureType,
+        failureCode: dto.failureCode ?? null,
+        error: dto.error ?? 'Scrape failed in worker',
+      });
       await this.transitionRunStatus(run.id, run.status as RunStatus, 'FAILED', {
         scrapedCount,
         totalFound,
@@ -637,6 +716,10 @@ export class JobSourcesService {
           jobsToPersist.map((job) => ({
             source: run.source,
             sourceId: job.sourceId ?? null,
+            offerIdentityKey: computeOfferIdentityKey({
+              sourceId: job.sourceId ?? null,
+              url: job.url,
+            }),
             runId: run.id,
             url: job.url,
             title: job.title,
@@ -651,7 +734,7 @@ export class JobSourcesService {
           })),
         )
         .onConflictDoUpdate({
-          target: [jobOffersTable.source, jobOffersTable.url],
+          target: [jobOffersTable.source, jobOffersTable.offerIdentityKey],
           set: {
             runId: run.id,
             sourceId: sql`CASE
@@ -706,6 +789,15 @@ export class JobSourcesService {
     }
 
     const finalizedAt = new Date();
+    await this.registerRunAttempt(run.id, callbackAttemptNo, {
+      status: 'COMPLETED',
+      payloadHash: callbackPayloadHash,
+      emittedAt: callbackEmittedAt,
+      completedAt: finalizedAt,
+      failureType: null,
+      failureCode: null,
+      error: null,
+    });
     await this.transitionRunStatus(run.id, run.status as RunStatus, 'COMPLETED', {
       scrapedCount,
       totalFound,
@@ -1673,7 +1765,62 @@ export class JobSourcesService {
     eventId: string,
     dto: ScrapeCompleteDto,
     requestId?: string,
-  ) {
+    attemptNo = 1,
+    payloadHash?: string,
+    emittedAt?: Date | null,
+  ): Promise<CallbackEventRegisterResult> {
+    const shouldCheckExistingEvent = attemptNo > 1 || Boolean(normalizeString(payloadHash));
+    if (shouldCheckExistingEvent) {
+      const existingEvent = await this.db
+        .select({
+          id: jobSourceCallbackEventsTable.id,
+          payloadHash: jobSourceCallbackEventsTable.payloadHash,
+        })
+        .from(jobSourceCallbackEventsTable)
+        .where(
+          and(
+            eq(jobSourceCallbackEventsTable.sourceRunId, sourceRunId),
+            eq(jobSourceCallbackEventsTable.eventId, eventId),
+          ),
+        )
+        .limit(1)
+        .then(([result]) => result);
+      if (existingEvent?.id) {
+        const existingHash = normalizeString(existingEvent.payloadHash);
+        const incomingHash = normalizeString(payloadHash);
+        if (existingHash && incomingHash && existingHash !== incomingHash) {
+          return {
+            accepted: false,
+            reasonCode: 'CONFLICTING_EVENT_PAYLOAD',
+          } as const;
+        }
+        return {
+          accepted: false,
+          reasonCode: 'DUPLICATE_EVENT_ID',
+        } as const;
+      }
+    }
+
+    if (attemptNo > 1) {
+      const latestAttempt = await this.db
+        .select({ value: sql<number>`max(${jobSourceCallbackEventsTable.attemptNo})` })
+        .from(jobSourceCallbackEventsTable)
+        .where(eq(jobSourceCallbackEventsTable.sourceRunId, sourceRunId))
+        .then(([result]) => Number(result?.value ?? 0));
+      if (attemptNo < latestAttempt) {
+        return {
+          accepted: false,
+          reasonCode: 'STALE_ATTEMPT',
+        } as const;
+      }
+      if (latestAttempt > 0 && attemptNo > latestAttempt + 1) {
+        return {
+          accepted: false,
+          reasonCode: 'ATTEMPT_ORDER_VIOLATION',
+        } as const;
+      }
+    }
+
     const status = dto.status ?? 'COMPLETED';
     const payload = JSON.stringify({
       status,
@@ -1690,6 +1837,9 @@ export class JobSourcesService {
       .values({
         sourceRunId,
         eventId,
+        attemptNo,
+        payloadHash: payloadHash ?? null,
+        emittedAt: emittedAt ?? null,
         requestId: requestId ?? null,
         status,
         payload,
@@ -1697,7 +1847,70 @@ export class JobSourcesService {
       .onConflictDoNothing()
       .returning({ id: jobSourceCallbackEventsTable.id });
 
-    return inserted.length > 0;
+    if (!inserted.length) {
+      return {
+        accepted: false,
+        reasonCode: 'DUPLICATE_EVENT_ID',
+      } as const;
+    }
+
+    return {
+      accepted: true,
+      payloadHash: payloadHash ?? '',
+      attemptNo,
+      emittedAt: emittedAt ?? null,
+    } as const;
+  }
+
+  private async registerRunAttempt(
+    sourceRunId: string,
+    attemptNo: number,
+    input: {
+      status: 'COMPLETED' | 'FAILED';
+      payloadHash: string;
+      emittedAt: Date | null;
+      completedAt: Date;
+      failureType: RunFailureType | null;
+      failureCode: string | null;
+      error: string | null;
+    },
+  ) {
+    try {
+      await this.db
+        .insert(jobSourceRunAttemptsTable)
+        .values({
+          sourceRunId,
+          attemptNo,
+          status: input.status,
+          startedAt: input.emittedAt ?? input.completedAt,
+          completedAt: input.completedAt,
+          failureType: input.failureType,
+          failureCode: input.failureCode,
+          error: input.error,
+          payloadHash: input.payloadHash,
+        })
+        .onConflictDoUpdate({
+          target: [jobSourceRunAttemptsTable.sourceRunId, jobSourceRunAttemptsTable.attemptNo],
+          set: {
+            status: input.status,
+            completedAt: input.completedAt,
+            failureType: input.failureType,
+            failureCode: input.failureCode,
+            error: input.error,
+            payloadHash: input.payloadHash,
+          },
+        });
+    } catch (error) {
+      this.logger.warn(
+        {
+          sourceRunId,
+          attemptNo,
+          status: input.status,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to persist scrape run attempt metadata',
+      );
+    }
   }
 
   private async autoScoreIngestedOffers(userId: string, sourceRunId: string, userOfferIds: string[]) {

@@ -12,6 +12,26 @@ Day-to-day engineering runbook for local development and verification.
    - `packages/db/.env`
 3. Postgres running and reachable.
 
+## Database Portability
+
+1. The app is provider-agnostic and only requires a valid PostgreSQL `DATABASE_URL`.
+2. Supported deployment targets by configuration:
+   - Neon serverless Postgres
+   - Google Cloud SQL (PostgreSQL)
+   - Self-hosted PostgreSQL
+3. Keep provider-specific details in env/secrets only (host, SSL params, credentials).
+4. Do not commit real DB credentials into repo-tracked files.
+
+## Local Against Production DB
+
+1. Set the same production `DATABASE_URL` in:
+   - `apps/api/.env`
+   - `apps/worker/.env` (if worker DB features are used)
+   - `packages/db/.env` (for migrations/seeds)
+2. Run migrations explicitly:
+   - `pnpm --filter @repo/db migrate`
+3. Avoid running demo/e2e seeds against production database.
+
 ## Security/Capacity Env Knobs
 
 1. API:
@@ -149,6 +169,9 @@ For exact variable-level mapping and secret sources, use:
 2. Guided profile onboarding: `/onboarding`
 3. Internal endpoint tester (dev flag): `/tester`
 4. Admin ops metrics: `GET /api/ops/metrics`
+5. Admin callback events listing: `GET /api/ops/scrape/callback-events`
+6. Admin dead-letter replay trigger: `POST /api/ops/scrape/callbacks/replay`
+7. Admin stale-run reconcile: `POST /api/ops/scrape/runs/:id/reconcile`
 5. Job match audit export: `GET /api/job-matching/audit/export.csv`
 6. Document diagnostics summary: `GET /api/documents/diagnostics/summary`
 7. Retry failed scrape run: `POST /api/job-sources/runs/:id/retry`

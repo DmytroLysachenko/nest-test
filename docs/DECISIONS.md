@@ -334,3 +334,22 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Reduce deployment drift between docs, workflows, and Cloud Run configuration.
   - Make first and repeat promotions deterministic and easier to audit.
+
+## 2026-03-03: Deterministic Callback Attempt Contract + Offer Identity Key
+
+- Decision:
+  - Extend worker callback envelope with deterministic attempt metadata:
+    - `attemptNo`
+    - `emittedAt`
+    - `payloadHash` (SHA-256 over canonical payload).
+  - API callback ingestion rejects:
+    - stale attempt numbers (`STALE_ATTEMPT`)
+    - out-of-order jumps (`ATTEMPT_ORDER_VIOLATION`)
+    - duplicate event ids with conflicting payload hash (`CONFLICTING_EVENT_PAYLOAD`).
+  - Add `job_source_run_attempts` ledger for per-run attempt outcomes.
+  - Add `job_offers.offer_identity_key` and use it for deterministic offer upsert conflict target.
+  - Add admin ops controls for callback events listing, worker dead-letter replay trigger, and stale run reconcile.
+- Why:
+  - Make callback replay behavior deterministic and audit-friendly.
+  - Eliminate callback race ambiguity for terminal run outcomes.
+  - Improve operational recovery without direct DB/manual intervention.

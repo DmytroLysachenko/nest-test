@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 
 import { jobSourceRunsTable } from './job-source-runs';
 
@@ -12,6 +12,9 @@ export const jobSourceCallbackEventsTable = pgTable(
     eventId: varchar('event_id', { length: 128 }).notNull(),
     requestId: varchar('request_id', { length: 128 }),
     status: varchar('status', { length: 32 }).notNull(),
+    attemptNo: integer('attempt_no').default(1).notNull(),
+    payloadHash: varchar('payload_hash', { length: 64 }),
+    emittedAt: timestamp('emitted_at', { withTimezone: true }),
     receivedAt: timestamp('received_at', { withTimezone: true }).defaultNow().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     payload: text('payload'),

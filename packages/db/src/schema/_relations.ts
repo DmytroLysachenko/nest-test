@@ -11,6 +11,7 @@ import { documentStageMetricsTable } from './document-stage-metrics';
 import { careerProfilesTable } from './career-profiles';
 import { jobMatchesTable } from './job-matches';
 import { jobSourceRunsTable } from './job-source-runs';
+import { jobSourceRunAttemptsTable } from './job-source-run-attempts';
 import { jobOffersTable } from './job-offers';
 import { userJobOffersTable } from './user-job-offers';
 
@@ -122,8 +123,16 @@ export const jobSourceRunsRelations = relations(jobSourceRunsTable, ({ one, many
     fields: [jobSourceRunsTable.careerProfileId],
     references: [careerProfilesTable.id],
   }),
+  attempts: many(jobSourceRunAttemptsTable),
   jobOffers: many(jobOffersTable),
   userJobOffers: many(userJobOffersTable),
+}));
+
+export const jobSourceRunAttemptsRelations = relations(jobSourceRunAttemptsTable, ({ one }) => ({
+  run: one(jobSourceRunsTable, {
+    fields: [jobSourceRunAttemptsTable.sourceRunId],
+    references: [jobSourceRunsTable.id],
+  }),
 }));
 
 export const jobOffersRelations = relations(jobOffersTable, ({ one, many }) => ({

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   buildScrapeCallbackPayload,
+  computeCallbackPayloadHash,
   buildWorkerCallbackSignaturePayload,
   classifyScrapeError,
   computeCallbackRetryDelayMs,
@@ -35,6 +36,39 @@ test('buildScrapeCallbackPayload emits completed callback fields', () => {
   assert.equal(payload.error, undefined);
   assert.equal(payload.diagnostics?.attemptCount, 2);
   assert.equal(payload.diagnostics?.adaptiveDelayApplied, 500);
+});
+
+test('computeCallbackPayloadHash is deterministic for canonical payload shape', () => {
+  const payload = buildScrapeCallbackPayload({
+    eventId: 'event-1',
+    source: 'pracuj-pl',
+    runId: 'run-1',
+    sourceRunId: 'run-source-1',
+    attemptNo: 2,
+    emittedAt: '2026-03-03T10:00:00.000Z',
+    listingUrl: 'https://it.pracuj.pl/praca?wm=home-office',
+    status: 'COMPLETED',
+    scrapedCount: 8,
+    totalFound: 14,
+    jobCount: 8,
+    jobLinkCount: 14,
+  });
+  const reordered = {
+    status: payload.status,
+    sourceRunId: payload.sourceRunId,
+    eventId: payload.eventId,
+    runId: payload.runId,
+    source: payload.source,
+    attemptNo: payload.attemptNo,
+    emittedAt: payload.emittedAt,
+    listingUrl: payload.listingUrl,
+    scrapedCount: payload.scrapedCount,
+    totalFound: payload.totalFound,
+    jobCount: payload.jobCount,
+    jobLinkCount: payload.jobLinkCount,
+  };
+
+  assert.equal(computeCallbackPayloadHash(payload as Record<string, unknown>), computeCallbackPayloadHash(reordered));
 });
 
 test('buildScrapeCallbackPayload emits failure callback fields', () => {

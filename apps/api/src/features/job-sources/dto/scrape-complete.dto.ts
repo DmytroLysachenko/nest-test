@@ -179,6 +179,24 @@ export class ScrapeCompleteDto {
   @MaxLength(128)
   eventId?: string;
 
+  @ApiPropertyOptional({ description: 'Worker scrape attempt ordinal (starts at 1)', minimum: 1, default: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  attemptNo?: number;
+
+  @ApiPropertyOptional({ description: 'Worker callback emission timestamp (ISO-8601)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  emittedAt?: string;
+
+  @ApiPropertyOptional({ description: 'Canonical callback payload SHA-256 hash (hex)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  payloadHash?: string;
+
   @ApiPropertyOptional({ description: 'Worker terminal status', enum: SCRAPE_COMPLETE_STATUS, default: 'COMPLETED' })
   @IsOptional()
   @IsIn(SCRAPE_COMPLETE_STATUS)

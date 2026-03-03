@@ -80,4 +80,87 @@ describe('OpsService', () => {
     expect(result.callback.failuresByType.network).toBe(1);
     expect(result.callback.failuresByCode.WORKER_NETWORK).toBe(1);
   });
+
+  it('lists callback events with pagination envelope', async () => {
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                offset: jest.fn().mockResolvedValue([
+                  {
+                    id: 'event-1',
+                    sourceRunId: 'run-1',
+                    eventId: 'evt-1',
+                    attemptNo: 1,
+                    payloadHash: 'hash-1',
+                    status: 'COMPLETED',
+                    emittedAt: new Date('2026-03-03T10:00:00.000Z'),
+                    receivedAt: new Date('2026-03-03T10:00:01.000Z'),
+                    requestId: 'req-1',
+                  },
+                ]),
+              }),
+            }),
+          }),
+        }),
+      }),
+    } as any;
+
+    const service = new OpsService(db, createConfigService());
+    const result = await service.listCallbackEvents({ status: 'COMPLETED', limit: 25, offset: 5 });
+
+    expect(result.limit).toBe(25);
+    expect(result.offset).toBe(5);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.eventId).toBe('evt-1');
+  });
+
+  it('reconciles stale running run to failed timeout', async () => {
+    const now = new Date('2026-03-03T12:00:00.000Z');
+    jest.spyOn(Date, 'now').mockReturnValue(now.getTime());
+
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-stale-1',
+                      status: 'RUNNING',
+                      lastHeartbeatAt: new Date('2026-03-03T10:00:00.000Z'),
+                      createdAt: new Date('2026-03-03T09:00:00.000Z'),
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+    } as any;
+
+    const service = new OpsService(
+      db,
+      createConfigService({
+        SCRAPE_STALE_RUNNING_MINUTES: 60,
+      }),
+    );
+    const result = await service.reconcileRun('run-stale-1');
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'FAILED',
+      reconciled: true,
+    });
+    expect(db.update).toHaveBeenCalledTimes(1);
+  });
 });

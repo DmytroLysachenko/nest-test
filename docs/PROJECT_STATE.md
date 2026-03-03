@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-03-02
+Last updated: 2026-03-03
 
 ## Current Architecture
 
@@ -56,6 +56,10 @@ Last updated: 2026-03-02
 - Ops metrics now expose callback event breakdown (`failuresByType`, `failuresByCode`) and heartbeat freshness indicator (`runningWithoutHeartbeat`).
 - Worker Cloud Tasks ingress now supports both static bearer auth and verified OIDC ID tokens (service account + audience).
 - API worker callbacks now support OIDC bearer verification (audience + optional worker service-account email pinning) as an alternative to static callback token.
+- Worker callback envelope now emits deterministic attempt metadata (`attemptNo`, `emittedAt`, `payloadHash`) for replay safety.
+- API callback ingestion now rejects stale/out-of-order callback attempts and conflicting payload hashes for the same event id.
+- Job offers now include deterministic `offer_identity_key` used for stable upserts on callback replays.
+- Ops now exposes callback event listing, worker dead-letter replay trigger, and stale run reconcile endpoint.
 - Job matching now persists explanation metadata on each scored match (`job_matches.match_meta`) and exposes audit export endpoints.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.
@@ -114,3 +118,4 @@ Last updated: 2026-03-02
 - Web production runtime now binds `0.0.0.0:$PORT` for Cloud Run compatibility.
 - Worker runtime now prioritizes Cloud Run `PORT` with local fallback to `WORKER_PORT`.
 - Canonical deployment/runtime env+secret contract is documented in `docs/GCP_DEPLOY_MATRIX.md`.
+- New table `job_source_run_attempts` captures per-run attempt outcomes for deterministic callback auditing.

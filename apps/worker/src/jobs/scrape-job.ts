@@ -1,6 +1,4 @@
-import { createHmac, randomUUID } from 'crypto';
-import type { Logger } from 'pino';
-import type { PracujSourceKind, ScrapeFilters } from '@repo/db';
+import { createHash, createHmac, randomUUID } from 'crypto';
 
 import { persistDeadLetter } from './callback-dead-letter';
 import { resolveOutboundAuthorizationHeader } from './oidc-auth';
@@ -8,6 +6,9 @@ import { relaxPracujFiltersOnce } from './pracuj-filter-relaxation';
 import { resolvePipeline, runPipeline } from './scrape-pipelines';
 import { saveOutput } from '../output/save-output';
 import { loadFreshOfferUrls } from '../db/fresh-offers';
+
+import type { PracujSourceKind, ScrapeFilters } from '@repo/db';
+import type { Logger } from 'pino';
 import type { ScrapeSourceJob } from '../types/jobs';
 import type { DetailFetchDiagnostics, ListingJobSummary, NormalizedJob, ParsedJob, RawPage } from '../sources/types';
 
@@ -16,6 +17,9 @@ type CallbackPayload = {
   source: string;
   runId: string;
   sourceRunId?: string;
+  attemptNo?: number;
+  emittedAt?: string;
+  payloadHash?: string;
   listingUrl: string;
   status: 'COMPLETED' | 'FAILED';
   scrapedCount?: number;
@@ -55,6 +59,25 @@ const normalizeString = (value: string | null | undefined) => {
 
 const sanitizeStringArray = (value: string[] | undefined) =>
   Array.from(new Set((value ?? []).map((item) => item.trim()).filter(Boolean)));
+
+const canonicalize = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((item) => canonicalize(item));
+  }
+  if (value && typeof value === 'object') {
+    return Object.keys(value as Record<string, unknown>)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = canonicalize((value as Record<string, unknown>)[key]);
+        return acc;
+      }, {});
+  }
+  return value;
+};
+
+const stableJson = (value: unknown) => JSON.stringify(canonicalize(value ?? null));
+export const computeCallbackPayloadHash = (payload: Record<string, unknown>) =>
+  createHash('sha256').update(stableJson(payload)).digest('hex');
 
 const canonicalOfferKey = (job: Pick<NormalizedJob, 'sourceId' | 'url'>) => {
   const sourceId = normalizeString(job.sourceId);
@@ -179,9 +202,7 @@ const notifyHeartbeat = async (
   }
   const timestampSec = Math.floor(Date.now() / 1000);
   const signaturePayload = `${timestampSec}.${payload.sourceRunId}.HEARTBEAT.${payload.runId ?? ''}.${requestId ?? ''}.heartbeat`;
-  const signature = signingSecret
-    ? createHmac('sha256', signingSecret).update(signaturePayload).digest('hex')
-    : null;
+  const signature = signingSecret ? createHmac('sha256', signingSecret).update(signaturePayload).digest('hex') : null;
 
   try {
     const authorization = await resolveOutboundAuthorizationHeader(token, oidcAudience);
@@ -309,6 +330,9 @@ export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
   source: input.source,
   runId: input.runId,
   sourceRunId: input.sourceRunId,
+  attemptNo: input.attemptNo,
+  emittedAt: input.emittedAt,
+  payloadHash: input.payloadHash,
   listingUrl: input.listingUrl,
   status: input.status,
   scrapedCount: input.scrapedCount,
@@ -368,7 +392,9 @@ export const runScrapeJob = async (
     const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
     const heartbeatUrl =
       payload.heartbeatUrl ??
-      (callbackUrl ? callbackUrl.replace(/\/job-sources\/complete\/?$/i, `/job-sources/runs/${sourceRunId}/heartbeat`) : undefined);
+      (callbackUrl
+        ? callbackUrl.replace(/\/job-sources\/complete\/?$/i, `/job-sources/runs/${sourceRunId}/heartbeat`)
+        : undefined);
     const callbackToken = payload.callbackToken ?? options.callbackToken;
     const callbackOidcAudience = options.callbackOidcAudience;
     const callbackSigningSecret = options.callbackSigningSecret;
@@ -597,11 +623,48 @@ export const runScrapeJob = async (
 
     if (callbackUrl) {
       const blockedRate =
-        aggregatedJobLinks.size > 0
-          ? Number((aggregatedBlockedUrls.length / aggregatedJobLinks.size).toFixed(4))
-          : 0;
+        aggregatedJobLinks.size > 0 ? Number((aggregatedBlockedUrls.length / aggregatedJobLinks.size).toFixed(4)) : 0;
       const finalPolicy =
         adaptiveDelayApplied > 0 ? `adaptive-delay:${adaptiveDetailDelayMs ?? options.detailDelayMs ?? 0}` : 'default';
+      const emittedAt = new Date().toISOString();
+      const callbackBasePayload = buildScrapeCallbackPayload({
+        eventId: callbackEventId,
+        source: payload.source,
+        runId,
+        sourceRunId,
+        attemptNo: Math.max(1, attemptsExecuted),
+        emittedAt,
+        listingUrl,
+        status: 'COMPLETED',
+        scrapedCount: sanitizedJobs.length,
+        totalFound: aggregatedJobLinks.size,
+        jobCount: sanitizedJobs.length,
+        jobLinkCount: aggregatedJobLinks.size,
+        jobs: sanitizedJobs,
+        outputPath,
+        diagnostics: {
+          relaxationTrail,
+          blockedUrls: aggregatedBlockedUrls,
+          pagesVisited: aggregatedPages.length,
+          jobLinksDiscovered: aggregatedJobLinks.size,
+          ignoredRecommendedLinks: aggregatedRecommendedLinks.size,
+          dedupedInRunCount,
+          skippedFreshUrls: Math.max(
+            0,
+            aggregatedJobLinks.size - aggregatedPages.length - aggregatedBlockedUrls.length,
+          ),
+          blockedPages: aggregatedBlockedUrls.length,
+          hadZeroOffersStep,
+          attemptCount: attemptsExecuted,
+          adaptiveDelayApplied,
+          blockedRate,
+          finalPolicy,
+        },
+      });
+      const callbackPayload = {
+        ...callbackBasePayload,
+        payloadHash: computeCallbackPayloadHash(callbackBasePayload as Record<string, unknown>),
+      };
       await emitHeartbeat(
         'callback',
         attemptsExecuted,
@@ -617,38 +680,7 @@ export const runScrapeJob = async (
         callbackOidcAudience,
         callbackSigningSecret,
         payload.requestId,
-        buildScrapeCallbackPayload({
-          eventId: callbackEventId,
-          source: payload.source,
-          runId,
-          sourceRunId,
-          listingUrl,
-          status: 'COMPLETED',
-          scrapedCount: sanitizedJobs.length,
-          totalFound: aggregatedJobLinks.size,
-          jobCount: sanitizedJobs.length,
-          jobLinkCount: aggregatedJobLinks.size,
-          jobs: sanitizedJobs,
-          outputPath,
-          diagnostics: {
-            relaxationTrail,
-            blockedUrls: aggregatedBlockedUrls,
-            pagesVisited: aggregatedPages.length,
-            jobLinksDiscovered: aggregatedJobLinks.size,
-            ignoredRecommendedLinks: aggregatedRecommendedLinks.size,
-            dedupedInRunCount,
-            skippedFreshUrls: Math.max(
-              0,
-              aggregatedJobLinks.size - aggregatedPages.length - aggregatedBlockedUrls.length,
-            ),
-            blockedPages: aggregatedBlockedUrls.length,
-            hadZeroOffersStep,
-            attemptCount: attemptsExecuted,
-            adaptiveDelayApplied,
-            blockedRate,
-            finalPolicy,
-          },
-        }),
+        callbackPayload,
         {
           retryAttempts: options.callbackRetryAttempts ?? 3,
           retryBackoffMs: options.callbackRetryBackoffMs ?? 1000,
@@ -693,38 +725,45 @@ export const runScrapeJob = async (
     const callbackOidcAudience = options.callbackOidcAudience;
     const callbackSigningSecret = options.callbackSigningSecret;
     if (callbackUrl) {
+      const emittedAt = new Date().toISOString();
+      const failedPayload = buildScrapeCallbackPayload({
+        eventId: callbackEventId,
+        source: payload.source,
+        runId,
+        sourceRunId,
+        attemptNo: 1,
+        emittedAt,
+        listingUrl,
+        status: 'FAILED',
+        error: `[${failureType}] ${errorMessage}`,
+        failureType,
+        failureCode: `WORKER_${failureType.toUpperCase()}`,
+        diagnostics: {
+          relaxationTrail: [],
+          blockedUrls: [],
+          pagesVisited: 0,
+          jobLinksDiscovered: 0,
+          ignoredRecommendedLinks: 0,
+          dedupedInRunCount: 0,
+          skippedFreshUrls: 0,
+          blockedPages: 0,
+          hadZeroOffersStep: false,
+          attemptCount: 1,
+          adaptiveDelayApplied: 0,
+          blockedRate: 0,
+          finalPolicy: 'failed',
+        },
+      });
       await notifyCallback(
         callbackUrl,
         callbackToken,
         callbackOidcAudience,
         callbackSigningSecret,
         payload.requestId,
-        buildScrapeCallbackPayload({
-          eventId: callbackEventId,
-          source: payload.source,
-          runId,
-          sourceRunId,
-          listingUrl,
-          status: 'FAILED',
-          error: `[${failureType}] ${errorMessage}`,
-          failureType,
-          failureCode: `WORKER_${failureType.toUpperCase()}`,
-          diagnostics: {
-            relaxationTrail: [],
-            blockedUrls: [],
-            pagesVisited: 0,
-            jobLinksDiscovered: 0,
-            ignoredRecommendedLinks: 0,
-            dedupedInRunCount: 0,
-            skippedFreshUrls: 0,
-            blockedPages: 0,
-            hadZeroOffersStep: false,
-            attemptCount: 1,
-            adaptiveDelayApplied: 0,
-            blockedRate: 0,
-            finalPolicy: 'failed',
-          },
-        }),
+        {
+          ...failedPayload,
+          payloadHash: computeCallbackPayloadHash(failedPayload as Record<string, unknown>),
+        },
         {
           retryAttempts: options.callbackRetryAttempts ?? 3,
           retryBackoffMs: options.callbackRetryBackoffMs ?? 1000,

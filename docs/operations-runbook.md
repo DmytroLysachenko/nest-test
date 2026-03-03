@@ -14,7 +14,7 @@ If `WORKER_CALLBACK_SIGNING_SECRET` is enabled:
 
 - worker sends `x-worker-signature` and `x-worker-timestamp`
 - API validates timestamp tolerance via `WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC`
-- callback payload should include `eventId` to prevent replay
+- callback payload should include `eventId`, `attemptNo`, `emittedAt`, and `payloadHash` to prevent replay and stale attempt acceptance
 
 Replay/idempotency events are stored in `job_source_callback_events`.
 

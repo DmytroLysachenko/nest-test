@@ -9,6 +9,7 @@ export const jobOffersTable = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     source: jobSourceEnum('source').notNull(),
     sourceId: text('source_id'),
+    offerIdentityKey: text('offer_identity_key'),
     runId: uuid('run_id').references(() => jobSourceRunsTable.id, { onDelete: 'set null' }),
     url: text('url').notNull(),
     title: text('title').notNull(),
@@ -23,6 +24,10 @@ export const jobOffersTable = pgTable(
   },
   (table) => ({
     uniqueSourceUrl: uniqueIndex('job_offers_source_url_unique').on(table.source, table.url),
+    uniqueSourceIdentityKey: uniqueIndex('job_offers_source_identity_key_unique').on(
+      table.source,
+      table.offerIdentityKey,
+    ),
     sourceFetchedAtIdx: index('job_offers_source_fetched_at_idx').on(table.source, table.fetchedAt.desc()),
     sourceRunFetchedAtIdx: index('job_offers_source_run_fetched_at_idx').on(
       table.source,
