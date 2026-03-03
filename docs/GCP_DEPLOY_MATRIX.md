@@ -2,7 +2,7 @@
 
 Canonical runtime/deploy contract for Google Cloud Run production deployments.
 
-Last updated: 2026-03-02
+Last updated: 2026-03-03
 
 ## 1) Repository-Level CI/CD Inputs
 
@@ -51,8 +51,11 @@ Last updated: 2026-03-02
 | `GCS_BUCKET` | env | `career-assistant-prod-docs` | existing bucket |
 | `ALLOWED_ORIGINS` | env | `https://app.example.com` | cannot be `*` in production |
 | `API_PREFIX` | env | `api` | should stay `api` |
+| `WORKER_TASK_PROVIDER` | env | `cloud-tasks` | must be `cloud-tasks` in production |
 | `WORKER_TASK_URL` | env | `https://worker-...run.app/tasks` | must point to worker `/tasks` |
-| `WORKER_AUTH_TOKEN` | Secret Manager | `<secret>` | must match worker `TASKS_AUTH_TOKEN` |
+| `WORKER_TASKS_PROJECT_ID` | env | `<project-id>` | Cloud Tasks project id |
+| `WORKER_TASKS_LOCATION` | env | `us-central1` | Cloud Tasks queue location |
+| `WORKER_TASKS_QUEUE` | env | `worker-scrape` | Cloud Tasks queue name |
 
 ### Recommended Runtime Environment
 
@@ -60,6 +63,9 @@ Last updated: 2026-03-02
 |---|---|---|
 | `WORKER_CALLBACK_OIDC_AUDIENCE` | `https://api-...run.app` | enables OIDC callback auth for worker |
 | `WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL` | `worker-runtime@...iam.gserviceaccount.com` | pins expected worker caller identity |
+| `WORKER_TASKS_SERVICE_ACCOUNT_EMAIL` | `api-enqueue@...iam.gserviceaccount.com` | worker `/tasks` OIDC caller identity |
+| `WORKER_TASKS_OIDC_AUDIENCE` | `https://worker-...run.app/tasks` | explicit worker OIDC audience |
+| `WORKER_AUTH_TOKEN` | `<secret>` | optional fallback if using shared bearer token instead of OIDC |
 | `WORKER_CALLBACK_SIGNING_SECRET` | `<secret>` | optional HMAC callback signature defense |
 | `WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC` | `300` | default is acceptable |
 | `API_BODY_LIMIT` | `1mb` | ingress guardrail |
@@ -83,13 +89,19 @@ Last updated: 2026-03-02
 |---|---|---|---|
 | `NODE_ENV` | literal | `production` | must be `production` |
 | `PORT` | Cloud Run | `8080` | auto-provided by Cloud Run |
-| `QUEUE_PROVIDER` | env | `local` | current production contract (API -> worker HTTP enqueue) |
-| `TASKS_AUTH_TOKEN` | Secret Manager | `<secret>` | must match API `WORKER_AUTH_TOKEN` |
+| `QUEUE_PROVIDER` | env | `cloud-tasks` | must be `cloud-tasks` in production |
+| `TASKS_PROJECT_ID` | env | `<project-id>` | Cloud Tasks project id |
+| `TASKS_LOCATION` | env | `us-central1` | Cloud Tasks queue location |
+| `TASKS_QUEUE` | env | `worker-scrape` | Cloud Tasks queue name |
+| `TASKS_URL` | env | `https://worker-...run.app/tasks` | must end with `/tasks` or `/scrape` |
 
 ### Recommended Runtime Environment
 
 | Name | Example | Notes |
 |---|---|---|
+| `TASKS_SERVICE_ACCOUNT_EMAIL` | `api-enqueue@...iam.gserviceaccount.com` | preferred OIDC validation for `/tasks` |
+| `TASKS_OIDC_AUDIENCE` | `https://worker-...run.app/tasks` | optional explicit audience |
+| `TASKS_AUTH_TOKEN` | `<secret>` | optional shared token fallback |
 | `WORKER_LOG_LEVEL` | `info` | production logging |
 | `WORKER_MAX_BODY_BYTES` | `262144` | request size guardrail |
 | `WORKER_MAX_CONCURRENT_TASKS` | `1` | start conservative; scale after profiling |
@@ -157,7 +169,9 @@ Last updated: 2026-03-02
 6. Run smoke against deployed services:
    - `API_BASE_URL=<api-url> WORKER_BASE_URL=<worker-url> WEB_BASE_URL=<web-url> SMOKE_SKIP_SEED=true pnpm smoke:e2e`
 
-## 5) Known Current Architecture Constraint
+## 5) Queue/Auth Contract
 
-- Production queue provider is currently `local` (API directly posts to worker `/tasks`).
-- Cloud Tasks is supported in worker runtime, but API enqueue path is not yet migrated to publish Cloud Tasks directly.
+- API enqueue provider should be `WORKER_TASK_PROVIDER=cloud-tasks` in production.
+- Worker ingress auth can be:
+  - OIDC (recommended): API signs task OIDC (`WORKER_TASKS_SERVICE_ACCOUNT_EMAIL`) and worker pins `TASKS_SERVICE_ACCOUNT_EMAIL`.
+  - Shared token fallback: API `WORKER_AUTH_TOKEN` + worker `TASKS_AUTH_TOKEN`.

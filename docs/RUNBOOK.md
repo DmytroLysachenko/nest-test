@@ -33,6 +33,10 @@ Day-to-day engineering runbook for local development and verification.
    - `SCRAPE_MAX_RETRY_CHAIN_DEPTH`
    - `WORKER_CALLBACK_OIDC_AUDIENCE` (optional OIDC audience for worker callback auth)
    - `WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL` (optional expected worker service account email claim)
+   - `WORKER_TASK_PROVIDER` (`http` or `cloud-tasks`, must be `cloud-tasks` in production)
+   - `WORKER_TASKS_PROJECT_ID` / `WORKER_TASKS_LOCATION` / `WORKER_TASKS_QUEUE` (required for `cloud-tasks` mode)
+   - `WORKER_TASKS_SERVICE_ACCOUNT_EMAIL` (optional OIDC auth to worker `/tasks`)
+   - `WORKER_TASKS_OIDC_AUDIENCE` (optional explicit worker OIDC audience)
 2. Worker:
   - `WORKER_MAX_BODY_BYTES` (example: `262144`)
   - `WORKER_CALLBACK_RETRY_MAX_DELAY_MS`
@@ -112,10 +116,16 @@ For exact variable-level mapping and secret sources, use:
 1. API:
    - `PORT` is provided by Cloud Run (app already binds from env).
    - `ALLOWED_ORIGINS` must be explicit in production (no `*`).
+   - `WORKER_TASK_PROVIDER=cloud-tasks` for production enqueue path.
+   - `WORKER_TASKS_PROJECT_ID` / `WORKER_TASKS_LOCATION` / `WORKER_TASKS_QUEUE` must point to the worker task queue.
+   - `WORKER_TASK_URL` must be worker Cloud Run `/tasks` endpoint (https).
 2. Worker:
-   - `QUEUE_PROVIDER=local` for current production flow (API -> worker `/tasks` HTTP enqueue).
+   - `QUEUE_PROVIDER=cloud-tasks` in production mode.
    - Worker binds to Cloud Run `PORT` when present; local fallback is `WORKER_PORT`.
    - Recommended service env: `WORKER_PORT=4001` for local only, `PORT` from Cloud Run in production.
+   - Configure one auth mode for `/tasks`:
+     - shared bearer token: `TASKS_AUTH_TOKEN` + API `WORKER_AUTH_TOKEN`
+     - OIDC token: `TASKS_SERVICE_ACCOUNT_EMAIL` + API `WORKER_TASKS_SERVICE_ACCOUNT_EMAIL`
 3. Web:
    - Production start binds `0.0.0.0` and reads `PORT` (Cloud Run compatible).
    - `NEXT_PUBLIC_API_URL` must point to deployed API base URL (with `/api` suffix).
