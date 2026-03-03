@@ -20,15 +20,30 @@ test('accepts extended payload with sourceRunId/requestId', () => {
   const parsed = taskEnvelopeSchema.safeParse({
     name: 'scrape:source',
     payload: {
+      taskSchemaVersion: '1',
       source: 'pracuj-pl',
       sourceRunId: '2f149bf9-65fd-48b5-aec7-8dc86abfca78',
       requestId: 'req-123',
+      dedupeKey: 'dedupe-key-123',
       listingUrl: 'https://it.pracuj.pl/praca?wm=home-office',
       limit: 5,
     },
   });
 
   assert.equal(parsed.success, true);
+});
+
+test('rejects unknown task schema version', () => {
+  const parsed = taskEnvelopeSchema.safeParse({
+    name: 'scrape:source',
+    payload: {
+      taskSchemaVersion: '2',
+      source: 'pracuj-pl',
+      sourceRunId: '2f149bf9-65fd-48b5-aec7-8dc86abfca78',
+    },
+  });
+
+  assert.equal(parsed.success, false);
 });
 
 test('rejects invalid sourceRunId', () => {

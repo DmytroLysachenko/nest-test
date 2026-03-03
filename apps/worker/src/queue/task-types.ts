@@ -13,13 +13,17 @@ export type TaskEnvelope<T extends TaskName = TaskName> = {
   payload: TaskPayloadMap[T];
 };
 
+export const TASK_SCHEMA_VERSION = '1' as const;
+
 export const taskEnvelopeSchema = z.object({
   name: z.enum(['scrape:source']),
   payload: z.object({
+    taskSchemaVersion: z.literal(TASK_SCHEMA_VERSION).optional(),
     source: z.string().min(1),
     runId: z.string().optional(),
     sourceRunId: z.string().uuid().optional(),
     requestId: z.string().optional(),
+    dedupeKey: z.string().min(8).optional(),
     callbackUrl: z.string().url().optional(),
     heartbeatUrl: z.string().url().optional(),
     callbackToken: z.string().optional(),

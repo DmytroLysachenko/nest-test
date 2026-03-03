@@ -85,11 +85,28 @@ test('WORKER_CALLBACK_OIDC_AUDIENCE must use https in production', async () => {
   await withEnv(
     {
       NODE_ENV: 'production',
-      QUEUE_PROVIDER: 'local',
+      QUEUE_PROVIDER: 'cloud-tasks',
+      TASKS_PROJECT_ID: 'project',
+      TASKS_LOCATION: 'us-central1',
+      TASKS_QUEUE: 'queue',
+      TASKS_URL: 'https://example.com/tasks',
+      TASKS_AUTH_TOKEN: 'token',
       WORKER_CALLBACK_OIDC_AUDIENCE: 'http://api.example.com',
     },
     () => {
       assert.throws(() => loadEnv(), /WORKER_CALLBACK_OIDC_AUDIENCE must use https in production mode/);
+    },
+  );
+});
+
+test('QUEUE_PROVIDER must be cloud-tasks in production mode', async () => {
+  await withEnv(
+    {
+      NODE_ENV: 'production',
+      QUEUE_PROVIDER: 'local',
+    },
+    () => {
+      assert.throws(() => loadEnv(), /QUEUE_PROVIDER must be cloud-tasks in production mode/);
     },
   );
 });

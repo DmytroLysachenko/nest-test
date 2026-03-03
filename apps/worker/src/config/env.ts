@@ -78,6 +78,10 @@ export const loadEnv = () => {
   }
   const env = parsed.data;
 
+  if (env.NODE_ENV === 'production' && env.QUEUE_PROVIDER !== 'cloud-tasks') {
+    throw new Error('QUEUE_PROVIDER must be cloud-tasks in production mode');
+  }
+
   if (env.QUEUE_PROVIDER === 'cloud-tasks') {
     const missing = ['TASKS_PROJECT_ID', 'TASKS_LOCATION', 'TASKS_QUEUE', 'TASKS_URL'].filter(
       (key) => !env[key as keyof WorkerEnv],
@@ -86,9 +90,7 @@ export const loadEnv = () => {
       throw new Error(`Missing Cloud Tasks env vars: ${missing.join(', ')}`);
     }
     if (!env.TASKS_AUTH_TOKEN && !env.TASKS_SERVICE_ACCOUNT_EMAIL) {
-      throw new Error(
-        'Cloud Tasks auth is not configured: set TASKS_AUTH_TOKEN or TASKS_SERVICE_ACCOUNT_EMAIL',
-      );
+      throw new Error('Cloud Tasks auth is not configured: set TASKS_AUTH_TOKEN or TASKS_SERVICE_ACCOUNT_EMAIL');
     }
 
     const taskUrl = new URL(env.TASKS_URL!);

@@ -1,14 +1,15 @@
 import { randomUUID } from 'crypto';
 import { createServer } from 'http';
-import type { IncomingMessage, ServerResponse } from 'http';
 
 import { OAuth2Client } from 'google-auth-library';
-import type { Logger } from 'pino';
 
-import type { WorkerEnv } from '../config/env';
 import { replayDeadLetters } from '../jobs/callback-dead-letter';
 import { TaskRunner } from '../queue/task-runner';
 import { taskEnvelopeSchema } from '../queue/task-types';
+
+import type { WorkerEnv } from '../config/env';
+import type { Logger } from 'pino';
+import type { IncomingMessage, ServerResponse } from 'http';
 import type { TaskEnvelope } from '../queue/task-types';
 import type { ScrapeSourceJob } from '../types/jobs';
 
@@ -54,6 +55,7 @@ const formatError = (error: unknown) => {
 };
 
 const oidcClient = new OAuth2Client();
+const OIDC_ISSUERS = new Set(['https://accounts.google.com', 'accounts.google.com']);
 
 const verifyAuth = async (req: IncomingMessage, env: WorkerEnv, logger: Logger) => {
   const header = req.headers.authorization;
@@ -83,10 +85,21 @@ const verifyAuth = async (req: IncomingMessage, env: WorkerEnv, logger: Logger) 
     if (!payload) {
       return false;
     }
+    if (!payload.iss || !OIDC_ISSUERS.has(payload.iss)) {
+      logger.warn({ issuer: payload.iss ?? null }, 'Rejected task request with unexpected OIDC issuer');
+      return false;
+    }
     if (env.TASKS_SERVICE_ACCOUNT_EMAIL && payload.email !== env.TASKS_SERVICE_ACCOUNT_EMAIL) {
       logger.warn(
         { expected: env.TASKS_SERVICE_ACCOUNT_EMAIL, actual: payload.email ?? null },
         'Rejected task request with unexpected OIDC service account',
+      );
+      return false;
+    }
+    if (env.TASKS_SERVICE_ACCOUNT_EMAIL && payload.email_verified !== true) {
+      logger.warn(
+        { expected: env.TASKS_SERVICE_ACCOUNT_EMAIL, emailVerified: payload.email_verified ?? null },
+        'Rejected task request with unverified OIDC email claim',
       );
       return false;
     }

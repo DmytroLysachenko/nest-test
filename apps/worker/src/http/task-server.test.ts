@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
-import type { AddressInfo } from 'node:net';
 import test from 'node:test';
 
 import { OAuth2Client } from 'google-auth-library';
-import type { Logger } from 'pino';
-
-import type { WorkerEnv } from '../config/env';
 
 import { createTaskServer } from './task-server';
+
+import type { AddressInfo } from 'node:net';
+import type { Logger } from 'pino';
+import type { WorkerEnv } from '../config/env';
+
+type VerifyIdTokenResult = Awaited<ReturnType<OAuth2Client['verifyIdToken']>>;
 
 const logger = {
   info: () => undefined,
@@ -79,7 +81,7 @@ test('rejects /tasks when OIDC email claim does not match expected service accou
       getPayload: () => ({
         email: 'unexpected-caller@example.iam.gserviceaccount.com',
       }),
-    }) as any;
+    }) as VerifyIdTokenResult;
 
   const server = createTaskServer(buildEnv(), logger);
   await new Promise<void>((resolve) => {
@@ -103,6 +105,80 @@ test('rejects /tasks when OIDC email claim does not match expected service accou
     assert.equal(response.status, 401);
     const body = (await response.json()) as { error?: string };
     assert.equal(body.error, 'Unauthorized');
+  } finally {
+    OAuth2Client.prototype.verifyIdToken = originalVerifyIdToken;
+    await closeServer(server);
+  }
+});
+
+test('rejects /tasks when OIDC issuer claim is unexpected', async () => {
+  const originalVerifyIdToken = OAuth2Client.prototype.verifyIdToken;
+  OAuth2Client.prototype.verifyIdToken = async () =>
+    ({
+      getPayload: () => ({
+        iss: 'https://issuer.example.com',
+        email: 'expected-caller@example.iam.gserviceaccount.com',
+        email_verified: true,
+      }),
+    }) as VerifyIdTokenResult;
+
+  const server = createTaskServer(buildEnv(), logger);
+  await new Promise<void>((resolve) => {
+    server.listen(0, () => resolve());
+  });
+  const port = (server.address() as AddressInfo).port;
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/tasks`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer fake-id-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: 'scrape:source',
+        payload: { taskSchemaVersion: '1', source: 'pracuj-pl', listingUrl: 'https://it.pracuj.pl' },
+      }),
+    });
+
+    assert.equal(response.status, 401);
+  } finally {
+    OAuth2Client.prototype.verifyIdToken = originalVerifyIdToken;
+    await closeServer(server);
+  }
+});
+
+test('rejects /tasks when OIDC email claim is not verified for pinned service account', async () => {
+  const originalVerifyIdToken = OAuth2Client.prototype.verifyIdToken;
+  OAuth2Client.prototype.verifyIdToken = async () =>
+    ({
+      getPayload: () => ({
+        iss: 'https://accounts.google.com',
+        email: 'expected-caller@example.iam.gserviceaccount.com',
+        email_verified: false,
+      }),
+    }) as VerifyIdTokenResult;
+
+  const server = createTaskServer(buildEnv(), logger);
+  await new Promise<void>((resolve) => {
+    server.listen(0, () => resolve());
+  });
+  const port = (server.address() as AddressInfo).port;
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/tasks`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer fake-id-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: 'scrape:source',
+        payload: { taskSchemaVersion: '1', source: 'pracuj-pl', listingUrl: 'https://it.pracuj.pl' },
+      }),
+    });
+
+    assert.equal(response.status, 401);
   } finally {
     OAuth2Client.prototype.verifyIdToken = originalVerifyIdToken;
     await closeServer(server);
