@@ -1,6 +1,6 @@
-import type { Logger } from 'pino';
-
 import { handleTask } from './task-handler';
+
+import type { Logger } from 'pino';
 import type { TaskEnvelope } from './task-types';
 
 type TaskOptions = Parameters<typeof handleTask>[2];

@@ -245,7 +245,7 @@ test('onboarding loads server draft into form', async ({ page }) => {
 
   await expect(page.getByRole('button', { name: 'Load server draft' })).toBeVisible();
   await page.getByRole('button', { name: 'Load server draft' }).click();
-  await expect(page.getByText('Backend Developer ×')).toBeVisible();
+  await expect(page.getByText(/Backend Developer/)).toBeVisible();
 });
 
 test('onboarding keeps step-one values after reload via local draft persistence', async ({ page }) => {

@@ -6,12 +6,11 @@ import { type Cookie, type Page } from 'playwright';
 import { chromium } from 'playwright-extra';
 import stealth from 'puppeteer-extra-plugin-stealth';
 
-import type { Logger } from 'pino';
-
-import type { DetailFetchDiagnostics, ListingJobSummary, RawPage } from '../types';
-
 import { defaultListingUrl, PRACUJ_DOMAIN, PRACUJ_JOB_PATH } from './constants';
 import { extractListingSummaries } from './listing';
+
+import type { Logger } from 'pino';
+import type { DetailFetchDiagnostics, ListingJobSummary, RawPage } from '../types';
 
 chromium.use(stealth());
 

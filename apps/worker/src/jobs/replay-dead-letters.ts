@@ -1,6 +1,5 @@
 import { loadEnv } from '../config/env';
 import { createLogger } from '../config/logger';
-
 import { replayDeadLetters } from './callback-dead-letter';
 
 const env = loadEnv();

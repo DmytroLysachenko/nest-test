@@ -1,5 +1,4 @@
 import { and, desc, eq, gte, inArray, or } from 'drizzle-orm';
-
 import { jobOffersTable } from '@repo/db';
 
 import { getDb } from './client';

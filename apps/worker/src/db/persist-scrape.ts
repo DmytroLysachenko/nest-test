@@ -1,9 +1,9 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { jobOffersTable, jobSourceRunsTable } from '@repo/db';
 
-import type { NormalizedJob } from '../sources/types';
-
 import { getDb } from './client';
+
+import type { NormalizedJob } from '../sources/types';
 
 const mapSource = (source: string) => {
   if (source === 'pracuj-pl') {

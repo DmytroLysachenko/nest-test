@@ -3,6 +3,7 @@ import { crawlPracujPl } from '../sources/pracuj-pl/crawl';
 import { normalizePracujPl } from '../sources/pracuj-pl/normalize';
 import { parsePracujPl } from '../sources/pracuj-pl/parse';
 import { buildPracujListingUrl } from '../sources/pracuj-pl/url-builder';
+
 import type { ScrapeSourceJob } from '../types/jobs';
 
 export type ScrapePipelineId = 'pracuj-pl' | 'pracuj-pl-it' | 'pracuj-pl-general';

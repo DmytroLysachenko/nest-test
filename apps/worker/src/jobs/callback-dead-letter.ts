@@ -2,9 +2,9 @@ import { createHmac } from 'crypto';
 import { mkdir, readdir, readFile, rm, writeFile } from 'fs/promises';
 import { isAbsolute, join, resolve } from 'path';
 
-import type { Logger } from 'pino';
-
 import { resolveOutboundAuthorizationHeader } from './oidc-auth';
+
+import type { Logger } from 'pino';
 
 type DeadLetterPayload = {
   callbackUrl: string;

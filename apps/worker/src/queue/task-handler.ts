@@ -1,7 +1,6 @@
-import type { Logger } from 'pino';
-
 import { runScrapeJob } from '../jobs/scrape-job';
 
+import type { Logger } from 'pino';
 import type { TaskEnvelope } from './task-types';
 
 export const handleTask = async (
