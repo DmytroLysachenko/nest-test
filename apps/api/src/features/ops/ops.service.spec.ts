@@ -76,6 +76,7 @@ describe('OpsService', () => {
     expect(result.lifecycle.retrySuccessRate).toBe(0.75);
     expect(result.callback.totalEvents).toBe(2);
     expect(result.callback.failedEvents).toBe(1);
+    expect(result.callback.failedRate).toBe(0.5);
     expect(result.callback.failuresByType.network).toBe(1);
     expect(result.callback.failuresByCode.WORKER_NETWORK).toBe(1);
   });

@@ -63,6 +63,9 @@ class ScrapeRunLifecycleSummary {
 
   @ApiProperty()
   retryCompleted!: number;
+
+  @ApiProperty()
+  enqueueSuppressed!: number;
 }
 
 class ScrapeRunTimelineItemResponse {

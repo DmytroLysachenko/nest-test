@@ -24,8 +24,14 @@ export const EnvSchema = z.object({
   GCP_PRIVATE_KEY: z.string().optional(),
   ALLOWED_ORIGINS: z.string().default('*'),
   API_PREFIX: z.string().default('api'),
+  WORKER_TASK_PROVIDER: z.enum(['http', 'cloud-tasks']).default('http'),
   WORKER_TASK_URL: z.string().url().optional(),
   WORKER_AUTH_TOKEN: z.string().optional(),
+  WORKER_TASKS_PROJECT_ID: z.string().optional(),
+  WORKER_TASKS_LOCATION: z.string().optional(),
+  WORKER_TASKS_QUEUE: z.string().optional(),
+  WORKER_TASKS_SERVICE_ACCOUNT_EMAIL: z.string().optional(),
+  WORKER_TASKS_OIDC_AUDIENCE: z.string().url().optional(),
   WORKER_CALLBACK_URL: z.string().url().optional(),
   WORKER_CALLBACK_TOKEN: z.string().optional(),
   WORKER_CALLBACK_OIDC_AUDIENCE: z.string().url().optional(),
@@ -77,6 +83,32 @@ export const validateEnv = (env: Record<string, unknown>): Env => {
     !parsed.data.WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL.includes('@')
   ) {
     throw new Error('WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL is invalid');
+  }
+  if (parsed.data.NODE_ENV === 'production' && parsed.data.WORKER_TASK_PROVIDER !== 'cloud-tasks') {
+    throw new Error('WORKER_TASK_PROVIDER must be cloud-tasks in production mode');
+  }
+  if (parsed.data.WORKER_TASK_PROVIDER === 'cloud-tasks') {
+    const missing = [
+      'WORKER_TASKS_PROJECT_ID',
+      'WORKER_TASKS_LOCATION',
+      'WORKER_TASKS_QUEUE',
+      'WORKER_TASK_URL',
+    ].filter((key) => !parsed.data[key as keyof Env]);
+    if (missing.length) {
+      throw new Error(`Missing Cloud Tasks env vars: ${missing.join(', ')}`);
+    }
+    if (
+      parsed.data.WORKER_TASKS_SERVICE_ACCOUNT_EMAIL &&
+      !parsed.data.WORKER_TASKS_SERVICE_ACCOUNT_EMAIL.includes('@')
+    ) {
+      throw new Error('WORKER_TASKS_SERVICE_ACCOUNT_EMAIL is invalid');
+    }
+    if (parsed.data.NODE_ENV === 'production' && parsed.data.WORKER_TASK_URL) {
+      const workerTaskUrl = new URL(parsed.data.WORKER_TASK_URL);
+      if (workerTaskUrl.protocol !== 'https:') {
+        throw new Error('WORKER_TASK_URL must use https in production mode for cloud-tasks provider');
+      }
+    }
   }
   return parsed.data;
 };

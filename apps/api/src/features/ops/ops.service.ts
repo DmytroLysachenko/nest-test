@@ -5,6 +5,7 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { jobSourceCallbackEventsTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
 
 import { Drizzle } from '@/common/decorators';
+
 import type { Env } from '@/config/env';
 
 @Injectable()
@@ -34,12 +35,7 @@ export class OpsService {
     const [runningWithoutHeartbeatRow] = await this.db
       .select({ value: count() })
       .from(jobSourceRunsTable)
-      .where(
-        and(
-          eq(jobSourceRunsTable.status, 'RUNNING'),
-          isNull(jobSourceRunsTable.lastHeartbeatAt),
-        ),
-      );
+      .where(and(eq(jobSourceRunsTable.status, 'RUNNING'), isNull(jobSourceRunsTable.lastHeartbeatAt)));
     const [runningStaleHeartbeatRow] = await this.db
       .select({ value: count() })
       .from(jobSourceRunsTable)
@@ -122,8 +118,10 @@ export class OpsService {
       }
       try {
         const parsed = JSON.parse(item.payload) as Record<string, unknown>;
-        const type = typeof parsed.failureType === 'string' && parsed.failureType.trim() ? parsed.failureType.trim() : null;
-        const code = typeof parsed.failureCode === 'string' && parsed.failureCode.trim() ? parsed.failureCode.trim() : null;
+        const type =
+          typeof parsed.failureType === 'string' && parsed.failureType.trim() ? parsed.failureType.trim() : null;
+        const code =
+          typeof parsed.failureCode === 'string' && parsed.failureCode.trim() ? parsed.failureCode.trim() : null;
         if (type) {
           failuresByType[type] = (failuresByType[type] ?? 0) + 1;
         }
@@ -163,6 +161,7 @@ export class OpsService {
         totalEvents: callbackEvents.length,
         completedEvents,
         failedEvents,
+        failedRate: callbackEvents.length ? Number((failedEvents / callbackEvents.length).toFixed(4)) : 0,
         failuresByType,
         failuresByCode,
       },

@@ -1,4 +1,6 @@
+import { CloudTasksClient } from '@google-cloud/tasks';
 import { jobOffersTable, jobSourceCallbackEventsTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
+import { OAuth2Client } from 'google-auth-library';
 
 import { JobSourcesService } from './job-sources.service';
 
@@ -223,8 +225,101 @@ describe('JobSourcesService', () => {
     );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const body = JSON.parse(String(request.body)) as Record<string, unknown>;
+    expect(body.taskSchemaVersion).toBe('1');
+    expect(typeof body.dedupeKey).toBe('string');
     expect(result.sourceRunId).toBe('run-uuid');
     expect(result.status).toBe('accepted');
+    expect(result.taskSchemaVersion).toBe('1');
+  });
+
+  it('enqueues scrape via Cloud Tasks provider and skips direct worker fetch', async () => {
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([
+                {
+                  careerProfileId: 'profile-id',
+                  contentJson: candidateProfileFixture,
+                },
+              ]),
+            }),
+          }),
+        }),
+      }),
+      insert: jest.fn().mockImplementation((table) => {
+        if (table === jobSourceRunsTable) {
+          return {
+            values: jest.fn().mockReturnValue({
+              returning: jest
+                .fn()
+                .mockResolvedValue([{ id: 'run-cloud-task-uuid', createdAt: new Date('2026-02-12T00:00:00.000Z') }]),
+            }),
+          };
+        }
+        throw new Error('Unexpected insert table');
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+    } as any;
+
+    const queuePathMock = jest
+      .spyOn(CloudTasksClient.prototype, 'queuePath')
+      .mockReturnValue('projects/test/locations/us-central1/queues/scrape-jobs');
+    const createTaskMock = jest
+      .spyOn(CloudTasksClient.prototype, 'createTask')
+      .mockImplementation(
+        async () => [{ name: 'projects/test/locations/us-central1/queues/scrape-jobs/tasks/task-123' }] as any,
+      );
+    const fetchMock = jest.spyOn(global, 'fetch' as any).mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ ok: true }),
+    } as any);
+
+    const service = new JobSourcesService(
+      createConfigService({
+        WORKER_TASK_PROVIDER: 'cloud-tasks',
+        WORKER_TASK_URL: 'https://worker.example.com/tasks',
+        WORKER_TASKS_PROJECT_ID: 'test',
+        WORKER_TASKS_LOCATION: 'us-central1',
+        WORKER_TASKS_QUEUE: 'scrape-jobs',
+        WORKER_TASKS_SERVICE_ACCOUNT_EMAIL: 'worker@example.iam.gserviceaccount.com',
+        WORKER_TASKS_OIDC_AUDIENCE: 'https://worker.example.com/tasks',
+        WORKER_REQUEST_TIMEOUT_MS: 5000,
+      }),
+      createLogger(),
+      db,
+    );
+
+    const result = await service.enqueueScrape(
+      'user-id',
+      {
+        source: 'pracuj-pl',
+        filters: { keywords: 'react' },
+        limit: 10,
+        forceRefresh: true,
+      },
+      'request-id',
+    );
+
+    expect(queuePathMock).toHaveBeenCalledWith('test', 'us-central1', 'scrape-jobs');
+    expect(createTaskMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      ok: true,
+      sourceRunId: 'run-cloud-task-uuid',
+      status: 'accepted',
+      provider: 'cloud-tasks',
+      taskName: 'projects/test/locations/us-central1/queues/scrape-jobs/tasks/task-123',
+      taskId: 'task-123',
+      taskSchemaVersion: '1',
+    });
   });
 
   it('rejects enqueue when user already has too many active runs', async () => {
@@ -1045,8 +1140,75 @@ describe('JobSourcesService', () => {
       status: 'RUNNING',
       inserted: 0,
       idempotent: true,
+      reasonCode: 'DUPLICATE_EVENT_ID',
     });
     expect(db.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects callback when OIDC issuer is unexpected', async () => {
+    const verifyIdTokenMock = jest
+      .spyOn(OAuth2Client.prototype as any, 'verifyIdToken')
+      .mockImplementation(async () => ({
+        getPayload: () => ({
+          iss: 'https://issuer.example.com',
+          email: 'worker@example.iam.gserviceaccount.com',
+          email_verified: true,
+        }),
+      }));
+
+    const service = new JobSourcesService(
+      createConfigService({
+        WORKER_CALLBACK_OIDC_AUDIENCE: 'https://api.example.com',
+        WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL: 'worker@example.iam.gserviceaccount.com',
+      }),
+      createLogger(),
+      {} as any,
+    );
+
+    await expect(
+      service.completeScrape(
+        {
+          sourceRunId: 'run-oidc-issuer',
+          status: 'FAILED',
+          error: 'network',
+        },
+        'Bearer fake-id-token',
+      ),
+    ).rejects.toThrow('Invalid worker callback OIDC issuer');
+    expect(verifyIdTokenMock).toHaveBeenCalled();
+  });
+
+  it('rejects callback when OIDC email is not verified for pinned service account', async () => {
+    const verifyIdTokenMock = jest
+      .spyOn(OAuth2Client.prototype as any, 'verifyIdToken')
+      .mockImplementation(async () => ({
+        getPayload: () => ({
+          iss: 'https://accounts.google.com',
+          email: 'worker@example.iam.gserviceaccount.com',
+          email_verified: false,
+        }),
+      }));
+
+    const service = new JobSourcesService(
+      createConfigService({
+        WORKER_CALLBACK_OIDC_AUDIENCE: 'https://api.example.com',
+        WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL: 'worker@example.iam.gserviceaccount.com',
+      }),
+      createLogger(),
+      {} as any,
+    );
+
+    await expect(
+      service.completeScrape(
+        {
+          sourceRunId: 'run-oidc-email',
+          status: 'FAILED',
+          error: 'network',
+        },
+        'Bearer fake-id-token',
+      ),
+    ).rejects.toThrow('Unverified worker callback service account email');
+    expect(verifyIdTokenMock).toHaveBeenCalled();
   });
 
   it('returns run diagnostics from latest callback event payload', async () => {

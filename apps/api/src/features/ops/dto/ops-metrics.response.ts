@@ -57,6 +57,9 @@ class OpsCallbackMetricsResponse {
   @ApiProperty()
   failedEvents!: number;
 
+  @ApiProperty()
+  failedRate!: number;
+
   @ApiProperty({ type: Object })
   failuresByType!: Record<string, number>;
 

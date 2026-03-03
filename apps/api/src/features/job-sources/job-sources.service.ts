@@ -14,6 +14,7 @@ import { ConfigService } from '@nestjs/config';
 import { and, count, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { OAuth2Client } from 'google-auth-library';
+import { CloudTasksClient } from '@google-cloud/tasks';
 import { Logger } from 'nestjs-pino';
 import {
   careerProfilesTable,
@@ -22,12 +23,11 @@ import {
   jobSourceRunsTable,
   userJobOffersTable,
 } from '@repo/db';
-import type { JobSourceRunStatus } from '@repo/db';
-import { buildPracujListingUrl, normalizePracujFilters, type PracujSourceKind } from '@repo/db';
+import { buildPracujListingUrl, normalizePracujFilters, type PracujSourceKind, JobSourceRunStatus } from '@repo/db';
 
-import type { Env } from '@/config/env';
 import { Drizzle } from '@/common/decorators';
 import { JobOffersService } from '@/features/job-offers/job-offers.service';
+import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
 
 import { EnqueueScrapeDto } from './dto/enqueue-scrape.dto';
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
@@ -35,8 +35,9 @@ import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
 import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';
 import { buildFiltersFromProfile, inferPracujSource } from './scrape-request-resolver';
-import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
 import { RunDiagnosticsSummaryCache } from './run-diagnostics-summary-cache';
+
+import type { Env } from '@/config/env';
 
 type CallbackJobPayload = NonNullable<ScrapeCompleteDto['jobs']>[number];
 type RunFailureType = 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown';
@@ -131,7 +132,13 @@ const toRunFailureType = (value?: string | null): RunFailureType | null => {
   if (!value) {
     return null;
   }
-  if (value === 'timeout' || value === 'network' || value === 'validation' || value === 'parse' || value === 'callback') {
+  if (
+    value === 'timeout' ||
+    value === 'network' ||
+    value === 'validation' ||
+    value === 'parse' ||
+    value === 'callback'
+  ) {
     return value;
   }
   return 'unknown';
@@ -161,11 +168,15 @@ const canonicalize = (value: unknown): unknown => {
 
 const stableJson = (value: unknown) => JSON.stringify(canonicalize(value ?? null));
 const workerOidcClient = new OAuth2Client();
+const WORKER_TASK_SCHEMA_VERSION = '1' as const;
+const WORKER_OIDC_ISSUERS = new Set(['https://accounts.google.com', 'accounts.google.com']);
 
 @Injectable()
 export class JobSourcesService {
   private readonly diagnosticsSummaryCache = new RunDiagnosticsSummaryCache<any>(30000);
   private readonly enqueueIdempotencyWindow = new Map<string, number>();
+  private readonly cloudTasksClient = new CloudTasksClient();
+  private enqueueSuppressedCount = 0;
 
   constructor(
     private readonly configService: ConfigService<Env, true>,
@@ -287,6 +298,7 @@ export class JobSourcesService {
       throw new ServiceUnavailableException('Failed to create scrape run');
     }
 
+    const workerTaskProvider = this.configService.get('WORKER_TASK_PROVIDER', { infer: true });
     const workerUrl = this.configService.get('WORKER_TASK_URL', { infer: true });
     const authToken = this.configService.get('WORKER_AUTH_TOKEN', { infer: true });
     const callbackUrl = this.resolveWorkerCallbackUrl();
@@ -303,9 +315,11 @@ export class JobSourcesService {
 
     try {
       const workerPayload = {
+        taskSchemaVersion: WORKER_TASK_SCHEMA_VERSION,
         source,
         sourceRunId: run.id,
         requestId,
+        dedupeKey: intentFingerprint,
         callbackUrl,
         heartbeatUrl,
         callbackToken,
@@ -321,6 +335,38 @@ export class JobSourcesService {
       if (payloadBytes > maxPayloadBytes) {
         await this.markRunFailed(run.id, `Worker payload too large: ${payloadBytes} > ${maxPayloadBytes}`);
         throw new BadRequestException(`Worker payload exceeds max size (${maxPayloadBytes} bytes)`);
+      }
+
+      if (workerTaskProvider === 'cloud-tasks') {
+        const cloudTask = await this.enqueueWorkerCloudTask(serializedPayload, requestId, workerUrl, authToken);
+        await this.markRunRunning(run.id);
+        this.logger.log(
+          {
+            requestId,
+            sourceRunId: run.id,
+            userId,
+            queueProvider: 'cloud-tasks',
+            taskName: cloudTask.taskName,
+            taskId: cloudTask.taskId,
+          },
+          'Scrape run accepted by Cloud Tasks',
+        );
+
+        return {
+          ok: true,
+          sourceRunId: run.id,
+          status: 'accepted',
+          provider: 'cloud-tasks',
+          taskName: cloudTask.taskName,
+          taskId: cloudTask.taskId,
+          dedupeKey: intentFingerprint,
+          taskSchemaVersion: WORKER_TASK_SCHEMA_VERSION,
+          acceptedAt: (run.createdAt ?? new Date()).toISOString(),
+          droppedFilters: normalizedFiltersResult.dropped,
+          acceptedFilters: normalizedFilters ?? null,
+          intentFingerprint,
+          resolvedFromProfile,
+        };
       }
 
       const response = await fetch(workerUrl, {
@@ -355,6 +401,9 @@ export class JobSourcesService {
         ...payload,
         sourceRunId: run.id,
         status: 'accepted',
+        provider: (payload?.queueProvider as string | undefined) ?? 'worker-http',
+        dedupeKey: intentFingerprint,
+        taskSchemaVersion: WORKER_TASK_SCHEMA_VERSION,
         acceptedAt: (run.createdAt ?? new Date()).toISOString(),
         droppedFilters: normalizedFiltersResult.dropped,
         acceptedFilters: normalizedFilters ?? null,
@@ -369,6 +418,9 @@ export class JobSourcesService {
           ok: true,
           sourceRunId: run.id,
           status: 'accepted',
+          provider: 'worker-http',
+          dedupeKey: intentFingerprint,
+          taskSchemaVersion: WORKER_TASK_SCHEMA_VERSION,
           acceptedAt: (run.createdAt ?? new Date()).toISOString(),
           warning: 'Worker response timed out. Scrape continues in background.',
           acceptedFilters: normalizedFilters ?? null,
@@ -381,6 +433,50 @@ export class JobSourcesService {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  private async enqueueWorkerCloudTask(
+    serializedPayload: string,
+    requestId: string,
+    workerUrl: string,
+    authToken?: string,
+  ) {
+    const projectId = this.configService.get('WORKER_TASKS_PROJECT_ID', { infer: true });
+    const location = this.configService.get('WORKER_TASKS_LOCATION', { infer: true });
+    const queue = this.configService.get('WORKER_TASKS_QUEUE', { infer: true });
+    if (!projectId || !location || !queue) {
+      throw new ServiceUnavailableException('Cloud Tasks provider is enabled but queue configuration is incomplete');
+    }
+
+    const parent = this.cloudTasksClient.queuePath(projectId, location, queue);
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-request-id': requestId,
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    };
+    const serviceAccountEmail = this.configService.get('WORKER_TASKS_SERVICE_ACCOUNT_EMAIL', { infer: true });
+    const oidcAudience = this.configService.get('WORKER_TASKS_OIDC_AUDIENCE', { infer: true }) ?? workerUrl;
+    const [task] = await this.cloudTasksClient.createTask({
+      parent,
+      task: {
+        httpRequest: {
+          httpMethod: 'POST',
+          url: workerUrl,
+          headers,
+          body: Buffer.from(serializedPayload).toString('base64'),
+          oidcToken: serviceAccountEmail
+            ? {
+                serviceAccountEmail,
+                audience: oidcAudience,
+              }
+            : undefined,
+        },
+      },
+    });
+
+    const taskName = task.name ?? null;
+    const taskId = taskName ? (taskName.split('/').pop() ?? null) : null;
+    return { taskName, taskId };
   }
 
   async completeScrape(
@@ -437,6 +533,7 @@ export class JobSourcesService {
           status: run.status,
           inserted: 0,
           idempotent: true,
+          reasonCode: 'DUPLICATE_EVENT_ID',
           warning: 'Duplicate callback event ignored',
         };
       }
@@ -473,6 +570,7 @@ export class JobSourcesService {
         status: run.status,
         inserted: 0,
         idempotent: true,
+        reasonCode: 'RUN_ALREADY_FINALIZED',
       };
     }
     if (isTerminal && run.status !== status) {
@@ -485,6 +583,7 @@ export class JobSourcesService {
         status: run.status,
         inserted: 0,
         idempotent: true,
+        reasonCode: 'RUN_FINALIZED_WITH_CONFLICTING_STATUS',
         warning: `Run already finalized as ${run.status}`,
       };
     }
@@ -821,9 +920,15 @@ export class JobSourcesService {
       if (!payload) {
         throw new UnauthorizedException('Invalid worker callback OIDC token');
       }
+      if (!payload.iss || !WORKER_OIDC_ISSUERS.has(payload.iss)) {
+        throw new UnauthorizedException('Invalid worker callback OIDC issuer');
+      }
       const expectedEmail = this.configService.get('WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL', { infer: true });
       if (expectedEmail && payload.email !== expectedEmail) {
         throw new UnauthorizedException('Invalid worker callback service account');
+      }
+      if (expectedEmail && payload.email_verified !== true) {
+        throw new UnauthorizedException('Unverified worker callback service account email');
       }
     } catch (error) {
       if (error instanceof UnauthorizedException) {
@@ -931,7 +1036,7 @@ export class JobSourcesService {
       {
         source: mapSourceEnumToSlug(run.source),
         listingUrl: run.listingUrl,
-        filters: (run.filters as Record<string, unknown> | undefined) as ScrapeFiltersDto | undefined,
+        filters: run.filters as Record<string, unknown> | undefined as ScrapeFiltersDto | undefined,
         careerProfileId: run.careerProfileId ?? undefined,
         forceRefresh: true,
       },
@@ -1115,6 +1220,7 @@ export class JobSourcesService {
       ).length,
       retriedRuns: runs.filter((run) => Boolean(run.retryOfRunId)).length,
       retryCompleted: runs.filter((run) => Boolean(run.retryOfRunId) && run.status === 'COMPLETED').length,
+      enqueueSuppressed: this.enqueueSuppressedCount,
     };
 
     const summary = {
@@ -1326,6 +1432,7 @@ export class JobSourcesService {
     const key = `${userId}:${intentFingerprint}`;
     const previous = this.enqueueIdempotencyWindow.get(key);
     if (previous && previous >= cutoff) {
+      this.enqueueSuppressedCount += 1;
       return true;
     }
     this.enqueueIdempotencyWindow.set(key, now);
@@ -1467,7 +1574,9 @@ export class JobSourcesService {
       .where(and(eq(jobSourceRunsTable.id, runId), eq(jobSourceRunsTable.status, fromStatus)));
 
     if (result && typeof (result as { returning?: unknown }).returning === 'function') {
-      const rows = await (result as unknown as { returning: (selection: Record<string, unknown>) => Promise<Array<{ id: string }>> }).returning({
+      const rows = await (
+        result as unknown as { returning: (selection: Record<string, unknown>) => Promise<Array<{ id: string }>> }
+      ).returning({
         id: jobSourceRunsTable.id,
       });
       return rows.length > 0;
