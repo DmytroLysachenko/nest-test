@@ -14,14 +14,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build-api:
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'master')
     runs-on: ubuntu-latest
-    environment: production
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
@@ -36,16 +35,105 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.11.0
+      - name: Validate build inputs
+        run: |
+          test -n "${RELEASE_SHA}" || (echo "Missing RELEASE_SHA from workflow_run event" && exit 1)
+          echo "${RELEASE_SHA}" | grep -Eq '^[0-9a-f]{40}$' || (echo "RELEASE_SHA must be a full 40-char git SHA" && exit 1)
+          test -n "${{ vars.GCP_PROJECT_ID }}" || (echo "Missing vars.GCP_PROJECT_ID" && exit 1)
+          test -n "${{ vars.GCP_REGION }}" || (echo "Missing vars.GCP_REGION" && exit 1)
+          test -n "${{ vars.GAR_REPOSITORY }}" || (echo "Missing vars.GAR_REPOSITORY" && exit 1)
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
 
-      - run: pnpm install --frozen-lockfile
+      - name: Build and push API image
+        run: |
+          IMAGE_BASE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}"
+          docker build -f apps/api/Dockerfile -t ${IMAGE_BASE}/api:${RELEASE_SHA} .
+          docker push ${IMAGE_BASE}/api:${RELEASE_SHA}
+
+  build-worker:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'master')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push Worker image
+        run: |
+          IMAGE_BASE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}"
+          docker build -f apps/worker/Dockerfile -t ${IMAGE_BASE}/worker:${RELEASE_SHA} .
+          docker push ${IMAGE_BASE}/worker:${RELEASE_SHA}
+
+  build-web:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'master')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push Web image
+        run: |
+          IMAGE_BASE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}"
+          docker build -f apps/web/Dockerfile -t ${IMAGE_BASE}/web:${RELEASE_SHA} .
+          docker push ${IMAGE_BASE}/web:${RELEASE_SHA}
+
+  deploy:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'master')
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 60
+    needs: [build-api, build-worker, build-web]
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
 
       - name: Validate deployment inputs
         run: |
@@ -65,27 +153,6 @@ jobs:
           test -n "${{ secrets.MAIL_PASSWORD }}" || (echo "Missing secrets.MAIL_PASSWORD" && exit 1)
           test -n "${{ secrets.WORKER_SHARED_TOKEN }}" || (echo "Missing secrets.WORKER_SHARED_TOKEN" && exit 1)
           test -n "${{ secrets.WORKER_CALLBACK_TOKEN }}" || (echo "Missing secrets.WORKER_CALLBACK_TOKEN" && exit 1)
-
-      - name: Configure Docker auth for Artifact Registry
-        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
-
-      - name: Build and push API image
-        run: |
-          IMAGE_BASE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}"
-          docker build -f apps/api/Dockerfile -t ${IMAGE_BASE}/api:${RELEASE_SHA} .
-          docker push ${IMAGE_BASE}/api:${RELEASE_SHA}
-
-      - name: Build and push Worker image
-        run: |
-          IMAGE_BASE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}"
-          docker build -f apps/worker/Dockerfile -t ${IMAGE_BASE}/worker:${RELEASE_SHA} .
-          docker push ${IMAGE_BASE}/worker:${RELEASE_SHA}
-
-      - name: Build and push Web image
-        run: |
-          IMAGE_BASE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}"
-          docker build -f apps/web/Dockerfile -t ${IMAGE_BASE}/web:${RELEASE_SHA} .
-          docker push ${IMAGE_BASE}/web:${RELEASE_SHA}
 
       - name: Deploy production services
         run: |
