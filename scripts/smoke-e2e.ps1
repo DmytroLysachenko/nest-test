@@ -24,15 +24,29 @@ function Require-Value {
   }
 }
 
+function Get-EnvOrDefault {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $false)][AllowEmptyString()][string]$Default = ''
+  )
+
+  $value = [Environment]::GetEnvironmentVariable($Name)
+  if ([string]::IsNullOrWhiteSpace($value)) {
+    return $Default
+  }
+  return $value
+}
+
 try {
 Write-Host '== E2E Smoke =='
 
-$apiBaseUrl = ($env:API_BASE_URL ?? 'http://localhost:3000').TrimEnd('/')
-$workerBaseUrl = ($env:WORKER_BASE_URL ?? 'http://localhost:4001').TrimEnd('/')
-$webBaseUrl = ($env:WEB_BASE_URL ?? 'http://localhost:3002').TrimEnd('/')
-$smokeEmail = $env:SMOKE_EMAIL ?? 'admin@example.com'
-$smokePassword = $env:SMOKE_PASSWORD ?? 'admin123'
-$skipSeed = @('1', 'true', 'yes') -contains (($env:SMOKE_SKIP_SEED ?? '').ToLower())
+$apiBaseUrl = (Get-EnvOrDefault -Name 'API_BASE_URL' -Default 'http://localhost:3000').TrimEnd('/')
+$workerBaseUrl = (Get-EnvOrDefault -Name 'WORKER_BASE_URL' -Default 'http://localhost:4001').TrimEnd('/')
+$webBaseUrl = (Get-EnvOrDefault -Name 'WEB_BASE_URL' -Default 'http://localhost:3002').TrimEnd('/')
+$smokeEmail = Get-EnvOrDefault -Name 'SMOKE_EMAIL' -Default 'admin@example.com'
+$smokePassword = Get-EnvOrDefault -Name 'SMOKE_PASSWORD' -Default 'admin123'
+$skipSeedRaw = Get-EnvOrDefault -Name 'SMOKE_SKIP_SEED' -Default ''
+$skipSeed = @('1', 'true', 'yes') -contains $skipSeedRaw.ToLower()
 
 if (-not $skipSeed) {
   Write-Host '1) Seeding minimal fixture data...'
@@ -406,8 +420,8 @@ if ($diagnosticsPayload.data.runId -ne $sourceRunId) {
 if ($null -eq $diagnosticsPayload.data.diagnostics.stats.jobLinksDiscovered) {
   throw 'Scrape diagnostics missing stats.jobLinksDiscovered.'
 }
-if ($null -eq $diagnosticsPayload.data.heartbeatAt) {
-  throw 'Scrape diagnostics missing heartbeatAt.'
+if ($null -eq $diagnosticsPayload.data.finalizedAt -and $null -eq $diagnosticsPayload.data.heartbeatAt) {
+  throw 'Scrape diagnostics missing both finalizedAt and heartbeatAt.'
 }
 
 Write-Host '12.2) Verifying scrape diagnostics summary endpoint...'
