@@ -1,0 +1,120 @@
+name: Deploy Prod On Main
+
+on:
+  workflow_run:
+    workflows: ["CI Verify"]
+    types: [completed]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: prod-deploy-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'master')
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 60
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Validate deployment inputs
+        run: |
+          test -n "${RELEASE_SHA}" || (echo "Missing RELEASE_SHA from workflow_run event" && exit 1)
+          echo "${RELEASE_SHA}" | grep -Eq '^[0-9a-f]{40}$' || (echo "RELEASE_SHA must be a full 40-char git SHA" && exit 1)
+          test -n "${{ vars.GCP_PROJECT_ID }}" || (echo "Missing vars.GCP_PROJECT_ID" && exit 1)
+          test -n "${{ vars.GCP_REGION }}" || (echo "Missing vars.GCP_REGION" && exit 1)
+          test -n "${{ vars.GAR_REPOSITORY }}" || (echo "Missing vars.GAR_REPOSITORY" && exit 1)
+          test -n "${{ vars.GCP_API_SERVICE }}" || (echo "Missing vars.GCP_API_SERVICE" && exit 1)
+          test -n "${{ vars.GCP_WORKER_SERVICE }}" || (echo "Missing vars.GCP_WORKER_SERVICE" && exit 1)
+          test -n "${{ vars.GCP_WEB_SERVICE }}" || (echo "Missing vars.GCP_WEB_SERVICE" && exit 1)
+          test -n "${{ vars.GCS_BUCKET }}" || (echo "Missing vars.GCS_BUCKET" && exit 1)
+          test -n "${{ secrets.DATABASE_URL }}" || (echo "Missing secrets.DATABASE_URL" && exit 1)
+          test -n "${{ secrets.ACCESS_TOKEN_SECRET }}" || (echo "Missing secrets.ACCESS_TOKEN_SECRET" && exit 1)
+          test -n "${{ secrets.REFRESH_TOKEN_SECRET }}" || (echo "Missing secrets.REFRESH_TOKEN_SECRET" && exit 1)
+          test -n "${{ secrets.MAIL_USERNAME }}" || (echo "Missing secrets.MAIL_USERNAME" && exit 1)
+          test -n "${{ secrets.MAIL_PASSWORD }}" || (echo "Missing secrets.MAIL_PASSWORD" && exit 1)
+          test -n "${{ secrets.WORKER_SHARED_TOKEN }}" || (echo "Missing secrets.WORKER_SHARED_TOKEN" && exit 1)
+          test -n "${{ secrets.WORKER_CALLBACK_TOKEN }}" || (echo "Missing secrets.WORKER_CALLBACK_TOKEN" && exit 1)
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push API image
+        run: |
+          IMAGE_BASE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}"
+          docker build -f apps/api/Dockerfile -t ${IMAGE_BASE}/api:${RELEASE_SHA} .
+          docker push ${IMAGE_BASE}/api:${RELEASE_SHA}
+
+      - name: Build and push Worker image
+        run: |
+          IMAGE_BASE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}"
+          docker build -f apps/worker/Dockerfile -t ${IMAGE_BASE}/worker:${RELEASE_SHA} .
+          docker push ${IMAGE_BASE}/worker:${RELEASE_SHA}
+
+      - name: Build and push Web image
+        run: |
+          IMAGE_BASE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}"
+          docker build -f apps/web/Dockerfile -t ${IMAGE_BASE}/web:${RELEASE_SHA} .
+          docker push ${IMAGE_BASE}/web:${RELEASE_SHA}
+
+      - name: Deploy production services
+        run: |
+          chmod +x ./scripts/deploy-cloud-run-prod.sh
+          chmod +x ./scripts/verify-deployment.sh
+          ./scripts/deploy-cloud-run-prod.sh
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
+          RELEASE_SHA: ${{ env.RELEASE_SHA }}
+          GCP_API_SERVICE: ${{ vars.GCP_API_SERVICE }}
+          GCP_WORKER_SERVICE: ${{ vars.GCP_WORKER_SERVICE }}
+          GCP_WEB_SERVICE: ${{ vars.GCP_WEB_SERVICE }}
+          GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+          GCP_API_RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_API_RUNTIME_SERVICE_ACCOUNT }}
+          GCP_WORKER_RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_WORKER_RUNTIME_SERVICE_ACCOUNT }}
+          GCP_WEB_RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_WEB_RUNTIME_SERVICE_ACCOUNT }}
+          ACCESS_TOKEN_EXPIRATION: ${{ vars.ACCESS_TOKEN_EXPIRATION }}
+          REFRESH_TOKEN_EXPIRATION: ${{ vars.REFRESH_TOKEN_EXPIRATION }}
+          MAIL_HOST: ${{ vars.MAIL_HOST }}
+          MAIL_PORT: ${{ vars.MAIL_PORT }}
+          MAIL_SECURE: ${{ vars.MAIL_SECURE }}
+          WORKER_TASKS_QUEUE: ${{ vars.WORKER_TASKS_QUEUE }}
+          ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+          REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          WORKER_SHARED_TOKEN: ${{ secrets.WORKER_SHARED_TOKEN }}
+          WORKER_CALLBACK_TOKEN: ${{ secrets.WORKER_CALLBACK_TOKEN }}
