@@ -14,11 +14,68 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-api:
+  detect-changes:
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'master'
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_api: ${{ steps.changes.outputs.deploy_api }}
+      deploy_worker: ${{ steps.changes.outputs.deploy_worker }}
+      deploy_web: ${{ steps.changes.outputs.deploy_web }}
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 2
+
+      - id: changes
+        name: Detect changed services
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git rev-parse "${RELEASE_SHA}^" >/dev/null 2>&1; then
+            CHANGED="$(git diff --name-only "${RELEASE_SHA}^" "${RELEASE_SHA}")"
+          else
+            CHANGED="$(git show --name-only --pretty='' "${RELEASE_SHA}")"
+          fi
+
+          echo "Changed files:"
+          echo "${CHANGED}"
+
+          deploy_api=false
+          deploy_worker=false
+          deploy_web=false
+
+          if echo "${CHANGED}" | grep -Eq '^(pnpm-lock.yaml|pnpm-workspace.yaml|package.json|turbo.json|tsconfig(\..+)?\.json|\.github/workflows/deploy-prod-on-main.yml|scripts/deploy-cloud-run-prod.sh|scripts/verify-deployment.sh)'; then
+            deploy_api=true
+            deploy_worker=true
+            deploy_web=true
+          fi
+
+          if echo "${CHANGED}" | grep -Eq '^(apps/api/|packages/db/)'; then
+            deploy_api=true
+          fi
+
+          if echo "${CHANGED}" | grep -Eq '^(apps/worker/|packages/db/)'; then
+            deploy_worker=true
+          fi
+
+          if echo "${CHANGED}" | grep -Eq '^(apps/web/|packages/ui/)'; then
+            deploy_web=true
+          fi
+
+          echo "deploy_api=${deploy_api}" >> "${GITHUB_OUTPUT}"
+          echo "deploy_worker=${deploy_worker}" >> "${GITHUB_OUTPUT}"
+          echo "deploy_web=${deploy_web}" >> "${GITHUB_OUTPUT}"
+
+  build-api:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.deploy_api == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -53,10 +110,8 @@ jobs:
           docker push ${IMAGE_BASE}/api:${RELEASE_SHA}
 
   build-worker:
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'master'
+    needs: detect-changes
+    if: needs.detect-changes.outputs.deploy_worker == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -83,10 +138,8 @@ jobs:
           docker push ${IMAGE_BASE}/worker:${RELEASE_SHA}
 
   build-web:
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'master'
+    needs: detect-changes
+    if: needs.detect-changes.outputs.deploy_web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -113,14 +166,18 @@ jobs:
           docker push ${IMAGE_BASE}/web:${RELEASE_SHA}
 
   deploy:
+    needs: [detect-changes, build-api, build-worker, build-web]
     if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'master'
+      always() &&
+      (needs.detect-changes.outputs.deploy_api == 'true' ||
+      needs.detect-changes.outputs.deploy_worker == 'true' ||
+      needs.detect-changes.outputs.deploy_web == 'true') &&
+      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
+      (needs.build-worker.result == 'success' || needs.build-worker.result == 'skipped') &&
+      (needs.build-web.result == 'success' || needs.build-web.result == 'skipped')
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 60
-    needs: [build-api, build-worker, build-web]
     env:
       RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
@@ -146,13 +203,6 @@ jobs:
           test -n "${{ vars.GCP_WORKER_SERVICE }}" || (echo "Missing vars.GCP_WORKER_SERVICE" && exit 1)
           test -n "${{ vars.GCP_WEB_SERVICE }}" || (echo "Missing vars.GCP_WEB_SERVICE" && exit 1)
           test -n "${{ vars.GCS_BUCKET }}" || (echo "Missing vars.GCS_BUCKET" && exit 1)
-          test -n "${{ secrets.DATABASE_URL }}" || (echo "Missing secrets.DATABASE_URL" && exit 1)
-          test -n "${{ secrets.ACCESS_TOKEN_SECRET }}" || (echo "Missing secrets.ACCESS_TOKEN_SECRET" && exit 1)
-          test -n "${{ secrets.REFRESH_TOKEN_SECRET }}" || (echo "Missing secrets.REFRESH_TOKEN_SECRET" && exit 1)
-          test -n "${{ secrets.MAIL_USERNAME }}" || (echo "Missing secrets.MAIL_USERNAME" && exit 1)
-          test -n "${{ secrets.MAIL_PASSWORD }}" || (echo "Missing secrets.MAIL_PASSWORD" && exit 1)
-          test -n "${{ secrets.WORKER_SHARED_TOKEN }}" || (echo "Missing secrets.WORKER_SHARED_TOKEN" && exit 1)
-          test -n "${{ secrets.WORKER_CALLBACK_TOKEN }}" || (echo "Missing secrets.WORKER_CALLBACK_TOKEN" && exit 1)
 
       - name: Deploy production services
         run: |
@@ -164,6 +214,9 @@ jobs:
           GCP_REGION: ${{ vars.GCP_REGION }}
           GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
           RELEASE_SHA: ${{ env.RELEASE_SHA }}
+          DEPLOY_API: ${{ needs.detect-changes.outputs.deploy_api }}
+          DEPLOY_WORKER: ${{ needs.detect-changes.outputs.deploy_worker }}
+          DEPLOY_WEB: ${{ needs.detect-changes.outputs.deploy_web }}
           GCP_API_SERVICE: ${{ vars.GCP_API_SERVICE }}
           GCP_WORKER_SERVICE: ${{ vars.GCP_WORKER_SERVICE }}
           GCP_WEB_SERVICE: ${{ vars.GCP_WEB_SERVICE }}
