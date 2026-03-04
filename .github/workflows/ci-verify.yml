@@ -2,8 +2,9 @@ name: CI Verify
 
 on:
   pull_request:
+    branches: [master]
   push:
-    branches: [main, master]
+    branches: [master]
 
 jobs:
   lint:
