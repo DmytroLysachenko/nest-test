@@ -92,7 +92,10 @@ WEB_URL="$(resolve_service_url "$GCP_WEB_SERVICE")"
 
 if [[ "$DEPLOY_WORKER" == "true" ]]; then
   echo "Deploy worker (pass 1)..."
-  WORKER_TASK_URL="${WORKER_URL:-https://example.com/tasks}"
+  WORKER_TASK_URL="https://example.com/tasks"
+  if [[ -n "$WORKER_URL" ]]; then
+    WORKER_TASK_URL="${WORKER_URL%/}/tasks"
+  fi
 
   gcloud run deploy "$GCP_WORKER_SERVICE" \
     --project="$GCP_PROJECT_ID" \
