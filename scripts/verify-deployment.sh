@@ -26,8 +26,20 @@ require_var API_BASE_URL
 require_var WORKER_BASE_URL
 require_var WEB_BASE_URL
 
-check_health "${API_BASE_URL%/}/health" "api"
-check_health "${WORKER_BASE_URL%/}/health" "worker"
-check_health "${WEB_BASE_URL%/}/health" "web"
+VERIFY_API="${VERIFY_API:-true}"
+VERIFY_WORKER="${VERIFY_WORKER:-true}"
+VERIFY_WEB="${VERIFY_WEB:-true}"
+
+if [[ "${VERIFY_API}" == "true" ]]; then
+  check_health "${API_BASE_URL%/}/health" "api"
+fi
+
+if [[ "${VERIFY_WORKER}" == "true" ]]; then
+  check_health "${WORKER_BASE_URL%/}/health" "worker"
+fi
+
+if [[ "${VERIFY_WEB}" == "true" ]]; then
+  check_health "${WEB_BASE_URL%/}/health" "web"
+fi
 
 echo "Deployment verification passed."

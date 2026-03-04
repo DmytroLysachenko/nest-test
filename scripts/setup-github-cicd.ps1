@@ -32,6 +32,14 @@ function Get-EnvValue {
 
   $raw = $line.Split("=", 2)[1]
   $clean = ($raw -replace "\s+#.*$", "").Trim()
+
+  if (
+    ($clean.StartsWith('"') -and $clean.EndsWith('"')) -or
+    ($clean.StartsWith("'") -and $clean.EndsWith("'"))
+  ) {
+    $clean = $clean.Substring(1, $clean.Length - 2)
+  }
+
   return $clean
 }
 
@@ -49,7 +57,7 @@ function Set-RepoVar {
 
 function Set-RepoSecret {
   param([string]$Name, [string]$Value)
-  $Value | & $gh secret set $Name --repo $Repo --body -
+  & $gh secret set $Name --repo $Repo --body $Value
 }
 
 $dbUrl = Get-EnvValue "apps/api/.env" "DATABASE_URL"
