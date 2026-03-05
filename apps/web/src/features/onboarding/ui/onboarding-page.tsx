@@ -59,7 +59,7 @@ const StepIndicator = ({ step }: { step: 1 | 2 | 3 }) => (
           step === item.id
             ? 'border-primary bg-primary text-primary-foreground'
             : step > item.id
-              ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+              ? 'border-app-success-border bg-app-success-soft text-app-success'
               : 'border-border bg-muted/50 text-muted-foreground'
         }`}
       >
@@ -123,7 +123,7 @@ export const OnboardingPage = () => {
               onChange={(next) => setValue('desiredPositions', next, { shouldValidate: true })}
             />
             {errors.desiredPositions?.message ? (
-              <p className="text-sm text-rose-600">{errors.desiredPositions.message}</p>
+              <p className="text-app-danger text-sm">{errors.desiredPositions.message}</p>
             ) : null}
 
             <TagInput
@@ -139,7 +139,7 @@ export const OnboardingPage = () => {
               values={current.coreSkills}
               onChange={(next) => setValue('coreSkills', next, { shouldValidate: true })}
             />
-            {errors.coreSkills?.message ? <p className="text-sm text-rose-600">{errors.coreSkills.message}</p> : null}
+            {errors.coreSkills?.message ? <p className="text-app-danger text-sm">{errors.coreSkills.message}</p> : null}
 
             <div className="space-y-2">
               <Label htmlFor="experienceYearsInRole">4) Experience in this role (years)</Label>
@@ -250,7 +250,7 @@ export const OnboardingPage = () => {
               <div className="space-y-1">
                 <p className="text-muted-foreground text-xs">Draft is saved automatically in local storage.</p>
                 {onboarding.stepOneForm.formState.isDirty ? (
-                  <p className="text-xs text-amber-700">You have unsaved local changes in this step.</p>
+                  <p className="text-app-warning text-xs">You have unsaved local changes in this step.</p>
                 ) : null}
               </div>
               <div className="flex items-center gap-2">
@@ -486,7 +486,7 @@ export const OnboardingPage = () => {
               </Button>
             </div>
             {!onboarding.hasReadyDocument ? (
-              <p className="text-sm text-amber-700">
+              <p className="text-app-warning text-sm">
                 At least one document must reach READY extraction status before generation.
               </p>
             ) : null}
@@ -543,7 +543,9 @@ export const OnboardingPage = () => {
                   : 'Generate profile and open dashboard'}
               </Button>
             </div>
-            {onboarding.generationError ? <p className="text-sm text-rose-600">{onboarding.generationError}</p> : null}
+            {onboarding.generationError ? (
+              <p className="text-app-danger text-sm">{onboarding.generationError}</p>
+            ) : null}
           </div>
         </Card>
       ) : null}

@@ -35,7 +35,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           <Label htmlFor="scrape-mode">Mode</Label>
           <select
             id="scrape-mode"
-            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+            className="border-border bg-surface-elevated h-10 rounded-md border px-3 text-sm"
             {...register('mode')}
           >
             <option value="profile">Use profile-derived filters</option>
@@ -51,25 +51,25 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             disabled={jobSourcesPanel.mode !== 'custom'}
             {...register('listingUrl')}
           />
-          {errors.listingUrl?.message ? <p className="text-sm text-rose-600">{errors.listingUrl.message}</p> : null}
+          {errors.listingUrl?.message ? <p className="text-app-danger text-sm">{errors.listingUrl.message}</p> : null}
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="listing-limit">Limit</Label>
           <Input id="listing-limit" type="number" min={1} max={100} {...register('limit')} />
-          {errors.limit?.message ? <p className="text-sm text-rose-600">{errors.limit.message}</p> : null}
+          {errors.limit?.message ? <p className="text-app-danger text-sm">{errors.limit.message}</p> : null}
         </div>
 
-        {errors.root?.message ? <p className="text-sm text-rose-600">{errors.root.message}</p> : null}
+        {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
         <Button type="submit" disabled={disabled || jobSourcesPanel.isSubmitting}>
           {jobSourcesPanel.isSubmitting ? 'Enqueuing...' : 'Enqueue scrape run'}
         </Button>
-        {disabled && disabledReason ? <p className="text-sm text-amber-700">{disabledReason}</p> : null}
+        {disabled && disabledReason ? <p className="text-app-warning text-sm">{disabledReason}</p> : null}
       </form>
 
       {jobSourcesPanel.enqueueResult ? (
-        <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-          <p className="font-semibold text-slate-900">Latest enqueue metadata</p>
+        <div className="border-border bg-surface-muted text-text-soft mt-4 rounded-md border p-3 text-sm">
+          <p className="text-text-strong font-semibold">Latest enqueue metadata</p>
           <p>Status: {jobSourcesPanel.enqueueResult.status}</p>
           {jobSourcesPanel.enqueueResult.resolvedFromProfile ? <p>Resolved from active profile: yes</p> : null}
           {jobSourcesPanel.enqueueResult.intentFingerprint ? (
@@ -77,8 +77,8 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           ) : null}
           {jobSourcesPanel.enqueueResult.acceptedFilters ? (
             <details className="mt-2">
-              <summary className="cursor-pointer font-medium text-slate-800">Accepted filters</summary>
-              <pre className="mt-2 whitespace-pre-wrap rounded-md bg-white p-2 text-xs">
+              <summary className="text-text-strong cursor-pointer font-medium">Accepted filters</summary>
+              <pre className="bg-surface-elevated mt-2 whitespace-pre-wrap rounded-md p-2 text-xs">
                 {JSON.stringify(jobSourcesPanel.enqueueResult.acceptedFilters, null, 2)}
               </pre>
             </details>
@@ -87,29 +87,29 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
       ) : null}
 
       <div className="mt-5 space-y-2">
-        <p className="text-sm font-semibold text-slate-800">Recent runs</p>
+        <p className="text-text-strong text-sm font-semibold">Recent runs</p>
         {jobSourcesPanel.runsQuery.data?.items?.length ? (
           jobSourcesPanel.runsQuery.data.items.map((run) => (
-            <article key={run.id} className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
-              <p className="font-medium text-slate-900">Status: {run.status}</p>
-              <p className="text-slate-600">Scraped: {run.scrapedCount ?? 0}</p>
-              <p className="text-slate-600">Found: {run.totalFound ?? 0}</p>
+            <article key={run.id} className="border-border bg-surface-muted rounded-md border p-3 text-sm">
+              <p className="text-text-strong font-medium">Status: {run.status}</p>
+              <p className="text-text-soft">Scraped: {run.scrapedCount ?? 0}</p>
+              <p className="text-text-soft">Found: {run.totalFound ?? 0}</p>
               <div className="mt-2">
                 <Button type="button" variant="secondary" onClick={() => jobSourcesPanel.setSelectedRunId(run.id)}>
                   Show diagnostics
                 </Button>
               </div>
-              {run.error ? <p className="text-rose-600">{run.error}</p> : null}
+              {run.error ? <p className="text-app-danger">{run.error}</p> : null}
             </article>
           ))
         ) : (
-          <p className="text-sm text-slate-500">No runs yet.</p>
+          <p className="text-text-soft text-sm">No runs yet.</p>
         )}
       </div>
 
       {jobSourcesPanel.diagnosticsQuery.data ? (
-        <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-          <p className="font-semibold text-slate-900">Run diagnostics</p>
+        <div className="border-border bg-surface-muted text-text-soft mt-4 rounded-md border p-3 text-sm">
+          <p className="text-text-strong font-semibold">Run diagnostics</p>
           <p>Run id: {jobSourcesPanel.diagnosticsQuery.data.runId}</p>
           <p>Status: {jobSourcesPanel.diagnosticsQuery.data.status}</p>
           <p>Pages visited: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.pagesVisited}</p>

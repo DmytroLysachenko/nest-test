@@ -47,7 +47,7 @@ export default function GoogleAuthCallbackPage() {
       <div className="border-border/80 bg-card/95 w-full max-w-md rounded-2xl border p-6 shadow-sm backdrop-blur-sm">
         <h1 className="text-foreground text-lg font-semibold">Google Sign In</h1>
         {error ? (
-          <p className="mt-3 text-sm text-rose-600">
+          <p className="text-app-danger mt-3 text-sm">
             {error} Go back to{' '}
             <a className="underline" href="/login">
               login

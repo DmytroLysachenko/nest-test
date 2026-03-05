@@ -18,7 +18,7 @@ export const DocumentsReadinessCard = ({ documents }: DocumentsReadinessCardProp
       title="Documents Readiness"
       description="Profile generation requires at least one extracted (READY) document."
     >
-      <div className="space-y-2 text-sm text-slate-700">
+      <div className="text-text-soft space-y-2 text-sm">
         <p>Uploaded: {uploadedCount}</p>
         <p>Extracted READY: {readyCount}</p>
         <p>Extraction FAILED: {failedCount}</p>
@@ -27,16 +27,16 @@ export const DocumentsReadinessCard = ({ documents }: DocumentsReadinessCardProp
       <div className="mt-4 space-y-2">
         {documents.length ? (
           documents.map((document) => (
-            <article key={document.id} className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
-              <p className="font-medium text-slate-900">{document.originalName}</p>
-              <p className="text-slate-600">
+            <article key={document.id} className="border-border bg-surface-muted rounded-md border p-3 text-sm">
+              <p className="text-text-strong font-medium">{document.originalName}</p>
+              <p className="text-text-soft">
                 Type: {document.type} | Extraction: {document.extractionStatus}
               </p>
-              {document.extractionError ? <p className="text-rose-600">{document.extractionError}</p> : null}
+              {document.extractionError ? <p className="text-app-danger">{document.extractionError}</p> : null}
             </article>
           ))
         ) : (
-          <p className="text-sm text-slate-500">No documents uploaded yet.</p>
+          <p className="text-text-soft text-sm">No documents uploaded yet.</p>
         )}
       </div>
     </Card>

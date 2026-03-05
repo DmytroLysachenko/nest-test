@@ -53,21 +53,21 @@ export const CareerProfileVersionsCard = ({
           placeholder="Highlight frontend + transferable backend competencies."
           {...generationForm.register('instructions')}
         />
-        {generateErrorMessage ? <p className="text-sm text-rose-600">{generateErrorMessage}</p> : null}
+        {generateErrorMessage ? <p className="text-app-danger text-sm">{generateErrorMessage}</p> : null}
         <Button type="submit" disabled={!canGenerate || isGenerating}>
           {isGenerating ? 'Generating...' : 'Generate new profile version'}
         </Button>
         {!canGenerate ? (
-          <p className="text-sm text-amber-700">
+          <p className="text-app-warning text-sm">
             At least one extracted document is required before generating a profile.
           </p>
         ) : null}
       </form>
 
-      <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
-        <p className="font-semibold text-slate-900">Active profile</p>
+      <div className="border-border bg-surface-muted mt-4 rounded-md border p-3 text-sm">
+        <p className="text-text-strong font-semibold">Active profile</p>
         {latestProfile ? (
-          <div className="mt-2 space-y-1 text-slate-700">
+          <div className="text-text-soft mt-2 space-y-1">
             <p>
               Version: <span className="font-medium">v{latestProfile.version}</span>
             </p>
@@ -77,19 +77,19 @@ export const CareerProfileVersionsCard = ({
             <p>Linked documents: {latestProfileDocuments.length}</p>
           </div>
         ) : (
-          <p className="mt-2 text-slate-500">No active profile found.</p>
+          <p className="text-text-soft mt-2">No active profile found.</p>
         )}
       </div>
 
       <div className="mt-4 space-y-2">
-        <p className="text-sm font-semibold text-slate-900">Version history</p>
-        {restoreErrorMessage ? <p className="text-sm text-rose-600">{restoreErrorMessage}</p> : null}
+        <p className="text-text-strong text-sm font-semibold">Version history</p>
+        {restoreErrorMessage ? <p className="text-app-danger text-sm">{restoreErrorMessage}</p> : null}
         {versions?.items?.length ? (
           versions.items.map((item) => (
-            <article key={item.id} className="rounded-md border border-slate-200 bg-white p-3 text-sm">
+            <article key={item.id} className="border-border bg-surface-elevated rounded-md border p-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-slate-700">
-                  <p className="font-semibold text-slate-900">
+                <div className="text-text-soft">
+                  <p className="text-text-strong font-semibold">
                     v{item.version} {item.isActive ? '(active)' : ''}
                   </p>
                   <p>Status: {item.status}</p>
@@ -104,7 +104,7 @@ export const CareerProfileVersionsCard = ({
             </article>
           ))
         ) : (
-          <p className="text-sm text-slate-500">No profile versions yet.</p>
+          <p className="text-text-soft text-sm">No profile versions yet.</p>
         )}
       </div>
     </Card>

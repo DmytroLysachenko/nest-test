@@ -194,3 +194,5 @@ Forms:
 - Maintain a single color and spacing system across screens.
 - Light/dark theming is allowed but must use centralized tokens/CSS variables.
 - Do not mix inconsistent ad-hoc palettes between features.
+- Prefer semantic token classes (`text-app-danger`, `bg-surface-muted`, `border-app-success-border`, etc.).
+- Avoid direct Tailwind palette classes (`text-rose-*`, `bg-emerald-*`, `text-slate-*`) unless the color is a documented one-off visualization exception.

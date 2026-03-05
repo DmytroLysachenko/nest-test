@@ -21,7 +21,7 @@ export const ProfileInputPanel = ({ token }: ProfileInputPanelProps) => {
   return (
     <Card title="Profile input" description="Define your target roles and personal notes for profile generation.">
       <form className="flex flex-col gap-3" onSubmit={profileInputPanel.submit}>
-        <Label htmlFor="profile-target-roles" className="text-slate-700">
+        <Label htmlFor="profile-target-roles" className="text-text-soft">
           Target roles
         </Label>
         <Input
@@ -29,9 +29,9 @@ export const ProfileInputPanel = ({ token }: ProfileInputPanelProps) => {
           placeholder="Backend Engineer, NestJS Developer"
           {...register('targetRoles')}
         />
-        {errors.targetRoles?.message ? <p className="text-sm text-rose-600">{errors.targetRoles.message}</p> : null}
+        {errors.targetRoles?.message ? <p className="text-app-danger text-sm">{errors.targetRoles.message}</p> : null}
 
-        <Label htmlFor="profile-notes" className="text-slate-700">
+        <Label htmlFor="profile-notes" className="text-text-soft">
           Notes
         </Label>
         <Textarea
@@ -40,18 +40,18 @@ export const ProfileInputPanel = ({ token }: ProfileInputPanelProps) => {
           placeholder="Preferred location, salary range, role priorities..."
           {...register('notes')}
         />
-        {errors.notes?.message ? <p className="text-sm text-rose-600">{errors.notes.message}</p> : null}
+        {errors.notes?.message ? <p className="text-app-danger text-sm">{errors.notes.message}</p> : null}
 
-        {errors.root?.message ? <p className="text-sm text-rose-600">{errors.root.message}</p> : null}
+        {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
         <Button type="submit" disabled={profileInputPanel.isSubmitting}>
           {profileInputPanel.isSubmitting ? 'Saving...' : 'Save profile input'}
         </Button>
       </form>
 
-      <div className="mt-5 rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-sm">
-        <p className="font-semibold text-slate-800">Latest input</p>
+      <div className="border-border bg-surface-muted mt-5 rounded-md border border-dashed p-3 text-sm">
+        <p className="text-text-strong font-semibold">Latest input</p>
         {profileInputPanel.latestQuery.data ? (
-          <div className="mt-2 space-y-1 text-slate-700">
+          <div className="text-text-soft mt-2 space-y-1">
             <p>
               <span className="font-medium">Roles:</span> {profileInputPanel.latestQuery.data.targetRoles}
             </p>
@@ -60,15 +60,15 @@ export const ProfileInputPanel = ({ token }: ProfileInputPanelProps) => {
             </p>
             {profileInputPanel.latestQuery.data.normalizedInput?.searchPreferences ? (
               <details className="mt-2">
-                <summary className="cursor-pointer font-medium text-slate-800">Normalized search preferences</summary>
-                <pre className="mt-2 whitespace-pre-wrap rounded-md bg-white p-2 text-xs text-slate-700">
+                <summary className="text-text-strong cursor-pointer font-medium">Normalized search preferences</summary>
+                <pre className="bg-surface-elevated text-text-soft mt-2 whitespace-pre-wrap rounded-md p-2 text-xs">
                   {JSON.stringify(profileInputPanel.latestQuery.data.normalizedInput.searchPreferences, null, 2)}
                 </pre>
               </details>
             ) : null}
           </div>
         ) : (
-          <p className="mt-2 text-slate-500">No profile input yet.</p>
+          <p className="text-text-soft mt-2">No profile input yet.</p>
         )}
       </div>
     </Card>
