@@ -171,7 +171,7 @@ For exact variable-level mapping and secret sources, use:
 1. Main dashboard: `/`
 2. Guided profile onboarding: `/onboarding`
 3. Internal endpoint tester (dev flag): `/tester`
-4. Admin ops metrics: `GET /api/ops/metrics`
+4. Admin ops metrics: `GET /api/ops/metrics` (supports optional `windowHours` query)
 5. Admin callback events listing: `GET /api/ops/scrape/callback-events`
 6. Admin dead-letter replay trigger: `POST /api/ops/scrape/callbacks/replay`
 7. Admin stale-run reconcile: `POST /api/ops/scrape/runs/:id/reconcile`

@@ -42,9 +42,12 @@ export class OpsController {
   @Get('metrics')
   @ApiOperation({ summary: 'Get operational metrics (admin only)' })
   @ApiOkResponse({ type: OpsMetricsResponse })
-  async getMetrics(@CurrentUser() user: JwtValidateUser) {
+  async getMetrics(
+    @CurrentUser() user: JwtValidateUser,
+    @Query('windowHours', new ParseIntPipe({ optional: true })) windowHours?: number,
+  ) {
     this.assertAdmin(user);
-    return this.opsService.getMetrics();
+    return this.opsService.getMetrics(windowHours);
   }
 
   @Get('scrape/callback-events')

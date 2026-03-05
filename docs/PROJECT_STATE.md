@@ -55,6 +55,8 @@ Last updated: 2026-03-05
 - Admin ops metrics endpoint available at `/ops/metrics`.
 - Ops metrics now expose scrape lifecycle counters (`staleReconciledRuns`, `retriesTriggered`, `retrySuccessRate`).
 - Ops metrics now expose callback event breakdown (`failuresByType`, `failuresByCode`) and heartbeat freshness indicator (`runningWithoutHeartbeat`).
+- Ops metrics now support optional `windowHours` query override and scheduler reliability fields (`lastTriggerAt`, `dueSchedules`, `enqueueFailures24h`).
+- Ops metrics callback section now includes retry/conflict indicators (`retryRate24h`, `conflictingPayloadEvents24h`).
 - Worker Cloud Tasks ingress now supports both static bearer auth and verified OIDC ID tokens (service account + audience).
 - API worker callbacks now support OIDC bearer verification (audience + optional worker service-account email pinning) as an alternative to static callback token.
 - Worker callback envelope now emits deterministic attempt metadata (`attemptNo`, `emittedAt`, `payloadHash`) for replay safety.

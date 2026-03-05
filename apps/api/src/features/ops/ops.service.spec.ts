@@ -40,16 +40,38 @@ describe('OpsService', () => {
         .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
         .mockReturnValueOnce({ from: jest.fn().mockResolvedValue([{ value: 40 }]) }) // total offers
         .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: offerWhere }) }) // unscored
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 2 }]) }) }) // due schedules
+        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 1 }]) }) }) // enqueue failures
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  then: (cb: (rows: unknown[]) => unknown) =>
+                    Promise.resolve(cb([{ lastTriggeredAt: new Date('2026-03-03T10:00:00.000Z') }])),
+                }),
+              }),
+            }),
+          }),
+        }) // latest trigger
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockResolvedValue([
               {
                 status: 'FAILED',
                 payload: JSON.stringify({ failureType: 'network', failureCode: 'WORKER_NETWORK' }),
+                attemptNo: 2,
+                sourceRunId: 'run-1',
+                eventId: 'evt-1',
+                payloadHash: 'hash-a',
               },
               {
                 status: 'COMPLETED',
                 payload: JSON.stringify({}),
+                attemptNo: 1,
+                sourceRunId: 'run-1',
+                eventId: 'evt-1',
+                payloadHash: 'hash-b',
               },
             ]),
           }),
@@ -77,8 +99,13 @@ describe('OpsService', () => {
     expect(result.callback.totalEvents).toBe(2);
     expect(result.callback.failedEvents).toBe(1);
     expect(result.callback.failedRate).toBe(0.5);
+    expect(result.callback.retryRate24h).toBe(0.5);
+    expect(result.callback.conflictingPayloadEvents24h).toBe(1);
     expect(result.callback.failuresByType.network).toBe(1);
     expect(result.callback.failuresByCode.WORKER_NETWORK).toBe(1);
+    expect(result.scheduler.lastTriggerAt).toBe('2026-03-03T10:00:00.000Z');
+    expect(result.scheduler.dueSchedules).toBe(2);
+    expect(result.scheduler.enqueueFailures24h).toBe(1);
   });
 
   it('lists callback events with pagination envelope', async () => {
