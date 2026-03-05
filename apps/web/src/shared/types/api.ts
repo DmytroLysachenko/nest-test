@@ -4,6 +4,13 @@ export type ApiSuccess<T> = {
 };
 
 export type ApiErrorPayload = {
+  code?: string;
+  message?: string;
+  requestId?: string;
+  timestamp?: string;
+  details?: string[];
+  retryable?: boolean;
+  category?: string;
   error: {
     code: string;
     message: string;

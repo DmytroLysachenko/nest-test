@@ -3,6 +3,10 @@ import { ApiError } from '@/shared/lib/http/api-error';
 describe('ApiError', () => {
   it('builds error details from API payload', () => {
     const error = new ApiError(400, {
+      code: 'VALIDATION_ERROR',
+      message: 'Invalid payload',
+      requestId: 'req-123',
+      details: ['field is required'],
       error: {
         code: 'VALIDATION_ERROR',
         message: 'Invalid payload',
@@ -17,5 +21,6 @@ describe('ApiError', () => {
     expect(error.code).toBe('VALIDATION_ERROR');
     expect(error.message).toBe('Invalid payload');
     expect(error.details).toEqual(['field is required']);
+    expect(error.requestId).toBe('req-123');
   });
 });
