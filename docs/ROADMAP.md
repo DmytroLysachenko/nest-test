@@ -21,7 +21,7 @@ Last updated: 2026-03-05
 8. Authentication hardening and OAuth onboarding.
    - Status: in progress (normalized API error taxonomy + env-tunable auth throttles + Google OAuth login flow shipped).
 9. Scrape automation scheduling.
-   - Status: in progress (user schedule model + secure scheduler trigger endpoint shipped; Cloud Scheduler wiring pending).
+   - Status: completed (user schedule model + secure trigger endpoint + deploy-managed Cloud Scheduler wiring shipped).
 
 ## Next
 

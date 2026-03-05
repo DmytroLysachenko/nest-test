@@ -23,6 +23,41 @@ resolve_service_url() {
   gcloud run services describe "$service" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format='value(status.url)' 2>/dev/null || true
 }
 
+upsert_scheduler_job() {
+  local job_name="$1"
+  local schedule="$2"
+  local timezone="$3"
+  local uri="$4"
+  local token="$5"
+
+  local headers="Authorization=Bearer ${token},Content-Type=application/json"
+  if gcloud scheduler jobs describe "$job_name" --project="$GCP_PROJECT_ID" --location="$GCP_REGION" >/dev/null 2>&1; then
+    gcloud scheduler jobs update http "$job_name" \
+      --project="$GCP_PROJECT_ID" \
+      --location="$GCP_REGION" \
+      --schedule="$schedule" \
+      --time-zone="$timezone" \
+      --uri="$uri" \
+      --http-method=POST \
+      --headers="$headers" \
+      --message-body='{}' \
+      --attempt-deadline=30s \
+      >/dev/null
+  else
+    gcloud scheduler jobs create http "$job_name" \
+      --project="$GCP_PROJECT_ID" \
+      --location="$GCP_REGION" \
+      --schedule="$schedule" \
+      --time-zone="$timezone" \
+      --uri="$uri" \
+      --http-method=POST \
+      --headers="$headers" \
+      --message-body='{}' \
+      --attempt-deadline=30s \
+      >/dev/null
+  fi
+}
+
 require_var GCP_PROJECT_ID
 require_var GCP_REGION
 require_var GAR_REPOSITORY
@@ -69,6 +104,9 @@ API_THROTTLE_LIMIT="${API_THROTTLE_LIMIT:-60}"
 WEB_QUERY_STALE_TIME_MS="${WEB_QUERY_STALE_TIME_MS:-30000}"
 WEB_QUERY_REFETCH_ON_WINDOW_FOCUS="${WEB_QUERY_REFETCH_ON_WINDOW_FOCUS:-false}"
 WEB_QUERY_DIAGNOSTICS_REFETCH_MS="${WEB_QUERY_DIAGNOSTICS_REFETCH_MS:-60000}"
+SCHEDULER_JOB_NAME="${SCHEDULER_JOB_NAME:-job-seek-schedule-trigger}"
+SCHEDULER_CRON="${SCHEDULER_CRON:-*/10 * * * *}"
+SCHEDULER_TIMEZONE="${SCHEDULER_TIMEZONE:-Etc/UTC}"
 
 IMAGE_BASE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}"
 API_RUNTIME_SA="${GCP_API_RUNTIME_SERVICE_ACCOUNT:-api-runtime@${GCP_PROJECT_ID}.iam.gserviceaccount.com}"
@@ -249,6 +287,16 @@ if [[ "$DEPLOY_API" == "true" && -z "$ALLOWED_ORIGINS" ]]; then
       --set-env-vars="NODE_ENV=production,HOST=0.0.0.0,ACCESS_TOKEN_EXPIRATION=${ACCESS_TOKEN_EXPIRATION},REFRESH_TOKEN_EXPIRATION=${REFRESH_TOKEN_EXPIRATION},MAIL_HOST=${MAIL_HOST},MAIL_PORT=${MAIL_PORT},MAIL_SECURE=${MAIL_SECURE},GCS_BUCKET=${GCS_BUCKET},GCP_PROJECT_ID=${GCP_PROJECT_ID},GCP_LOCATION=${GCP_REGION},GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID},API_PREFIX=api,ALLOWED_ORIGINS=${WEB_URL},API_THROTTLE_TTL_MS=${API_THROTTLE_TTL_MS},API_THROTTLE_LIMIT=${API_THROTTLE_LIMIT},WORKER_TASK_PROVIDER=cloud-tasks,WORKER_TASK_URL=${WORKER_URL}/tasks,WORKER_TASKS_PROJECT_ID=${GCP_PROJECT_ID},WORKER_TASKS_LOCATION=${GCP_REGION},WORKER_TASKS_QUEUE=${WORKER_TASKS_QUEUE}" \
       >/dev/null
   fi
+fi
+
+if [[ "$DEPLOY_API" == "true" ]]; then
+  echo "Ensure Cloud Scheduler trigger job..."
+  upsert_scheduler_job \
+    "$SCHEDULER_JOB_NAME" \
+    "$SCHEDULER_CRON" \
+    "$SCHEDULER_TIMEZONE" \
+    "${API_URL}/api/job-sources/schedule/trigger" \
+    "$SCHEDULER_AUTH_TOKEN"
 fi
 
 echo "API_URL=${API_URL}"

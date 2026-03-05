@@ -20,6 +20,9 @@ Last updated: 2026-03-05
 | `GCP_WORKER_BASE_URL` | promote-to-prod | Public Worker base URL (`https://...`) |
 | `GCP_WEB_BASE_URL` | promote-to-prod | Public Web base URL (`https://...`) |
 | `GOOGLE_OAUTH_CLIENT_ID` | release-candidate, deploy-prod-on-main | Public Google OAuth client id used by web build and API token verification |
+| `SCHEDULER_JOB_NAME` | deploy-prod-on-main | Optional Cloud Scheduler job name override (default `job-seek-schedule-trigger`) |
+| `SCHEDULER_CRON` | deploy-prod-on-main | Optional Cloud Scheduler cron expression (default `*/10 * * * *`) |
+| `SCHEDULER_TIMEZONE` | deploy-prod-on-main | Optional Cloud Scheduler timezone (default `Etc/UTC`) |
 
 ### Required GitHub Secrets (`secrets.*`)
 
@@ -187,3 +190,10 @@ Last updated: 2026-03-05
 - Worker ingress auth can be:
   - OIDC (recommended): API signs task OIDC (`WORKER_TASKS_SERVICE_ACCOUNT_EMAIL`) and worker pins `TASKS_SERVICE_ACCOUNT_EMAIL`.
   - Shared token fallback: API `WORKER_AUTH_TOKEN` + worker `TASKS_AUTH_TOKEN`.
+
+## 6) Schedule Automation Contract
+
+- `deploy-cloud-run-prod.sh` now upserts a Cloud Scheduler HTTP job after API deploy.
+- Target endpoint: `POST ${API_URL}/api/job-sources/schedule/trigger`.
+- Auth header: `Authorization: Bearer ${SCHEDULER_AUTH_TOKEN}`.
+- Default cadence: every 10 minutes (`*/10 * * * *`) in `Etc/UTC`.
