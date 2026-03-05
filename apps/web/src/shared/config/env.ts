@@ -24,9 +24,13 @@ const envSchema = z.object({
   NEXT_PUBLIC_ENABLE_TESTER: booleanSchema,
 });
 
+const isProduction = process.env.NODE_ENV === 'production';
+const defaultApiUrl = isProduction ? undefined : 'http://localhost:3000/api';
+const defaultWorkerUrl = isProduction ? undefined : 'http://localhost:4000';
+
 const parsedEnv = envSchema.safeParse({
-  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api',
-  NEXT_PUBLIC_WORKER_URL: process.env.NEXT_PUBLIC_WORKER_URL ?? 'http://localhost:4000',
+  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? defaultApiUrl,
+  NEXT_PUBLIC_WORKER_URL: process.env.NEXT_PUBLIC_WORKER_URL ?? defaultWorkerUrl,
   NEXT_PUBLIC_ENABLE_TESTER: process.env.NEXT_PUBLIC_ENABLE_TESTER ?? 'true',
 });
 
