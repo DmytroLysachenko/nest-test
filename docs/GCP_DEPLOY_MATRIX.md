@@ -23,6 +23,12 @@ Last updated: 2026-03-05
 | `SCHEDULER_JOB_NAME` | deploy-prod-on-main | Optional Cloud Scheduler job name override (default `job-seek-schedule-trigger`) |
 | `SCHEDULER_CRON` | deploy-prod-on-main | Optional Cloud Scheduler cron expression (default `*/10 * * * *`) |
 | `SCHEDULER_TIMEZONE` | deploy-prod-on-main | Optional Cloud Scheduler timezone (default `Etc/UTC`) |
+| `WORKER_TASKS_DLQ` | deploy-prod-on-main | Optional DLQ queue name provisioned by deploy script (default `worker-scrape-dlq`) |
+| `TASKS_MAX_ATTEMPTS` | deploy-prod-on-main | Optional Cloud Tasks retry max attempts (default `8`) |
+| `TASKS_MIN_BACKOFF_SEC` | deploy-prod-on-main | Optional retry min backoff seconds (default `5`) |
+| `TASKS_MAX_BACKOFF_SEC` | deploy-prod-on-main | Optional retry max backoff seconds (default `300`) |
+| `TASKS_MAX_DOUBLINGS` | deploy-prod-on-main | Optional retry max doublings (default `5`) |
+| `TASKS_MAX_RETRY_DURATION_SEC` | deploy-prod-on-main | Optional retry max duration in seconds (default `1800`) |
 
 ### Required GitHub Secrets (`secrets.*`)
 
@@ -128,6 +134,18 @@ Last updated: 2026-03-05
 | `WORKER_CALLBACK_RETRY_JITTER_PCT` | `0.2` | retry jitter |
 | `WORKER_HEARTBEAT_INTERVAL_MS` | `10000` | progress heartbeat cadence |
 | `PLAYWRIGHT_HEADLESS` | `true` | production browser mode |
+
+### Queue Provisioning Defaults (deploy script)
+
+| Name | Default | Notes |
+|---|---|---|
+| `WORKER_TASKS_QUEUE` | `worker-scrape` | main worker ingestion queue |
+| `WORKER_TASKS_DLQ` | `worker-scrape-dlq` | reserved queue for operational dead-letter flows |
+| `TASKS_MAX_ATTEMPTS` | `8` | queue retry policy |
+| `TASKS_MIN_BACKOFF_SEC` | `5` | queue retry policy |
+| `TASKS_MAX_BACKOFF_SEC` | `300` | queue retry policy |
+| `TASKS_MAX_DOUBLINGS` | `5` | queue retry policy |
+| `TASKS_MAX_RETRY_DURATION_SEC` | `1800` | queue retry policy |
 
 ### Cloud Run Service Settings (Recommended Baseline)
 

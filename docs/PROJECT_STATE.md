@@ -84,6 +84,7 @@ Last updated: 2026-03-05
   - `POST /api/job-sources/schedule/trigger` (internal token-protected trigger)
 - Scrape schedules now track deterministic `next_run_at`/`last_run_status`, and scheduler trigger processes only due schedules.
 - Production deploy now auto-upserts a Cloud Scheduler job for `/api/job-sources/schedule/trigger`.
+- Production deploy now converges Cloud Tasks queue retry policy on every rollout (main queue + reserved DLQ queue provisioning).
 - Production bootstrap rejects wildcard CORS (`ALLOWED_ORIGINS=*`) in production mode.
 
 ## Data Model Highlights

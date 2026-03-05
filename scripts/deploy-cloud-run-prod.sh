@@ -23,6 +23,29 @@ resolve_service_url() {
   gcloud run services describe "$service" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format='value(status.url)' 2>/dev/null || true
 }
 
+ensure_tasks_queue() {
+  local queue_name="$1"
+  local location="$2"
+  local max_attempts="$3"
+  local min_backoff_sec="$4"
+  local max_backoff_sec="$5"
+  local max_doublings="$6"
+  local max_retry_duration_sec="$7"
+
+  gcloud tasks queues describe "$queue_name" --location="$location" --project="$GCP_PROJECT_ID" >/dev/null 2>&1 || \
+    gcloud tasks queues create "$queue_name" --location="$location" --project="$GCP_PROJECT_ID" >/dev/null
+
+  gcloud tasks queues update "$queue_name" \
+    --location="$location" \
+    --project="$GCP_PROJECT_ID" \
+    --max-attempts="$max_attempts" \
+    --min-backoff="${min_backoff_sec}s" \
+    --max-backoff="${max_backoff_sec}s" \
+    --max-doublings="$max_doublings" \
+    --max-retry-duration="${max_retry_duration_sec}s" \
+    >/dev/null
+}
+
 upsert_scheduler_job() {
   local job_name="$1"
   local schedule="$2"
@@ -97,6 +120,12 @@ MAIL_SECURE="${MAIL_SECURE:-false}"
 ACCESS_TOKEN_EXPIRATION="${ACCESS_TOKEN_EXPIRATION:-15m}"
 REFRESH_TOKEN_EXPIRATION="${REFRESH_TOKEN_EXPIRATION:-30d}"
 WORKER_TASKS_QUEUE="${WORKER_TASKS_QUEUE:-worker-scrape}"
+WORKER_TASKS_DLQ="${WORKER_TASKS_DLQ:-worker-scrape-dlq}"
+TASKS_MAX_ATTEMPTS="${TASKS_MAX_ATTEMPTS:-8}"
+TASKS_MIN_BACKOFF_SEC="${TASKS_MIN_BACKOFF_SEC:-5}"
+TASKS_MAX_BACKOFF_SEC="${TASKS_MAX_BACKOFF_SEC:-300}"
+TASKS_MAX_DOUBLINGS="${TASKS_MAX_DOUBLINGS:-5}"
+TASKS_MAX_RETRY_DURATION_SEC="${TASKS_MAX_RETRY_DURATION_SEC:-1800}"
 ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-}"
 WORKER_ALLOWED_ORIGINS="${WORKER_ALLOWED_ORIGINS:-${ALLOWED_ORIGINS:-https://example.com}}"
 API_THROTTLE_TTL_MS="${API_THROTTLE_TTL_MS:-60000}"
@@ -115,8 +144,22 @@ WEB_RUNTIME_SA="${GCP_WEB_RUNTIME_SERVICE_ACCOUNT:-web-runtime@${GCP_PROJECT_ID}
 
 if [[ "$DEPLOY_API" == "true" || "$DEPLOY_WORKER" == "true" ]]; then
   echo "Ensuring runtime infra..."
-  gcloud tasks queues describe "$WORKER_TASKS_QUEUE" --location="$GCP_REGION" --project="$GCP_PROJECT_ID" >/dev/null 2>&1 || \
-    gcloud tasks queues create "$WORKER_TASKS_QUEUE" --location="$GCP_REGION" --project="$GCP_PROJECT_ID" >/dev/null
+  ensure_tasks_queue \
+    "$WORKER_TASKS_QUEUE" \
+    "$GCP_REGION" \
+    "$TASKS_MAX_ATTEMPTS" \
+    "$TASKS_MIN_BACKOFF_SEC" \
+    "$TASKS_MAX_BACKOFF_SEC" \
+    "$TASKS_MAX_DOUBLINGS" \
+    "$TASKS_MAX_RETRY_DURATION_SEC"
+  ensure_tasks_queue \
+    "$WORKER_TASKS_DLQ" \
+    "$GCP_REGION" \
+    "$TASKS_MAX_ATTEMPTS" \
+    "$TASKS_MIN_BACKOFF_SEC" \
+    "$TASKS_MAX_BACKOFF_SEC" \
+    "$TASKS_MAX_DOUBLINGS" \
+    "$TASKS_MAX_RETRY_DURATION_SEC"
 fi
 
 echo "Syncing runtime secrets..."
