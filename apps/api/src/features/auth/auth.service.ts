@@ -1,4 +1,6 @@
-﻿import { BadRequestException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+﻿import { randomUUID } from 'crypto';
+
+import { BadRequestException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { otpsTable, profilesTable, passportTable, usersTable } from '@repo/db';
 import { eq } from 'drizzle-orm';
@@ -17,6 +19,7 @@ import { ResetPasswordDto } from './dto/rest-password';
 import { ChangePasswordDto } from './dto/change-password-dto';
 import { User } from './auth.interface';
 import { TokenService } from './token.service';
+import { GoogleOauthService } from './google-oauth.service';
 
 type UserWithProfile = {
   users: typeof usersTable.$inferSelect;
@@ -30,6 +33,7 @@ export class AuthService {
     private readonly optsService: OptsService,
     private readonly logger: Logger,
     private readonly tokenService: TokenService,
+    private readonly googleOauthService: GoogleOauthService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -74,6 +78,54 @@ export class AuthService {
       refreshToken,
       user: this.toUserResponse(user),
     };
+  }
+
+  async loginWithGoogleIdToken(idToken: string, device: DeviceType, nonce?: string) {
+    const payload = await this.googleOauthService.verifyIdToken(idToken);
+    if (nonce && payload.nonce !== nonce) {
+      throw new UnauthorizedException('Invalid Google token nonce');
+    }
+
+    const email = payload.email as string;
+    const now = new Date();
+    let user = await this.db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, email))
+      .limit(1)
+      .then((res) => res[0]);
+
+    if (!user) {
+      try {
+        user = await this.db.transaction(async (trx) => {
+          const [created] = await trx
+            .insert(usersTable)
+            .values({
+              email,
+              password: await hashPassword(randomUUID()),
+              role: 'user',
+              isEmailVerified: true,
+              updatedAt: now,
+              createdAt: now,
+            })
+            .returning();
+
+          await trx.insert(profilesTable).values({
+            userId: created.id,
+            displayName: email.split('@')[0],
+            updatedAt: now,
+            createdAt: now,
+          });
+
+          return created;
+        });
+      } catch (error) {
+        this.logger.error({ error }, 'Google OAuth auto-registration failed');
+        throw new InternalServerErrorException('Google login unavailable');
+      }
+    }
+
+    return this.login(user, device);
   }
 
   async register(dto: RegisterDto) {

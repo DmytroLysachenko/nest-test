@@ -55,6 +55,7 @@ jobs:
             --build-arg NEXT_PUBLIC_API_URL="${{ vars.GCP_API_BASE_URL }}/api" \
             --build-arg NEXT_PUBLIC_WORKER_URL="${{ vars.GCP_WORKER_BASE_URL }}" \
             --build-arg NEXT_PUBLIC_ENABLE_TESTER="false" \
+            --build-arg NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID="${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" \
             -f apps/web/Dockerfile -t ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/web:${{ github.sha }} .
           docker push ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/web:${{ github.sha }}
       - name: Build release metadata

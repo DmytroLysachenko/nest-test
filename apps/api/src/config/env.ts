@@ -14,6 +14,7 @@ export const EnvSchema = z.object({
   MAIL_USERNAME: z.string(),
   MAIL_PASSWORD: z.string(),
   DATABASE_URL: z.string(),
+  GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
   GCP_LOCATION: z.string().default('us-central1'),

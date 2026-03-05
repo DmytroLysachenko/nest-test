@@ -20,6 +20,7 @@ import { ChangePasswordDto } from './dto/change-password-dto';
 import { ResetPasswordDto } from './dto/rest-password';
 import { User } from './auth.interface';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { GoogleOauthLoginDto } from './dto/google-oauth-login.dto';
 import {
   AUTH_LOGIN_THROTTLE,
   AUTH_OTP_THROTTLE,
@@ -44,6 +45,14 @@ export class AuthController {
   async login(@Body() body: LoginDto, @Device() device: DeviceType, @Req() request: Request) {
     const user = request.user as User;
     return this.authService.login(user, device);
+  }
+
+  @Public()
+  @Post('oauth/google')
+  @ApiOperation({ summary: 'Login or register with Google OAuth id token' })
+  @Throttle({ default: { limit: AUTH_LOGIN_THROTTLE.limit, ttl: AUTH_LOGIN_THROTTLE.ttl } })
+  async loginWithGoogle(@Body() body: GoogleOauthLoginDto, @Device() device: DeviceType) {
+    return this.authService.loginWithGoogleIdToken(body.idToken, device, body.nonce);
   }
 
   @Public()

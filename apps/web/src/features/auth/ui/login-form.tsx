@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { useLoginForm } from '@/features/auth/model/hooks/use-login-form';
+import { GOOGLE_OAUTH_NONCE_KEY, buildGoogleOauthUrl } from '@/features/auth/model/utils/google-oauth';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
@@ -13,6 +14,13 @@ export const LoginForm = () => {
     register,
     formState: { errors },
   } = loginForm.form;
+
+  const startGoogleOauth = () => {
+    const nonce = crypto.randomUUID();
+    window.sessionStorage.setItem(GOOGLE_OAUTH_NONCE_KEY, nonce);
+    const redirectUri = `${window.location.origin}/auth/callback/google`;
+    window.location.href = buildGoogleOauthUrl(nonce, redirectUri);
+  };
 
   return (
     <form
@@ -38,6 +46,9 @@ export const LoginForm = () => {
 
       <Button type="submit" disabled={loginForm.isSubmitting}>
         {loginForm.isSubmitting ? 'Signing in...' : 'Sign in'}
+      </Button>
+      <Button type="button" variant="outline" onClick={startGoogleOauth} disabled={loginForm.isSubmitting}>
+        Continue with Google
       </Button>
 
       <p className="text-muted-foreground text-sm">
