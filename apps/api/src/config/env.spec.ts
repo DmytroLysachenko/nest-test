@@ -98,4 +98,14 @@ describe('validateEnv', () => {
       }),
     ).not.toThrow();
   });
+
+  it('accepts scheduler trigger config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        SCHEDULER_AUTH_TOKEN: 'scheduler-token',
+        SCHEDULER_TRIGGER_BATCH_SIZE: '10',
+      }),
+    ).not.toThrow();
+  });
 });

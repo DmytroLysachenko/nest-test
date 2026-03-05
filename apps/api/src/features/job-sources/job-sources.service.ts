@@ -22,6 +22,7 @@ import {
   jobSourceCallbackEventsTable,
   jobSourceRunAttemptsTable,
   jobSourceRunsTable,
+  scrapeSchedulesTable,
   userJobOffersTable,
 } from '@repo/db';
 import { buildPracujListingUrl, normalizePracujFilters, type PracujSourceKind, JobSourceRunStatus } from '@repo/db';
@@ -37,6 +38,7 @@ import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
 import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';
 import { buildFiltersFromProfile, inferPracujSource } from './scrape-request-resolver';
 import { RunDiagnosticsSummaryCache } from './run-diagnostics-summary-cache';
+import { UpdateScrapeScheduleDto } from './dto/scrape-schedule.dto';
 
 import type { Env } from '@/config/env';
 
@@ -231,6 +233,127 @@ export class JobSourcesService {
     @Drizzle() private readonly db: NodePgDatabase,
     @Optional() private readonly jobOffersService?: JobOffersService,
   ) {}
+
+  async getSchedule(userId: string) {
+    const schedule = await this.db
+      .select()
+      .from(scrapeSchedulesTable)
+      .where(eq(scrapeSchedulesTable.userId, userId))
+      .limit(1)
+      .then((rows) => rows[0]);
+
+    if (!schedule) {
+      return {
+        enabled: false,
+        cron: '0 9 * * *',
+        timezone: 'Europe/Warsaw',
+        source: 'pracuj-pl-it',
+        limit: 20,
+        careerProfileId: null,
+        filters: null,
+        lastTriggeredAt: null,
+      };
+    }
+
+    return {
+      enabled: schedule.enabled === 1,
+      cron: schedule.cron,
+      timezone: schedule.timezone,
+      source: schedule.source,
+      limit: schedule.limit,
+      careerProfileId: schedule.careerProfileId,
+      filters: (schedule.filters as Record<string, unknown> | null) ?? null,
+      lastTriggeredAt: schedule.lastTriggeredAt?.toISOString() ?? null,
+    };
+  }
+
+  async updateSchedule(userId: string, dto: UpdateScrapeScheduleDto) {
+    const now = new Date();
+    const values = {
+      userId,
+      enabled: dto.enabled ? 1 : 0,
+      cron: dto.cron ?? '0 9 * * *',
+      timezone: dto.timezone ?? 'Europe/Warsaw',
+      source: dto.source ?? 'pracuj-pl-it',
+      limit: dto.limit ?? 20,
+      careerProfileId: dto.careerProfileId ?? null,
+      filters: (dto.filters as Record<string, unknown> | undefined) ?? null,
+      updatedAt: now,
+    };
+
+    const existing = await this.db
+      .select({ id: scrapeSchedulesTable.id })
+      .from(scrapeSchedulesTable)
+      .where(eq(scrapeSchedulesTable.userId, userId))
+      .limit(1)
+      .then((rows) => rows[0]);
+
+    if (existing) {
+      await this.db.update(scrapeSchedulesTable).set(values).where(eq(scrapeSchedulesTable.id, existing.id));
+    } else {
+      await this.db.insert(scrapeSchedulesTable).values({
+        ...values,
+        createdAt: now,
+      });
+    }
+
+    return this.getSchedule(userId);
+  }
+
+  async triggerSchedules(authorization: string | undefined, requestId?: string) {
+    const schedulerToken = this.configService.get('SCHEDULER_AUTH_TOKEN', { infer: true });
+    if (!schedulerToken) {
+      throw new ServiceUnavailableException('Scheduler auth token is not configured');
+    }
+
+    const providedToken = (authorization ?? '').replace(/^Bearer\s+/i, '').trim();
+    if (!providedToken || providedToken !== schedulerToken) {
+      throw new UnauthorizedException('Invalid scheduler token');
+    }
+
+    const batchSize = this.configService.get('SCHEDULER_TRIGGER_BATCH_SIZE', { infer: true });
+    const schedules = await this.db
+      .select()
+      .from(scrapeSchedulesTable)
+      .where(eq(scrapeSchedulesTable.enabled, 1))
+      .orderBy(scrapeSchedulesTable.updatedAt)
+      .limit(batchSize);
+
+    const acceptedAt = new Date();
+    const results: Array<{ userId: string; ok: boolean; sourceRunId?: string; error?: string }> = [];
+    for (const schedule of schedules) {
+      try {
+        const response = await this.enqueueScrape(
+          schedule.userId,
+          {
+            source: schedule.source,
+            limit: schedule.limit,
+            careerProfileId: schedule.careerProfileId ?? undefined,
+            filters: (schedule.filters as ScrapeFiltersDto | null) ?? undefined,
+            forceRefresh: false,
+          },
+          requestId,
+        );
+        await this.db
+          .update(scrapeSchedulesTable)
+          .set({ lastTriggeredAt: acceptedAt, updatedAt: acceptedAt })
+          .where(eq(scrapeSchedulesTable.id, schedule.id));
+        results.push({ userId: schedule.userId, ok: true, sourceRunId: response.sourceRunId });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Schedule trigger failed';
+        results.push({ userId: schedule.userId, ok: false, error: message });
+      }
+    }
+
+    return {
+      ok: true,
+      acceptedAt: acceptedAt.toISOString(),
+      scanned: schedules.length,
+      triggered: results.filter((item) => item.ok).length,
+      failed: results.filter((item) => !item.ok).length,
+      results,
+    };
+  }
 
   async enqueueScrape(userId: string, dto: EnqueueScrapeDto, incomingRequestId?: string) {
     await this.reconcileStaleRuns(userId);

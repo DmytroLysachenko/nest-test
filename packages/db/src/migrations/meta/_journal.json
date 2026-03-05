@@ -155,6 +155,13 @@
       "when": 1772505600000,
       "tag": "0021_scrape_attempts_and_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1772668800000,
+      "tag": "0022_scrape_schedules",
+      "breakpoints": true
     }
   ]
 }
