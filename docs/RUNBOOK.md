@@ -104,6 +104,7 @@ Day-to-day engineering runbook for local development and verification.
    - `CI Verify / test-build`
    - `CI Verify / web-e2e` (recommended required on `master`; advisory on PRs)
    - `Smoke Gate / smoke`
+   - `Smoke Gate` provisions local Postgres, runs migrations, starts API/worker/web, then runs `scripts/smoke-e2e.ps1`.
 2. For release promotions:
    - `Release Candidate / build-and-validate` must pass
    - production promotion is manual via `Promote To Prod`

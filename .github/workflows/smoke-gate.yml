@@ -12,10 +12,57 @@ concurrency:
 
 jobs:
   smoke:
-    runs-on: windows-latest
-    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nest_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nest_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     env:
       CI: true
+      NODE_ENV: test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/nest_test
+      HOST: 0.0.0.0
+      PORT: 3000
+      ACCESS_TOKEN_SECRET: smoke-access-secret
+      ACCESS_TOKEN_EXPIRATION: 15m
+      REFRESH_TOKEN_SECRET: smoke-refresh-secret
+      REFRESH_TOKEN_EXPIRATION: 30d
+      MAIL_HOST: smtp.example.com
+      MAIL_PORT: 587
+      MAIL_SECURE: false
+      MAIL_USERNAME: smoke@example.com
+      MAIL_PASSWORD: smoke-password
+      GCS_BUCKET: smoke-local-bucket
+      API_PREFIX: api
+      ALLOWED_ORIGINS: http://localhost:3002
+      GOOGLE_OAUTH_CLIENT_ID: smoke-google-client-id
+      WORKER_TASK_PROVIDER: http
+      WORKER_TASK_URL: http://localhost:4001/tasks
+      WORKER_AUTH_TOKEN: smoke-worker-token
+      WORKER_CALLBACK_TOKEN: smoke-callback-token
+      SCHEDULER_AUTH_TOKEN: smoke-scheduler-token
+      OPS_INTERNAL_TOKEN: smoke-ops-token
+      QUEUE_PROVIDER: local
+      WORKER_PORT: 4001
+      WORKER_ALLOWED_ORIGINS: http://localhost:3002
+      TASKS_AUTH_TOKEN: smoke-worker-token
+      WORKER_CALLBACK_URL: http://localhost:3000/api/job-sources/complete
+      PLAYWRIGHT_HEADLESS: true
+      NEXT_PUBLIC_API_URL: http://localhost:3000/api
+      NEXT_PUBLIC_WORKER_URL: http://localhost:4001
+      NEXT_PUBLIC_ENABLE_TESTER: true
+      NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID: smoke-google-client-id
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -26,8 +73,60 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Wait for Postgres
+        shell: bash
+        run: |
+          for i in {1..60}; do
+            if (echo > /dev/tcp/127.0.0.1/5432) >/dev/null 2>&1; then
+              echo "Postgres is reachable"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Postgres did not become reachable in time" >&2
+          exit 1
+      - name: Run DB migrations
+        run: pnpm --filter @repo/db migrate
+      - name: Start local stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp-test-logs
+
+          pnpm --filter api dev > .tmp-test-logs/api.log 2>&1 & echo $! > .tmp-test-logs/api.pid
+          pnpm --filter worker dev > .tmp-test-logs/worker.log 2>&1 & echo $! > .tmp-test-logs/worker.pid
+          pnpm --filter web dev > .tmp-test-logs/web.log 2>&1 & echo $! > .tmp-test-logs/web.pid
+
+          for i in {1..120}; do
+            api_ok=0
+            worker_ok=0
+            web_ok=0
+            curl -fsS "http://localhost:3000/health" >/dev/null && api_ok=1 || true
+            curl -fsS "http://localhost:4001/health" >/dev/null && worker_ok=1 || true
+            curl -fsS "http://localhost:3002/health" >/dev/null && web_ok=1 || true
+            if [[ "$api_ok" -eq 1 && "$worker_ok" -eq 1 && "$web_ok" -eq 1 ]]; then
+              echo "Local stack is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Local stack failed to become healthy in time" >&2
+          tail -n 200 .tmp-test-logs/api.log || true
+          tail -n 200 .tmp-test-logs/worker.log || true
+          tail -n 200 .tmp-test-logs/web.log || true
+          exit 1
       - name: Run smoke e2e
-        run: pnpm smoke:e2e
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-e2e.ps1
+      - name: Stop local stack
+        if: always()
+        shell: bash
+        run: |
+          for svc in api worker web; do
+            if [[ -f ".tmp-test-logs/${svc}.pid" ]]; then
+              kill "$(cat ".tmp-test-logs/${svc}.pid")" 2>/dev/null || true
+            fi
+          done
       - name: Upload smoke artifacts
         if: always()
         uses: actions/upload-artifact@v4
