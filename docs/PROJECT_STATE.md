@@ -50,6 +50,7 @@ Last updated: 2026-03-05
 - Worker now emits authenticated scrape heartbeats to API (`/job-sources/runs/:id/heartbeat`) with lightweight progress payloads.
 - Stale run reconciliation now prioritizes `last_heartbeat_at` over legacy timestamp-only heuristics.
 - API scrape enqueue now applies short-window idempotency suppression for duplicate intents.
+- API scrape enqueue now enforces per-user 24h enqueue budget guard (`SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER`).
 - Scrape retry now enforces configurable retry-chain depth cap.
 - Admin ops metrics endpoint available at `/ops/metrics`.
 - Ops metrics now expose scrape lifecycle counters (`staleReconciledRuns`, `retriesTriggered`, `retrySuccessRate`).

@@ -50,6 +50,7 @@ export const EnvSchema = z.object({
     .default('1mb'),
   SCRAPE_DB_REUSE_HOURS: z.coerce.number().int().min(1).max(720).default(24),
   SCRAPE_MAX_ACTIVE_RUNS_PER_USER: z.coerce.number().int().min(1).max(20).default(2),
+  SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER: z.coerce.number().int().min(1).max(500).default(40),
   SCRAPE_ENQUEUE_IDEMPOTENCY_TTL_SEC: z.coerce.number().int().min(0).max(600).default(30),
   SCRAPE_MAX_RETRY_CHAIN_DEPTH: z.coerce.number().int().min(1).max(20).default(5),
   SCHEDULER_AUTH_TOKEN: z.string().optional(),

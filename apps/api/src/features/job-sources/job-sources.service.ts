@@ -445,6 +445,23 @@ export class JobSourcesService {
       }
     }
 
+    const dailyEnqueueLimit = this.configService.get('SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER', { infer: true });
+    if (typeof dailyEnqueueLimit === 'number' && dailyEnqueueLimit > 0) {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const dailyRunsResult = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(and(eq(jobSourceRunsTable.userId, userId), gte(jobSourceRunsTable.createdAt, since)));
+      const [dailyRuns] = Array.isArray(dailyRunsResult) ? dailyRunsResult : [];
+      const dailyRunCount = Number(dailyRuns?.value ?? 0);
+      if (dailyRunCount >= dailyEnqueueLimit) {
+        throw new HttpException(
+          `Daily scrape limit reached (${dailyRunCount}/${dailyEnqueueLimit}) for last 24 hours.`,
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
+
     const profileDerivedFilters = dto.filters
       ? undefined
       : profileContext.profile

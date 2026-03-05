@@ -80,6 +80,7 @@ Last updated: 2026-03-05
 | `GOOGLE_OAUTH_CLIENT_ID` | `<google-client-id>` | required for `/auth/oauth/google` verification |
 | `SCHEDULER_AUTH_TOKEN` | `<secret>` | required for internal schedule trigger endpoint |
 | `SCHEDULER_TRIGGER_BATCH_SIZE` | `20` | max schedules processed per trigger run |
+| `SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER` | `40` | per-user 24h enqueue budget guardrail |
 
 ### Cloud Run Service Settings (Recommended Baseline)
 

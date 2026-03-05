@@ -376,6 +376,60 @@ describe('JobSourcesService', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('rejects enqueue when user reached daily scrape budget', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    careerProfileId: 'profile-id',
+                    contentJson: candidateProfileFixture,
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ value: 3 }]),
+          }),
+        }),
+      insert: jest.fn(),
+      update: jest.fn(),
+    } as any;
+
+    const fetchMock = jest.spyOn(global, 'fetch' as any).mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ ok: true }),
+    } as any);
+
+    const service = new JobSourcesService(
+      createConfigService({
+        SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER: 3,
+      }),
+      createLogger(),
+      db,
+    );
+
+    await expect(
+      service.enqueueScrape(
+        'user-id',
+        {
+          source: 'pracuj-pl',
+          filters: { keywords: 'react' },
+          limit: 10,
+        },
+        'request-id',
+      ),
+    ).rejects.toThrow('Daily scrape limit reached');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('suppresses duplicate enqueue for same user intent within idempotency window', async () => {
     const db = {
       select: jest.fn().mockReturnValue({

@@ -86,6 +86,15 @@ describe('validateEnv', () => {
     ).toThrow();
   });
 
+  it('accepts explicit scrape daily enqueue budget config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER: '80',
+      }),
+    ).not.toThrow();
+  });
+
   it('accepts explicit auth throttle config', () => {
     expect(() =>
       validateEnv({
