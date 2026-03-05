@@ -33,7 +33,6 @@ jobs:
       NODE_ENV: test
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/nest_test
       HOST: 0.0.0.0
-      PORT: 3000
       ACCESS_TOKEN_SECRET: smoke-access-secret
       ACCESS_TOKEN_EXPIRATION: 15m
       REFRESH_TOKEN_SECRET: smoke-refresh-secret
@@ -47,6 +46,8 @@ jobs:
       API_PREFIX: api
       ALLOWED_ORIGINS: http://localhost:3002
       GOOGLE_OAUTH_CLIENT_ID: smoke-google-client-id
+      GCP_PROJECT_ID: smoke-local-project
+      GCP_LOCATION: us-central1
       WORKER_TASK_PROVIDER: http
       WORKER_TASK_URL: http://localhost:4001/tasks
       WORKER_AUTH_TOKEN: smoke-worker-token
@@ -93,9 +94,9 @@ jobs:
           set -euo pipefail
           mkdir -p .tmp-test-logs
 
-          pnpm --filter api dev > .tmp-test-logs/api.log 2>&1 & echo $! > .tmp-test-logs/api.pid
-          pnpm --filter worker dev > .tmp-test-logs/worker.log 2>&1 & echo $! > .tmp-test-logs/worker.pid
-          pnpm --filter web dev > .tmp-test-logs/web.log 2>&1 & echo $! > .tmp-test-logs/web.pid
+          HOST=0.0.0.0 PORT=3000 pnpm --filter api dev > .tmp-test-logs/api.log 2>&1 & echo $! > .tmp-test-logs/api.pid
+          PORT=4001 WORKER_PORT=4001 pnpm --filter worker dev > .tmp-test-logs/worker.log 2>&1 & echo $! > .tmp-test-logs/worker.pid
+          PORT=3002 pnpm --filter web dev > .tmp-test-logs/web.log 2>&1 & echo $! > .tmp-test-logs/web.pid
 
           for i in {1..120}; do
             api_ok=0
