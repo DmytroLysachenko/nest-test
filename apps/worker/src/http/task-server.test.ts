@@ -20,6 +20,7 @@ const logger = {
 const buildEnv = (overrides: Partial<WorkerEnv> = {}): WorkerEnv =>
   ({
     NODE_ENV: 'test',
+    WORKER_ALLOWED_ORIGINS: 'http://localhost:3002,https://job-seek-web.example.com',
     WORKER_LOG_LEVEL: 'silent',
     WORKER_PORT: 0,
     QUEUE_PROVIDER: 'cloud-tasks',
@@ -181,6 +182,29 @@ test('rejects /tasks when OIDC email claim is not verified for pinned service ac
     assert.equal(response.status, 401);
   } finally {
     OAuth2Client.prototype.verifyIdToken = originalVerifyIdToken;
+    await closeServer(server);
+  }
+});
+
+test('returns CORS headers for allowed preflight origin', async () => {
+  const server = createTaskServer(buildEnv(), logger);
+  await new Promise<void>((resolve) => {
+    server.listen(0, () => resolve());
+  });
+  const port = (server.address() as AddressInfo).port;
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/tasks`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:3002',
+        'Access-Control-Request-Method': 'POST',
+      },
+    });
+
+    assert.equal(response.status, 204);
+    assert.equal(response.headers.get('access-control-allow-origin'), 'http://localhost:3002');
+  } finally {
     await closeServer(server);
   }
 });

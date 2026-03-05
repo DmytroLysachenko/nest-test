@@ -59,6 +59,7 @@ Day-to-day engineering runbook for local development and verification.
    - `WORKER_TASKS_OIDC_AUDIENCE` (optional explicit worker OIDC audience)
 2. Worker:
   - `WORKER_MAX_BODY_BYTES` (example: `262144`)
+  - `WORKER_ALLOWED_ORIGINS` (explicit CORS allowlist; no `*` in production)
   - `WORKER_CALLBACK_RETRY_MAX_DELAY_MS`
   - `WORKER_CALLBACK_RETRY_JITTER_PCT`
   - `WORKER_HEARTBEAT_INTERVAL_MS`

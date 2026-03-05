@@ -101,6 +101,7 @@ Last updated: 2026-03-05
 | `TASKS_LOCATION` | env | `us-central1` | Cloud Tasks queue location |
 | `TASKS_QUEUE` | env | `worker-scrape` | Cloud Tasks queue name |
 | `TASKS_URL` | env | `https://worker-...run.app/tasks` | must end with `/tasks` or `/scrape` |
+| `WORKER_ALLOWED_ORIGINS` | env | `https://web-...run.app` | explicit CORS allowlist; cannot be `*` in production |
 
 ### Recommended Runtime Environment
 
