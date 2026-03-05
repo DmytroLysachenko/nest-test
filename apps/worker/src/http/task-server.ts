@@ -294,6 +294,19 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         'Task received',
       );
 
+      if (env.WORKER_SMOKE_ACCEPT_ONLY) {
+        sendJson(res, 202, {
+          ok: true,
+          status: 'accepted',
+          queueProvider: env.QUEUE_PROVIDER,
+          requestId,
+          runId: task.payload.runId ?? null,
+          sourceRunId: task.payload.sourceRunId ?? null,
+          smokeAcceptOnly: true,
+        });
+        return;
+      }
+
       const accepted = runner.enqueue(task);
       if (!accepted) {
         sendJson(res, 429, {
