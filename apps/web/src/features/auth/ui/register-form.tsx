@@ -26,7 +26,7 @@ export const RegisterForm = () => {
         Email
       </Label>
       <Input id="register-email" type="email" placeholder="you@example.com" {...register('email')} />
-      {errors.email?.message ? <p className="text-sm text-rose-600">{errors.email.message}</p> : null}
+      {errors.email?.message ? <p className="text-app-danger text-sm">{errors.email.message}</p> : null}
 
       <Button
         type="button"
@@ -48,24 +48,24 @@ export const RegisterForm = () => {
         maxLength={6}
         {...register('code')}
       />
-      {errors.code?.message ? <p className="text-sm text-rose-600">{errors.code.message}</p> : null}
+      {errors.code?.message ? <p className="text-app-danger text-sm">{errors.code.message}</p> : null}
 
       <Label htmlFor="register-password" className="text-foreground/90">
         Password
       </Label>
       <Input id="register-password" type="password" {...register('password')} />
-      {errors.password?.message ? <p className="text-sm text-rose-600">{errors.password.message}</p> : null}
+      {errors.password?.message ? <p className="text-app-danger text-sm">{errors.password.message}</p> : null}
 
       <Label htmlFor="register-confirm-password" className="text-foreground/90">
         Confirm password
       </Label>
       <Input id="register-confirm-password" type="password" {...register('confirmPassword')} />
       {errors.confirmPassword?.message ? (
-        <p className="text-sm text-rose-600">{errors.confirmPassword.message}</p>
+        <p className="text-app-danger text-sm">{errors.confirmPassword.message}</p>
       ) : null}
 
-      {registerForm.status ? <p className="text-sm text-emerald-700">{registerForm.status}</p> : null}
-      {errors.root?.message ? <p className="text-sm text-rose-600">{errors.root.message}</p> : null}
+      {registerForm.status ? <p className="text-app-success text-sm">{registerForm.status}</p> : null}
+      {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
 
       <Button type="submit" disabled={registerForm.isSubmitting}>
         {registerForm.isSubmitting ? 'Creating account...' : 'Create account'}

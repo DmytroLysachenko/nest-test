@@ -28,21 +28,21 @@ export const LoginForm = () => {
       onSubmit={loginForm.submit}
     >
       <h1 className="text-foreground text-2xl font-semibold">Sign in</h1>
-      <p className="text-muted-foreground text-sm">Use your account to access the workflow dashboard.</p>
+      <p className="text-muted-foreground text-sm">Use your account to access the JobSeeker dashboard.</p>
 
       <Label htmlFor="login-email" className="text-foreground/90">
         Email
       </Label>
       <Input id="login-email" type="email" placeholder="you@example.com" {...register('email')} />
-      {errors.email?.message ? <p className="text-sm text-rose-600">{errors.email.message}</p> : null}
+      {errors.email?.message ? <p className="text-app-danger text-sm">{errors.email.message}</p> : null}
 
       <Label htmlFor="login-password" className="text-foreground/90">
         Password
       </Label>
       <Input id="login-password" type="password" placeholder="********" {...register('password')} />
-      {errors.password?.message ? <p className="text-sm text-rose-600">{errors.password.message}</p> : null}
+      {errors.password?.message ? <p className="text-app-danger text-sm">{errors.password.message}</p> : null}
 
-      {errors.root?.message ? <p className="text-sm text-rose-600">{errors.root.message}</p> : null}
+      {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
 
       <Button type="submit" disabled={loginForm.isSubmitting}>
         {loginForm.isSubmitting ? 'Signing in...' : 'Sign in'}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
-import { AppHeader, AppSidebar } from '@/shared/ui/app-header';
+import { AppShell } from '@/shared/ui/app-shell';
 
 export default function PrivateLayout({
   children,
@@ -15,12 +15,13 @@ export default function PrivateLayout({
   }
 
   return (
-    <div className="min-h-screen lg:flex">
-      <AppSidebar />
-      <div className="min-w-0 flex-1">
-        <AppHeader />
-        {children}
-      </div>
-    </div>
+    <AppShell
+      userEmail={auth.user?.email}
+      onSignOut={() => {
+        auth.clearSession();
+      }}
+    >
+      {children}
+    </AppShell>
   );
 }
