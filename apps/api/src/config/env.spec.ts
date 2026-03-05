@@ -85,4 +85,17 @@ describe('validateEnv', () => {
       }),
     ).toThrow();
   });
+
+  it('accepts explicit auth throttle config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        AUTH_LOGIN_THROTTLE_LIMIT: '7',
+        AUTH_LOGIN_THROTTLE_TTL_MS: '30000',
+        AUTH_REFRESH_THROTTLE_LIMIT: '20',
+        AUTH_REGISTER_THROTTLE_LIMIT: '5',
+        AUTH_OTP_THROTTLE_LIMIT: '4',
+      }),
+    ).not.toThrow();
+  });
 });

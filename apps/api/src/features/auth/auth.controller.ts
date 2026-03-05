@@ -20,6 +20,12 @@ import { ChangePasswordDto } from './dto/change-password-dto';
 import { ResetPasswordDto } from './dto/rest-password';
 import { User } from './auth.interface';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import {
+  AUTH_LOGIN_THROTTLE,
+  AUTH_OTP_THROTTLE,
+  AUTH_REFRESH_THROTTLE,
+  AUTH_REGISTER_THROTTLE,
+} from './auth-throttle.config';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -34,7 +40,7 @@ export class AuthController {
   @UseGuards(LocalAuthGuard)
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Throttle({ default: { limit: AUTH_LOGIN_THROTTLE.limit, ttl: AUTH_LOGIN_THROTTLE.ttl } })
   async login(@Body() body: LoginDto, @Device() device: DeviceType, @Req() request: Request) {
     const user = request.user as User;
     return this.authService.login(user, device);
@@ -43,7 +49,7 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh access token using refresh token' })
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Throttle({ default: { limit: AUTH_REFRESH_THROTTLE.limit, ttl: AUTH_REFRESH_THROTTLE.ttl } })
   async refresh(@Body() body: RefreshTokenDto) {
     return this.authService.refresh(body.refreshToken);
   }
@@ -51,7 +57,7 @@ export class AuthController {
   @Public()
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
-  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Throttle({ default: { limit: AUTH_REGISTER_THROTTLE.limit, ttl: AUTH_REGISTER_THROTTLE.ttl } })
   async register(@Body() body: RegisterDto) {
     return this.authService.register(body);
   }
@@ -77,7 +83,7 @@ export class AuthController {
   @Public()
   @Post('reset-password')
   @ApiOperation({ summary: 'Reset password with verification code' })
-  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Throttle({ default: { limit: AUTH_OTP_THROTTLE.limit, ttl: AUTH_OTP_THROTTLE.ttl } })
   async resetPassword(@Body() body: ResetPasswordDto) {
     await this.authService.resetPassword(body);
     return 'Reset password successfully';
@@ -86,7 +92,7 @@ export class AuthController {
   @Public()
   @Post('send-register-code')
   @ApiOperation({ summary: 'Send registration verification code' })
-  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Throttle({ default: { limit: AUTH_OTP_THROTTLE.limit, ttl: AUTH_OTP_THROTTLE.ttl } })
   async sendRegisterCode(@Body() body: SendCodeDto) {
     try {
       const code = await this.optsService.generateOtpCode(body.email, 'EMAIL_REGISTER');
@@ -99,7 +105,7 @@ export class AuthController {
   @Public()
   @Post('send-reset-password-code')
   @ApiOperation({ summary: 'Send reset password verification code' })
-  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Throttle({ default: { limit: AUTH_OTP_THROTTLE.limit, ttl: AUTH_OTP_THROTTLE.ttl } })
   async sendResetPasswordCode(@Body() body: SendCodeDto) {
     try {
       const code = await this.optsService.generateOtpCode(body.email, 'PASSWORD_RESET');
