@@ -369,3 +369,25 @@ ADR-lite log for major architectural and contract decisions.
   - Reduce production request churn/cost while preserving explicit control over freshness.
   - Avoid hardcoded global throttle values that block admin/testing loops or require code edits per environment.
   - Keep runtime tuning aligned with low-cost cold-start strategy.
+
+## 2026-03-05: Normalized API Error Taxonomy Contract
+
+- Decision:
+  - Standardize API error responses to include top-level fields:
+    - `code`
+    - `message`
+    - `requestId`
+    - `timestamp`
+  - Keep legacy nested `error/meta` payload for backward compatibility.
+- Why:
+  - Make frontend error handling deterministic and less string-dependent.
+  - Improve debugging with consistent request correlation id exposure.
+
+## 2026-03-05: Google OAuth + Schedule Trigger Auth
+
+- Decision:
+  - Add Google OAuth id-token login endpoint (`POST /auth/oauth/google`) with verified email requirement and account linking by email.
+  - Add token-protected scheduler trigger endpoint for scrape schedule automation (`POST /job-sources/schedule/trigger`).
+- Why:
+  - Reduce auth friction and support social sign-in onboarding.
+  - Enable controlled scrape automation without exposing unauthenticated trigger surfaces.

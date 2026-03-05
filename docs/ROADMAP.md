@@ -18,6 +18,10 @@ Last updated: 2026-03-05
    - Status: in progress (release-candidate image build/push + manual Cloud Run promotion + post-deploy verification implemented; rollback automation pending).
 7. Request-budget guardrails (API throttling + FE query traffic controls).
    - Status: completed (env-driven global API throttle and frontend query refetch/stale controls shipped).
+8. Authentication hardening and OAuth onboarding.
+   - Status: in progress (normalized API error taxonomy + env-tunable auth throttles + Google OAuth login flow shipped).
+9. Scrape automation scheduling.
+   - Status: in progress (user schedule model + secure scheduler trigger endpoint shipped; Cloud Scheduler wiring pending).
 
 ## Next
 

@@ -19,6 +19,7 @@ Last updated: 2026-03-05
 | `GCP_API_BASE_URL` | promote-to-prod | Public API base URL (`https://...`) |
 | `GCP_WORKER_BASE_URL` | promote-to-prod | Public Worker base URL (`https://...`) |
 | `GCP_WEB_BASE_URL` | promote-to-prod | Public Web base URL (`https://...`) |
+| `GOOGLE_OAUTH_CLIENT_ID` | release-candidate, deploy-prod-on-main | Public Google OAuth client id used by web build and API token verification |
 
 ### Required GitHub Secrets (`secrets.*`)
 
@@ -26,6 +27,7 @@ Last updated: 2026-03-05
 |---|---|---|
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | release-candidate, promote-to-prod | GitHub OIDC provider resource |
 | `GCP_DEPLOYER_SERVICE_ACCOUNT` | release-candidate, promote-to-prod | CI deployer service account email |
+| `SCHEDULER_AUTH_TOKEN` | deploy-prod-on-main | Shared bearer token for `/api/job-sources/schedule/trigger` |
 
 ## 2) Cloud Run Runtime Contract
 
@@ -72,6 +74,9 @@ Last updated: 2026-03-05
 | `API_THROTTLE_TTL_MS` | `60000` | global API throttle window (ms) |
 | `API_THROTTLE_LIMIT` | `60` | global API throttle request budget per window |
 | `WORKER_REQUEST_TIMEOUT_MS` | `5000` | API wait timeout for worker accept response |
+| `GOOGLE_OAUTH_CLIENT_ID` | `<google-client-id>` | required for `/auth/oauth/google` verification |
+| `SCHEDULER_AUTH_TOKEN` | `<secret>` | required for internal schedule trigger endpoint |
+| `SCHEDULER_TRIGGER_BATCH_SIZE` | `20` | max schedules processed per trigger run |
 
 ### Cloud Run Service Settings (Recommended Baseline)
 
@@ -140,6 +145,7 @@ Last updated: 2026-03-05
 | `NEXT_PUBLIC_API_URL` | env | `https://api-...run.app/api` | include `/api` suffix |
 | `NEXT_PUBLIC_WORKER_URL` | env | `https://worker-...run.app` | used by tester tooling |
 | `NEXT_PUBLIC_ENABLE_TESTER` | env | `false` | disable tester in production |
+| `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` | build arg/env | `<google-client-id>` | enables web Google OAuth redirect flow |
 | `NEXT_PUBLIC_QUERY_STALE_TIME_MS` | env | `30000` | default query cache freshness window |
 | `NEXT_PUBLIC_QUERY_REFETCH_ON_WINDOW_FOCUS` | env | `false` | disable focus refetch by default |
 | `NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS` | env | `60000` | diagnostics polling interval |
