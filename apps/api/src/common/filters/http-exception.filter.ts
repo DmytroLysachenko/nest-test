@@ -1,15 +1,7 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 
-const FRIENDLY_MESSAGES: Partial<Record<number, string>> = {
-  [HttpStatus.BAD_REQUEST]: 'Request validation failed.',
-  [HttpStatus.UNAUTHORIZED]: 'Invalid credentials or unauthorized request.',
-  [HttpStatus.FORBIDDEN]: 'You do not have permission to perform this action.',
-  [HttpStatus.NOT_FOUND]: 'Requested resource was not found.',
-  [HttpStatus.CONFLICT]: 'Request conflicts with current state.',
-  [HttpStatus.TOO_MANY_REQUESTS]: 'Too many requests. Please try again later.',
-  [HttpStatus.INTERNAL_SERVER_ERROR]: 'Something went wrong. Please try again.',
-};
+import { getErrorCatalogEntry } from '@/common/errors/error-catalog';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -22,9 +14,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const { error, message, details } = this.normalizeError(exception);
+    const { error, message, details } = this.normalizeError(exception, status);
+    const catalog = getErrorCatalogEntry(status);
+    const timestamp = new Date().toISOString();
 
-    const traceId =
+    const requestId =
       request.requestId ||
       request.headers['x-request-id'] ||
       request.headers['x-correlation-id'] ||
@@ -32,7 +26,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       request.url;
 
     this.logger.error({
-      traceId,
+      requestId,
       status,
       method: request.method,
       path: request.url,
@@ -42,24 +36,34 @@ export class HttpExceptionFilter implements ExceptionFilter {
     });
 
     response.status(status).json({
+      code: error,
+      message,
+      requestId,
+      timestamp,
+      ...(details ? { details } : {}),
+      retryable: catalog.retryable,
+      category: catalog.category,
       error: {
         code: error,
         message,
         details,
       },
       meta: {
-        traceId,
-        timestamp: new Date().toISOString(),
+        traceId: requestId,
+        timestamp,
       },
     });
   }
 
-  private normalizeError(exception: unknown): {
+  private normalizeError(
+    exception: unknown,
+    status: number,
+  ): {
     error: string;
     message: string;
     details?: string[];
   } {
-    const sanitizeMessage = (status: number, message: string) => {
+    const sanitizeMessage = (message: string) => {
       const normalized = message.trim();
       if (
         status === HttpStatus.UNAUTHORIZED ||
@@ -68,10 +72,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
         status === HttpStatus.CONFLICT ||
         status === HttpStatus.TOO_MANY_REQUESTS
       ) {
-        return FRIENDLY_MESSAGES[status]!;
+        return getErrorCatalogEntry(status).safeMessage;
       }
       if (status >= 500) {
-        return FRIENDLY_MESSAGES[HttpStatus.INTERNAL_SERVER_ERROR]!;
+        return getErrorCatalogEntry(HttpStatus.INTERNAL_SERVER_ERROR).safeMessage;
       }
 
       // Guard against accidental leakage of SQL/stack internals in 4xx payloads.
@@ -83,19 +87,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
         lower.includes('relation "') ||
         lower.includes('stack')
       ) {
-        return FRIENDLY_MESSAGES[status] ?? 'Request failed.';
+        return getErrorCatalogEntry(status).safeMessage ?? 'Request failed.';
       }
 
-      return normalized || FRIENDLY_MESSAGES[status] || 'Request failed.';
+      return normalized || getErrorCatalogEntry(status).safeMessage || 'Request failed.';
     };
 
     if (exception instanceof HttpException) {
-      const status = exception.getStatus();
       const res = exception.getResponse();
       if (typeof res === 'string') {
         return {
-          error: exception.name,
-          message: sanitizeMessage(status, res),
+          error: getErrorCatalogEntry(status).code,
+          message: sanitizeMessage(res),
         };
       }
       if (typeof res === 'object' && res !== null) {
@@ -103,17 +106,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const rawMessage = obj.message || obj.msg || 'Unknown error';
         const details = Array.isArray(rawMessage) ? rawMessage : undefined;
         return {
-          error: obj.error || exception.name,
+          error: obj.code || getErrorCatalogEntry(status).code,
           message: Array.isArray(rawMessage)
-            ? FRIENDLY_MESSAGES[HttpStatus.BAD_REQUEST]!
-            : sanitizeMessage(status, String(rawMessage)),
+            ? getErrorCatalogEntry(HttpStatus.BAD_REQUEST).safeMessage
+            : sanitizeMessage(String(rawMessage)),
           details,
         };
       }
     }
     return {
-      error: 'INTERNAL_SERVER_ERROR',
-      message: FRIENDLY_MESSAGES[HttpStatus.INTERNAL_SERVER_ERROR]!,
+      error: getErrorCatalogEntry(HttpStatus.INTERNAL_SERVER_ERROR).code,
+      message: getErrorCatalogEntry(HttpStatus.INTERNAL_SERVER_ERROR).safeMessage,
     };
   }
 }

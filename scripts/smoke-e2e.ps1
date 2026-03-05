@@ -47,6 +47,9 @@ $smokeEmail = Get-EnvOrDefault -Name 'SMOKE_EMAIL' -Default 'admin@example.com'
 $smokePassword = Get-EnvOrDefault -Name 'SMOKE_PASSWORD' -Default 'admin123'
 $skipSeedRaw = Get-EnvOrDefault -Name 'SMOKE_SKIP_SEED' -Default ''
 $skipSeed = @('1', 'true', 'yes') -contains $skipSeedRaw.ToLower()
+$forceCallbackRaw = Get-EnvOrDefault -Name 'SMOKE_FORCE_CALLBACK' -Default ''
+$forceCallback = @('1', 'true', 'yes') -contains $forceCallbackRaw.ToLower()
+$workerCallbackToken = Get-EnvOrDefault -Name 'WORKER_CALLBACK_TOKEN' -Default ''
 
 if (-not $skipSeed) {
   Write-Host '1) Seeding minimal fixture data...'
@@ -357,6 +360,48 @@ $scrapePayload = $scrape.Content | ConvertFrom-Json
 $sourceRunId = $scrapePayload.data.sourceRunId
 if ([string]::IsNullOrWhiteSpace($sourceRunId)) {
   throw 'Scrape enqueue did not return sourceRunId.'
+}
+
+if ($forceCallback) {
+  Write-Host '10.5) Forcing deterministic worker completion callback...'
+  $stage = 'force-worker-callback'
+  if ([string]::IsNullOrWhiteSpace($workerCallbackToken)) {
+    throw 'SMOKE_FORCE_CALLBACK=true requires WORKER_CALLBACK_TOKEN to be set.'
+  }
+
+  $callbackHeaders = @{
+    Authorization = "Bearer $workerCallbackToken"
+    'x-request-id' = "smoke-callback-$([Guid]::NewGuid().ToString())"
+  }
+
+  $callbackBody = @{
+    source = 'pracuj-pl'
+    sourceRunId = $sourceRunId
+    runId = "smoke-run-$([Guid]::NewGuid().ToString())"
+    eventId = "smoke-event-$([Guid]::NewGuid().ToString())"
+    attemptNo = 1
+    status = 'COMPLETED'
+    scrapedCount = 1
+    totalFound = 1
+    listingUrl = 'https://it.pracuj.pl/praca?wm=home-office&its=frontend'
+    jobs = @(
+      @{
+        source = 'pracuj-pl'
+        sourceId = "smoke-source-$([Guid]::NewGuid().ToString())"
+        url = "https://example.com/smoke-job/$sourceRunId"
+        title = 'Smoke Frontend Engineer'
+        description = 'Synthetic smoke callback payload to stabilize CI.'
+        company = 'Smoke Inc'
+        location = 'Remote'
+        employmentType = 'B2B'
+        requirements = @('TypeScript', 'React')
+        tags = @('smoke', 'synthetic')
+      }
+    )
+  } | ConvertTo-Json -Depth 8
+
+  $callbackResponse = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/complete" -Method Post -Headers $callbackHeaders -ContentType 'application/json' -Body $callbackBody -UseBasicParsing -TimeoutSec 20
+  Assert-StatusCode -Actual $callbackResponse.StatusCode -Allowed @(200, 201) -Context 'Force scrape completion callback'
 }
 
 Write-Host '11) Waiting for scrape run completion callback...'

@@ -41,19 +41,33 @@ export const bootstrap = async (app: NestExpressApplication) => {
   if (isProduction && allowedOrigins.trim() === '*') {
     throw new Error('ALLOWED_ORIGINS cannot be "*" in production');
   }
-  const origin =
+
+  const originList =
     allowedOrigins === '*'
-      ? true
+      ? null
       : allowedOrigins
           .split(',')
-          .map((value) => value.trim())
+          .map((value) => value.trim().replace(/\/+$/, '').toLowerCase())
           .filter(Boolean);
+
+  const isOriginAllowed = (origin: string | undefined) => {
+    if (!originList) {
+      return true;
+    }
+    if (!origin) {
+      return true;
+    }
+    const normalizedOrigin = origin.trim().replace(/\/+$/, '').toLowerCase();
+    return originList.includes(normalizedOrigin);
+  };
 
   app.enableCors({
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     maxAge: 3600,
-    origin,
+    origin: (origin, callback) => {
+      callback(null, isOriginAllowed(origin));
+    },
   });
 
   // =====================================================

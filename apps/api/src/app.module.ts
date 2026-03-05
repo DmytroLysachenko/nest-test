@@ -1,5 +1,5 @@
 import { MiddlewareConsumer, Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
@@ -25,6 +25,8 @@ import { WorkspaceModule } from '@/features/workspace/workspace.module';
 import { OpsModule } from '@/features/ops/ops.module';
 import { RolesGuard } from '@/common/guards';
 
+import type { Env } from '@/config/env';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -34,13 +36,16 @@ import { RolesGuard } from '@/common/guards';
     JwtModule.register({
       global: true,
     }),
-    ThrottlerModule.forRoot({
-      throttlers: [
-        {
-          ttl: 60000,
-          limit: 10,
-        },
-      ],
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService<Env, true>) => ({
+        throttlers: [
+          {
+            ttl: configService.get('API_THROTTLE_TTL_MS', { infer: true }),
+            limit: configService.get('API_THROTTLE_LIMIT', { infer: true }),
+          },
+        ],
+      }),
     }),
     LoggerModule,
     DrizzleModule,

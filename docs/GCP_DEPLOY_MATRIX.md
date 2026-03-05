@@ -2,7 +2,7 @@
 
 Canonical runtime/deploy contract for Google Cloud Run production deployments.
 
-Last updated: 2026-03-03
+Last updated: 2026-03-05
 
 ## 1) Repository-Level CI/CD Inputs
 
@@ -19,6 +19,19 @@ Last updated: 2026-03-03
 | `GCP_API_BASE_URL` | promote-to-prod | Public API base URL (`https://...`) |
 | `GCP_WORKER_BASE_URL` | promote-to-prod | Public Worker base URL (`https://...`) |
 | `GCP_WEB_BASE_URL` | promote-to-prod | Public Web base URL (`https://...`) |
+| `GOOGLE_OAUTH_CLIENT_ID` | release-candidate, deploy-prod-on-main | Public Google OAuth client id used by web build and API token verification |
+| `SCHEDULER_JOB_NAME` | deploy-prod-on-main | Optional Cloud Scheduler job name override (default `job-seek-schedule-trigger`) |
+| `SCHEDULER_CRON` | deploy-prod-on-main | Optional Cloud Scheduler cron expression (default `*/10 * * * *`) |
+| `SCHEDULER_TIMEZONE` | deploy-prod-on-main | Optional Cloud Scheduler timezone (default `Etc/UTC`) |
+| `OPS_RECONCILE_JOB_NAME` | deploy-prod-on-main | Optional reconcile job name override (default `job-seek-reconcile-stale-runs`) |
+| `OPS_RECONCILE_CRON` | deploy-prod-on-main | Optional reconcile cron expression (default `*/15 * * * *`) |
+| `OPS_RECONCILE_TIMEZONE` | deploy-prod-on-main | Optional reconcile timezone (default `Etc/UTC`) |
+| `WORKER_TASKS_DLQ` | deploy-prod-on-main | Optional DLQ queue name provisioned by deploy script (default `worker-scrape-dlq`) |
+| `TASKS_MAX_ATTEMPTS` | deploy-prod-on-main | Optional Cloud Tasks retry max attempts (default `8`) |
+| `TASKS_MIN_BACKOFF_SEC` | deploy-prod-on-main | Optional retry min backoff seconds (default `5`) |
+| `TASKS_MAX_BACKOFF_SEC` | deploy-prod-on-main | Optional retry max backoff seconds (default `300`) |
+| `TASKS_MAX_DOUBLINGS` | deploy-prod-on-main | Optional retry max doublings (default `5`) |
+| `TASKS_MAX_RETRY_DURATION_SEC` | deploy-prod-on-main | Optional retry max duration in seconds (default `1800`) |
 
 ### Required GitHub Secrets (`secrets.*`)
 
@@ -26,6 +39,8 @@ Last updated: 2026-03-03
 |---|---|---|
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | release-candidate, promote-to-prod | GitHub OIDC provider resource |
 | `GCP_DEPLOYER_SERVICE_ACCOUNT` | release-candidate, promote-to-prod | CI deployer service account email |
+| `SCHEDULER_AUTH_TOKEN` | deploy-prod-on-main | Shared bearer token for `/api/job-sources/schedule/trigger` |
+| `OPS_INTERNAL_TOKEN` | deploy-prod-on-main | Shared bearer token for `/api/ops/reconcile-stale-runs` |
 
 ## 2) Cloud Run Runtime Contract
 
@@ -69,7 +84,13 @@ Last updated: 2026-03-03
 | `WORKER_CALLBACK_SIGNING_SECRET` | `<secret>` | optional HMAC callback signature defense |
 | `WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC` | `300` | default is acceptable |
 | `API_BODY_LIMIT` | `1mb` | ingress guardrail |
+| `API_THROTTLE_TTL_MS` | `60000` | global API throttle window (ms) |
+| `API_THROTTLE_LIMIT` | `60` | global API throttle request budget per window |
 | `WORKER_REQUEST_TIMEOUT_MS` | `5000` | API wait timeout for worker accept response |
+| `GOOGLE_OAUTH_CLIENT_ID` | `<google-client-id>` | required for `/auth/oauth/google` verification |
+| `SCHEDULER_AUTH_TOKEN` | `<secret>` | required for internal schedule trigger endpoint |
+| `SCHEDULER_TRIGGER_BATCH_SIZE` | `20` | max schedules processed per trigger run |
+| `SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER` | `40` | per-user 24h enqueue budget guardrail |
 
 ### Cloud Run Service Settings (Recommended Baseline)
 
@@ -77,7 +98,7 @@ Last updated: 2026-03-03
 |---|---|
 | Ingress | all (or internal+LB if fronted) |
 | Authentication | allow unauthenticated (public API/web flow) |
-| Min instances | 1 |
+| Min instances | 0 |
 | CPU | 1 |
 | Memory | 512Mi |
 
@@ -94,6 +115,7 @@ Last updated: 2026-03-03
 | `TASKS_LOCATION` | env | `us-central1` | Cloud Tasks queue location |
 | `TASKS_QUEUE` | env | `worker-scrape` | Cloud Tasks queue name |
 | `TASKS_URL` | env | `https://worker-...run.app/tasks` | must end with `/tasks` or `/scrape` |
+| `WORKER_ALLOWED_ORIGINS` | env | `https://web-...run.app` | explicit CORS allowlist; cannot be `*` in production |
 
 ### Recommended Runtime Environment
 
@@ -117,13 +139,25 @@ Last updated: 2026-03-03
 | `WORKER_HEARTBEAT_INTERVAL_MS` | `10000` | progress heartbeat cadence |
 | `PLAYWRIGHT_HEADLESS` | `true` | production browser mode |
 
+### Queue Provisioning Defaults (deploy script)
+
+| Name | Default | Notes |
+|---|---|---|
+| `WORKER_TASKS_QUEUE` | `worker-scrape` | main worker ingestion queue |
+| `WORKER_TASKS_DLQ` | `worker-scrape-dlq` | reserved queue for operational dead-letter flows |
+| `TASKS_MAX_ATTEMPTS` | `8` | queue retry policy |
+| `TASKS_MIN_BACKOFF_SEC` | `5` | queue retry policy |
+| `TASKS_MAX_BACKOFF_SEC` | `300` | queue retry policy |
+| `TASKS_MAX_DOUBLINGS` | `5` | queue retry policy |
+| `TASKS_MAX_RETRY_DURATION_SEC` | `1800` | queue retry policy |
+
 ### Cloud Run Service Settings (Recommended Baseline)
 
 | Setting | Value |
 |---|---|
 | Ingress | all (or internal if API and worker are private) |
 | Authentication | allow unauthenticated only if token/oidc enforced at app level |
-| Min instances | 1 |
+| Min instances | 0 |
 | CPU | 1 |
 | Memory | 1Gi |
 
@@ -138,6 +172,10 @@ Last updated: 2026-03-03
 | `NEXT_PUBLIC_API_URL` | env | `https://api-...run.app/api` | include `/api` suffix |
 | `NEXT_PUBLIC_WORKER_URL` | env | `https://worker-...run.app` | used by tester tooling |
 | `NEXT_PUBLIC_ENABLE_TESTER` | env | `false` | disable tester in production |
+| `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` | build arg/env | `<google-client-id>` | enables web Google OAuth redirect flow |
+| `NEXT_PUBLIC_QUERY_STALE_TIME_MS` | env | `30000` | default query cache freshness window |
+| `NEXT_PUBLIC_QUERY_REFETCH_ON_WINDOW_FOCUS` | env | `false` | disable focus refetch by default |
+| `NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS` | env | `60000` | diagnostics polling interval |
 
 ### Cloud Run Service Settings (Recommended Baseline)
 
@@ -145,7 +183,7 @@ Last updated: 2026-03-03
 |---|---|
 | Ingress | all |
 | Authentication | allow unauthenticated |
-| Min instances | 1 |
+| Min instances | 0 |
 | CPU | 1 |
 | Memory | 512Mi |
 
@@ -175,3 +213,13 @@ Last updated: 2026-03-03
 - Worker ingress auth can be:
   - OIDC (recommended): API signs task OIDC (`WORKER_TASKS_SERVICE_ACCOUNT_EMAIL`) and worker pins `TASKS_SERVICE_ACCOUNT_EMAIL`.
   - Shared token fallback: API `WORKER_AUTH_TOKEN` + worker `TASKS_AUTH_TOKEN`.
+
+## 6) Schedule Automation Contract
+
+- `deploy-cloud-run-prod.sh` now upserts a Cloud Scheduler HTTP job after API deploy.
+- Target endpoint: `POST ${API_URL}/api/job-sources/schedule/trigger`.
+- Auth header: `Authorization: Bearer ${SCHEDULER_AUTH_TOKEN}`.
+- Default cadence: every 10 minutes (`*/10 * * * *`) in `Etc/UTC`.
+- Reconcile endpoint: `POST ${API_URL}/api/ops/reconcile-stale-runs`.
+- Reconcile auth header: `Authorization: Bearer ${OPS_INTERNAL_TOKEN}`.
+- Reconcile cadence default: every 15 minutes (`*/15 * * * *`) in `Etc/UTC`.

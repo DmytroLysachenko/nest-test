@@ -6,6 +6,10 @@ on:
   push:
     branches: [master]
 
+concurrency:
+  group: ci-verify-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -80,11 +84,26 @@ jobs:
       - run: pnpm --filter web check-types
       - run: pnpm --filter api build
       - run: pnpm --filter worker build
+
+  web-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - name: Install Playwright (Chromium)
         run: pnpm --filter web exec playwright install --with-deps chromium
       - run: pnpm --filter web test:e2e
       - name: Upload e2e artifacts
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: web-e2e-artifacts

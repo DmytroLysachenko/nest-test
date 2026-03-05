@@ -22,6 +22,7 @@ import {
   jobSourceCallbackEventsTable,
   jobSourceRunAttemptsTable,
   jobSourceRunsTable,
+  scrapeSchedulesTable,
   userJobOffersTable,
 } from '@repo/db';
 import { buildPracujListingUrl, normalizePracujFilters, type PracujSourceKind, JobSourceRunStatus } from '@repo/db';
@@ -37,6 +38,7 @@ import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
 import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';
 import { buildFiltersFromProfile, inferPracujSource } from './scrape-request-resolver';
 import { RunDiagnosticsSummaryCache } from './run-diagnostics-summary-cache';
+import { UpdateScrapeScheduleDto } from './dto/scrape-schedule.dto';
 
 import type { Env } from '@/config/env';
 
@@ -218,6 +220,43 @@ const workerOidcClient = new OAuth2Client();
 const WORKER_TASK_SCHEMA_VERSION = '1' as const;
 const WORKER_OIDC_ISSUERS = new Set(['https://accounts.google.com', 'accounts.google.com']);
 
+const parseSchedule = (
+  cron: string,
+): { kind: 'everyMinutes'; minutes: number } | { kind: 'daily'; hour: number; minute: number } => {
+  const everyMinutes = /^\*\/(\d{1,2}) \* \* \* \*$/;
+  const daily = /^(\d{1,2}) (\d{1,2}) \* \* \*$/;
+  const everyMinutesMatch = cron.trim().match(everyMinutes);
+  if (everyMinutesMatch) {
+    const minutes = Number(everyMinutesMatch[1]);
+    return { kind: 'everyMinutes', minutes: Math.max(1, Math.min(59, minutes)) };
+  }
+  const dailyMatch = cron.trim().match(daily);
+  if (dailyMatch) {
+    const minute = Number(dailyMatch[1]);
+    const hour = Number(dailyMatch[2]);
+    return {
+      kind: 'daily',
+      hour: Math.max(0, Math.min(23, hour)),
+      minute: Math.max(0, Math.min(59, minute)),
+    };
+  }
+  return { kind: 'daily', hour: 9, minute: 0 };
+};
+
+const computeNextRunAt = (cron: string, from: Date): Date => {
+  const parsed = parseSchedule(cron);
+  if (parsed.kind === 'everyMinutes') {
+    return new Date(from.getTime() + parsed.minutes * 60 * 1000);
+  }
+  const next = new Date(from);
+  next.setUTCSeconds(0, 0);
+  next.setUTCHours(parsed.hour, parsed.minute, 0, 0);
+  if (next.getTime() <= from.getTime()) {
+    next.setUTCDate(next.getUTCDate() + 1);
+  }
+  return next;
+};
+
 @Injectable()
 export class JobSourcesService {
   private readonly diagnosticsSummaryCache = new RunDiagnosticsSummaryCache<any>(30000);
@@ -231,6 +270,153 @@ export class JobSourcesService {
     @Drizzle() private readonly db: NodePgDatabase,
     @Optional() private readonly jobOffersService?: JobOffersService,
   ) {}
+
+  async getSchedule(userId: string) {
+    const schedule = await this.db
+      .select()
+      .from(scrapeSchedulesTable)
+      .where(eq(scrapeSchedulesTable.userId, userId))
+      .limit(1)
+      .then((rows) => rows[0]);
+
+    if (!schedule) {
+      return {
+        enabled: false,
+        cron: '0 9 * * *',
+        timezone: 'Europe/Warsaw',
+        source: 'pracuj-pl-it',
+        limit: 20,
+        careerProfileId: null,
+        filters: null,
+        lastTriggeredAt: null,
+        nextRunAt: null,
+        lastRunStatus: null,
+      };
+    }
+
+    return {
+      enabled: schedule.enabled === 1,
+      cron: schedule.cron,
+      timezone: schedule.timezone,
+      source: schedule.source,
+      limit: schedule.limit,
+      careerProfileId: schedule.careerProfileId,
+      filters: (schedule.filters as Record<string, unknown> | null) ?? null,
+      lastTriggeredAt: schedule.lastTriggeredAt?.toISOString() ?? null,
+      nextRunAt: schedule.nextRunAt?.toISOString() ?? null,
+      lastRunStatus: schedule.lastRunStatus ?? null,
+    };
+  }
+
+  async updateSchedule(userId: string, dto: UpdateScrapeScheduleDto) {
+    const now = new Date();
+    const cron = dto.cron ?? '0 9 * * *';
+    const enabled = dto.enabled ? 1 : 0;
+    const values = {
+      userId,
+      enabled,
+      cron,
+      timezone: dto.timezone ?? 'Europe/Warsaw',
+      source: dto.source ?? 'pracuj-pl-it',
+      limit: dto.limit ?? 20,
+      careerProfileId: dto.careerProfileId ?? null,
+      filters: (dto.filters as Record<string, unknown> | undefined) ?? null,
+      nextRunAt: enabled ? computeNextRunAt(cron, now) : null,
+      updatedAt: now,
+    };
+
+    const existing = await this.db
+      .select({ id: scrapeSchedulesTable.id })
+      .from(scrapeSchedulesTable)
+      .where(eq(scrapeSchedulesTable.userId, userId))
+      .limit(1)
+      .then((rows) => rows[0]);
+
+    if (existing) {
+      await this.db.update(scrapeSchedulesTable).set(values).where(eq(scrapeSchedulesTable.id, existing.id));
+    } else {
+      await this.db.insert(scrapeSchedulesTable).values({
+        ...values,
+        createdAt: now,
+      });
+    }
+
+    return this.getSchedule(userId);
+  }
+
+  async triggerSchedules(authorization: string | undefined, requestId?: string) {
+    const schedulerToken = this.configService.get('SCHEDULER_AUTH_TOKEN', { infer: true });
+    if (!schedulerToken) {
+      throw new ServiceUnavailableException('Scheduler auth token is not configured');
+    }
+
+    const providedToken = (authorization ?? '').replace(/^Bearer\s+/i, '').trim();
+    if (!providedToken || providedToken !== schedulerToken) {
+      throw new UnauthorizedException('Invalid scheduler token');
+    }
+
+    const batchSize = this.configService.get('SCHEDULER_TRIGGER_BATCH_SIZE', { infer: true });
+    const acceptedAt = new Date();
+    const schedules = await this.db
+      .select()
+      .from(scrapeSchedulesTable)
+      .where(
+        and(
+          eq(scrapeSchedulesTable.enabled, 1),
+          or(isNull(scrapeSchedulesTable.nextRunAt), lt(scrapeSchedulesTable.nextRunAt, new Date(acceptedAt.getTime() + 1000))),
+        ),
+      )
+      .orderBy(scrapeSchedulesTable.nextRunAt, scrapeSchedulesTable.updatedAt)
+      .limit(batchSize);
+
+    const results: Array<{ userId: string; ok: boolean; sourceRunId?: string; error?: string }> = [];
+    for (const schedule of schedules) {
+      const nextRunAt = computeNextRunAt(schedule.cron, acceptedAt);
+      try {
+        const response = await this.enqueueScrape(
+          schedule.userId,
+          {
+            source: schedule.source,
+            limit: schedule.limit,
+            careerProfileId: schedule.careerProfileId ?? undefined,
+            filters: (schedule.filters as ScrapeFiltersDto | null) ?? undefined,
+            forceRefresh: false,
+          },
+          requestId,
+        );
+        await this.db
+          .update(scrapeSchedulesTable)
+          .set({
+            lastTriggeredAt: acceptedAt,
+            nextRunAt,
+            lastRunStatus: 'ENQUEUED',
+            updatedAt: acceptedAt,
+          })
+          .where(eq(scrapeSchedulesTable.id, schedule.id));
+        results.push({ userId: schedule.userId, ok: true, sourceRunId: response.sourceRunId });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Schedule trigger failed';
+        await this.db
+          .update(scrapeSchedulesTable)
+          .set({
+            nextRunAt,
+            lastRunStatus: 'ENQUEUE_FAILED',
+            updatedAt: acceptedAt,
+          })
+          .where(eq(scrapeSchedulesTable.id, schedule.id));
+        results.push({ userId: schedule.userId, ok: false, error: message });
+      }
+    }
+
+    return {
+      ok: true,
+      acceptedAt: acceptedAt.toISOString(),
+      scanned: schedules.length,
+      triggered: results.filter((item) => item.ok).length,
+      failed: results.filter((item) => !item.ok).length,
+      results,
+    };
+  }
 
   async enqueueScrape(userId: string, dto: EnqueueScrapeDto, incomingRequestId?: string) {
     await this.reconcileStaleRuns(userId);
@@ -254,6 +440,23 @@ export class JobSourcesService {
       if (activeRunCount >= maxActiveRuns) {
         throw new HttpException(
           `Too many active scrape runs (${activeRunCount}/${maxActiveRuns}). Wait for completion or retry later.`,
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
+
+    const dailyEnqueueLimit = this.configService.get('SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER', { infer: true });
+    if (typeof dailyEnqueueLimit === 'number' && dailyEnqueueLimit > 0) {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const dailyRunsResult = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(and(eq(jobSourceRunsTable.userId, userId), gte(jobSourceRunsTable.createdAt, since)));
+      const [dailyRuns] = Array.isArray(dailyRunsResult) ? dailyRunsResult : [];
+      const dailyRunCount = Number(dailyRuns?.value ?? 0);
+      if (dailyRunCount >= dailyEnqueueLimit) {
+        throw new HttpException(
+          `Daily scrape limit reached (${dailyRunCount}/${dailyEnqueueLimit}) for last 24 hours.`,
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }

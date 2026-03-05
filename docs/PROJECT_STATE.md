@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-03-03
+Last updated: 2026-03-05
 
 ## Current Architecture
 
@@ -50,16 +50,20 @@ Last updated: 2026-03-03
 - Worker now emits authenticated scrape heartbeats to API (`/job-sources/runs/:id/heartbeat`) with lightweight progress payloads.
 - Stale run reconciliation now prioritizes `last_heartbeat_at` over legacy timestamp-only heuristics.
 - API scrape enqueue now applies short-window idempotency suppression for duplicate intents.
+- API scrape enqueue now enforces per-user 24h enqueue budget guard (`SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER`).
 - Scrape retry now enforces configurable retry-chain depth cap.
 - Admin ops metrics endpoint available at `/ops/metrics`.
 - Ops metrics now expose scrape lifecycle counters (`staleReconciledRuns`, `retriesTriggered`, `retrySuccessRate`).
 - Ops metrics now expose callback event breakdown (`failuresByType`, `failuresByCode`) and heartbeat freshness indicator (`runningWithoutHeartbeat`).
+- Ops metrics now support optional `windowHours` query override and scheduler reliability fields (`lastTriggerAt`, `dueSchedules`, `enqueueFailures24h`).
+- Ops metrics callback section now includes retry/conflict indicators (`retryRate24h`, `conflictingPayloadEvents24h`).
 - Worker Cloud Tasks ingress now supports both static bearer auth and verified OIDC ID tokens (service account + audience).
 - API worker callbacks now support OIDC bearer verification (audience + optional worker service-account email pinning) as an alternative to static callback token.
 - Worker callback envelope now emits deterministic attempt metadata (`attemptNo`, `emittedAt`, `payloadHash`) for replay safety.
 - API callback ingestion now rejects stale/out-of-order callback attempts and conflicting payload hashes for the same event id.
 - Job offers now include deterministic `offer_identity_key` used for stable upserts on callback replays.
 - Ops now exposes callback event listing, worker dead-letter replay trigger, and stale run reconcile endpoint.
+- Ops now exposes token-protected bulk stale-run reconcile endpoint (`POST /api/ops/reconcile-stale-runs`) for scheduler automation.
 - Job matching now persists explanation metadata on each scored match (`job_matches.match_meta`) and exposes audit export endpoints.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.
@@ -71,6 +75,20 @@ Last updated: 2026-03-03
 - Onboarding draft persistence now supports both local draft and server-side draft recovery (`/onboarding/draft`).
 - Workspace summary read model (`/workspace/summary`) powers dashboard cards and onboarding guard decisions.
 - Workspace summary supports optional in-memory ttl cache (`WORKSPACE_SUMMARY_CACHE_TTL_SEC`).
+- Global API throttling is now env-tunable (`API_THROTTLE_TTL_MS`, `API_THROTTLE_LIMIT`).
+- Frontend query freshness/polling defaults are env-tunable (`NEXT_PUBLIC_QUERY_*`).
+- Frontend runtime env guard now rejects localhost/non-https API/worker URLs in production.
+- API error responses now expose normalized top-level fields (`code`, `message`, `requestId`, `timestamp`) with backward-compatible payload.
+- Auth endpoint throttles are env-tunable (`AUTH_*_THROTTLE_*`).
+- Google OAuth login endpoint is available (`POST /api/auth/oauth/google`) with verified-id-token account linking.
+- Scrape schedules are now persisted and available through:
+  - `GET /api/job-sources/schedule`
+  - `PUT /api/job-sources/schedule`
+  - `POST /api/job-sources/schedule/trigger` (internal token-protected trigger)
+- Scrape schedules now track deterministic `next_run_at`/`last_run_status`, and scheduler trigger processes only due schedules.
+- Production deploy now auto-upserts a Cloud Scheduler job for `/api/job-sources/schedule/trigger`.
+- Production deploy now auto-upserts a second Cloud Scheduler job for `/api/ops/reconcile-stale-runs`.
+- Production deploy now converges Cloud Tasks queue retry policy on every rollout (main queue + reserved DLQ queue provisioning).
 - Production bootstrap rejects wildcard CORS (`ALLOWED_ORIGINS=*`) in production mode.
 
 ## Data Model Highlights
@@ -107,14 +125,17 @@ Last updated: 2026-03-03
 
 ## Current Risks / Gaps
 
-- Global API throttling can interfere with intensive manual test loops.
+- Global API throttling defaults are safer now, but aggressive overrides can still interfere with intensive manual test loops.
 - Some e2e scenarios still rely on live external scraping source behavior.
 - Frontend standards are now explicitly documented in `docs/FRONTEND_STANDARDS.md`; continue enforcing via ESLint and reviews.
 - Worker queue is still in-memory (acceptable for now, not crash-resilient across process restarts).
 - Matching remains trust-first and now applies stronger ambiguity/context penalties for low-quality offer metadata.
 - CI now uses split quality gates (`CI Verify`, `Smoke Gate`) and release candidate + manual promote workflows.
+- CI Verify and Smoke Gate now use cancel-in-progress concurrency to avoid duplicate billable runs on rapid pushes.
+- Web Playwright e2e now runs in isolated `CI Verify / web-e2e` job (non-blocking on PR, blocking on `master` push).
 - Release candidate now builds and pushes api/worker/web container images to GCP Artifact Registry.
 - Manual production promotion now deploys pinned SHA images to Cloud Run and runs post-deploy health verification.
+- Deployment verification now uses retry-based service probes and emits machine-readable summary artifacts.
 - Web production runtime now binds `0.0.0.0:$PORT` for Cloud Run compatibility.
 - Worker runtime now prioritizes Cloud Run `PORT` with local fallback to `WORKER_PORT`.
 - Canonical deployment/runtime env+secret contract is documented in `docs/GCP_DEPLOY_MATRIX.md`.

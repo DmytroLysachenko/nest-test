@@ -65,6 +65,23 @@ class OpsCallbackMetricsResponse {
 
   @ApiProperty({ type: Object })
   failuresByCode!: Record<string, number>;
+
+  @ApiProperty()
+  retryRate24h!: number;
+
+  @ApiProperty()
+  conflictingPayloadEvents24h!: number;
+}
+
+class OpsSchedulerMetricsResponse {
+  @ApiProperty({ nullable: true })
+  lastTriggerAt!: string | null;
+
+  @ApiProperty()
+  dueSchedules!: number;
+
+  @ApiProperty()
+  enqueueFailures24h!: number;
 }
 
 export class OpsMetricsResponse {
@@ -85,4 +102,7 @@ export class OpsMetricsResponse {
 
   @ApiProperty({ type: OpsCallbackMetricsResponse })
   callback!: OpsCallbackMetricsResponse;
+
+  @ApiProperty({ type: OpsSchedulerMetricsResponse })
+  scheduler!: OpsSchedulerMetricsResponse;
 }

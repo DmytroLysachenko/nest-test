@@ -23,6 +23,64 @@ resolve_service_url() {
   gcloud run services describe "$service" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format='value(status.url)' 2>/dev/null || true
 }
 
+ensure_tasks_queue() {
+  local queue_name="$1"
+  local location="$2"
+  local max_attempts="$3"
+  local min_backoff_sec="$4"
+  local max_backoff_sec="$5"
+  local max_doublings="$6"
+  local max_retry_duration_sec="$7"
+
+  gcloud tasks queues describe "$queue_name" --location="$location" --project="$GCP_PROJECT_ID" >/dev/null 2>&1 || \
+    gcloud tasks queues create "$queue_name" --location="$location" --project="$GCP_PROJECT_ID" >/dev/null
+
+  gcloud tasks queues update "$queue_name" \
+    --location="$location" \
+    --project="$GCP_PROJECT_ID" \
+    --max-attempts="$max_attempts" \
+    --min-backoff="${min_backoff_sec}s" \
+    --max-backoff="${max_backoff_sec}s" \
+    --max-doublings="$max_doublings" \
+    --max-retry-duration="${max_retry_duration_sec}s" \
+    >/dev/null
+}
+
+upsert_scheduler_job() {
+  local job_name="$1"
+  local schedule="$2"
+  local timezone="$3"
+  local uri="$4"
+  local token="$5"
+
+  local headers="Authorization=Bearer ${token},Content-Type=application/json"
+  if gcloud scheduler jobs describe "$job_name" --project="$GCP_PROJECT_ID" --location="$GCP_REGION" >/dev/null 2>&1; then
+    gcloud scheduler jobs update http "$job_name" \
+      --project="$GCP_PROJECT_ID" \
+      --location="$GCP_REGION" \
+      --schedule="$schedule" \
+      --time-zone="$timezone" \
+      --uri="$uri" \
+      --http-method=POST \
+      --headers="$headers" \
+      --message-body='{}' \
+      --attempt-deadline=30s \
+      >/dev/null
+  else
+    gcloud scheduler jobs create http "$job_name" \
+      --project="$GCP_PROJECT_ID" \
+      --location="$GCP_REGION" \
+      --schedule="$schedule" \
+      --time-zone="$timezone" \
+      --uri="$uri" \
+      --http-method=POST \
+      --headers="$headers" \
+      --message-body='{}' \
+      --attempt-deadline=30s \
+      >/dev/null
+  fi
+}
+
 require_var GCP_PROJECT_ID
 require_var GCP_REGION
 require_var GAR_REPOSITORY
@@ -52,6 +110,9 @@ if [[ "$DEPLOY_API" == "true" ]]; then
   require_var REFRESH_TOKEN_SECRET
   require_var MAIL_USERNAME
   require_var MAIL_PASSWORD
+  require_var GOOGLE_OAUTH_CLIENT_ID
+  require_var SCHEDULER_AUTH_TOKEN
+  require_var OPS_INTERNAL_TOKEN
 fi
 
 MAIL_HOST="${MAIL_HOST:-smtp.sendgrid.net}"
@@ -60,7 +121,25 @@ MAIL_SECURE="${MAIL_SECURE:-false}"
 ACCESS_TOKEN_EXPIRATION="${ACCESS_TOKEN_EXPIRATION:-15m}"
 REFRESH_TOKEN_EXPIRATION="${REFRESH_TOKEN_EXPIRATION:-30d}"
 WORKER_TASKS_QUEUE="${WORKER_TASKS_QUEUE:-worker-scrape}"
+WORKER_TASKS_DLQ="${WORKER_TASKS_DLQ:-worker-scrape-dlq}"
+TASKS_MAX_ATTEMPTS="${TASKS_MAX_ATTEMPTS:-8}"
+TASKS_MIN_BACKOFF_SEC="${TASKS_MIN_BACKOFF_SEC:-5}"
+TASKS_MAX_BACKOFF_SEC="${TASKS_MAX_BACKOFF_SEC:-300}"
+TASKS_MAX_DOUBLINGS="${TASKS_MAX_DOUBLINGS:-5}"
+TASKS_MAX_RETRY_DURATION_SEC="${TASKS_MAX_RETRY_DURATION_SEC:-1800}"
 ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-}"
+WORKER_ALLOWED_ORIGINS="${WORKER_ALLOWED_ORIGINS:-${ALLOWED_ORIGINS:-https://example.com}}"
+API_THROTTLE_TTL_MS="${API_THROTTLE_TTL_MS:-60000}"
+API_THROTTLE_LIMIT="${API_THROTTLE_LIMIT:-60}"
+WEB_QUERY_STALE_TIME_MS="${WEB_QUERY_STALE_TIME_MS:-30000}"
+WEB_QUERY_REFETCH_ON_WINDOW_FOCUS="${WEB_QUERY_REFETCH_ON_WINDOW_FOCUS:-false}"
+WEB_QUERY_DIAGNOSTICS_REFETCH_MS="${WEB_QUERY_DIAGNOSTICS_REFETCH_MS:-60000}"
+SCHEDULER_JOB_NAME="${SCHEDULER_JOB_NAME:-job-seek-schedule-trigger}"
+SCHEDULER_CRON="${SCHEDULER_CRON:-*/10 * * * *}"
+SCHEDULER_TIMEZONE="${SCHEDULER_TIMEZONE:-Etc/UTC}"
+OPS_RECONCILE_JOB_NAME="${OPS_RECONCILE_JOB_NAME:-job-seek-reconcile-stale-runs}"
+OPS_RECONCILE_CRON="${OPS_RECONCILE_CRON:-*/15 * * * *}"
+OPS_RECONCILE_TIMEZONE="${OPS_RECONCILE_TIMEZONE:-Etc/UTC}"
 
 IMAGE_BASE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}"
 API_RUNTIME_SA="${GCP_API_RUNTIME_SERVICE_ACCOUNT:-api-runtime@${GCP_PROJECT_ID}.iam.gserviceaccount.com}"
@@ -69,8 +148,22 @@ WEB_RUNTIME_SA="${GCP_WEB_RUNTIME_SERVICE_ACCOUNT:-web-runtime@${GCP_PROJECT_ID}
 
 if [[ "$DEPLOY_API" == "true" || "$DEPLOY_WORKER" == "true" ]]; then
   echo "Ensuring runtime infra..."
-  gcloud tasks queues describe "$WORKER_TASKS_QUEUE" --location="$GCP_REGION" --project="$GCP_PROJECT_ID" >/dev/null 2>&1 || \
-    gcloud tasks queues create "$WORKER_TASKS_QUEUE" --location="$GCP_REGION" --project="$GCP_PROJECT_ID" >/dev/null
+  ensure_tasks_queue \
+    "$WORKER_TASKS_QUEUE" \
+    "$GCP_REGION" \
+    "$TASKS_MAX_ATTEMPTS" \
+    "$TASKS_MIN_BACKOFF_SEC" \
+    "$TASKS_MAX_BACKOFF_SEC" \
+    "$TASKS_MAX_DOUBLINGS" \
+    "$TASKS_MAX_RETRY_DURATION_SEC"
+  ensure_tasks_queue \
+    "$WORKER_TASKS_DLQ" \
+    "$GCP_REGION" \
+    "$TASKS_MAX_ATTEMPTS" \
+    "$TASKS_MIN_BACKOFF_SEC" \
+    "$TASKS_MAX_BACKOFF_SEC" \
+    "$TASKS_MAX_DOUBLINGS" \
+    "$TASKS_MAX_RETRY_DURATION_SEC"
 fi
 
 echo "Syncing runtime secrets..."
@@ -84,6 +177,10 @@ fi
 if [[ "$DEPLOY_API" == "true" || "$DEPLOY_WORKER" == "true" ]]; then
   upsert_secret "app-worker-shared-token" "$WORKER_SHARED_TOKEN"
   upsert_secret "app-worker-callback-token" "$WORKER_CALLBACK_TOKEN"
+fi
+if [[ "$DEPLOY_API" == "true" ]]; then
+  upsert_secret "app-scheduler-auth-token" "$SCHEDULER_AUTH_TOKEN"
+  upsert_secret "app-ops-internal-token" "$OPS_INTERNAL_TOKEN"
 fi
 
 API_URL="$(resolve_service_url "$GCP_API_SERVICE")"
@@ -109,7 +206,7 @@ if [[ "$DEPLOY_WORKER" == "true" ]]; then
     --cpu=1 \
     --memory=1Gi \
     --set-secrets="TASKS_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest" \
-    --set-env-vars="NODE_ENV=production,QUEUE_PROVIDER=cloud-tasks,TASKS_PROJECT_ID=${GCP_PROJECT_ID},TASKS_LOCATION=${GCP_REGION},TASKS_QUEUE=${WORKER_TASKS_QUEUE},TASKS_URL=${WORKER_TASK_URL},PLAYWRIGHT_HEADLESS=true,WORKER_MAX_CONCURRENT_TASKS=1,WORKER_MAX_QUEUE_SIZE=20,WORKER_TASK_TIMEOUT_MS=180000" \
+    --set-env-vars="NODE_ENV=production,WORKER_ALLOWED_ORIGINS=${WORKER_ALLOWED_ORIGINS},QUEUE_PROVIDER=cloud-tasks,TASKS_PROJECT_ID=${GCP_PROJECT_ID},TASKS_LOCATION=${GCP_REGION},TASKS_QUEUE=${WORKER_TASKS_QUEUE},TASKS_URL=${WORKER_TASK_URL},PLAYWRIGHT_HEADLESS=true,WORKER_MAX_CONCURRENT_TASKS=1,WORKER_MAX_QUEUE_SIZE=20,WORKER_TASK_TIMEOUT_MS=180000" \
     >/dev/null
 
   WORKER_URL="$(resolve_service_url "$GCP_WORKER_SERVICE")"
@@ -145,8 +242,8 @@ if [[ "$DEPLOY_API" == "true" ]]; then
     --max-instances=2 \
     --cpu=1 \
     --memory=512Mi \
-    --set-secrets="DATABASE_URL=app-database-url:latest,ACCESS_TOKEN_SECRET=app-access-token-secret:latest,REFRESH_TOKEN_SECRET=app-refresh-token-secret:latest,MAIL_USERNAME=app-mail-username:latest,MAIL_PASSWORD=app-mail-password:latest,WORKER_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest" \
-    --set-env-vars="NODE_ENV=production,HOST=0.0.0.0,ACCESS_TOKEN_EXPIRATION=${ACCESS_TOKEN_EXPIRATION},REFRESH_TOKEN_EXPIRATION=${REFRESH_TOKEN_EXPIRATION},MAIL_HOST=${MAIL_HOST},MAIL_PORT=${MAIL_PORT},MAIL_SECURE=${MAIL_SECURE},GCS_BUCKET=${GCS_BUCKET},GCP_PROJECT_ID=${GCP_PROJECT_ID},GCP_LOCATION=${GCP_REGION},API_PREFIX=api,ALLOWED_ORIGINS=${API_ALLOWED_ORIGINS},WORKER_TASK_PROVIDER=cloud-tasks,WORKER_TASK_URL=${WORKER_URL}/tasks,WORKER_TASKS_PROJECT_ID=${GCP_PROJECT_ID},WORKER_TASKS_LOCATION=${GCP_REGION},WORKER_TASKS_QUEUE=${WORKER_TASKS_QUEUE}" \
+    --set-secrets="DATABASE_URL=app-database-url:latest,ACCESS_TOKEN_SECRET=app-access-token-secret:latest,REFRESH_TOKEN_SECRET=app-refresh-token-secret:latest,MAIL_USERNAME=app-mail-username:latest,MAIL_PASSWORD=app-mail-password:latest,WORKER_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest,SCHEDULER_AUTH_TOKEN=app-scheduler-auth-token:latest,OPS_INTERNAL_TOKEN=app-ops-internal-token:latest" \
+    --set-env-vars="NODE_ENV=production,HOST=0.0.0.0,ACCESS_TOKEN_EXPIRATION=${ACCESS_TOKEN_EXPIRATION},REFRESH_TOKEN_EXPIRATION=${REFRESH_TOKEN_EXPIRATION},MAIL_HOST=${MAIL_HOST},MAIL_PORT=${MAIL_PORT},MAIL_SECURE=${MAIL_SECURE},GCS_BUCKET=${GCS_BUCKET},GCP_PROJECT_ID=${GCP_PROJECT_ID},GCP_LOCATION=${GCP_REGION},GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID},API_PREFIX=api,ALLOWED_ORIGINS=${API_ALLOWED_ORIGINS},API_THROTTLE_TTL_MS=${API_THROTTLE_TTL_MS},API_THROTTLE_LIMIT=${API_THROTTLE_LIMIT},WORKER_TASK_PROVIDER=cloud-tasks,WORKER_TASK_URL=${WORKER_URL}/tasks,WORKER_TASKS_PROJECT_ID=${GCP_PROJECT_ID},WORKER_TASKS_LOCATION=${GCP_REGION},WORKER_TASKS_QUEUE=${WORKER_TASKS_QUEUE}" \
     >/dev/null
 
   API_URL="$(resolve_service_url "$GCP_API_SERVICE")"
@@ -180,7 +277,7 @@ if [[ "$DEPLOY_WEB" == "true" ]]; then
     --max-instances=2 \
     --cpu=1 \
     --memory=512Mi \
-    --set-env-vars="NODE_ENV=production,NEXT_PUBLIC_API_URL=${API_URL}/api,NEXT_PUBLIC_WORKER_URL=${WORKER_URL},NEXT_PUBLIC_ENABLE_TESTER=false" \
+    --set-env-vars="NODE_ENV=production,NEXT_PUBLIC_API_URL=${API_URL}/api,NEXT_PUBLIC_WORKER_URL=${WORKER_URL},NEXT_PUBLIC_ENABLE_TESTER=false,NEXT_PUBLIC_QUERY_STALE_TIME_MS=${WEB_QUERY_STALE_TIME_MS},NEXT_PUBLIC_QUERY_REFETCH_ON_WINDOW_FOCUS=${WEB_QUERY_REFETCH_ON_WINDOW_FOCUS},NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS=${WEB_QUERY_DIAGNOSTICS_REFETCH_MS}" \
     >/dev/null
 
   WEB_URL="$(resolve_service_url "$GCP_WEB_SERVICE")"
@@ -212,7 +309,7 @@ if [[ "$DEPLOY_WORKER" == "true" ]]; then
     --cpu=1 \
     --memory=1Gi \
     --set-secrets="TASKS_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest" \
-    --set-env-vars="NODE_ENV=production,QUEUE_PROVIDER=cloud-tasks,TASKS_PROJECT_ID=${GCP_PROJECT_ID},TASKS_LOCATION=${GCP_REGION},TASKS_QUEUE=${WORKER_TASKS_QUEUE},TASKS_URL=${WORKER_URL}/tasks,WORKER_CALLBACK_URL=${API_URL}/api/job-sources/complete,PLAYWRIGHT_HEADLESS=true,WORKER_MAX_CONCURRENT_TASKS=1,WORKER_MAX_QUEUE_SIZE=20,WORKER_TASK_TIMEOUT_MS=180000" \
+    --set-env-vars="NODE_ENV=production,WORKER_ALLOWED_ORIGINS=${WORKER_ALLOWED_ORIGINS},QUEUE_PROVIDER=cloud-tasks,TASKS_PROJECT_ID=${GCP_PROJECT_ID},TASKS_LOCATION=${GCP_REGION},TASKS_QUEUE=${WORKER_TASKS_QUEUE},TASKS_URL=${WORKER_URL}/tasks,WORKER_CALLBACK_URL=${API_URL}/api/job-sources/complete,PLAYWRIGHT_HEADLESS=true,WORKER_MAX_CONCURRENT_TASKS=1,WORKER_MAX_QUEUE_SIZE=20,WORKER_TASK_TIMEOUT_MS=180000" \
     >/dev/null
 fi
 
@@ -234,10 +331,27 @@ if [[ "$DEPLOY_API" == "true" && -z "$ALLOWED_ORIGINS" ]]; then
       --max-instances=2 \
       --cpu=1 \
       --memory=512Mi \
-      --set-secrets="DATABASE_URL=app-database-url:latest,ACCESS_TOKEN_SECRET=app-access-token-secret:latest,REFRESH_TOKEN_SECRET=app-refresh-token-secret:latest,MAIL_USERNAME=app-mail-username:latest,MAIL_PASSWORD=app-mail-password:latest,WORKER_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest" \
-      --set-env-vars="NODE_ENV=production,HOST=0.0.0.0,ACCESS_TOKEN_EXPIRATION=${ACCESS_TOKEN_EXPIRATION},REFRESH_TOKEN_EXPIRATION=${REFRESH_TOKEN_EXPIRATION},MAIL_HOST=${MAIL_HOST},MAIL_PORT=${MAIL_PORT},MAIL_SECURE=${MAIL_SECURE},GCS_BUCKET=${GCS_BUCKET},GCP_PROJECT_ID=${GCP_PROJECT_ID},GCP_LOCATION=${GCP_REGION},API_PREFIX=api,ALLOWED_ORIGINS=${WEB_URL},WORKER_TASK_PROVIDER=cloud-tasks,WORKER_TASK_URL=${WORKER_URL}/tasks,WORKER_TASKS_PROJECT_ID=${GCP_PROJECT_ID},WORKER_TASKS_LOCATION=${GCP_REGION},WORKER_TASKS_QUEUE=${WORKER_TASKS_QUEUE}" \
+      --set-secrets="DATABASE_URL=app-database-url:latest,ACCESS_TOKEN_SECRET=app-access-token-secret:latest,REFRESH_TOKEN_SECRET=app-refresh-token-secret:latest,MAIL_USERNAME=app-mail-username:latest,MAIL_PASSWORD=app-mail-password:latest,WORKER_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest,SCHEDULER_AUTH_TOKEN=app-scheduler-auth-token:latest,OPS_INTERNAL_TOKEN=app-ops-internal-token:latest" \
+      --set-env-vars="NODE_ENV=production,HOST=0.0.0.0,ACCESS_TOKEN_EXPIRATION=${ACCESS_TOKEN_EXPIRATION},REFRESH_TOKEN_EXPIRATION=${REFRESH_TOKEN_EXPIRATION},MAIL_HOST=${MAIL_HOST},MAIL_PORT=${MAIL_PORT},MAIL_SECURE=${MAIL_SECURE},GCS_BUCKET=${GCS_BUCKET},GCP_PROJECT_ID=${GCP_PROJECT_ID},GCP_LOCATION=${GCP_REGION},GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID},API_PREFIX=api,ALLOWED_ORIGINS=${WEB_URL},API_THROTTLE_TTL_MS=${API_THROTTLE_TTL_MS},API_THROTTLE_LIMIT=${API_THROTTLE_LIMIT},WORKER_TASK_PROVIDER=cloud-tasks,WORKER_TASK_URL=${WORKER_URL}/tasks,WORKER_TASKS_PROJECT_ID=${GCP_PROJECT_ID},WORKER_TASKS_LOCATION=${GCP_REGION},WORKER_TASKS_QUEUE=${WORKER_TASKS_QUEUE}" \
       >/dev/null
   fi
+fi
+
+if [[ "$DEPLOY_API" == "true" ]]; then
+  echo "Ensure Cloud Scheduler trigger job..."
+  upsert_scheduler_job \
+    "$SCHEDULER_JOB_NAME" \
+    "$SCHEDULER_CRON" \
+    "$SCHEDULER_TIMEZONE" \
+    "${API_URL}/api/job-sources/schedule/trigger" \
+    "$SCHEDULER_AUTH_TOKEN"
+  echo "Ensure Cloud Scheduler stale-run reconcile job..."
+  upsert_scheduler_job \
+    "$OPS_RECONCILE_JOB_NAME" \
+    "$OPS_RECONCILE_CRON" \
+    "$OPS_RECONCILE_TIMEZONE" \
+    "${API_URL}/api/ops/reconcile-stale-runs" \
+    "$OPS_INTERNAL_TOKEN"
 fi
 
 echo "API_URL=${API_URL}"

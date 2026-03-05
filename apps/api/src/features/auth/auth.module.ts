@@ -13,10 +13,11 @@ import { AuthController } from './auth.controller';
 import { OptsService } from './opts.service';
 import { MailService } from './mail.service';
 import { TokenService } from './token.service';
+import { GoogleOauthService } from './google-oauth.service';
 
 @Module({
   imports: [NodeMailerModule, ConfigModule, PassportModule],
-  providers: [AuthService, OptsService, MailService, LocalStrategy, JwtStrategy, TokenService],
+  providers: [AuthService, OptsService, MailService, LocalStrategy, JwtStrategy, TokenService, GoogleOauthService],
   controllers: [AuthController],
 })
 export class AuthModule {}

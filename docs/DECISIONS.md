@@ -353,3 +353,41 @@ ADR-lite log for major architectural and contract decisions.
   - Make callback replay behavior deterministic and audit-friendly.
   - Eliminate callback race ambiguity for terminal run outcomes.
   - Improve operational recovery without direct DB/manual intervention.
+
+## 2026-03-05: Config-Driven Request Budget Guardrails (API + Web)
+
+- Decision:
+  - Make global API throttling env-configurable via:
+    - `API_THROTTLE_TTL_MS`
+    - `API_THROTTLE_LIMIT`
+  - Make frontend React Query traffic defaults env-configurable via:
+    - `NEXT_PUBLIC_QUERY_STALE_TIME_MS`
+    - `NEXT_PUBLIC_QUERY_REFETCH_ON_WINDOW_FOCUS`
+    - `NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS`
+  - Keep production Cloud Run baseline at `min-instances=0` for all services.
+- Why:
+  - Reduce production request churn/cost while preserving explicit control over freshness.
+  - Avoid hardcoded global throttle values that block admin/testing loops or require code edits per environment.
+  - Keep runtime tuning aligned with low-cost cold-start strategy.
+
+## 2026-03-05: Normalized API Error Taxonomy Contract
+
+- Decision:
+  - Standardize API error responses to include top-level fields:
+    - `code`
+    - `message`
+    - `requestId`
+    - `timestamp`
+  - Keep legacy nested `error/meta` payload for backward compatibility.
+- Why:
+  - Make frontend error handling deterministic and less string-dependent.
+  - Improve debugging with consistent request correlation id exposure.
+
+## 2026-03-05: Google OAuth + Schedule Trigger Auth
+
+- Decision:
+  - Add Google OAuth id-token login endpoint (`POST /auth/oauth/google`) with verified email requirement and account linking by email.
+  - Add token-protected scheduler trigger endpoint for scrape schedule automation (`POST /job-sources/schedule/trigger`).
+- Why:
+  - Reduce auth friction and support social sign-in onboarding.
+  - Enable controlled scrape automation without exposing unauthenticated trigger surfaces.

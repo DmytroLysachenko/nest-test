@@ -66,4 +66,64 @@ describe('validateEnv', () => {
       }),
     ).not.toThrow();
   });
+
+  it('accepts explicit global API throttle config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        API_THROTTLE_TTL_MS: '120000',
+        API_THROTTLE_LIMIT: '120',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects invalid global API throttle config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        API_THROTTLE_TTL_MS: '500',
+      }),
+    ).toThrow();
+  });
+
+  it('accepts explicit scrape daily enqueue budget config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER: '80',
+      }),
+    ).not.toThrow();
+  });
+
+  it('accepts explicit auth throttle config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        AUTH_LOGIN_THROTTLE_LIMIT: '7',
+        AUTH_LOGIN_THROTTLE_TTL_MS: '30000',
+        AUTH_REFRESH_THROTTLE_LIMIT: '20',
+        AUTH_REGISTER_THROTTLE_LIMIT: '5',
+        AUTH_OTP_THROTTLE_LIMIT: '4',
+      }),
+    ).not.toThrow();
+  });
+
+  it('accepts scheduler trigger config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        SCHEDULER_AUTH_TOKEN: 'scheduler-token',
+        SCHEDULER_TRIGGER_BATCH_SIZE: '10',
+      }),
+    ).not.toThrow();
+  });
+
+  it('accepts ops internal token config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        OPS_INTERNAL_TOKEN: 'ops-internal-token',
+      }),
+    ).not.toThrow();
+  });
 });

@@ -1,8 +1,8 @@
 import { NotFoundException, ServiceUnavailableException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, count, desc, eq, gte, inArray, isNotNull, isNull, lt } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { jobSourceCallbackEventsTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
+import { jobSourceCallbackEventsTable, jobSourceRunsTable, scrapeSchedulesTable, userJobOffersTable } from '@repo/db';
 
 import { Drizzle } from '@/common/decorators';
 
@@ -15,9 +15,11 @@ export class OpsService {
     private readonly configService: ConfigService<Env, true>,
   ) {}
 
-  async getMetrics() {
-    const windowHours = this.configService.get('JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS', { infer: true });
-    const cutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+  async getMetrics(windowHoursInput?: number) {
+    const configuredWindowHours = this.configService.get('JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS', { infer: true });
+    const windowHours = Math.min(Math.max(windowHoursInput ?? configuredWindowHours, 1), 168);
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - windowHours * 60 * 60 * 1000);
 
     const [activeRunsRow] = await this.db
       .select({ value: count() })
@@ -90,10 +92,34 @@ export class OpsService {
       .select({ value: count() })
       .from(userJobOffersTable)
       .where(isNull(userJobOffersTable.matchScore));
+    const [dueSchedulesRow] = await this.db
+      .select({ value: count() })
+      .from(scrapeSchedulesTable)
+      .where(
+        and(
+          eq(scrapeSchedulesTable.enabled, 1),
+          or(isNull(scrapeSchedulesTable.nextRunAt), lt(scrapeSchedulesTable.nextRunAt, now)),
+        ),
+      );
+    const [enqueueFailuresRow] = await this.db
+      .select({ value: count() })
+      .from(scrapeSchedulesTable)
+      .where(and(eq(scrapeSchedulesTable.lastRunStatus, 'ENQUEUE_FAILED'), gte(scrapeSchedulesTable.updatedAt, cutoff)));
+    const latestTrigger = await this.db
+      .select({ lastTriggeredAt: scrapeSchedulesTable.lastTriggeredAt })
+      .from(scrapeSchedulesTable)
+      .where(isNotNull(scrapeSchedulesTable.lastTriggeredAt))
+      .orderBy(desc(scrapeSchedulesTable.lastTriggeredAt))
+      .limit(1)
+      .then(([result]) => result ?? null);
     const callbackEvents = await this.db
       .select({
         status: jobSourceCallbackEventsTable.status,
         payload: jobSourceCallbackEventsTable.payload,
+        attemptNo: jobSourceCallbackEventsTable.attemptNo,
+        sourceRunId: jobSourceCallbackEventsTable.sourceRunId,
+        eventId: jobSourceCallbackEventsTable.eventId,
+        payloadHash: jobSourceCallbackEventsTable.payloadHash,
       })
       .from(jobSourceCallbackEventsTable)
       .where(gte(jobSourceCallbackEventsTable.createdAt, cutoff));
@@ -106,6 +132,8 @@ export class OpsService {
     const failuresByCode: Record<string, number> = {};
     let completedEvents = 0;
     let failedEvents = 0;
+    let retriedEvents = 0;
+    const conflictGroups = new Map<string, Set<string>>();
     for (const item of callbackEvents) {
       if (item.status === 'COMPLETED') {
         completedEvents += 1;
@@ -113,6 +141,15 @@ export class OpsService {
       if (item.status === 'FAILED') {
         failedEvents += 1;
       }
+      if ((item.attemptNo ?? 1) > 1) {
+        retriedEvents += 1;
+      }
+      const key = `${item.sourceRunId}:${item.eventId}`;
+      if (!conflictGroups.has(key)) {
+        conflictGroups.set(key, new Set<string>());
+      }
+      const hashKey = item.payloadHash?.trim() ? item.payloadHash.trim() : '__empty__';
+      conflictGroups.get(key)?.add(hashKey);
       if (!item.payload) {
         continue;
       }
@@ -132,6 +169,7 @@ export class OpsService {
         // Ignore malformed payloads to keep metrics endpoint resilient.
       }
     }
+    const conflictingPayloadEvents24h = Array.from(conflictGroups.values()).filter((hashes) => hashes.size > 1).length;
 
     return {
       windowHours,
@@ -162,8 +200,15 @@ export class OpsService {
         completedEvents,
         failedEvents,
         failedRate: callbackEvents.length ? Number((failedEvents / callbackEvents.length).toFixed(4)) : 0,
+        retryRate24h: callbackEvents.length ? Number((retriedEvents / callbackEvents.length).toFixed(4)) : 0,
+        conflictingPayloadEvents24h,
         failuresByType,
         failuresByCode,
+      },
+      scheduler: {
+        lastTriggerAt: latestTrigger?.lastTriggeredAt?.toISOString() ?? null,
+        dueSchedules: Number(dueSchedulesRow?.value ?? 0),
+        enqueueFailures24h: Number(enqueueFailuresRow?.value ?? 0),
       },
     };
   }
@@ -269,5 +314,70 @@ export class OpsService {
       .where(eq(jobSourceRunsTable.id, run.id));
 
     return { ok: true, status: 'FAILED', reconciled: true };
+  }
+
+  async reconcileStaleRuns(windowHours = 24) {
+    const safeWindowHours = Math.min(Math.max(windowHours, 1), 168);
+    const now = new Date();
+    const stalePendingMinutes = this.configService.get('SCRAPE_STALE_PENDING_MINUTES', { infer: true });
+    const staleRunningMinutes = this.configService.get('SCRAPE_STALE_RUNNING_MINUTES', { infer: true });
+    const stalePendingCutoff = new Date(now.getTime() - stalePendingMinutes * 60 * 1000);
+    const staleRunningCutoff = new Date(now.getTime() - staleRunningMinutes * 60 * 1000);
+    const staleError = '[timeout] reconcile endpoint stale run';
+
+    const pendingCandidates = await this.db
+      .select({ id: jobSourceRunsTable.id })
+      .from(jobSourceRunsTable)
+      .where(and(eq(jobSourceRunsTable.status, 'PENDING'), lt(jobSourceRunsTable.createdAt, stalePendingCutoff)));
+    const runningCandidates = await this.db
+      .select({ id: jobSourceRunsTable.id })
+      .from(jobSourceRunsTable)
+      .where(
+        and(
+          eq(jobSourceRunsTable.status, 'RUNNING'),
+          or(
+            lt(jobSourceRunsTable.lastHeartbeatAt, staleRunningCutoff),
+            and(isNull(jobSourceRunsTable.lastHeartbeatAt), lt(jobSourceRunsTable.startedAt, staleRunningCutoff)),
+            and(isNull(jobSourceRunsTable.startedAt), lt(jobSourceRunsTable.createdAt, staleRunningCutoff)),
+          ),
+        ),
+      );
+
+    const staleIds = [...pendingCandidates, ...runningCandidates].map((item) => item.id);
+    if (staleIds.length) {
+      await this.db
+        .update(jobSourceRunsTable)
+        .set({
+          status: 'FAILED',
+          error: staleError,
+          failureType: 'timeout',
+          finalizedAt: now,
+          completedAt: now,
+        })
+        .where(inArray(jobSourceRunsTable.id, staleIds));
+    }
+
+    const windowCutoff = new Date(now.getTime() - safeWindowHours * 60 * 60 * 1000);
+    const [reconciledInWindowRow] = await this.db
+      .select({ value: count() })
+      .from(jobSourceRunsTable)
+      .where(
+        and(
+          eq(jobSourceRunsTable.status, 'FAILED'),
+          eq(jobSourceRunsTable.failureType, 'timeout'),
+          eq(jobSourceRunsTable.error, staleError),
+          gte(jobSourceRunsTable.finalizedAt, windowCutoff),
+        ),
+      );
+
+    return {
+      ok: true,
+      timestamp: now.toISOString(),
+      windowHours: safeWindowHours,
+      scanned: pendingCandidates.length + runningCandidates.length,
+      reconciled: staleIds.length,
+      failed: 0,
+      reconciledInWindow: Number(reconciledInWindowRow?.value ?? 0),
+    };
   }
 }

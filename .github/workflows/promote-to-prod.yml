@@ -21,7 +21,22 @@ jobs:
           service_account: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
       - name: Validate release input
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
+          GCP_API_SERVICE: ${{ vars.GCP_API_SERVICE }}
+          GCP_WORKER_SERVICE: ${{ vars.GCP_WORKER_SERVICE }}
+          GCP_WEB_SERVICE: ${{ vars.GCP_WEB_SERVICE }}
+          GCP_API_BASE_URL: ${{ vars.GCP_API_BASE_URL }}
+          GCP_WORKER_BASE_URL: ${{ vars.GCP_WORKER_BASE_URL }}
+          GCP_WEB_BASE_URL: ${{ vars.GCP_WEB_BASE_URL }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
         run: |
+          chmod +x ./scripts/validate-deploy-contract.sh
+          ./scripts/validate-deploy-contract.sh promote-to-prod
           require_https() {
             case "$1" in
               https://*) return 0 ;;
@@ -70,4 +85,13 @@ jobs:
           API_BASE_URL="${{ vars.GCP_API_BASE_URL }}" \
           WORKER_BASE_URL="${{ vars.GCP_WORKER_BASE_URL }}" \
           WEB_BASE_URL="${{ vars.GCP_WEB_BASE_URL }}" \
+          VERIFY_SUMMARY_FILE="promote-verify-summary.json" \
           ./scripts/verify-deployment.sh
+
+      - name: Upload promotion verify summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: promote-verify-summary
+          path: promote-verify-summary.json
+          if-no-files-found: warn

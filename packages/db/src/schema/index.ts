@@ -13,6 +13,7 @@ import * as jobMatches from './job-matches';
 import * as jobSourceRuns from './job-source-runs';
 import * as jobSourceRunAttempts from './job-source-run-attempts';
 import * as jobSourceCallbackEvents from './job-source-callback-events';
+import * as scrapeSchedules from './scrape-schedules';
 import * as jobOffers from './job-offers';
 import * as userJobOffers from './user-job-offers';
 import * as relations from './_relations';
@@ -32,6 +33,7 @@ export * from './job-matches';
 export * from './job-source-runs';
 export * from './job-source-run-attempts';
 export * from './job-source-callback-events';
+export * from './scrape-schedules';
 export * from './job-offers';
 export * from './user-job-offers';
 export * from './_relations';
@@ -55,6 +57,7 @@ const schema = {
   ...jobSourceRuns,
   ...jobSourceRunAttempts,
   ...jobSourceCallbackEvents,
+  ...scrapeSchedules,
   ...jobOffers,
   ...userJobOffers,
   ...relations,

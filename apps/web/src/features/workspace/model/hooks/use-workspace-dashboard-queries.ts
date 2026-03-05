@@ -6,6 +6,7 @@ import { getDocumentDiagnosticsSummary } from '@/features/documents/api/document
 import { getJobSourceRunDiagnosticsSummary } from '@/features/job-sources/api/job-sources-api';
 import { getJobOffersPreview, listJobOffers } from '@/features/job-offers/api/job-offers-api';
 import { getWorkspaceSummary } from '@/features/workspace/api/workspace-api';
+import { env } from '@/shared/config/env';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
@@ -32,7 +33,7 @@ export const useWorkspaceDashboardQueries = (token: string | null) => {
       token,
       queryKey: queryKeys.jobSources.diagnosticsSummary(token, 72),
       queryFn: (authToken) => getJobSourceRunDiagnosticsSummary(authToken, 72),
-      refetchInterval: 30000,
+      refetchInterval: env.NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS,
     }),
   );
 
@@ -41,7 +42,7 @@ export const useWorkspaceDashboardQueries = (token: string | null) => {
       token,
       queryKey: queryKeys.documents.diagnosticsSummary(token, 168),
       queryFn: (authToken) => getDocumentDiagnosticsSummary(authToken, 168),
-      refetchInterval: 30000,
+      refetchInterval: env.NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS,
     }),
   );
 
