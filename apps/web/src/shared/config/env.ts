@@ -48,4 +48,19 @@ if (!parsedEnv.success) {
   );
 }
 
+if (isProduction) {
+  const assertPublicHttpsUrl = (name: 'NEXT_PUBLIC_API_URL' | 'NEXT_PUBLIC_WORKER_URL', value: string) => {
+    const parsed = new URL(value);
+    const host = parsed.hostname.toLowerCase();
+    if (parsed.protocol !== 'https:') {
+      throw new Error(`${name} must use https in production.`);
+    }
+    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') {
+      throw new Error(`${name} cannot target localhost in production.`);
+    }
+  };
+  assertPublicHttpsUrl('NEXT_PUBLIC_API_URL', parsedEnv.data.NEXT_PUBLIC_API_URL);
+  assertPublicHttpsUrl('NEXT_PUBLIC_WORKER_URL', parsedEnv.data.NEXT_PUBLIC_WORKER_URL);
+}
+
 export const env = parsedEnv.data;
