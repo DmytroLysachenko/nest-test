@@ -125,6 +125,7 @@ Last updated: 2026-03-05
 - Worker queue is still in-memory (acceptable for now, not crash-resilient across process restarts).
 - Matching remains trust-first and now applies stronger ambiguity/context penalties for low-quality offer metadata.
 - CI now uses split quality gates (`CI Verify`, `Smoke Gate`) and release candidate + manual promote workflows.
+- CI Verify and Smoke Gate now use cancel-in-progress concurrency to avoid duplicate billable runs on rapid pushes.
 - Release candidate now builds and pushes api/worker/web container images to GCP Artifact Registry.
 - Manual production promotion now deploys pinned SHA images to Cloud Run and runs post-deploy health verification.
 - Web production runtime now binds `0.0.0.0:$PORT` for Cloud Run compatibility.
