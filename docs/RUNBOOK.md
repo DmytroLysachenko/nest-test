@@ -95,6 +95,7 @@ Day-to-day engineering runbook for local development and verification.
    - `pnpm --filter web test:e2e`
 4. End-to-end smoke:
    - `pnpm smoke:e2e`
+   - Optional deterministic mode for CI/external-source instability: `SMOKE_FORCE_CALLBACK=true pnpm smoke:e2e`
 
 ## CI Branch Protection
 

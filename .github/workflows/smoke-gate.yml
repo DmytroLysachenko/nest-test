@@ -64,6 +64,7 @@ jobs:
       NEXT_PUBLIC_WORKER_URL: http://localhost:4001
       NEXT_PUBLIC_ENABLE_TESTER: true
       NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID: smoke-google-client-id
+      SMOKE_FORCE_CALLBACK: true
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
