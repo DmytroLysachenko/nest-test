@@ -23,6 +23,9 @@ Last updated: 2026-03-05
 | `SCHEDULER_JOB_NAME` | deploy-prod-on-main | Optional Cloud Scheduler job name override (default `job-seek-schedule-trigger`) |
 | `SCHEDULER_CRON` | deploy-prod-on-main | Optional Cloud Scheduler cron expression (default `*/10 * * * *`) |
 | `SCHEDULER_TIMEZONE` | deploy-prod-on-main | Optional Cloud Scheduler timezone (default `Etc/UTC`) |
+| `OPS_RECONCILE_JOB_NAME` | deploy-prod-on-main | Optional reconcile job name override (default `job-seek-reconcile-stale-runs`) |
+| `OPS_RECONCILE_CRON` | deploy-prod-on-main | Optional reconcile cron expression (default `*/15 * * * *`) |
+| `OPS_RECONCILE_TIMEZONE` | deploy-prod-on-main | Optional reconcile timezone (default `Etc/UTC`) |
 | `WORKER_TASKS_DLQ` | deploy-prod-on-main | Optional DLQ queue name provisioned by deploy script (default `worker-scrape-dlq`) |
 | `TASKS_MAX_ATTEMPTS` | deploy-prod-on-main | Optional Cloud Tasks retry max attempts (default `8`) |
 | `TASKS_MIN_BACKOFF_SEC` | deploy-prod-on-main | Optional retry min backoff seconds (default `5`) |
@@ -37,6 +40,7 @@ Last updated: 2026-03-05
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | release-candidate, promote-to-prod | GitHub OIDC provider resource |
 | `GCP_DEPLOYER_SERVICE_ACCOUNT` | release-candidate, promote-to-prod | CI deployer service account email |
 | `SCHEDULER_AUTH_TOKEN` | deploy-prod-on-main | Shared bearer token for `/api/job-sources/schedule/trigger` |
+| `OPS_INTERNAL_TOKEN` | deploy-prod-on-main | Shared bearer token for `/api/ops/reconcile-stale-runs` |
 
 ## 2) Cloud Run Runtime Contract
 
@@ -216,3 +220,6 @@ Last updated: 2026-03-05
 - Target endpoint: `POST ${API_URL}/api/job-sources/schedule/trigger`.
 - Auth header: `Authorization: Bearer ${SCHEDULER_AUTH_TOKEN}`.
 - Default cadence: every 10 minutes (`*/10 * * * *`) in `Etc/UTC`.
+- Reconcile endpoint: `POST ${API_URL}/api/ops/reconcile-stale-runs`.
+- Reconcile auth header: `Authorization: Bearer ${OPS_INTERNAL_TOKEN}`.
+- Reconcile cadence default: every 15 minutes (`*/15 * * * *`) in `Etc/UTC`.

@@ -117,4 +117,13 @@ describe('validateEnv', () => {
       }),
     ).not.toThrow();
   });
+
+  it('accepts ops internal token config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        OPS_INTERNAL_TOKEN: 'ops-internal-token',
+      }),
+    ).not.toThrow();
+  });
 });

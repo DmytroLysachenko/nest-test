@@ -55,6 +55,7 @@ export const EnvSchema = z.object({
   SCRAPE_MAX_RETRY_CHAIN_DEPTH: z.coerce.number().int().min(1).max(20).default(5),
   SCHEDULER_AUTH_TOKEN: z.string().optional(),
   SCHEDULER_TRIGGER_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(20),
+  OPS_INTERNAL_TOKEN: z.string().optional(),
   AUTO_SCORE_ON_INGEST: z.coerce.boolean().default(true),
   AUTO_SCORE_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(1),
   AUTO_SCORE_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(0),

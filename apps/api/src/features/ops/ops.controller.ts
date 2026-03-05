@@ -12,10 +12,13 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
+import { ConfigService } from '@nestjs/config';
 
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { Public } from '@/common/decorators/public.decorator';
 import { JwtAuthGuard } from '@/common/guards';
 import { JwtValidateUser } from '@/types/interface/jwt';
+import type { Env } from '@/config/env';
 
 import { OpsMetricsResponse } from './dto/ops-metrics.response';
 import { OpsService } from './ops.service';
@@ -25,7 +28,10 @@ import { OpsService } from './ops.service';
 @UseGuards(JwtAuthGuard)
 @Controller('ops')
 export class OpsController {
-  constructor(private readonly opsService: OpsService) {}
+  constructor(
+    private readonly opsService: OpsService,
+    private readonly configService: ConfigService<Env, true>,
+  ) {}
 
   private assertAdmin(user: JwtValidateUser) {
     if (user.role !== 'admin') {
@@ -67,5 +73,23 @@ export class OpsController {
   async reconcileRun(@CurrentUser() user: JwtValidateUser, @Param('id', new ParseUUIDPipe()) id: string) {
     this.assertAdmin(user);
     return this.opsService.reconcileRun(id);
+  }
+
+  @Post('reconcile-stale-runs')
+  @Public()
+  @ApiOperation({ summary: 'Internal stale run reconciliation trigger' })
+  async reconcileStaleRuns(
+    @Req() req: Request,
+    @Query('windowHours', new ParseIntPipe({ optional: true })) windowHours?: number,
+  ) {
+    const internalToken = this.configService.get('OPS_INTERNAL_TOKEN', { infer: true });
+    if (!internalToken) {
+      throw new ForbiddenException('OPS_INTERNAL_TOKEN is not configured');
+    }
+    const providedToken = (req.header('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    if (!providedToken || providedToken !== internalToken) {
+      throw new ForbiddenException('Invalid internal ops token');
+    }
+    return this.opsService.reconcileStaleRuns(windowHours);
   }
 }

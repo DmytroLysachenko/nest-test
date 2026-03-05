@@ -210,6 +210,7 @@ jobs:
           test -n "${{ vars.GCS_BUCKET }}" || (echo "Missing vars.GCS_BUCKET" && exit 1)
           test -n "${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" || (echo "Missing vars.GOOGLE_OAUTH_CLIENT_ID" && exit 1)
           test -n "${{ secrets.SCHEDULER_AUTH_TOKEN }}" || (echo "Missing secrets.SCHEDULER_AUTH_TOKEN" && exit 1)
+          test -n "${{ secrets.OPS_INTERNAL_TOKEN }}" || (echo "Missing secrets.OPS_INTERNAL_TOKEN" && exit 1)
 
       - name: Deploy production services
         run: |
@@ -249,6 +250,9 @@ jobs:
           SCHEDULER_JOB_NAME: ${{ vars.SCHEDULER_JOB_NAME }}
           SCHEDULER_CRON: ${{ vars.SCHEDULER_CRON }}
           SCHEDULER_TIMEZONE: ${{ vars.SCHEDULER_TIMEZONE }}
+          OPS_RECONCILE_JOB_NAME: ${{ vars.OPS_RECONCILE_JOB_NAME }}
+          OPS_RECONCILE_CRON: ${{ vars.OPS_RECONCILE_CRON }}
+          OPS_RECONCILE_TIMEZONE: ${{ vars.OPS_RECONCILE_TIMEZONE }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
           REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET }}
@@ -257,3 +261,4 @@ jobs:
           WORKER_SHARED_TOKEN: ${{ secrets.WORKER_SHARED_TOKEN }}
           WORKER_CALLBACK_TOKEN: ${{ secrets.WORKER_CALLBACK_TOKEN }}
           SCHEDULER_AUTH_TOKEN: ${{ secrets.SCHEDULER_AUTH_TOKEN }}
+          OPS_INTERNAL_TOKEN: ${{ secrets.OPS_INTERNAL_TOKEN }}

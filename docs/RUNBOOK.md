@@ -57,6 +57,8 @@ Day-to-day engineering runbook for local development and verification.
    - `WORKER_TASKS_PROJECT_ID` / `WORKER_TASKS_LOCATION` / `WORKER_TASKS_QUEUE` (required for `cloud-tasks` mode)
    - `WORKER_TASKS_SERVICE_ACCOUNT_EMAIL` (optional OIDC auth to worker `/tasks`)
    - `WORKER_TASKS_OIDC_AUDIENCE` (optional explicit worker OIDC audience)
+   - `SCHEDULER_AUTH_TOKEN` (internal scheduler auth for `/api/job-sources/schedule/trigger`)
+   - `OPS_INTERNAL_TOKEN` (internal scheduler auth for `/api/ops/reconcile-stale-runs`)
 2. Worker:
   - `WORKER_MAX_BODY_BYTES` (example: `262144`)
   - `WORKER_ALLOWED_ORIGINS` (explicit CORS allowlist; no `*` in production)
@@ -173,6 +175,7 @@ For exact variable-level mapping and secret sources, use:
 5. Admin callback events listing: `GET /api/ops/scrape/callback-events`
 6. Admin dead-letter replay trigger: `POST /api/ops/scrape/callbacks/replay`
 7. Admin stale-run reconcile: `POST /api/ops/scrape/runs/:id/reconcile`
+8. Internal bulk stale-run reconcile: `POST /api/ops/reconcile-stale-runs`
 5. Job match audit export: `GET /api/job-matching/audit/export.csv`
 6. Document diagnostics summary: `GET /api/documents/diagnostics/summary`
 7. Retry failed scrape run: `POST /api/job-sources/runs/:id/retry`

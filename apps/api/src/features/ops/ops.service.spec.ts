@@ -163,4 +163,55 @@ describe('OpsService', () => {
     });
     expect(db.update).toHaveBeenCalledTimes(1);
   });
+
+  it('reconciles stale pending/running runs in bulk', async () => {
+    const now = new Date('2026-03-03T12:00:00.000Z');
+    jest.spyOn(Date, 'now').mockReturnValue(now.getTime());
+
+    const selectMock = jest
+      .fn()
+      .mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([{ id: 'pending-1' }]),
+        }),
+      })
+      .mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([{ id: 'running-1' }]),
+        }),
+      })
+      .mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([{ value: 2 }]),
+        }),
+      });
+
+    const db = {
+      select: selectMock,
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+    } as any;
+
+    const service = new OpsService(
+      db,
+      createConfigService({
+        SCRAPE_STALE_PENDING_MINUTES: 15,
+        SCRAPE_STALE_RUNNING_MINUTES: 60,
+      }),
+    );
+    const result = await service.reconcileStaleRuns(24);
+
+    expect(result).toMatchObject({
+      ok: true,
+      scanned: 2,
+      reconciled: 2,
+      failed: 0,
+      reconciledInWindow: 2,
+      windowHours: 24,
+    });
+    expect(db.update).toHaveBeenCalledTimes(1);
+  });
 });

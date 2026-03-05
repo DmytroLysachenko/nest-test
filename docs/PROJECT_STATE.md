@@ -61,6 +61,7 @@ Last updated: 2026-03-05
 - API callback ingestion now rejects stale/out-of-order callback attempts and conflicting payload hashes for the same event id.
 - Job offers now include deterministic `offer_identity_key` used for stable upserts on callback replays.
 - Ops now exposes callback event listing, worker dead-letter replay trigger, and stale run reconcile endpoint.
+- Ops now exposes token-protected bulk stale-run reconcile endpoint (`POST /api/ops/reconcile-stale-runs`) for scheduler automation.
 - Job matching now persists explanation metadata on each scored match (`job_matches.match_meta`) and exposes audit export endpoints.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.
@@ -84,6 +85,7 @@ Last updated: 2026-03-05
   - `POST /api/job-sources/schedule/trigger` (internal token-protected trigger)
 - Scrape schedules now track deterministic `next_run_at`/`last_run_status`, and scheduler trigger processes only due schedules.
 - Production deploy now auto-upserts a Cloud Scheduler job for `/api/job-sources/schedule/trigger`.
+- Production deploy now auto-upserts a second Cloud Scheduler job for `/api/ops/reconcile-stale-runs`.
 - Production deploy now converges Cloud Tasks queue retry policy on every rollout (main queue + reserved DLQ queue provisioning).
 - Production bootstrap rejects wildcard CORS (`ALLOWED_ORIGINS=*`) in production mode.
 

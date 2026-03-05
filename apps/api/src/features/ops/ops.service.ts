@@ -1,6 +1,6 @@
 import { NotFoundException, ServiceUnavailableException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, count, desc, eq, gte, inArray, isNotNull, isNull, lt } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { jobSourceCallbackEventsTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
 
@@ -269,5 +269,70 @@ export class OpsService {
       .where(eq(jobSourceRunsTable.id, run.id));
 
     return { ok: true, status: 'FAILED', reconciled: true };
+  }
+
+  async reconcileStaleRuns(windowHours = 24) {
+    const safeWindowHours = Math.min(Math.max(windowHours, 1), 168);
+    const now = new Date();
+    const stalePendingMinutes = this.configService.get('SCRAPE_STALE_PENDING_MINUTES', { infer: true });
+    const staleRunningMinutes = this.configService.get('SCRAPE_STALE_RUNNING_MINUTES', { infer: true });
+    const stalePendingCutoff = new Date(now.getTime() - stalePendingMinutes * 60 * 1000);
+    const staleRunningCutoff = new Date(now.getTime() - staleRunningMinutes * 60 * 1000);
+    const staleError = '[timeout] reconcile endpoint stale run';
+
+    const pendingCandidates = await this.db
+      .select({ id: jobSourceRunsTable.id })
+      .from(jobSourceRunsTable)
+      .where(and(eq(jobSourceRunsTable.status, 'PENDING'), lt(jobSourceRunsTable.createdAt, stalePendingCutoff)));
+    const runningCandidates = await this.db
+      .select({ id: jobSourceRunsTable.id })
+      .from(jobSourceRunsTable)
+      .where(
+        and(
+          eq(jobSourceRunsTable.status, 'RUNNING'),
+          or(
+            lt(jobSourceRunsTable.lastHeartbeatAt, staleRunningCutoff),
+            and(isNull(jobSourceRunsTable.lastHeartbeatAt), lt(jobSourceRunsTable.startedAt, staleRunningCutoff)),
+            and(isNull(jobSourceRunsTable.startedAt), lt(jobSourceRunsTable.createdAt, staleRunningCutoff)),
+          ),
+        ),
+      );
+
+    const staleIds = [...pendingCandidates, ...runningCandidates].map((item) => item.id);
+    if (staleIds.length) {
+      await this.db
+        .update(jobSourceRunsTable)
+        .set({
+          status: 'FAILED',
+          error: staleError,
+          failureType: 'timeout',
+          finalizedAt: now,
+          completedAt: now,
+        })
+        .where(inArray(jobSourceRunsTable.id, staleIds));
+    }
+
+    const windowCutoff = new Date(now.getTime() - safeWindowHours * 60 * 60 * 1000);
+    const [reconciledInWindowRow] = await this.db
+      .select({ value: count() })
+      .from(jobSourceRunsTable)
+      .where(
+        and(
+          eq(jobSourceRunsTable.status, 'FAILED'),
+          eq(jobSourceRunsTable.failureType, 'timeout'),
+          eq(jobSourceRunsTable.error, staleError),
+          gte(jobSourceRunsTable.finalizedAt, windowCutoff),
+        ),
+      );
+
+    return {
+      ok: true,
+      timestamp: now.toISOString(),
+      windowHours: safeWindowHours,
+      scanned: pendingCandidates.length + runningCandidates.length,
+      reconciled: staleIds.length,
+      failed: 0,
+      reconciledInWindow: Number(reconciledInWindowRow?.value ?? 0),
+    };
   }
 }

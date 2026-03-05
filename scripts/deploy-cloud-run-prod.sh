@@ -112,6 +112,7 @@ if [[ "$DEPLOY_API" == "true" ]]; then
   require_var MAIL_PASSWORD
   require_var GOOGLE_OAUTH_CLIENT_ID
   require_var SCHEDULER_AUTH_TOKEN
+  require_var OPS_INTERNAL_TOKEN
 fi
 
 MAIL_HOST="${MAIL_HOST:-smtp.sendgrid.net}"
@@ -136,6 +137,9 @@ WEB_QUERY_DIAGNOSTICS_REFETCH_MS="${WEB_QUERY_DIAGNOSTICS_REFETCH_MS:-60000}"
 SCHEDULER_JOB_NAME="${SCHEDULER_JOB_NAME:-job-seek-schedule-trigger}"
 SCHEDULER_CRON="${SCHEDULER_CRON:-*/10 * * * *}"
 SCHEDULER_TIMEZONE="${SCHEDULER_TIMEZONE:-Etc/UTC}"
+OPS_RECONCILE_JOB_NAME="${OPS_RECONCILE_JOB_NAME:-job-seek-reconcile-stale-runs}"
+OPS_RECONCILE_CRON="${OPS_RECONCILE_CRON:-*/15 * * * *}"
+OPS_RECONCILE_TIMEZONE="${OPS_RECONCILE_TIMEZONE:-Etc/UTC}"
 
 IMAGE_BASE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}"
 API_RUNTIME_SA="${GCP_API_RUNTIME_SERVICE_ACCOUNT:-api-runtime@${GCP_PROJECT_ID}.iam.gserviceaccount.com}"
@@ -176,6 +180,7 @@ if [[ "$DEPLOY_API" == "true" || "$DEPLOY_WORKER" == "true" ]]; then
 fi
 if [[ "$DEPLOY_API" == "true" ]]; then
   upsert_secret "app-scheduler-auth-token" "$SCHEDULER_AUTH_TOKEN"
+  upsert_secret "app-ops-internal-token" "$OPS_INTERNAL_TOKEN"
 fi
 
 API_URL="$(resolve_service_url "$GCP_API_SERVICE")"
@@ -237,7 +242,7 @@ if [[ "$DEPLOY_API" == "true" ]]; then
     --max-instances=2 \
     --cpu=1 \
     --memory=512Mi \
-    --set-secrets="DATABASE_URL=app-database-url:latest,ACCESS_TOKEN_SECRET=app-access-token-secret:latest,REFRESH_TOKEN_SECRET=app-refresh-token-secret:latest,MAIL_USERNAME=app-mail-username:latest,MAIL_PASSWORD=app-mail-password:latest,WORKER_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest,SCHEDULER_AUTH_TOKEN=app-scheduler-auth-token:latest" \
+    --set-secrets="DATABASE_URL=app-database-url:latest,ACCESS_TOKEN_SECRET=app-access-token-secret:latest,REFRESH_TOKEN_SECRET=app-refresh-token-secret:latest,MAIL_USERNAME=app-mail-username:latest,MAIL_PASSWORD=app-mail-password:latest,WORKER_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest,SCHEDULER_AUTH_TOKEN=app-scheduler-auth-token:latest,OPS_INTERNAL_TOKEN=app-ops-internal-token:latest" \
     --set-env-vars="NODE_ENV=production,HOST=0.0.0.0,ACCESS_TOKEN_EXPIRATION=${ACCESS_TOKEN_EXPIRATION},REFRESH_TOKEN_EXPIRATION=${REFRESH_TOKEN_EXPIRATION},MAIL_HOST=${MAIL_HOST},MAIL_PORT=${MAIL_PORT},MAIL_SECURE=${MAIL_SECURE},GCS_BUCKET=${GCS_BUCKET},GCP_PROJECT_ID=${GCP_PROJECT_ID},GCP_LOCATION=${GCP_REGION},GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID},API_PREFIX=api,ALLOWED_ORIGINS=${API_ALLOWED_ORIGINS},API_THROTTLE_TTL_MS=${API_THROTTLE_TTL_MS},API_THROTTLE_LIMIT=${API_THROTTLE_LIMIT},WORKER_TASK_PROVIDER=cloud-tasks,WORKER_TASK_URL=${WORKER_URL}/tasks,WORKER_TASKS_PROJECT_ID=${GCP_PROJECT_ID},WORKER_TASKS_LOCATION=${GCP_REGION},WORKER_TASKS_QUEUE=${WORKER_TASKS_QUEUE}" \
     >/dev/null
 
@@ -326,7 +331,7 @@ if [[ "$DEPLOY_API" == "true" && -z "$ALLOWED_ORIGINS" ]]; then
       --max-instances=2 \
       --cpu=1 \
       --memory=512Mi \
-      --set-secrets="DATABASE_URL=app-database-url:latest,ACCESS_TOKEN_SECRET=app-access-token-secret:latest,REFRESH_TOKEN_SECRET=app-refresh-token-secret:latest,MAIL_USERNAME=app-mail-username:latest,MAIL_PASSWORD=app-mail-password:latest,WORKER_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest,SCHEDULER_AUTH_TOKEN=app-scheduler-auth-token:latest" \
+      --set-secrets="DATABASE_URL=app-database-url:latest,ACCESS_TOKEN_SECRET=app-access-token-secret:latest,REFRESH_TOKEN_SECRET=app-refresh-token-secret:latest,MAIL_USERNAME=app-mail-username:latest,MAIL_PASSWORD=app-mail-password:latest,WORKER_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest,SCHEDULER_AUTH_TOKEN=app-scheduler-auth-token:latest,OPS_INTERNAL_TOKEN=app-ops-internal-token:latest" \
       --set-env-vars="NODE_ENV=production,HOST=0.0.0.0,ACCESS_TOKEN_EXPIRATION=${ACCESS_TOKEN_EXPIRATION},REFRESH_TOKEN_EXPIRATION=${REFRESH_TOKEN_EXPIRATION},MAIL_HOST=${MAIL_HOST},MAIL_PORT=${MAIL_PORT},MAIL_SECURE=${MAIL_SECURE},GCS_BUCKET=${GCS_BUCKET},GCP_PROJECT_ID=${GCP_PROJECT_ID},GCP_LOCATION=${GCP_REGION},GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID},API_PREFIX=api,ALLOWED_ORIGINS=${WEB_URL},API_THROTTLE_TTL_MS=${API_THROTTLE_TTL_MS},API_THROTTLE_LIMIT=${API_THROTTLE_LIMIT},WORKER_TASK_PROVIDER=cloud-tasks,WORKER_TASK_URL=${WORKER_URL}/tasks,WORKER_TASKS_PROJECT_ID=${GCP_PROJECT_ID},WORKER_TASKS_LOCATION=${GCP_REGION},WORKER_TASKS_QUEUE=${WORKER_TASKS_QUEUE}" \
       >/dev/null
   fi
@@ -340,6 +345,13 @@ if [[ "$DEPLOY_API" == "true" ]]; then
     "$SCHEDULER_TIMEZONE" \
     "${API_URL}/api/job-sources/schedule/trigger" \
     "$SCHEDULER_AUTH_TOKEN"
+  echo "Ensure Cloud Scheduler stale-run reconcile job..."
+  upsert_scheduler_job \
+    "$OPS_RECONCILE_JOB_NAME" \
+    "$OPS_RECONCILE_CRON" \
+    "$OPS_RECONCILE_TIMEZONE" \
+    "${API_URL}/api/ops/reconcile-stale-runs" \
+    "$OPS_INTERNAL_TOKEN"
 fi
 
 echo "API_URL=${API_URL}"
