@@ -2,7 +2,7 @@
 
 Canonical runtime/deploy contract for Google Cloud Run production deployments.
 
-Last updated: 2026-03-03
+Last updated: 2026-03-05
 
 ## 1) Repository-Level CI/CD Inputs
 
@@ -69,6 +69,8 @@ Last updated: 2026-03-03
 | `WORKER_CALLBACK_SIGNING_SECRET` | `<secret>` | optional HMAC callback signature defense |
 | `WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC` | `300` | default is acceptable |
 | `API_BODY_LIMIT` | `1mb` | ingress guardrail |
+| `API_THROTTLE_TTL_MS` | `60000` | global API throttle window (ms) |
+| `API_THROTTLE_LIMIT` | `60` | global API throttle request budget per window |
 | `WORKER_REQUEST_TIMEOUT_MS` | `5000` | API wait timeout for worker accept response |
 
 ### Cloud Run Service Settings (Recommended Baseline)
@@ -77,7 +79,7 @@ Last updated: 2026-03-03
 |---|---|
 | Ingress | all (or internal+LB if fronted) |
 | Authentication | allow unauthenticated (public API/web flow) |
-| Min instances | 1 |
+| Min instances | 0 |
 | CPU | 1 |
 | Memory | 512Mi |
 
@@ -123,7 +125,7 @@ Last updated: 2026-03-03
 |---|---|
 | Ingress | all (or internal if API and worker are private) |
 | Authentication | allow unauthenticated only if token/oidc enforced at app level |
-| Min instances | 1 |
+| Min instances | 0 |
 | CPU | 1 |
 | Memory | 1Gi |
 
@@ -138,6 +140,9 @@ Last updated: 2026-03-03
 | `NEXT_PUBLIC_API_URL` | env | `https://api-...run.app/api` | include `/api` suffix |
 | `NEXT_PUBLIC_WORKER_URL` | env | `https://worker-...run.app` | used by tester tooling |
 | `NEXT_PUBLIC_ENABLE_TESTER` | env | `false` | disable tester in production |
+| `NEXT_PUBLIC_QUERY_STALE_TIME_MS` | env | `30000` | default query cache freshness window |
+| `NEXT_PUBLIC_QUERY_REFETCH_ON_WINDOW_FOCUS` | env | `false` | disable focus refetch by default |
+| `NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS` | env | `60000` | diagnostics polling interval |
 
 ### Cloud Run Service Settings (Recommended Baseline)
 
@@ -145,7 +150,7 @@ Last updated: 2026-03-03
 |---|---|
 | Ingress | all |
 | Authentication | allow unauthenticated |
-| Min instances | 1 |
+| Min instances | 0 |
 | CPU | 1 |
 | Memory | 512Mi |
 

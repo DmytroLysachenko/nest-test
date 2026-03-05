@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-03-03
+Last updated: 2026-03-05
 
 ## Current Architecture
 
@@ -71,6 +71,8 @@ Last updated: 2026-03-03
 - Onboarding draft persistence now supports both local draft and server-side draft recovery (`/onboarding/draft`).
 - Workspace summary read model (`/workspace/summary`) powers dashboard cards and onboarding guard decisions.
 - Workspace summary supports optional in-memory ttl cache (`WORKSPACE_SUMMARY_CACHE_TTL_SEC`).
+- Global API throttling is now env-tunable (`API_THROTTLE_TTL_MS`, `API_THROTTLE_LIMIT`).
+- Frontend query freshness/polling defaults are env-tunable (`NEXT_PUBLIC_QUERY_*`).
 - Production bootstrap rejects wildcard CORS (`ALLOWED_ORIGINS=*`) in production mode.
 
 ## Data Model Highlights
@@ -107,7 +109,7 @@ Last updated: 2026-03-03
 
 ## Current Risks / Gaps
 
-- Global API throttling can interfere with intensive manual test loops.
+- Global API throttling defaults are safer now, but aggressive overrides can still interfere with intensive manual test loops.
 - Some e2e scenarios still rely on live external scraping source behavior.
 - Frontend standards are now explicitly documented in `docs/FRONTEND_STANDARDS.md`; continue enforcing via ESLint and reviews.
 - Worker queue is still in-memory (acceptable for now, not crash-resilient across process restarts).

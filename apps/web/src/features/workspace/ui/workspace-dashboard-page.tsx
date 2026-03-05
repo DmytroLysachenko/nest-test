@@ -44,6 +44,15 @@ export const WorkspaceDashboardPage = () => {
         </Card>
       </div>
 
+      <Card title="How It Works" description="Recommended weekly workflow for stable results.">
+        <ol className="text-secondary-foreground list-decimal space-y-1 pl-5 text-sm">
+          <li>Keep your profile and CV updated in onboarding/profile management.</li>
+          <li>Run scraping, then wait for run status to complete before reviewing offers.</li>
+          <li>Use strict mode first for trusted matches, then switch to explore mode for discovery.</li>
+          <li>Save promising offers and rerun scraping once per day for fresh results.</li>
+        </ol>
+      </Card>
+
       {diagnostics ? (
         <Card title="Scrape diagnostics (72h)" description="Aggregated run reliability and throughput metrics.">
           <div className="text-secondary-foreground grid gap-3 text-sm md:grid-cols-3">

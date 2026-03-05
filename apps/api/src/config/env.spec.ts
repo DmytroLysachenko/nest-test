@@ -66,4 +66,23 @@ describe('validateEnv', () => {
       }),
     ).not.toThrow();
   });
+
+  it('accepts explicit global API throttle config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        API_THROTTLE_TTL_MS: '120000',
+        API_THROTTLE_LIMIT: '120',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects invalid global API throttle config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        API_THROTTLE_TTL_MS: '500',
+      }),
+    ).toThrow();
+  });
 });
