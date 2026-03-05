@@ -102,6 +102,7 @@ Day-to-day engineering runbook for local development and verification.
    - `CI Verify / lint`
    - `CI Verify / typecheck`
    - `CI Verify / test-build`
+   - `CI Verify / web-e2e` (recommended required on `master`; advisory on PRs)
    - `Smoke Gate / smoke`
 2. For release promotions:
    - `Release Candidate / build-and-validate` must pass

@@ -14,7 +14,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate-contract:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'master'
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
+      GCP_API_SERVICE: ${{ vars.GCP_API_SERVICE }}
+      GCP_WORKER_SERVICE: ${{ vars.GCP_WORKER_SERVICE }}
+      GCP_WEB_SERVICE: ${{ vars.GCP_WEB_SERVICE }}
+      GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+      SCHEDULER_AUTH_TOKEN: ${{ secrets.SCHEDULER_AUTH_TOKEN }}
+      OPS_INTERNAL_TOKEN: ${{ secrets.OPS_INTERNAL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+      - name: Validate deploy contract
+        run: |
+          chmod +x ./scripts/validate-deploy-contract.sh
+          ./scripts/validate-deploy-contract.sh deploy-prod-on-main
+
   detect-changes:
+    needs: validate-contract
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&

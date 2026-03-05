@@ -132,6 +132,7 @@ Last updated: 2026-03-05
 - Matching remains trust-first and now applies stronger ambiguity/context penalties for low-quality offer metadata.
 - CI now uses split quality gates (`CI Verify`, `Smoke Gate`) and release candidate + manual promote workflows.
 - CI Verify and Smoke Gate now use cancel-in-progress concurrency to avoid duplicate billable runs on rapid pushes.
+- Web Playwright e2e now runs in isolated `CI Verify / web-e2e` job (non-blocking on PR, blocking on `master` push).
 - Release candidate now builds and pushes api/worker/web container images to GCP Artifact Registry.
 - Manual production promotion now deploys pinned SHA images to Cloud Run and runs post-deploy health verification.
 - Deployment verification now uses retry-based service probes and emits machine-readable summary artifacts.
