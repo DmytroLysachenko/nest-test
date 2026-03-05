@@ -68,4 +68,10 @@ export class ScrapeScheduleResponseDto {
 
   @ApiPropertyOptional()
   lastTriggeredAt!: string | null;
+
+  @ApiPropertyOptional()
+  nextRunAt!: string | null;
+
+  @ApiPropertyOptional()
+  lastRunStatus!: string | null;
 }

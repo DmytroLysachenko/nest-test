@@ -47,6 +47,8 @@ describe('JobSourcesService schedule', () => {
     const result = await service.getSchedule('user-1');
     expect(result.enabled).toBe(false);
     expect(result.source).toBe('pracuj-pl-it');
+    expect(result.nextRunAt).toBeNull();
+    expect(result.lastRunStatus).toBeNull();
   });
 
   it('rejects scheduler trigger with invalid token', async () => {

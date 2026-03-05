@@ -220,6 +220,43 @@ const workerOidcClient = new OAuth2Client();
 const WORKER_TASK_SCHEMA_VERSION = '1' as const;
 const WORKER_OIDC_ISSUERS = new Set(['https://accounts.google.com', 'accounts.google.com']);
 
+const parseSchedule = (
+  cron: string,
+): { kind: 'everyMinutes'; minutes: number } | { kind: 'daily'; hour: number; minute: number } => {
+  const everyMinutes = /^\*\/(\d{1,2}) \* \* \* \*$/;
+  const daily = /^(\d{1,2}) (\d{1,2}) \* \* \*$/;
+  const everyMinutesMatch = cron.trim().match(everyMinutes);
+  if (everyMinutesMatch) {
+    const minutes = Number(everyMinutesMatch[1]);
+    return { kind: 'everyMinutes', minutes: Math.max(1, Math.min(59, minutes)) };
+  }
+  const dailyMatch = cron.trim().match(daily);
+  if (dailyMatch) {
+    const minute = Number(dailyMatch[1]);
+    const hour = Number(dailyMatch[2]);
+    return {
+      kind: 'daily',
+      hour: Math.max(0, Math.min(23, hour)),
+      minute: Math.max(0, Math.min(59, minute)),
+    };
+  }
+  return { kind: 'daily', hour: 9, minute: 0 };
+};
+
+const computeNextRunAt = (cron: string, from: Date): Date => {
+  const parsed = parseSchedule(cron);
+  if (parsed.kind === 'everyMinutes') {
+    return new Date(from.getTime() + parsed.minutes * 60 * 1000);
+  }
+  const next = new Date(from);
+  next.setUTCSeconds(0, 0);
+  next.setUTCHours(parsed.hour, parsed.minute, 0, 0);
+  if (next.getTime() <= from.getTime()) {
+    next.setUTCDate(next.getUTCDate() + 1);
+  }
+  return next;
+};
+
 @Injectable()
 export class JobSourcesService {
   private readonly diagnosticsSummaryCache = new RunDiagnosticsSummaryCache<any>(30000);
@@ -252,6 +289,8 @@ export class JobSourcesService {
         careerProfileId: null,
         filters: null,
         lastTriggeredAt: null,
+        nextRunAt: null,
+        lastRunStatus: null,
       };
     }
 
@@ -264,20 +303,25 @@ export class JobSourcesService {
       careerProfileId: schedule.careerProfileId,
       filters: (schedule.filters as Record<string, unknown> | null) ?? null,
       lastTriggeredAt: schedule.lastTriggeredAt?.toISOString() ?? null,
+      nextRunAt: schedule.nextRunAt?.toISOString() ?? null,
+      lastRunStatus: schedule.lastRunStatus ?? null,
     };
   }
 
   async updateSchedule(userId: string, dto: UpdateScrapeScheduleDto) {
     const now = new Date();
+    const cron = dto.cron ?? '0 9 * * *';
+    const enabled = dto.enabled ? 1 : 0;
     const values = {
       userId,
-      enabled: dto.enabled ? 1 : 0,
-      cron: dto.cron ?? '0 9 * * *',
+      enabled,
+      cron,
       timezone: dto.timezone ?? 'Europe/Warsaw',
       source: dto.source ?? 'pracuj-pl-it',
       limit: dto.limit ?? 20,
       careerProfileId: dto.careerProfileId ?? null,
       filters: (dto.filters as Record<string, unknown> | undefined) ?? null,
+      nextRunAt: enabled ? computeNextRunAt(cron, now) : null,
       updatedAt: now,
     };
 
@@ -312,16 +356,22 @@ export class JobSourcesService {
     }
 
     const batchSize = this.configService.get('SCHEDULER_TRIGGER_BATCH_SIZE', { infer: true });
+    const acceptedAt = new Date();
     const schedules = await this.db
       .select()
       .from(scrapeSchedulesTable)
-      .where(eq(scrapeSchedulesTable.enabled, 1))
-      .orderBy(scrapeSchedulesTable.updatedAt)
+      .where(
+        and(
+          eq(scrapeSchedulesTable.enabled, 1),
+          or(isNull(scrapeSchedulesTable.nextRunAt), lt(scrapeSchedulesTable.nextRunAt, new Date(acceptedAt.getTime() + 1000))),
+        ),
+      )
+      .orderBy(scrapeSchedulesTable.nextRunAt, scrapeSchedulesTable.updatedAt)
       .limit(batchSize);
 
-    const acceptedAt = new Date();
     const results: Array<{ userId: string; ok: boolean; sourceRunId?: string; error?: string }> = [];
     for (const schedule of schedules) {
+      const nextRunAt = computeNextRunAt(schedule.cron, acceptedAt);
       try {
         const response = await this.enqueueScrape(
           schedule.userId,
@@ -336,11 +386,24 @@ export class JobSourcesService {
         );
         await this.db
           .update(scrapeSchedulesTable)
-          .set({ lastTriggeredAt: acceptedAt, updatedAt: acceptedAt })
+          .set({
+            lastTriggeredAt: acceptedAt,
+            nextRunAt,
+            lastRunStatus: 'ENQUEUED',
+            updatedAt: acceptedAt,
+          })
           .where(eq(scrapeSchedulesTable.id, schedule.id));
         results.push({ userId: schedule.userId, ok: true, sourceRunId: response.sourceRunId });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Schedule trigger failed';
+        await this.db
+          .update(scrapeSchedulesTable)
+          .set({
+            nextRunAt,
+            lastRunStatus: 'ENQUEUE_FAILED',
+            updatedAt: acceptedAt,
+          })
+          .where(eq(scrapeSchedulesTable.id, schedule.id));
         results.push({ userId: schedule.userId, ok: false, error: message });
       }
     }

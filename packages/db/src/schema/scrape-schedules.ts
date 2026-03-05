@@ -17,6 +17,8 @@ export const scrapeSchedulesTable = pgTable(
     careerProfileId: uuid('career_profile_id'),
     filters: jsonb('filters'),
     lastTriggeredAt: timestamp('last_triggered_at', { withTimezone: true }),
+    nextRunAt: timestamp('next_run_at', { withTimezone: true }),
+    lastRunStatus: varchar('last_run_status', { length: 32 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .defaultNow()
