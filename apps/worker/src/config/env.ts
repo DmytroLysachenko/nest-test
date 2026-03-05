@@ -62,6 +62,7 @@ const envSchema = z.object({
   WORKER_MAX_CONCURRENT_TASKS: z.coerce.number().int().min(1).max(5).default(1),
   WORKER_MAX_QUEUE_SIZE: z.coerce.number().int().min(1).max(1000).default(100),
   WORKER_TASK_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600000).default(180000),
+  WORKER_SMOKE_ACCEPT_ONLY: booleanSchema.default(false),
 });
 
 export type WorkerEnv = z.infer<typeof envSchema>;
