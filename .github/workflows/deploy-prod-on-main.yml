@@ -262,3 +262,11 @@ jobs:
           WORKER_CALLBACK_TOKEN: ${{ secrets.WORKER_CALLBACK_TOKEN }}
           SCHEDULER_AUTH_TOKEN: ${{ secrets.SCHEDULER_AUTH_TOKEN }}
           OPS_INTERNAL_TOKEN: ${{ secrets.OPS_INTERNAL_TOKEN }}
+
+      - name: Upload deployment verify summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-verify-summary
+          path: deployment-verify-summary.json
+          if-no-files-found: warn
