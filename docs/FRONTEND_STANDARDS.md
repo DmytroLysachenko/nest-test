@@ -196,3 +196,4 @@ Forms:
 - Do not mix inconsistent ad-hoc palettes between features.
 - Prefer semantic token classes (`text-app-danger`, `bg-surface-muted`, `border-app-success-border`, etc.).
 - Avoid direct Tailwind palette classes (`text-rose-*`, `bg-emerald-*`, `text-slate-*`) unless the color is a documented one-off visualization exception.
+- Run `pnpm --filter web ux:check` for token-policy and route-boundary guardrails.
