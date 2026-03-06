@@ -36,6 +36,31 @@ const getRunStatusTrendTone = (status: string | null): 'success' | 'warning' | '
   return tone === 'neutral' ? 'warning' : tone;
 };
 
+const getReliabilityLabel = (successRate: number | undefined) => {
+  if (successRate == null) {
+    return {
+      label: 'Unknown reliability',
+      tone: 'neutral' as const,
+    };
+  }
+  if (successRate >= 0.9) {
+    return {
+      label: 'Stable',
+      tone: 'success' as const,
+    };
+  }
+  if (successRate >= 0.75) {
+    return {
+      label: 'Watch closely',
+      tone: 'warning' as const,
+    };
+  }
+  return {
+    label: 'Needs attention',
+    tone: 'danger' as const,
+  };
+};
+
 export const WorkspaceDashboardPage = () => {
   const auth = useRequireAuth();
   const dashboard = useWorkspaceDashboardData({
@@ -229,6 +254,38 @@ export const WorkspaceDashboardPage = () => {
         </div>
 
         <aside className="space-y-4">
+          {diagnostics ? (
+            <Card title="Reliability Overview" description="Scheduler and scrape resilience signals.">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-text-soft text-sm">Run reliability</span>
+                  <StatusPill
+                    value={getReliabilityLabel(diagnostics.performance.successRate).label}
+                    tone={getReliabilityLabel(diagnostics.performance.successRate).tone}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-text-soft text-sm">Timeout pressure</span>
+                  <StatusPill
+                    value={
+                      diagnostics.failures.timeout > 0 ? `${diagnostics.failures.timeout} recent` : 'No recent issues'
+                    }
+                    tone={diagnostics.failures.timeout > 0 ? 'warning' : 'success'}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-text-soft text-sm">Network failures</span>
+                  <StatusPill
+                    value={
+                      diagnostics.failures.network > 0 ? `${diagnostics.failures.network} recent` : 'No recent issues'
+                    }
+                    tone={diagnostics.failures.network > 0 ? 'danger' : 'success'}
+                  />
+                </div>
+              </div>
+            </Card>
+          ) : null}
+
           <Card title="Pipeline Health" description="Current readiness of core stages.">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -270,6 +327,15 @@ export const WorkspaceDashboardPage = () => {
                 <p className="text-text-strong mt-1 font-medium">{formatDateTime(summary.scrape.lastRunAt)}</p>
               </div>
             </div>
+          </Card>
+
+          <Card title="Failure Guide" description="How to interpret most common run failures.">
+            <ul className="text-text-soft list-disc space-y-1 pl-5 text-sm">
+              <li>Timeout: source page too slow or overloaded.</li>
+              <li>Network: temporary connectivity issue or upstream outage.</li>
+              <li>Validation: scraped payload missing required structure.</li>
+              <li>Callback: worker result could not be applied reliably.</li>
+            </ul>
           </Card>
         </aside>
       </div>
