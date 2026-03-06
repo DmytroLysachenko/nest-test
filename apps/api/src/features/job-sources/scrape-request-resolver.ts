@@ -1,5 +1,4 @@
 import type { PracujSourceKind, ScrapeFilters } from '@repo/db';
-
 import type {
   CandidateEmploymentType,
   CandidateProfile,
@@ -52,7 +51,10 @@ const SPECIALIZATION_TO_SEARCH_KEYWORD: Record<string, string> = {
   product: 'product',
 };
 
-const ROLE_SPECIALIZATION_HINTS: Array<{ specialization: keyof typeof SPECIALIZATION_TO_SEARCH_KEYWORD; hints: string[] }> = [
+const ROLE_SPECIALIZATION_HINTS: Array<{
+  specialization: keyof typeof SPECIALIZATION_TO_SEARCH_KEYWORD;
+  hints: string[];
+}> = [
   { specialization: 'frontend', hints: ['frontend', 'front-end', 'front end', 'ui'] },
   { specialization: 'backend', hints: ['backend', 'back-end', 'back end', 'api'] },
   { specialization: 'fullstack', hints: ['fullstack', 'full-stack', 'full stack'] },
@@ -121,11 +123,7 @@ const inferRoleSpecialization = (roleTitle: string) => {
   return undefined;
 };
 
-const buildKeywordPhraseFromRole = (
-  roleTitle: string,
-  fallbackSeniority?: string,
-  fallbackSpecialization?: string,
-) => {
+const buildKeywordPhraseFromRole = (roleTitle: string, fallbackSeniority?: string, fallbackSpecialization?: string) => {
   const normalized = normalizeAscii(roleTitle).replace(/[()]/g, ' ');
   const roleTokens = normalized.split(/[^a-z0-9+.#-]+/).filter(Boolean);
   const roleSeniority = roleTokens.find((token) => SENIORITY_SEARCH_TOKENS.has(token));
@@ -191,7 +189,9 @@ export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilter
   const primarySeniorityToken = primarySeniority ?? secondarySeniority[0];
   const positionLevels = unique(seniority.map((value) => SENIORITY_TO_POSITION_LEVEL[value]));
 
-  const workModes = unique(profile.workPreferences.hardConstraints.workModes.map((value) => WORK_MODE_TO_PRACUJ[value]));
+  const workModes = unique(
+    profile.workPreferences.hardConstraints.workModes.map((value) => WORK_MODE_TO_PRACUJ[value]),
+  );
 
   const contractTypes = unique(
     profile.workPreferences.hardConstraints.employmentTypes.map((value) => CONTRACT_TO_PRACUJ[value]),

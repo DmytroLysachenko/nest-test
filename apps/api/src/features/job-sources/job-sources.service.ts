@@ -363,7 +363,10 @@ export class JobSourcesService {
       .where(
         and(
           eq(scrapeSchedulesTable.enabled, 1),
-          or(isNull(scrapeSchedulesTable.nextRunAt), lt(scrapeSchedulesTable.nextRunAt, new Date(acceptedAt.getTime() + 1000))),
+          or(
+            isNull(scrapeSchedulesTable.nextRunAt),
+            lt(scrapeSchedulesTable.nextRunAt, new Date(acceptedAt.getTime() + 1000)),
+          ),
         ),
       )
       .orderBy(scrapeSchedulesTable.nextRunAt, scrapeSchedulesTable.updatedAt)

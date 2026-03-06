@@ -9,7 +9,6 @@ import { Logger } from 'nestjs-pino';
 
 import { Drizzle } from '@/common/decorators';
 import { GcsService } from '@/common/modules/gcs/gcs.service';
-import type { Env } from '@/config/env';
 
 import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 import { ConfirmDocumentDto } from './dto/confirm-document.dto';
@@ -17,6 +16,8 @@ import { ListDocumentsQuery } from './dto/list-documents.query';
 import { ExtractDocumentDto } from './dto/extract-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { SyncDocumentsDto } from './dto/sync-documents.dto';
+
+import type { Env } from '@/config/env';
 
 type DocumentMetricStage = 'UPLOAD_CONFIRM' | 'EXTRACTION' | 'TOTAL_PIPELINE';
 type DocumentMetricStatus = 'SUCCESS' | 'ERROR';
@@ -387,7 +388,9 @@ export class DocumentsService {
       return {
         count: rows.length,
         successRate: rows.length ? Number((successful / rows.length).toFixed(4)) : 0,
-        avgDurationMs: durations.length ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length) : null,
+        avgDurationMs: durations.length
+          ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length)
+          : null,
         p50DurationMs: this.computePercentile(durations, 0.5),
         p95DurationMs: this.computePercentile(durations, 0.95),
       };

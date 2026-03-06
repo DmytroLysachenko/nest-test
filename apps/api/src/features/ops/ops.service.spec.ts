@@ -40,8 +40,12 @@ describe('OpsService', () => {
         .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: runWhere }) })
         .mockReturnValueOnce({ from: jest.fn().mockResolvedValue([{ value: 40 }]) }) // total offers
         .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: offerWhere }) }) // unscored
-        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 2 }]) }) }) // due schedules
-        .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 1 }]) }) }) // enqueue failures
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 2 }]) }),
+        }) // due schedules
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 1 }]) }),
+        }) // enqueue failures
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({

@@ -56,9 +56,7 @@ const detectJobSeniority = (text: string) => {
     return { detected: null, ambiguous: false as const, matches: [] as string[] };
   }
 
-  const detected = unique.reduce((acc, current) =>
-    SENIORITY_ORDER[current] > SENIORITY_ORDER[acc] ? current : acc,
-  );
+  const detected = unique.reduce((acc, current) => (SENIORITY_ORDER[current] > SENIORITY_ORDER[acc] ? current : acc));
 
   return {
     detected,
@@ -148,7 +146,8 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
   const hardWorkModes = profile.workPreferences.hardConstraints.workModes;
   if (hardWorkModes.length) {
     const modes = hardWorkModes.filter((mode) => {
-      const aliases = mode === 'remote' ? ['remote', 'zdal', 'home'] : mode === 'hybrid' ? ['hybrid', 'hybryd'] : [mode];
+      const aliases =
+        mode === 'remote' ? ['remote', 'zdal', 'home'] : mode === 'hybrid' ? ['hybrid', 'hybryd'] : [mode];
       return aliases.some((alias) => normalizedText.includes(alias));
     });
     if (!modes.length) {
