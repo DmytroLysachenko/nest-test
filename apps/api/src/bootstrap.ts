@@ -42,13 +42,31 @@ export const bootstrap = async (app: NestExpressApplication) => {
     throw new Error('ALLOWED_ORIGINS cannot be "*" in production');
   }
 
-  const originList =
-    allowedOrigins === '*'
-      ? null
-      : allowedOrigins
-          .split(',')
-          .map((value) => value.trim().replace(/\/+$/, '').toLowerCase())
-          .filter(Boolean);
+  const normalizeOrigin = (value: string) => {
+    const trimmed = value.trim().replace(/^['"]|['"]$/g, '');
+    if (!trimmed) {
+      return null;
+    }
+
+    try {
+      return new URL(trimmed).origin.toLowerCase();
+    } catch {
+      return trimmed.replace(/\/+$/, '').toLowerCase();
+    }
+  };
+
+  const originList = (() => {
+    if (allowedOrigins === '*') {
+      return null;
+    }
+
+    const parsed = allowedOrigins
+      .split(',')
+      .map(normalizeOrigin)
+      .filter((value): value is string => Boolean(value));
+
+    return Array.from(new Set(parsed));
+  })();
 
   const isOriginAllowed = (origin: string | undefined) => {
     if (!originList) {
@@ -57,7 +75,10 @@ export const bootstrap = async (app: NestExpressApplication) => {
     if (!origin) {
       return true;
     }
-    const normalizedOrigin = origin.trim().replace(/\/+$/, '').toLowerCase();
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (!normalizedOrigin) {
+      return false;
+    }
     return originList.includes(normalizedOrigin);
   };
 
@@ -66,7 +87,11 @@ export const bootstrap = async (app: NestExpressApplication) => {
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     maxAge: 3600,
     origin: (origin, callback) => {
-      callback(null, isOriginAllowed(origin));
+      const isAllowed = isOriginAllowed(origin);
+      if (!isAllowed) {
+        logger.warn(`Rejected CORS origin: ${origin ?? 'unknown'}`);
+      }
+      callback(null, isAllowed);
     },
   });
 
