@@ -52,7 +52,12 @@ export const LoginForm = () => {
       <Button type="submit" disabled={loginForm.isSubmitting}>
         {loginForm.isSubmitting ? 'Signing in...' : 'Sign in'}
       </Button>
-      <Button type="button" variant="outline" onClick={startGoogleOauth} disabled={loginForm.isSubmitting || isGoogleLoading}>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={startGoogleOauth}
+        disabled={loginForm.isSubmitting || isGoogleLoading}
+      >
         {isGoogleLoading ? 'Redirecting...' : 'Continue with Google'}
       </Button>
 
