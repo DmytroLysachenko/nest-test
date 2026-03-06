@@ -15,6 +15,7 @@ type NotebookOffersListCardProps = {
   canPrev: boolean;
   canNext: boolean;
   isAllVisibleSelected: boolean;
+  mode: 'strict' | 'approx' | 'explore';
   onSelectOffer: (id: string) => void;
   onToggleOfferSelection: (id: string) => void;
   onSelectAllVisible: () => void;
@@ -33,6 +34,7 @@ export const NotebookOffersListCard = ({
   canPrev,
   canNext,
   isAllVisibleSelected,
+  mode,
   onSelectOffer,
   onToggleOfferSelection,
   onSelectAllVisible,
@@ -114,10 +116,30 @@ export const NotebookOffersListCard = ({
           </article>
         ))
       ) : (
-        <EmptyState
-          title="No offers found"
-          description="Try relaxing filters or switch mode to explore to discover more opportunities."
-        />
+        <div className="space-y-3">
+          <EmptyState
+            title="No offers found"
+            description="Try relaxing filters or switch mode to explore to discover more opportunities."
+          />
+          <div className="app-muted-panel text-sm">
+            <p className="text-text-strong font-medium">Suggested next step</p>
+            {mode === 'strict' ? (
+              <p className="text-text-soft mt-1">
+                You are in strict mode. Switch to <span className="font-medium">approx</span> to allow near matches.
+              </p>
+            ) : null}
+            {mode === 'approx' ? (
+              <p className="text-text-soft mt-1">
+                You are in approx mode. Switch to <span className="font-medium">explore</span> for broader discovery.
+              </p>
+            ) : null}
+            {mode === 'explore' ? (
+              <p className="text-text-soft mt-1">
+                You are in explore mode. Clear status/tag filters and enqueue a fresh scrape run.
+              </p>
+            ) : null}
+          </div>
+        </div>
       )}
     </div>
 

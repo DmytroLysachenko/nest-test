@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 
 import { useNotebookOfferDetailsDrafts } from '@/features/job-offers/model/hooks/use-notebook-offer-details-drafts';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
+import { ConfirmActionDialog } from '@/shared/ui/confirm-action-dialog';
 import { DataFreshnessBadge } from '@/shared/ui/data-freshness-badge';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
@@ -36,6 +38,7 @@ export const NotebookOfferDetailsCard = ({
   onSaveMeta,
   onRescore,
 }: NotebookOfferDetailsCardProps) => {
+  const [pendingConfirmStatus, setPendingConfirmStatus] = useState<JobOfferStatus | null>(null);
   const drafts = useNotebookOfferDetailsDrafts({ offer });
 
   if (!offer) {
@@ -70,10 +73,8 @@ export const NotebookOfferDetailsCard = ({
               disabled={isBusy}
               onClick={() => {
                 if (status === 'DISMISSED' && offer.status !== 'DISMISSED') {
-                  const confirmed = window.confirm('Dismiss this offer? You can undo from the toast action.');
-                  if (!confirmed) {
-                    return;
-                  }
+                  setPendingConfirmStatus(status);
+                  return;
                 }
                 onStatusChange(status);
               }}
@@ -151,6 +152,18 @@ export const NotebookOfferDetailsCard = ({
           </details>
         ) : null}
       </div>
+
+      <ConfirmActionDialog
+        open={pendingConfirmStatus === 'DISMISSED'}
+        title="Dismiss offer?"
+        description="This moves the offer to dismissed status. You can undo later from the success toast action."
+        confirmLabel="Dismiss offer"
+        onCancel={() => setPendingConfirmStatus(null)}
+        onConfirm={() => {
+          setPendingConfirmStatus(null);
+          onStatusChange('DISMISSED');
+        }}
+      />
     </Card>
   );
 };

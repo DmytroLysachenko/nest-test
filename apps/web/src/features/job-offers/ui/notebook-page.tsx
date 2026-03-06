@@ -16,10 +16,46 @@ type NotebookPageProps = {
 export const NotebookPage = ({ token }: NotebookPageProps) => {
   const notebook = useNotebookPage({ token });
   const setLastVisitedSection = useAppUiStore((state) => state.setLastVisitedSection);
+  const selectedOffer = notebook.selectedOffer;
+  const updateStatus = notebook.updateStatus;
 
   useEffect(() => {
     setLastVisitedSection('notebook');
   }, [setLastVisitedSection]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const activeTag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
+      if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') {
+        return;
+      }
+      if (!selectedOffer) {
+        return;
+      }
+
+      if (event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        updateStatus({ id: selectedOffer.id, status: 'SAVED' });
+      }
+      if (event.key.toLowerCase() === 'd') {
+        event.preventDefault();
+        updateStatus({ id: selectedOffer.id, status: 'DISMISSED' });
+      }
+      if (event.key.toLowerCase() === 'm') {
+        event.preventDefault();
+        updateStatus({ id: selectedOffer.id, status: 'SEEN' });
+      }
+      if (event.key.toLowerCase() === 'a') {
+        event.preventDefault();
+        updateStatus({ id: selectedOffer.id, status: 'APPLIED' });
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [selectedOffer, updateStatus]);
 
   return (
     <main className="app-page flex flex-col gap-4">
@@ -73,6 +109,7 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
             canPrev={notebook.canPrev}
             canNext={notebook.canNext}
             isAllVisibleSelected={notebook.isAllVisibleSelected}
+            mode={notebook.filters.mode}
             onSelectOffer={notebook.setNotebookSelectedOffer}
             onToggleOfferSelection={notebook.toggleNotebookSelectedOfferId}
             onSelectAllVisible={() => {

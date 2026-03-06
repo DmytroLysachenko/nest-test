@@ -158,6 +158,7 @@ export const NotebookFiltersCard = ({
         {isEnqueueingScrape ? 'Enqueuing scrape...' : 'Enqueue profile scrape'}
       </Button>
       {enqueueStatus ? <p className="text-secondary-foreground text-xs">{enqueueStatus}</p> : null}
+      <p className="text-text-soft text-xs">Shortcuts: S save, D dismiss, M seen, A applied.</p>
     </div>
   </Card>
 );

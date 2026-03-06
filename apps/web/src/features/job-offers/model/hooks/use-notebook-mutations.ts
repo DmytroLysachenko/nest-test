@@ -94,10 +94,21 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const bulkStatusMutation = useMutation({
     mutationFn: async ({ ids, status }: { ids: string[]; status: JobOfferStatus }) => {
       const results = await Promise.allSettled(ids.map((id) => updateJobOfferStatus(token, id, status)));
-      const failed = results.filter((result) => result.status === 'rejected').length;
+      const failedIds = results.reduce<string[]>((acc, result, index) => {
+        if (result.status === 'rejected') {
+          const failedId = ids[index];
+          if (failedId) {
+            acc.push(failedId);
+          }
+        }
+        return acc;
+      }, []);
+      const failed = failedIds.length;
       return {
         updated: ids.length - failed,
         failed,
+        failedIds,
+        status,
       };
     },
     onSuccess: async (result) => {
@@ -108,7 +119,16 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       if (result.failed === 0) {
         toastSuccess(`Updated ${result.updated} offers`);
       } else {
-        toastError(`Updated ${result.updated}, failed ${result.failed}. Retry failed items.`);
+        toastSuccessWithAction(
+          `Updated ${result.updated}, failed ${result.failed} (${result.status}).`,
+          'Retry failed',
+          () => {
+            bulkStatusMutation.mutate({
+              ids: result.failedIds,
+              status: result.status,
+            });
+          },
+        );
       }
     },
     onError: (error) => {
