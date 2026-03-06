@@ -2,6 +2,8 @@
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { useWorkspaceDashboardData } from '@/features/workspace/model/hooks/use-workspace-dashboard-data';
+import { PageErrorState, PageLoadingState, SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
+import { Button } from '@/shared/ui/button';
 import { DataTableShell, MetricCard, SectionHeader, StatusPill } from '@/shared/ui/dashboard-primitives';
 import { Card } from '@/shared/ui/card';
 
@@ -41,8 +43,20 @@ export const WorkspaceDashboardPage = () => {
     clearSession: auth.clearSession,
   });
 
-  if (dashboard.isLoading || !dashboard.summary) {
-    return <main className="app-page text-muted-foreground text-sm">Loading workspace...</main>;
+  if (dashboard.isInitialLoading) {
+    return <PageLoadingState />;
+  }
+
+  if (dashboard.summaryError || !dashboard.summary) {
+    return (
+      <PageErrorState
+        title="Workspace unavailable"
+        message={dashboard.summaryError ?? 'Unable to load workspace summary.'}
+        onRetry={() => {
+          void dashboard.refetchSummary();
+        }}
+      />
+    );
   }
 
   const summary = dashboard.summary;
@@ -113,7 +127,20 @@ export const WorkspaceDashboardPage = () => {
             </ol>
           </Card>
 
-          {diagnostics ? (
+          {dashboard.isDiagnosticsLoading ? (
+            <SectionLoadingState
+              title="Scrape Diagnostics (72h)"
+              description="Reliability and throughput of ingestion runs."
+            />
+          ) : dashboard.diagnosticsError ? (
+            <SectionErrorState
+              title="Scrape Diagnostics (72h)"
+              message={dashboard.diagnosticsError}
+              onRetry={() => {
+                void dashboard.refetchDiagnostics();
+              }}
+            />
+          ) : diagnostics ? (
             <Card title="Scrape Diagnostics (72h)" description="Reliability and throughput of ingestion runs.">
               <div className="grid gap-3 text-sm md:grid-cols-3">
                 <div className="app-muted-panel space-y-1">
@@ -148,7 +175,20 @@ export const WorkspaceDashboardPage = () => {
             </Card>
           ) : null}
 
-          {documentDiagnostics ? (
+          {dashboard.isDocumentDiagnosticsLoading ? (
+            <SectionLoadingState
+              title="Document Diagnostics"
+              description="Upload and extraction stage timings from persisted metrics."
+            />
+          ) : dashboard.documentDiagnosticsError ? (
+            <SectionErrorState
+              title="Document Diagnostics"
+              message={dashboard.documentDiagnosticsError}
+              onRetry={() => {
+                void dashboard.refetchDocumentDiagnostics();
+              }}
+            />
+          ) : documentDiagnostics ? (
             <Card
               title={`Document Diagnostics (${documentDiagnostics.windowHours}h)`}
               description="Upload and extraction stage timings from persisted metrics."
@@ -235,7 +275,27 @@ export const WorkspaceDashboardPage = () => {
       </div>
 
       <DataTableShell title="Recent Offers" description="Quick preview of top offers from your notebook.">
-        {offers.length ? (
+        {dashboard.isOffersLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="bg-surface-muted h-10 animate-pulse rounded-lg" />
+            ))}
+          </div>
+        ) : dashboard.offersError ? (
+          <div className="border-app-danger-border bg-app-danger-soft space-y-2 rounded-xl border p-3">
+            <p className="text-app-danger text-sm">{dashboard.offersError}</p>
+            <Button
+              type="button"
+              variant="destructive"
+              className="h-9"
+              onClick={() => {
+                void dashboard.refetchOffers();
+              }}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : offers.length ? (
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-text-soft text-left">

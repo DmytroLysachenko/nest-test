@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { useWorkspaceDashboardMutations } from '@/features/workspace/model/hooks/use-workspace-dashboard-mutations';
 import { useWorkspaceDashboardQueries } from '@/features/workspace/model/hooks/use-workspace-dashboard-queries';
+import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
 type UseWorkspaceDashboardDataArgs = {
   token: string | null;
@@ -27,7 +28,19 @@ export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceD
     }
   }, [router, summaryQuery.data, summaryQuery.isLoading, token]);
 
-  const isLoading = !token || summaryQuery.isLoading || offersQuery.isLoading || !summaryQuery.data;
+  const isInitialLoading = !token || summaryQuery.isLoading || !summaryQuery.data;
+  const summaryError = summaryQuery.isError
+    ? toUserErrorMessage(summaryQuery.error, 'Unable to load workspace summary.')
+    : null;
+  const offersError = offersQuery.isError
+    ? toUserErrorMessage(offersQuery.error, 'Unable to load recent offers.')
+    : null;
+  const diagnosticsError = diagnosticsSummaryQuery.isError
+    ? toUserErrorMessage(diagnosticsSummaryQuery.error, 'Unable to load scrape diagnostics.')
+    : null;
+  const documentDiagnosticsError = documentDiagnosticsSummaryQuery.isError
+    ? toUserErrorMessage(documentDiagnosticsSummaryQuery.error, 'Unable to load document diagnostics.')
+    : null;
 
   return useMemo(
     () => ({
@@ -35,18 +48,40 @@ export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceD
       offers: offersQuery.data ?? [],
       diagnosticsSummary: diagnosticsSummaryQuery.data ?? null,
       documentDiagnosticsSummary: documentDiagnosticsSummaryQuery.data ?? null,
-      isLoading,
+      isInitialLoading,
+      summaryError,
+      offersError,
+      diagnosticsError,
+      documentDiagnosticsError,
+      isOffersLoading: offersQuery.isLoading,
+      isDiagnosticsLoading: diagnosticsSummaryQuery.isLoading,
+      isDocumentDiagnosticsLoading: documentDiagnosticsSummaryQuery.isLoading,
+      refetchSummary: summaryQuery.refetch,
+      refetchOffers: offersQuery.refetch,
+      refetchDiagnostics: diagnosticsSummaryQuery.refetch,
+      refetchDocumentDiagnostics: documentDiagnosticsSummaryQuery.refetch,
       logout: logoutMutation.mutate,
       isLoggingOut: logoutMutation.isPending,
     }),
     [
       diagnosticsSummaryQuery.data,
+      diagnosticsSummaryQuery.isLoading,
+      diagnosticsSummaryQuery.refetch,
       documentDiagnosticsSummaryQuery.data,
-      isLoading,
+      documentDiagnosticsSummaryQuery.isLoading,
+      documentDiagnosticsSummaryQuery.refetch,
+      diagnosticsError,
+      documentDiagnosticsError,
       logoutMutation.isPending,
       logoutMutation.mutate,
       offersQuery.data,
+      offersQuery.isLoading,
+      offersQuery.refetch,
+      offersError,
+      isInitialLoading,
       summaryQuery.data,
+      summaryQuery.refetch,
+      summaryError,
     ],
   );
 };
