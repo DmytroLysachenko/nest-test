@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
+import { useWorkflowState } from '@/features/workflow/model/use-workflow-state';
 import { env } from '@/shared/config/env';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -11,6 +12,7 @@ import { Input } from '@/shared/ui/input';
 type AppShellProps = {
   children: React.ReactNode;
   userEmail: string | null | undefined;
+  token: string | null;
   onSignOut: () => void;
 };
 
@@ -18,6 +20,7 @@ type AppNavItem = {
   href: string;
   label: string;
   shortLabel: string;
+  hidden?: boolean;
 };
 
 const testerEnabled = process.env.NODE_ENV !== 'production' && env.NEXT_PUBLIC_ENABLE_TESTER;
@@ -75,15 +78,30 @@ const AppShellSidebar = ({
   </>
 );
 
-export const AppShell = ({ children, userEmail, onSignOut }: AppShellProps) => {
+export const AppShell = ({ children, userEmail, token, onSignOut }: AppShellProps) => {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const workflow = useWorkflowState(token);
 
-  const navItems = useMemo(
-    () => (testerEnabled ? [...baseNavItems, { href: '/tester', label: 'Tester', shortLabel: 'TS' }] : baseNavItems),
-    [],
-  );
+  const navItems = useMemo(() => {
+    const items: AppNavItem[] = [
+      ...baseNavItems.map((item) =>
+        item.href === '/notebook'
+          ? {
+              ...item,
+              hidden: !workflow.allowNotebook,
+            }
+          : item,
+      ),
+    ];
+
+    if (testerEnabled) {
+      items.push({ href: '/tester', label: 'Tester', shortLabel: 'TS' });
+    }
+
+    return items.filter((item) => !item.hidden);
+  }, [workflow.allowNotebook]);
 
   const activePage = navItems.find((item) => getIsActive(pathname, item.href))?.label ?? 'Workspace';
 
@@ -124,7 +142,18 @@ export const AppShell = ({ children, userEmail, onSignOut }: AppShellProps) => {
             </Button>
 
             <div>
-              <p className="text-text-strong text-lg font-semibold leading-tight">{activePage}</p>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-8 w-8 px-0"
+                  aria-label="Go back"
+                  onClick={() => router.back()}
+                >
+                  <span className="text-base leading-none">{'<'}</span>
+                </Button>
+                <p className="text-text-strong text-lg font-semibold leading-tight">{activePage}</p>
+              </div>
               <p className="text-text-soft text-xs">JobSeeker command center</p>
             </div>
 
@@ -136,12 +165,6 @@ export const AppShell = ({ children, userEmail, onSignOut }: AppShellProps) => {
               <div className="border-border bg-surface-elevated text-text-soft hidden rounded-full border px-3 py-1 text-xs md:block">
                 {userEmail ?? 'anonymous'}
               </div>
-              <Button type="button" variant="outline" className="h-9 px-3" onClick={() => router.push('/notebook')}>
-                Open Notebook
-              </Button>
-              <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => router.back()}>
-                Back
-              </Button>
               <Button type="button" variant="destructive" className="h-9 px-3" onClick={onSignOut}>
                 Sign out
               </Button>
