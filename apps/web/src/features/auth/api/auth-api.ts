@@ -15,7 +15,10 @@ type RegisterPayload = {
 };
 
 type GoogleOauthPayload = {
-  idToken: string;
+  idToken?: string;
+  code?: string;
+  codeVerifier?: string;
+  redirectUri?: string;
   nonce?: string;
 };
 

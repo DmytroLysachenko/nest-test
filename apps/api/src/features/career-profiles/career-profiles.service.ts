@@ -9,7 +9,6 @@ import { GeminiService } from '@/common/modules/gemini/gemini.service';
 import { CreateCareerProfileDto } from './dto/create-career-profile.dto';
 import { ListCareerProfilesQuery } from './dto/list-career-profiles.query';
 import { ListCareerProfileSearchViewQuery } from './dto/list-career-profile-search-view.query';
-import type { NormalizationMeta, NormalizedProfileInput } from '../profile-inputs/normalization/schema';
 import {
   CANDIDATE_PROFILE_SCHEMA_VERSION,
   candidateProfileSchema,
@@ -17,6 +16,8 @@ import {
   parseCandidateProfile,
 } from './schema/candidate-profile.schema';
 import { canonicalizeCandidateProfile } from './profile-canonicalization';
+
+import type { NormalizationMeta, NormalizedProfileInput } from '../profile-inputs/normalization/schema';
 
 const MIN_EXTRACTED_TEXT_CHARS = 700;
 

@@ -30,6 +30,7 @@ jobs:
       GCP_WEB_SERVICE: ${{ vars.GCP_WEB_SERVICE }}
       GCS_BUCKET: ${{ vars.GCS_BUCKET }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       GCP_DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
       SCHEDULER_AUTH_TOKEN: ${{ secrets.SCHEDULER_AUTH_TOKEN }}
@@ -239,6 +240,7 @@ jobs:
           test -n "${{ vars.GCP_WEB_SERVICE }}" || (echo "Missing vars.GCP_WEB_SERVICE" && exit 1)
           test -n "${{ vars.GCS_BUCKET }}" || (echo "Missing vars.GCS_BUCKET" && exit 1)
           test -n "${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" || (echo "Missing vars.GOOGLE_OAUTH_CLIENT_ID" && exit 1)
+          test -n "${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}" || (echo "Missing secrets.GOOGLE_OAUTH_CLIENT_SECRET" && exit 1)
           test -n "${{ secrets.SCHEDULER_AUTH_TOKEN }}" || (echo "Missing secrets.SCHEDULER_AUTH_TOKEN" && exit 1)
           test -n "${{ secrets.OPS_INTERNAL_TOKEN }}" || (echo "Missing secrets.OPS_INTERNAL_TOKEN" && exit 1)
 
@@ -268,6 +270,7 @@ jobs:
           MAIL_PORT: ${{ vars.MAIL_PORT }}
           MAIL_SECURE: ${{ vars.MAIL_SECURE }}
           GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           WORKER_TASKS_QUEUE: ${{ vars.WORKER_TASKS_QUEUE }}
           WORKER_TASKS_DLQ: ${{ vars.WORKER_TASKS_DLQ }}
           TASKS_MAX_ATTEMPTS: ${{ vars.TASKS_MAX_ATTEMPTS }}

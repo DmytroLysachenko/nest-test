@@ -7,6 +7,7 @@ import { Drizzle } from '@/common/decorators';
 
 import { CreateProfileInputDto } from './dto/create-profile-input.dto';
 import { normalizeProfileInput } from './normalization/mapper';
+
 import type { ProfileIntakePayload } from './normalization/schema';
 
 @Injectable()

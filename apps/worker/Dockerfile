@@ -8,18 +8,16 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @repo/db build
 RUN pnpm --filter worker build
+RUN pnpm --filter worker --prod deploy --legacy /prod/worker
+RUN mkdir -p /prod/worker/dist
+RUN cp -R /app/apps/worker/dist/. /prod/worker/dist/
+RUN mkdir -p /prod/worker/node_modules/@repo/db/dist
+RUN cp -R /app/packages/db/dist/. /prod/worker/node_modules/@repo/db/dist/
 
 FROM node:22-slim AS runner
 WORKDIR /app
 
-RUN corepack enable
-
-COPY . .
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts
-COPY --from=builder /app/packages/db/dist ./packages/db/dist
-COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
-
-WORKDIR /app/apps/worker
+COPY --from=builder /prod/worker ./
 ENV NODE_ENV=production
 EXPOSE 4001
 CMD ["node", "dist/index.js"]

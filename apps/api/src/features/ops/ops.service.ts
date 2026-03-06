@@ -104,7 +104,9 @@ export class OpsService {
     const [enqueueFailuresRow] = await this.db
       .select({ value: count() })
       .from(scrapeSchedulesTable)
-      .where(and(eq(scrapeSchedulesTable.lastRunStatus, 'ENQUEUE_FAILED'), gte(scrapeSchedulesTable.updatedAt, cutoff)));
+      .where(
+        and(eq(scrapeSchedulesTable.lastRunStatus, 'ENQUEUE_FAILED'), gte(scrapeSchedulesTable.updatedAt, cutoff)),
+      );
     const latestTrigger = await this.db
       .select({ lastTriggeredAt: scrapeSchedulesTable.lastTriggeredAt })
       .from(scrapeSchedulesTable)

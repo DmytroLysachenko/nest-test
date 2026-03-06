@@ -17,8 +17,8 @@ const headingFont = Sora({
 });
 
 export const metadata: Metadata = {
-  title: 'Career Search Assistant',
-  description: 'User-facing app for profile input, documents, profile generation, and job scoring.',
+  title: 'JobSeeker',
+  description: 'JobSeeker workspace for profile management, automated sourcing, and offer triage.',
 };
 
 export default function RootLayout({

@@ -102,7 +102,7 @@ export const TesterPage = ({ token }: TesterPageProps) => {
           <div className="space-y-1">
             <Label htmlFor="tester-path">Path</Label>
             <Input id="tester-path" placeholder="/job-sources/runs" {...register('path')} />
-            {errors.path?.message ? <p className="text-sm text-rose-600">{errors.path.message}</p> : null}
+            {errors.path?.message ? <p className="text-app-danger text-sm">{errors.path.message}</p> : null}
           </div>
 
           <div className="space-y-1">
@@ -129,8 +129,8 @@ export const TesterPage = ({ token }: TesterPageProps) => {
             <Textarea id="tester-body" rows={10} placeholder="{}" {...register('bodyText')} />
           </div>
 
-          {testerPage.error ? <p className="text-sm text-rose-600">{testerPage.error}</p> : null}
-          {errors.root?.message ? <p className="text-sm text-rose-600">{errors.root.message}</p> : null}
+          {testerPage.error ? <p className="text-app-danger text-sm">{testerPage.error}</p> : null}
+          {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
           <Button type="submit" disabled={testerPage.mutation.isPending}>
             {testerPage.mutation.isPending ? 'Sending...' : 'Send request'}
           </Button>

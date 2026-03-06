@@ -46,6 +46,7 @@ jobs:
       API_PREFIX: api
       ALLOWED_ORIGINS: http://localhost:3002
       GOOGLE_OAUTH_CLIENT_ID: smoke-google-client-id
+      GOOGLE_OAUTH_CLIENT_SECRET: smoke-google-client-secret
       GCP_PROJECT_ID: smoke-local-project
       GCP_LOCATION: us-central1
       WORKER_TASK_PROVIDER: http

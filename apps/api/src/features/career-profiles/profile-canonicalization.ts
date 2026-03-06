@@ -1,5 +1,4 @@
 import type { NormalizedProfileInput } from '@/features/profile-inputs/normalization/schema';
-
 import type { CandidateProfile } from './schema/candidate-profile.schema';
 
 const CITY_ALIASES: Record<string, { city: string; radiusKm?: number; country?: string }> = {

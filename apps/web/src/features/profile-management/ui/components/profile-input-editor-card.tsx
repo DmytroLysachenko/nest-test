@@ -48,7 +48,7 @@ export const ProfileInputEditorCard = ({
           placeholder="Frontend Developer, Fullstack Developer"
           {...register('targetRoles')}
         />
-        {errors.targetRoles?.message ? <p className="text-sm text-rose-600">{errors.targetRoles.message}</p> : null}
+        {errors.targetRoles?.message ? <p className="text-app-danger text-sm">{errors.targetRoles.message}</p> : null}
 
         <Label htmlFor="pm-notes">Notes</Label>
         <Textarea
@@ -57,9 +57,9 @@ export const ProfileInputEditorCard = ({
           placeholder="Preferred work mode, salary, location, contracts..."
           {...register('notes')}
         />
-        {errors.notes?.message ? <p className="text-sm text-rose-600">{errors.notes.message}</p> : null}
+        {errors.notes?.message ? <p className="text-app-danger text-sm">{errors.notes.message}</p> : null}
 
-        {errorMessage ? <p className="text-sm text-rose-600">{errorMessage}</p> : null}
+        {errorMessage ? <p className="text-app-danger text-sm">{errorMessage}</p> : null}
         <Button type="submit" disabled={isSaving}>
           {isSaving ? 'Saving...' : 'Save profile input'}
         </Button>

@@ -31,7 +31,7 @@ export const CareerProfilePanel = ({ token, disabled = false, disabledReason }: 
           void careerProfilePanel.submit(event);
         }}
       >
-        <Label htmlFor="career-profile-instructions" className="text-slate-700">
+        <Label htmlFor="career-profile-instructions" className="text-text-soft">
           Optional generation instructions
         </Label>
         <Textarea
@@ -40,32 +40,32 @@ export const CareerProfilePanel = ({ token, disabled = false, disabledReason }: 
           placeholder="Focus on backend system design and production incident response."
           {...register('instructions')}
         />
-        {errors.instructions?.message ? <p className="text-sm text-rose-600">{errors.instructions.message}</p> : null}
-        {errors.root?.message ? <p className="text-sm text-rose-600">{errors.root.message}</p> : null}
+        {errors.instructions?.message ? <p className="text-app-danger text-sm">{errors.instructions.message}</p> : null}
+        {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
         <Button type="submit" disabled={disabled || careerProfilePanel.isSubmitting}>
           {careerProfilePanel.isSubmitting ? 'Generating...' : 'Generate profile'}
         </Button>
-        {disabled && disabledReason ? <p className="text-sm text-amber-700">{disabledReason}</p> : null}
+        {disabled && disabledReason ? <p className="text-app-warning text-sm">{disabledReason}</p> : null}
       </form>
 
       {careerProfilePanel.latestQuery.data ? (
         <div className="mt-5 space-y-3 text-sm">
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <p className="font-semibold text-slate-800">Markdown</p>
-            <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-slate-700">
+          <div className="border-border bg-surface-muted rounded-md border p-3">
+            <p className="text-text-strong font-semibold">Markdown</p>
+            <pre className="text-text-soft mt-2 max-h-48 overflow-auto whitespace-pre-wrap">
               {careerProfilePanel.latestQuery.data.content || 'No content'}
             </pre>
           </div>
 
-          <details className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <summary className="cursor-pointer font-semibold text-slate-800">Structured JSON</summary>
-            <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-slate-700">
+          <details className="border-border bg-surface-muted rounded-md border p-3">
+            <summary className="text-text-strong cursor-pointer font-semibold">Structured JSON</summary>
+            <pre className="text-text-soft mt-2 max-h-48 overflow-auto whitespace-pre-wrap">
               {JSON.stringify(careerProfilePanel.latestQuery.data.contentJson ?? {}, null, 2)}
             </pre>
           </details>
         </div>
       ) : (
-        <p className="mt-5 text-sm text-slate-500">No generated profile yet.</p>
+        <p className="text-text-soft mt-5 text-sm">No generated profile yet.</p>
       )}
     </Card>
   );

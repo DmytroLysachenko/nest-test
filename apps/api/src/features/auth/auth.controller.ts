@@ -49,10 +49,10 @@ export class AuthController {
 
   @Public()
   @Post('oauth/google')
-  @ApiOperation({ summary: 'Login or register with Google OAuth id token' })
+  @ApiOperation({ summary: 'Login or register with Google OAuth (authorization code or id token)' })
   @Throttle({ default: { limit: AUTH_LOGIN_THROTTLE.limit, ttl: AUTH_LOGIN_THROTTLE.ttl } })
   async loginWithGoogle(@Body() body: GoogleOauthLoginDto, @Device() device: DeviceType) {
-    return this.authService.loginWithGoogleIdToken(body.idToken, device, body.nonce);
+    return this.authService.loginWithGoogle(body, device);
   }
 
   @Public()

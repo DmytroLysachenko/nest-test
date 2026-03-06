@@ -6,6 +6,7 @@ describe('useAppUiStore', () => {
       dashboard: { lastVisitedSection: 'workflow' },
       notebook: {
         selectedOfferId: null,
+        selectedOfferIds: [],
         filters: {
           status: 'ALL',
           mode: 'strict',
@@ -13,6 +14,8 @@ describe('useAppUiStore', () => {
           tag: '',
           hasScore: 'all',
         },
+        savedPreset: null,
+        lastInteractionAt: null,
         pagination: {
           offset: 0,
           limit: 20,
@@ -34,6 +37,7 @@ describe('useAppUiStore', () => {
     useAppUiStore.getState().setNotebookSelectedOffer('offer-1');
 
     expect(useAppUiStore.getState().notebook.selectedOfferId).toBe('offer-1');
+    expect(useAppUiStore.getState().notebook.selectedOfferIds).toEqual(['offer-1']);
   });
 
   it('resets filters', () => {
@@ -47,5 +51,27 @@ describe('useAppUiStore', () => {
     expect(filters.search).toBe('');
     expect(filters.hasScore).toBe('all');
     expect(filters.mode).toBe('strict');
+  });
+
+  it('saves and applies notebook filter preset', () => {
+    useAppUiStore.getState().setNotebookFilter('status', 'SAVED');
+    useAppUiStore.getState().setNotebookFilter('search', 'react');
+    useAppUiStore.getState().saveNotebookFilterPreset();
+
+    useAppUiStore.getState().setNotebookFilter('status', 'DISMISSED');
+    useAppUiStore.getState().setNotebookFilter('search', 'node');
+    useAppUiStore.getState().applyNotebookFilterPreset();
+
+    const filters = useAppUiStore.getState().notebook.filters;
+    expect(filters.status).toBe('SAVED');
+    expect(filters.search).toBe('react');
+  });
+
+  it('toggles selected offer ids', () => {
+    useAppUiStore.getState().toggleNotebookSelectedOfferId('offer-1');
+    useAppUiStore.getState().toggleNotebookSelectedOfferId('offer-2');
+    useAppUiStore.getState().toggleNotebookSelectedOfferId('offer-1');
+
+    expect(useAppUiStore.getState().notebook.selectedOfferIds).toEqual(['offer-2']);
   });
 });

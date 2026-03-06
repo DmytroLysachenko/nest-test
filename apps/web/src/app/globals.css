@@ -1,34 +1,77 @@
 @import '@repo/ui/globals.css';
 
 :root {
-  --background: oklch(0.95 0.011 75.34);
-  --foreground: oklch(0.24 0.019 268.83);
-  --card: oklch(0.98 0.007 84.57);
-  --card-foreground: oklch(0.24 0.019 268.83);
-  --popover: oklch(0.99 0.004 84.57);
-  --popover-foreground: oklch(0.24 0.019 268.83);
+  --background: oklch(0.965 0.007 78);
+  --foreground: oklch(0.25 0.02 265);
+  --card: oklch(0.99 0.003 84);
+  --card-foreground: oklch(0.25 0.02 265);
+  --popover: oklch(0.99 0.003 84);
+  --popover-foreground: oklch(0.25 0.02 265);
   --primary: oklch(0.57 0.19 40.17);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.89 0.016 79.52);
-  --secondary-foreground: oklch(0.31 0.02 266.12);
-  --muted: oklch(0.92 0.012 80.04);
-  --muted-foreground: oklch(0.47 0.02 262.13);
-  --accent: oklch(0.86 0.12 42.45);
-  --accent-foreground: oklch(0.25 0.015 261.33);
+  --secondary: oklch(0.93 0.007 84);
+  --secondary-foreground: oklch(0.33 0.017 266);
+  --muted: oklch(0.95 0.006 83);
+  --muted-foreground: oklch(0.5 0.014 264);
+  --accent: oklch(0.89 0.086 43);
+  --accent-foreground: oklch(0.24 0.015 262);
   --destructive: oklch(0.61 0.21 25.34);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.88 0.01 82.13);
-  --input: oklch(0.99 0.003 80.12);
+  --border: oklch(0.89 0.008 82);
+  --input: oklch(0.995 0.002 82);
   --ring: oklch(0.57 0.19 40.17);
   --radius: 0.95rem;
-  --sidebar: oklch(0.19 0.015 264.19);
-  --sidebar-foreground: oklch(0.96 0.005 80.12);
+  --sidebar: oklch(0.205 0.018 265);
+  --sidebar-foreground: oklch(0.965 0.004 84);
   --sidebar-primary: oklch(0.57 0.19 40.17);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.27 0.016 264.51);
-  --sidebar-accent-foreground: oklch(0.96 0.005 80.12);
-  --sidebar-border: oklch(0.31 0.01 265.13);
+  --sidebar-accent: oklch(0.28 0.016 266);
+  --sidebar-accent-foreground: oklch(0.965 0.004 84);
+  --sidebar-border: oklch(0.3 0.012 266);
   --sidebar-ring: oklch(0.57 0.19 40.17);
+
+  --surface: oklch(0.99 0.003 84);
+  --surface-muted: oklch(0.97 0.005 82);
+  --surface-elevated: oklch(1 0 0);
+  --text-strong: oklch(0.22 0.02 265);
+  --text-soft: oklch(0.43 0.015 264);
+
+  --app-success: oklch(0.58 0.14 152);
+  --app-success-soft: oklch(0.95 0.04 152);
+  --app-success-border: oklch(0.86 0.06 152);
+  --app-warning: oklch(0.67 0.14 73);
+  --app-warning-soft: oklch(0.96 0.03 73);
+  --app-warning-border: oklch(0.89 0.05 73);
+  --app-danger: oklch(0.62 0.2 25);
+  --app-danger-soft: oklch(0.95 0.03 24);
+  --app-danger-border: oklch(0.87 0.06 24);
+  --app-info: oklch(0.56 0.12 247);
+  --app-info-soft: oklch(0.95 0.02 247);
+  --app-info-border: oklch(0.86 0.04 247);
+
+  --font-sans: var(--font-body);
+  --font-display: var(--font-heading);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace;
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-text-strong: var(--text-strong);
+  --color-text-soft: var(--text-soft);
+  --color-app-success: var(--app-success);
+  --color-app-success-soft: var(--app-success-soft);
+  --color-app-success-border: var(--app-success-border);
+  --color-app-warning: var(--app-warning);
+  --color-app-warning-soft: var(--app-warning-soft);
+  --color-app-warning-border: var(--app-warning-border);
+  --color-app-danger: var(--app-danger);
+  --color-app-danger-soft: var(--app-danger-soft);
+  --color-app-danger-border: var(--app-danger-border);
+  --color-app-info: var(--app-info);
+  --color-app-info-soft: var(--app-info-soft);
+  --color-app-info-border: var(--app-info-border);
   --font-sans: var(--font-body);
   --font-display: var(--font-heading);
 }
@@ -55,35 +98,67 @@ body {
 }
 
 @layer components {
+  .app-shell {
+    @apply min-h-screen bg-transparent lg:flex;
+  }
+
+  .app-shell-content {
+    @apply min-w-0 flex-1;
+  }
+
+  .app-shell-sidebar-link {
+    @apply text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors;
+  }
+
+  .app-shell-sidebar-link-active {
+    @apply bg-sidebar-primary text-sidebar-primary-foreground;
+  }
+
   .app-page {
     @apply mx-auto w-full max-w-7xl px-4 py-6 md:px-6 md:py-8;
   }
 
   .app-page-header {
-    @apply border-border/80 bg-card/85 rounded-2xl border p-5 shadow-sm backdrop-blur-sm;
+    @apply border-border/80 bg-surface/90 rounded-2xl border p-5 shadow-sm backdrop-blur-sm;
   }
 
   .app-title {
-    @apply text-foreground text-2xl font-semibold md:text-3xl;
+    @apply text-text-strong text-2xl font-semibold md:text-3xl;
   }
 
   .app-subtitle {
-    @apply text-muted-foreground text-sm;
+    @apply text-text-soft text-sm;
   }
 
   .app-select {
-    @apply border-border bg-input text-foreground shadow-xs focus:border-ring focus-visible:ring-ring/30 h-10 w-full rounded-xl border px-3 text-sm outline-none transition-colors focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply border-border bg-input text-text-strong shadow-xs focus:border-ring focus-visible:ring-ring/30 h-10 w-full rounded-xl border px-3 text-sm outline-none transition-colors focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .app-muted-panel {
-    @apply border-border/80 bg-muted/50 rounded-xl border p-3;
+    @apply border-border/80 bg-surface-muted rounded-xl border p-3;
   }
 
   .app-badge {
-    @apply border-border bg-muted text-secondary-foreground inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium;
+    @apply border-border bg-surface-muted text-text-soft inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium;
   }
 
   .app-code {
-    @apply border-border/80 bg-muted/55 text-foreground max-h-96 overflow-auto rounded-xl border p-3 text-xs;
+    @apply border-border/80 bg-surface-muted text-text-strong max-h-96 overflow-auto rounded-xl border p-3 text-xs;
+  }
+
+  .app-status-success {
+    @apply border-app-success-border bg-app-success-soft text-app-success;
+  }
+
+  .app-status-warning {
+    @apply border-app-warning-border bg-app-warning-soft text-app-warning;
+  }
+
+  .app-status-danger {
+    @apply border-app-danger-border bg-app-danger-soft text-app-danger;
+  }
+
+  .app-status-info {
+    @apply border-app-info-border bg-app-info-soft text-app-info;
   }
 }

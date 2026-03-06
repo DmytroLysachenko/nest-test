@@ -35,7 +35,7 @@ export const DocumentsPanel = ({ token, disabled = false, disabledReason }: Docu
           accept="application/pdf"
           onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
           disabled={disabled}
-          className="rounded-md border border-slate-300 p-2 text-sm"
+          className="border-border rounded-md border p-2 text-sm"
         />
         <Button
           onClick={() => uploadMutation.mutate()}
@@ -43,13 +43,13 @@ export const DocumentsPanel = ({ token, disabled = false, disabledReason }: Docu
         >
           {uploadMutation.isPending ? 'Processing...' : 'Upload + confirm + extract'}
         </Button>
-        {activeStage !== 'idle' ? <p className="text-sm text-slate-600">Current stage: {activeStage}</p> : null}
-        {disabled && disabledReason ? <p className="text-sm text-amber-700">{disabledReason}</p> : null}
-        {status ? <p className="text-sm text-emerald-700">{status}</p> : null}
-        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+        {activeStage !== 'idle' ? <p className="text-text-soft text-sm">Current stage: {activeStage}</p> : null}
+        {disabled && disabledReason ? <p className="text-app-warning text-sm">{disabledReason}</p> : null}
+        {status ? <p className="text-app-success text-sm">{status}</p> : null}
+        {error ? <p className="text-app-danger text-sm">{error}</p> : null}
         {uploadHealthQuery.data ? (
           <div
-            className={`rounded-md border p-2 text-xs ${uploadHealthQuery.data.ok ? 'border-emerald-300 bg-emerald-50' : 'border-amber-300 bg-amber-50'}`}
+            className={`rounded-md border p-2 text-xs ${uploadHealthQuery.data.ok ? 'border-app-success-border bg-app-success-soft' : 'border-app-warning-border bg-app-warning-soft'}`}
           >
             <p className="font-semibold">Upload health: {uploadHealthQuery.data.ok ? 'OK' : 'Degraded'}</p>
             <p>
@@ -68,22 +68,22 @@ export const DocumentsPanel = ({ token, disabled = false, disabledReason }: Docu
       </div>
 
       <div className="mt-5 space-y-3">
-        <p className="text-sm font-semibold text-slate-800">Document list</p>
+        <p className="text-text-strong text-sm font-semibold">Document list</p>
         {documentsQuery.data?.length ? (
           documentsQuery.data.map((document) => (
-            <article key={document.id} className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
-              <p className="font-medium text-slate-900">{document.originalName}</p>
-              <p className="text-slate-600">
+            <article key={document.id} className="border-border bg-surface-muted rounded-md border p-3 text-sm">
+              <p className="text-text-strong font-medium">{document.originalName}</p>
+              <p className="text-text-soft">
                 Type: {document.type} | Extraction: {document.extractionStatus}
               </p>
               <p className="mt-1 text-xs">
                 <span
                   className={`rounded-full px-2 py-0.5 ${
                     document.extractionStatus === 'READY'
-                      ? 'bg-emerald-100 text-emerald-700'
+                      ? 'bg-app-success-soft text-app-success'
                       : document.extractionStatus === 'FAILED'
-                        ? 'bg-rose-100 text-rose-700'
-                        : 'bg-amber-100 text-amber-700'
+                        ? 'bg-app-danger-soft text-app-danger'
+                        : 'bg-app-warning-soft text-app-warning'
                   }`}
                 >
                   {document.extractionStatus}
@@ -114,36 +114,36 @@ export const DocumentsPanel = ({ token, disabled = false, disabledReason }: Docu
                   </Button>
                 </div>
                 {retryExtractMutation.isPending ? (
-                  <p className="mt-1 text-xs text-slate-500">Re-extracting document text...</p>
+                  <p className="text-text-soft mt-1 text-xs">Re-extracting document text...</p>
                 ) : null}
                 {removeDocumentMutation.isPending ? (
-                  <p className="mt-1 text-xs text-slate-500">Removing document...</p>
+                  <p className="text-text-soft mt-1 text-xs">Removing document...</p>
                 ) : null}
                 {document.extractionStatus === 'FAILED' ? (
-                  <p className="mt-1 text-xs text-amber-700">Extraction failed. Use retry or replace document.</p>
+                  <p className="text-app-warning mt-1 text-xs">Extraction failed. Use retry or replace document.</p>
                 ) : null}
               </div>
-              {document.extractionError ? <p className="text-rose-600">{document.extractionError}</p> : null}
+              {document.extractionError ? <p className="text-app-danger">{document.extractionError}</p> : null}
             </article>
           ))
         ) : (
-          <p className="text-sm text-slate-500">No documents yet.</p>
+          <p className="text-text-soft text-sm">No documents yet.</p>
         )}
       </div>
 
       {selectedDocumentId && documentEventsQuery.data?.length ? (
         <div className="mt-5 space-y-2">
-          <p className="text-sm font-semibold text-slate-800">
+          <p className="text-text-strong text-sm font-semibold">
             Diagnostics timeline ({selectedDocumentId.slice(0, 8)})
           </p>
           {documentEventsQuery.data.map((event) => (
-            <article key={event.id} className="rounded-md border border-slate-200 bg-white p-2 text-xs">
-              <p className="font-medium text-slate-900">
+            <article key={event.id} className="border-border bg-surface-elevated rounded-md border p-2 text-xs">
+              <p className="text-text-strong font-medium">
                 {event.stage} · {event.status}
               </p>
-              <p className="text-slate-700">{event.message}</p>
-              {event.errorCode ? <p className="text-rose-600">code: {event.errorCode}</p> : null}
-              {event.traceId ? <p className="text-slate-500">traceId: {event.traceId}</p> : null}
+              <p className="text-text-soft">{event.message}</p>
+              {event.errorCode ? <p className="text-app-danger">code: {event.errorCode}</p> : null}
+              {event.traceId ? <p className="text-text-soft">traceId: {event.traceId}</p> : null}
             </article>
           ))}
         </div>

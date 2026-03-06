@@ -18,10 +18,11 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public.decorator';
 import { JwtAuthGuard } from '@/common/guards';
 import { JwtValidateUser } from '@/types/interface/jwt';
-import type { Env } from '@/config/env';
 
 import { OpsMetricsResponse } from './dto/ops-metrics.response';
 import { OpsService } from './ops.service';
+
+import type { Env } from '@/config/env';
 
 @ApiTags('ops')
 @ApiBearerAuth()

@@ -1,4 +1,9 @@
-import { ArgumentsHost, BadRequestException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  BadRequestException,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 
 import { HttpExceptionFilter } from './http-exception.filter';
 

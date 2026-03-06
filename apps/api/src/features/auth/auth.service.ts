@@ -20,6 +20,7 @@ import { ChangePasswordDto } from './dto/change-password-dto';
 import { User } from './auth.interface';
 import { TokenService } from './token.service';
 import { GoogleOauthService } from './google-oauth.service';
+import { GoogleOauthLoginDto } from './dto/google-oauth-login.dto';
 
 type UserWithProfile = {
   users: typeof usersTable.$inferSelect;
@@ -80,13 +81,29 @@ export class AuthService {
     };
   }
 
-  async loginWithGoogleIdToken(idToken: string, device: DeviceType, nonce?: string) {
-    const payload = await this.googleOauthService.verifyIdToken(idToken);
+  async loginWithGoogle(body: GoogleOauthLoginDto, device: DeviceType) {
+    const { idToken, code, codeVerifier, redirectUri, nonce } = body;
+    let resolvedIdToken = idToken;
+    if (!resolvedIdToken && code) {
+      resolvedIdToken = await this.googleOauthService.exchangeAuthorizationCodeForIdToken({
+        code,
+        codeVerifier,
+        redirectUri,
+      });
+    }
+    if (!resolvedIdToken) {
+      throw new BadRequestException('Either idToken or authorization code is required');
+    }
+
+    const payload = await this.googleOauthService.verifyIdToken(resolvedIdToken);
     if (nonce && payload.nonce !== nonce) {
       throw new UnauthorizedException('Invalid Google token nonce');
     }
 
-    const email = payload.email as string;
+    return this.loginWithGooglePayload(payload.email as string, device);
+  }
+
+  private async loginWithGooglePayload(email: string, device: DeviceType) {
     const now = new Date();
     let user = await this.db
       .select()

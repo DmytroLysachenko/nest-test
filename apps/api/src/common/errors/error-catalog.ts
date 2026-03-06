@@ -54,5 +54,4 @@ const CATALOG_BY_STATUS: Record<number, ErrorCatalogEntry> = {
   [HttpStatus.INTERNAL_SERVER_ERROR]: DEFAULT_ENTRY,
 };
 
-export const getErrorCatalogEntry = (status: number): ErrorCatalogEntry =>
-  CATALOG_BY_STATUS[status] ?? DEFAULT_ENTRY;
+export const getErrorCatalogEntry = (status: number): ErrorCatalogEntry => CATALOG_BY_STATUS[status] ?? DEFAULT_ENTRY;
