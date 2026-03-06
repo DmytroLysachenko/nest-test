@@ -4,6 +4,8 @@ import { Label } from '@/shared/ui/label';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/button';
+import { DataFreshnessBadge } from '@/shared/ui/data-freshness-badge';
+import { FilterChipBar } from '@/shared/ui/filter-chip-bar';
 
 import type { JobOfferStatus } from '@/shared/types/api';
 
@@ -20,7 +22,17 @@ type NotebookFiltersCardProps = {
   onHasScoreChange: (value: 'all' | 'yes' | 'no') => void;
   onTagChange: (value: string) => void;
   onSearchChange: (value: string) => void;
+  onResetFilters: () => void;
+  onSavePreset: () => void;
+  onApplyPreset: () => void;
+  hasSavedPreset: boolean;
+  activeFilters: Array<{
+    key: string;
+    label: string;
+    onClear: () => void;
+  }>;
   total: number;
+  listUpdatedAt: number | null | undefined;
   isEnqueueingScrape: boolean;
   onEnqueueProfileScrape: () => void;
   enqueueStatus: string | null;
@@ -37,7 +49,13 @@ export const NotebookFiltersCard = ({
   onHasScoreChange,
   onTagChange,
   onSearchChange,
+  onResetFilters,
+  onSavePreset,
+  onApplyPreset,
+  hasSavedPreset,
+  activeFilters,
   total,
+  listUpdatedAt,
   isEnqueueingScrape,
   onEnqueueProfileScrape,
   enqueueStatus,
@@ -46,6 +64,28 @@ export const NotebookFiltersCard = ({
     title="Job Notebook"
     description="Review scraped offers, update workflow status, manage notes/tags, and inspect scoring output."
   >
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      <p className="text-text-soft text-xs">Total: {total}</p>
+      <DataFreshnessBadge updatedAt={listUpdatedAt} label="Results" />
+      <Button type="button" variant="ghost" className="h-8 px-3 text-xs" onClick={onResetFilters}>
+        Reset filters
+      </Button>
+      <Button type="button" variant="ghost" className="h-8 px-3 text-xs" onClick={onSavePreset}>
+        Save preset
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="h-8 px-3 text-xs"
+        onClick={onApplyPreset}
+        disabled={!hasSavedPreset}
+      >
+        Apply preset
+      </Button>
+    </div>
+
+    <FilterChipBar items={activeFilters} onResetAll={onResetFilters} />
+
     <div className="grid gap-3 md:grid-cols-6">
       <div className="space-y-1">
         <Label htmlFor="notebook-status">Status</Label>
@@ -114,7 +154,6 @@ export const NotebookFiltersCard = ({
     </div>
 
     <div className="mt-3 flex flex-wrap items-center gap-2">
-      <p className="text-muted-foreground text-xs">Total: {total}</p>
       <Button type="button" variant="secondary" onClick={onEnqueueProfileScrape} disabled={isEnqueueingScrape}>
         {isEnqueueingScrape ? 'Enqueuing scrape...' : 'Enqueue profile scrape'}
       </Button>

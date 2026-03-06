@@ -6,6 +6,8 @@ import { useEffect } from 'react';
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { NotebookPage } from '@/features/job-offers';
 import { useWorkflowState } from '@/features/workflow/model/use-workflow-state';
+import { PageLoadingState } from '@/shared/ui/async-states';
+import { EmptyState } from '@/shared/ui/empty-state';
 
 export default function NotebookRoute() {
   const router = useRouter();
@@ -22,16 +24,25 @@ export default function NotebookRoute() {
   }, [auth.token, router, workflow.allowNotebook, workflow.isLoading]);
 
   if (!auth.token) {
-    return <main className="app-page text-muted-foreground text-sm">Checking session...</main>;
+    return <PageLoadingState title="Checking session" subtitle="Validating your JobSeeker access..." />;
   }
 
   if (workflow.isLoading) {
-    return <main className="app-page text-muted-foreground text-sm">Checking notebook readiness...</main>;
+    return (
+      <PageLoadingState title="Checking notebook readiness" subtitle="Validating profile and scrape prerequisites..." />
+    );
   }
 
   if (!workflow.allowNotebook) {
     return (
-      <main className="app-page text-muted-foreground text-sm">Notebook is locked until a scrape run completes.</main>
+      <main className="app-page">
+        <EmptyState
+          title="Notebook is locked"
+          description="Complete onboarding and finish at least one scrape run to unlock offer triage."
+          actionLabel="Go to dashboard"
+          onAction={() => router.push('/')}
+        />
+      </main>
     );
   }
 

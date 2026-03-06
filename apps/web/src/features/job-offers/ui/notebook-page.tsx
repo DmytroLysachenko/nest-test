@@ -6,6 +6,7 @@ import { useNotebookPage } from '@/features/job-offers/model/use-notebook-page';
 import { NotebookFiltersCard } from '@/features/job-offers/ui/components/notebook-filters-card';
 import { NotebookOfferDetailsCard } from '@/features/job-offers/ui/components/notebook-offer-details-card';
 import { NotebookOffersListCard } from '@/features/job-offers/ui/components/notebook-offers-list-card';
+import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { useAppUiStore } from '@/shared/store/app-ui-store';
 
 type NotebookPageProps = {
@@ -28,7 +29,13 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
         hasScore={notebook.filters.hasScore}
         tag={notebook.filters.tag}
         search={notebook.filters.search}
+        onResetFilters={notebook.resetNotebookFilters}
+        onSavePreset={notebook.saveNotebookFilterPreset}
+        onApplyPreset={notebook.applyNotebookFilterPreset}
+        hasSavedPreset={Boolean(notebook.savedPreset)}
+        activeFilters={notebook.activeFilters}
         total={notebook.listQuery.data?.total ?? 0}
+        listUpdatedAt={notebook.listQuery.dataUpdatedAt}
         isEnqueueingScrape={notebook.enqueueProfileScrapeMutation.isPending}
         onEnqueueProfileScrape={() => notebook.enqueueProfileScrapeMutation.mutate()}
         enqueueStatus={
@@ -45,41 +52,75 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
         onSearchChange={(value) => notebook.setNotebookFilter('search', value)}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
-        <NotebookOffersListCard
-          offers={notebook.listQuery.data?.items ?? []}
-          selectedId={notebook.selectedId}
-          offset={notebook.pagination.offset}
-          canPrev={notebook.canPrev}
-          canNext={notebook.canNext}
-          onSelectOffer={notebook.setNotebookSelectedOffer}
-          onPrev={() => notebook.setNotebookOffset(notebook.pagination.offset - notebook.pagination.limit)}
-          onNext={() => notebook.setNotebookOffset(notebook.pagination.offset + notebook.pagination.limit)}
-        />
+      <div className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
+        {notebook.listQuery.isLoading ? (
+          <SectionLoadingState title="Offers" description="Loading notebook offers..." rows={7} />
+        ) : notebook.listError ? (
+          <SectionErrorState
+            title="Offers"
+            message={notebook.listError}
+            onRetry={() => {
+              void notebook.listQuery.refetch();
+            }}
+          />
+        ) : (
+          <NotebookOffersListCard
+            offers={notebook.listQuery.data?.items ?? []}
+            selectedId={notebook.selectedId}
+            selectedOfferIds={notebook.selectedOfferIds}
+            isBusy={notebook.isBusy}
+            offset={notebook.pagination.offset}
+            canPrev={notebook.canPrev}
+            canNext={notebook.canNext}
+            isAllVisibleSelected={notebook.isAllVisibleSelected}
+            onSelectOffer={notebook.setNotebookSelectedOffer}
+            onToggleOfferSelection={notebook.toggleNotebookSelectedOfferId}
+            onSelectAllVisible={() => {
+              if (notebook.isAllVisibleSelected) {
+                notebook.clearNotebookSelectedOfferIds();
+                return;
+              }
+              notebook.setNotebookSelectedOfferIds(notebook.selectedVisibleIds);
+            }}
+            onClearSelected={notebook.clearNotebookSelectedOfferIds}
+            onBulkStatusChange={(status) => {
+              notebook.bulkUpdateStatus({
+                ids: notebook.selectedOfferIds,
+                status,
+              });
+            }}
+            onPrev={() => notebook.setNotebookOffset(notebook.pagination.offset - notebook.pagination.limit)}
+            onNext={() => notebook.setNotebookOffset(notebook.pagination.offset + notebook.pagination.limit)}
+          />
+        )}
 
-        <NotebookOfferDetailsCard
-          offer={notebook.selectedOffer}
-          history={notebook.historyQuery.data}
-          isBusy={notebook.isBusy}
-          onStatusChange={(status) => {
-            if (!notebook.selectedOffer) {
-              return;
-            }
-            notebook.updateStatus({ id: notebook.selectedOffer.id, status });
-          }}
-          onSaveMeta={(notes, tags) => {
-            if (!notebook.selectedOffer) {
-              return;
-            }
-            notebook.updateMeta({ id: notebook.selectedOffer.id, notes, tags });
-          }}
-          onRescore={() => {
-            if (!notebook.selectedOffer) {
-              return;
-            }
-            notebook.rescore({ id: notebook.selectedOffer.id });
-          }}
-        />
+        <div className="xl:sticky xl:top-24 xl:self-start">
+          <NotebookOfferDetailsCard
+            offer={notebook.selectedOffer}
+            history={notebook.historyQuery.data}
+            historyError={notebook.historyError}
+            updatedAt={notebook.listQuery.dataUpdatedAt}
+            isBusy={notebook.isBusy}
+            onStatusChange={(status) => {
+              if (!notebook.selectedOffer) {
+                return;
+              }
+              notebook.updateStatus({ id: notebook.selectedOffer.id, status });
+            }}
+            onSaveMeta={(notes, tags) => {
+              if (!notebook.selectedOffer) {
+                return;
+              }
+              notebook.updateMeta({ id: notebook.selectedOffer.id, notes, tags });
+            }}
+            onRescore={() => {
+              if (!notebook.selectedOffer) {
+                return;
+              }
+              notebook.rescore({ id: notebook.selectedOffer.id });
+            }}
+          />
+        </div>
       </div>
     </main>
   );
