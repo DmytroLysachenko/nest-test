@@ -23,6 +23,7 @@ describe('AuthService', () => {
     } as any;
     const googleOauthService = {
       verifyIdToken: jest.fn(),
+      exchangeAuthorizationCodeForIdToken: jest.fn(),
     } as any;
 
     const service = new AuthService(db, optsService, logger, tokenService, googleOauthService);
@@ -145,8 +146,11 @@ describe('AuthService', () => {
     });
 
     await expect(
-      service.loginWithGoogleIdToken(
-        'id-token',
+      service.loginWithGoogle(
+        {
+          idToken: 'id-token',
+          nonce: 'nonce-b',
+        },
         {
           ip: '127.0.0.1',
           userAgent: 'test',
@@ -155,8 +159,25 @@ describe('AuthService', () => {
           deviceOs: 'test-os',
           browser: 'test-browser',
         },
-        'nonce-b',
       ),
     ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('fails google login when neither id token nor code is provided', async () => {
+    const { service } = createService();
+
+    await expect(
+      service.loginWithGoogle(
+        {},
+        {
+          ip: '127.0.0.1',
+          userAgent: 'test',
+          deviceType: 'desktop',
+          deviceName: 'test-device',
+          deviceOs: 'test-os',
+          browser: 'test-browser',
+        },
+      ),
+    ).rejects.toThrow(BadRequestException);
   });
 });

@@ -5,12 +5,11 @@ import { useRouter } from 'next/navigation';
 
 import { loginWithGoogle } from '@/features/auth/api/auth-api';
 import { useAuth } from '@/features/auth/model/context/auth-context';
-import { GOOGLE_OAUTH_NONCE_KEY } from '@/features/auth/model/utils/google-oauth';
-
-const extractHashParams = (hash: string) => {
-  const raw = hash.startsWith('#') ? hash.slice(1) : hash;
-  return new URLSearchParams(raw);
-};
+import {
+  GOOGLE_OAUTH_CODE_VERIFIER_KEY,
+  GOOGLE_OAUTH_NONCE_KEY,
+  GOOGLE_OAUTH_STATE_KEY,
+} from '@/features/auth/model/utils/google-oauth';
 
 export default function GoogleAuthCallbackPage() {
   const router = useRouter();
@@ -18,29 +17,46 @@ export default function GoogleAuthCallbackPage() {
   const [error, setError] = useState<string | null>(null);
 
   const nonce = useMemo(() => window.sessionStorage.getItem(GOOGLE_OAUTH_NONCE_KEY) ?? undefined, []);
+  const expectedState = useMemo(() => window.sessionStorage.getItem(GOOGLE_OAUTH_STATE_KEY) ?? undefined, []);
+  const codeVerifier = useMemo(() => window.sessionStorage.getItem(GOOGLE_OAUTH_CODE_VERIFIER_KEY) ?? undefined, []);
 
   useEffect(() => {
-    const params = extractHashParams(window.location.hash);
-    const idToken = params.get('id_token');
-    if (!idToken) {
-      setError('Google login token not found in callback URL.');
+    const params = new URLSearchParams(window.location.search);
+    const callbackError = params.get('error');
+    if (callbackError) {
+      setError(`Google login failed: ${callbackError}.`);
+      return;
+    }
+
+    const code = params.get('code');
+    const state = params.get('state');
+    if (!code) {
+      setError('Google authorization code not found in callback URL.');
+      return;
+    }
+    if (!state || !expectedState || state !== expectedState) {
+      setError('Google login state validation failed.');
       return;
     }
 
     loginWithGoogle({
-      idToken,
+      code,
+      codeVerifier,
+      redirectUri: `${window.location.origin}/auth/callback/google`,
       nonce,
     })
       .then((payload) => {
         auth.setSession(payload.accessToken, payload.refreshToken, payload.user);
         window.sessionStorage.removeItem(GOOGLE_OAUTH_NONCE_KEY);
+        window.sessionStorage.removeItem(GOOGLE_OAUTH_STATE_KEY);
+        window.sessionStorage.removeItem(GOOGLE_OAUTH_CODE_VERIFIER_KEY);
         router.replace('/');
       })
       .catch((cause) => {
         const message = cause instanceof Error ? cause.message : 'Google login failed.';
         setError(message);
       });
-  }, [auth, nonce, router]);
+  }, [auth, codeVerifier, expectedState, nonce, router]);
 
   return (
     <main className="app-page flex min-h-[40vh] items-center justify-center">

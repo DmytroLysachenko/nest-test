@@ -15,6 +15,7 @@ export const EnvSchema = z.object({
   MAIL_PASSWORD: z.string(),
   DATABASE_URL: z.string(),
   GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
   GCP_LOCATION: z.string().default('us-central1'),
@@ -92,6 +93,12 @@ export const validateEnv = (env: Record<string, unknown>): Env => {
     if (audienceUrl.protocol !== 'https:') {
       throw new Error('WORKER_CALLBACK_OIDC_AUDIENCE must use https in production mode');
     }
+  }
+  if (
+    (parsed.data.GOOGLE_OAUTH_CLIENT_ID && !parsed.data.GOOGLE_OAUTH_CLIENT_SECRET) ||
+    (!parsed.data.GOOGLE_OAUTH_CLIENT_ID && parsed.data.GOOGLE_OAUTH_CLIENT_SECRET)
+  ) {
+    throw new Error('GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET must be configured together');
   }
   if (
     parsed.data.WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL &&

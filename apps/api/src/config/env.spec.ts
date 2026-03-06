@@ -16,6 +16,8 @@ const baseEnv = () => ({
   DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/app',
   GCS_BUCKET: 'bucket',
   ALLOWED_ORIGINS: 'http://localhost:3000',
+  GOOGLE_OAUTH_CLIENT_ID: 'google-client-id',
+  GOOGLE_OAUTH_CLIENT_SECRET: 'google-client-secret',
 });
 
 describe('validateEnv', () => {
@@ -75,6 +77,15 @@ describe('validateEnv', () => {
         API_THROTTLE_LIMIT: '120',
       }),
     ).not.toThrow();
+  });
+
+  it('rejects incomplete google oauth config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        GOOGLE_OAUTH_CLIENT_SECRET: undefined,
+      }),
+    ).toThrow('GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET must be configured together');
   });
 
   it('rejects invalid global API throttle config', () => {
