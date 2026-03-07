@@ -9,6 +9,7 @@ import { Card } from '@/shared/ui/card';
 import { ConfirmActionDialog } from '@/shared/ui/confirm-action-dialog';
 import { DataFreshnessBadge } from '@/shared/ui/data-freshness-badge';
 import { Input } from '@/shared/ui/input';
+import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
 
@@ -44,7 +45,9 @@ export const NotebookOfferDetailsCard = ({
   if (!offer) {
     return (
       <Card title="Offer details" description="Select an offer from the list to inspect and edit it.">
-        <p className="text-muted-foreground text-sm">No offer selected.</p>
+        <div className="app-muted-panel">
+          <p className="text-muted-foreground text-sm">No offer selected.</p>
+        </div>
       </Card>
     );
   }
@@ -53,16 +56,17 @@ export const NotebookOfferDetailsCard = ({
 
   return (
     <Card title="Offer details" description={offer.title}>
-      <div className="space-y-3 text-sm">
-        <p className="text-secondary-foreground">
-          {offer.company ?? 'Unknown company'} | {offer.location ?? 'Unknown location'}
-        </p>
-        <p className="text-secondary-foreground">
-          Current status: <span className="font-semibold">{offer.status}</span>
-        </p>
-        <p className="text-secondary-foreground">
-          Current score: <span className="font-semibold">{offer.matchScore ?? 'n/a'}</span>
-        </p>
+      <div className="space-y-4 text-sm">
+        <div className="app-muted-panel space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="app-badge">{offer.status}</span>
+            <span className="app-badge">Score {offer.matchScore ?? 'n/a'}</span>
+            <DataFreshnessBadge updatedAt={updatedAt} label="Offer data" />
+          </div>
+          <p className="text-secondary-foreground">
+            {offer.company ?? 'Unknown company'} | {offer.location ?? 'Unknown location'}
+          </p>
+        </div>
 
         <div className="flex flex-wrap gap-2">
           {STATUSES.map((status) => (
@@ -82,11 +86,12 @@ export const NotebookOfferDetailsCard = ({
               {status}
             </Button>
           ))}
-          <DataFreshnessBadge updatedAt={updatedAt} label="Offer data" />
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="offer-notes">Notes</Label>
+        <div className="app-field-group">
+          <Label htmlFor="offer-notes" className="app-inline-label">
+            Notes
+          </Label>
           <Textarea
             id="offer-notes"
             rows={4}
@@ -96,8 +101,10 @@ export const NotebookOfferDetailsCard = ({
           />
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="offer-tags">Tags (comma separated)</Label>
+        <div className="app-field-group">
+          <Label htmlFor="offer-tags" className="app-inline-label">
+            Tags (comma separated)
+          </Label>
           <Input
             id="offer-tags"
             value={drafts.tagsDraft}
@@ -142,11 +149,13 @@ export const NotebookOfferDetailsCard = ({
         {history ? (
           <details className="app-muted-panel" open>
             <summary className="text-foreground cursor-pointer font-medium">Status history</summary>
-            <div className="text-secondary-foreground mt-2 space-y-1 text-xs">
+            <div className="mt-2 space-y-2 text-xs">
               {(history.statusHistory ?? []).map((entry, index) => (
-                <p key={`${entry.status}-${entry.changedAt}-${index}`}>
-                  {entry.changedAt}: {entry.status}
-                </p>
+                <InspectorRow
+                  key={`${entry.status}-${entry.changedAt}-${index}`}
+                  label={entry.changedAt}
+                  value={entry.status}
+                />
               ))}
             </div>
           </details>

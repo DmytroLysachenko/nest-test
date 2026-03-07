@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { getJobOfferHistory, listJobOffers } from '@/features/job-offers/api/job-offers-api';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
+import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
 import type { ListJobOffersParams } from '@/features/job-offers/api/job-offers-api';
@@ -21,6 +22,7 @@ export const useNotebookQueries = ({ token, listParams, selectedId }: UseNoteboo
       token,
       queryKey: queryKeys.jobOffers.list(token, listParams),
       queryFn: (authToken) => listJobOffers(authToken, listParams),
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
     }),
   );
 
@@ -35,6 +37,7 @@ export const useNotebookQueries = ({ token, listParams, selectedId }: UseNoteboo
       queryKey: queryKeys.jobOffers.history(token, selectedOffer?.id ?? null),
       queryFn: (authToken) => getJobOfferHistory(authToken, selectedOffer!.id),
       enabled: Boolean(selectedOffer?.id),
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
     }),
   );
 

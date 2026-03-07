@@ -24,7 +24,7 @@ export const WorkflowOverviewCard = ({ completedSteps, totalSteps, isLoading, st
     >
       <div className="space-y-4">
         <div className="space-y-2">
-          <div className="bg-surface-muted h-2 overflow-hidden rounded-full">
+          <div className="bg-surface-muted h-2.5 overflow-hidden rounded-full">
             <div className="bg-app-success h-full rounded-full transition-all" style={{ width: `${progress}%` }} />
           </div>
           <p className="text-text-soft text-xs">
@@ -36,14 +36,27 @@ export const WorkflowOverviewCard = ({ completedSteps, totalSteps, isLoading, st
           {steps.map((step, index) => (
             <article
               key={step.key}
-              className={`rounded-md border p-3 text-sm ${
-                step.done ? 'border-app-success-border bg-app-success-soft' : 'border-border bg-surface-muted'
+              className={`rounded-2xl border p-4 text-sm ${
+                step.done ? 'border-app-success-border bg-app-success-soft' : 'border-border bg-surface-muted/80'
               }`}
             >
-              <p className="text-text-strong font-medium">
-                {index + 1}. {step.label}
-              </p>
-              <p className="text-text-soft mt-1 text-xs">{step.hint}</p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-text-strong font-medium">
+                    {index + 1}. {step.label}
+                  </p>
+                  <p className="text-text-soft mt-1 text-xs leading-5">{step.hint}</p>
+                </div>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                    step.done
+                      ? 'border-app-success-border bg-app-success-soft text-app-success'
+                      : 'border-border bg-surface-elevated text-text-soft'
+                  }`}
+                >
+                  {step.done ? 'Ready' : 'Pending'}
+                </span>
+              </div>
             </article>
           ))}
         </div>

@@ -23,6 +23,51 @@ resolve_service_url() {
   gcloud run services describe "$service" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format='value(status.url)' 2>/dev/null || true
 }
 
+resolve_service_urls_csv() {
+  local service="$1"
+  local urls_raw=""
+  local status_url=""
+
+  urls_raw="$(gcloud run services describe "$service" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format="value(metadata.annotations.'run.googleapis.com/urls')" 2>/dev/null || true)"
+  urls_raw="${urls_raw//[[:space:]]/}"
+  urls_raw="${urls_raw#[}"
+  urls_raw="${urls_raw%]}"
+  urls_raw="${urls_raw//\"/}"
+
+  if [[ -n "$urls_raw" ]]; then
+    echo "$urls_raw"
+    return
+  fi
+
+  status_url="$(resolve_service_url "$service")"
+  echo "$status_url"
+}
+
+merge_csv_unique() {
+  local merged=""
+  local csv=""
+  local value=""
+  local values=()
+
+  for csv in "$@"; do
+    [[ -z "$csv" ]] && continue
+    IFS=',' read -r -a values <<< "$csv"
+    for value in "${values[@]}"; do
+      value="$(echo "$value" | xargs)"
+      [[ -z "$value" ]] && continue
+      if [[ ",$merged," != *",$value,"* ]]; then
+        if [[ -z "$merged" ]]; then
+          merged="$value"
+        else
+          merged="${merged},${value}"
+        fi
+      fi
+    done
+  done
+
+  echo "$merged"
+}
+
 ensure_tasks_queue() {
   local queue_name="$1"
   local location="$2"
@@ -195,6 +240,7 @@ fi
 API_URL="$(resolve_service_url "$GCP_API_SERVICE")"
 WORKER_URL="$(resolve_service_url "$GCP_WORKER_SERVICE")"
 WEB_URL="$(resolve_service_url "$GCP_WEB_SERVICE")"
+WEB_URLS_CSV="$(resolve_service_urls_csv "$GCP_WEB_SERVICE")"
 
 if [[ "$DEPLOY_WORKER" == "true" ]]; then
   echo "Deploy worker (pass 1)..."
@@ -235,7 +281,7 @@ if [[ "$DEPLOY_API" == "true" ]]; then
   fi
 
   echo "Deploy api..."
-  API_ALLOWED_ORIGINS="$ALLOWED_ORIGINS"
+  API_ALLOWED_ORIGINS="$(merge_csv_unique "$ALLOWED_ORIGINS" "$WEB_URLS_CSV")"
   if [[ -z "$API_ALLOWED_ORIGINS" ]]; then
     API_ALLOWED_ORIGINS="https://example.com"
   fi
@@ -322,13 +368,11 @@ if [[ "$DEPLOY_WORKER" == "true" ]]; then
     >/dev/null
 fi
 
-if [[ "$DEPLOY_API" == "true" && -z "$ALLOWED_ORIGINS" ]]; then
-  if [[ -z "$WEB_URL" ]]; then
-    WEB_URL="$(resolve_service_url "$GCP_WEB_SERVICE")"
-  fi
-
-  if [[ -n "$WEB_URL" ]]; then
-    echo "Finalize API allowed origins from deployed web URL..."
+if [[ "$DEPLOY_API" == "true" ]]; then
+  WEB_URLS_CSV="$(resolve_service_urls_csv "$GCP_WEB_SERVICE")"
+  FINAL_API_ALLOWED_ORIGINS="$(merge_csv_unique "$ALLOWED_ORIGINS" "$WEB_URLS_CSV")"
+  if [[ -n "$FINAL_API_ALLOWED_ORIGINS" ]]; then
+    echo "Finalize API allowed origins from deployed web URLs..."
     gcloud run deploy "$GCP_API_SERVICE" \
       --project="$GCP_PROJECT_ID" \
       --region="$GCP_REGION" \
@@ -341,7 +385,7 @@ if [[ "$DEPLOY_API" == "true" && -z "$ALLOWED_ORIGINS" ]]; then
       --cpu=1 \
       --memory=512Mi \
       --set-secrets="DATABASE_URL=app-database-url:latest,ACCESS_TOKEN_SECRET=app-access-token-secret:latest,REFRESH_TOKEN_SECRET=app-refresh-token-secret:latest,MAIL_USERNAME=app-mail-username:latest,MAIL_PASSWORD=app-mail-password:latest,GOOGLE_OAUTH_CLIENT_SECRET=app-google-oauth-client-secret:latest,WORKER_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest,SCHEDULER_AUTH_TOKEN=app-scheduler-auth-token:latest,OPS_INTERNAL_TOKEN=app-ops-internal-token:latest" \
-      --set-env-vars="NODE_ENV=production,HOST=0.0.0.0,ACCESS_TOKEN_EXPIRATION=${ACCESS_TOKEN_EXPIRATION},REFRESH_TOKEN_EXPIRATION=${REFRESH_TOKEN_EXPIRATION},MAIL_HOST=${MAIL_HOST},MAIL_PORT=${MAIL_PORT},MAIL_SECURE=${MAIL_SECURE},GCS_BUCKET=${GCS_BUCKET},GCP_PROJECT_ID=${GCP_PROJECT_ID},GCP_LOCATION=${GCP_REGION},GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID},API_PREFIX=api,ALLOWED_ORIGINS=${WEB_URL},API_THROTTLE_TTL_MS=${API_THROTTLE_TTL_MS},API_THROTTLE_LIMIT=${API_THROTTLE_LIMIT},WORKER_TASK_PROVIDER=cloud-tasks,WORKER_TASK_URL=${WORKER_URL}/tasks,WORKER_TASKS_PROJECT_ID=${GCP_PROJECT_ID},WORKER_TASKS_LOCATION=${GCP_REGION},WORKER_TASKS_QUEUE=${WORKER_TASKS_QUEUE}" \
+      --set-env-vars="NODE_ENV=production,HOST=0.0.0.0,ACCESS_TOKEN_EXPIRATION=${ACCESS_TOKEN_EXPIRATION},REFRESH_TOKEN_EXPIRATION=${REFRESH_TOKEN_EXPIRATION},MAIL_HOST=${MAIL_HOST},MAIL_PORT=${MAIL_PORT},MAIL_SECURE=${MAIL_SECURE},GCS_BUCKET=${GCS_BUCKET},GCP_PROJECT_ID=${GCP_PROJECT_ID},GCP_LOCATION=${GCP_REGION},GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID},API_PREFIX=api,ALLOWED_ORIGINS=${FINAL_API_ALLOWED_ORIGINS},API_THROTTLE_TTL_MS=${API_THROTTLE_TTL_MS},API_THROTTLE_LIMIT=${API_THROTTLE_LIMIT},WORKER_TASK_PROVIDER=cloud-tasks,WORKER_TASK_URL=${WORKER_URL}/tasks,WORKER_TASKS_PROJECT_ID=${GCP_PROJECT_ID},WORKER_TASKS_LOCATION=${GCP_REGION},WORKER_TASKS_QUEUE=${WORKER_TASKS_QUEUE}" \
       >/dev/null
   fi
 fi

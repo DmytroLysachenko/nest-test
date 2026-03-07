@@ -11,6 +11,7 @@ import { ProfileInputEditorCard } from '@/features/profile-management/ui/compone
 import { ProfileQualityCard } from '@/features/profile-management/ui/components/profile-quality-card';
 import { DocumentsPanel } from '@/features/documents';
 import { useAppUiStore } from '@/shared/store/app-ui-store';
+import { HeroHeader } from '@/shared/ui/dashboard-primitives';
 
 export const ProfileManagementPage = () => {
   const auth = useRequireAuth();
@@ -42,21 +43,26 @@ export const ProfileManagementPage = () => {
   const canGenerate = readyDocumentsCount > 0;
 
   return (
-    <main className="app-page flex flex-col gap-6">
-      <header className="app-page-header flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="app-title text-2xl">Profile Management</h1>
-          <p className="app-subtitle mt-1">
-            Manage profile input, documents readiness, and career profile version lifecycle.
-          </p>
-        </div>
-        <Link
-          className="border-border bg-card text-secondary-foreground rounded-xl border px-3 py-2 text-xs font-medium"
-          href="/"
-        >
-          Back to workspace
-        </Link>
-      </header>
+    <main className="app-page">
+      <HeroHeader
+        eyebrow="Profile Studio"
+        title="Profile Management"
+        subtitle="Keep your source material, profile input, and generated career profile versions aligned so matching quality stays predictable."
+        meta={
+          <>
+            <span className="app-badge">Ready documents: {readyDocumentsCount}</span>
+            <span className="app-badge">Generation: {canGenerate ? 'Available' : 'Blocked'}</span>
+          </>
+        }
+        action={
+          <Link
+            className="border-border bg-card text-secondary-foreground rounded-xl border px-3 py-2 text-xs font-medium"
+            href="/"
+          >
+            Back to workspace
+          </Link>
+        }
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <ProfileInputEditorCard

@@ -50,7 +50,7 @@ export const SectionLoadingState = ({ title, description, rows = 3 }: SectionLoa
   <Card title={title} description={description}>
     <div className="space-y-2">
       {Array.from({ length: rows }).map((_, index) => (
-        <Skeleton key={index} className="h-10 w-full rounded-lg" />
+        <Skeleton key={index} className="h-11 w-full rounded-2xl" />
       ))}
     </div>
   </Card>

@@ -22,7 +22,7 @@ export const FilterChipBar = ({ items, onResetAll }: FilterChipBarProps) => {
         <button
           key={item.key}
           type="button"
-          className="border-border bg-surface-elevated text-text-soft hover:bg-surface-muted inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs"
+          className="border-border bg-surface-elevated text-text-soft hover:bg-surface-muted inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors"
           onClick={item.onClear}
         >
           <span>{item.label}</span>

@@ -8,6 +8,7 @@ import { getJobOffersPreview, listJobOffers } from '@/features/job-offers/api/jo
 import { getWorkspaceSummary } from '@/features/workspace/api/workspace-api';
 import { env } from '@/shared/config/env';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
+import { QUERY_GC_TIME, QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
 export const useWorkspaceDashboardQueries = (token: string | null) => {
@@ -16,6 +17,8 @@ export const useWorkspaceDashboardQueries = (token: string | null) => {
       token,
       queryKey: queryKeys.workflow.summary(token),
       queryFn: getWorkspaceSummary,
+      staleTime: QUERY_STALE_TIME.CORE_DATA,
+      gcTime: QUERY_GC_TIME.LONG_LIVED,
     }),
   );
 
@@ -25,6 +28,7 @@ export const useWorkspaceDashboardQueries = (token: string | null) => {
       queryKey: queryKeys.jobOffers.list(token, { limit: 8, offset: 0, mode: 'strict' }),
       queryFn: (authToken) => listJobOffers(authToken, { limit: 8, offset: 0, mode: 'strict' }),
       select: getJobOffersPreview,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
     }),
   );
 
@@ -34,6 +38,7 @@ export const useWorkspaceDashboardQueries = (token: string | null) => {
       queryKey: queryKeys.jobSources.diagnosticsSummary(token, 72),
       queryFn: (authToken) => getJobSourceRunDiagnosticsSummary(authToken, 72),
       refetchInterval: env.NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS,
+      staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
     }),
   );
 
@@ -43,6 +48,7 @@ export const useWorkspaceDashboardQueries = (token: string | null) => {
       queryKey: queryKeys.documents.diagnosticsSummary(token, 168),
       queryFn: (authToken) => getDocumentDiagnosticsSummary(authToken, 168),
       refetchInterval: env.NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS,
+      staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
     }),
   );
 

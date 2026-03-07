@@ -34,7 +34,7 @@ export const ProfileInputEditorCard = ({
       description="Update target roles and search notes. Saving input does not regenerate profile automatically."
     >
       <form
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-4"
         onSubmit={form.handleSubmit((values) => {
           onSubmit({
             targetRoles: values.targetRoles,
@@ -42,22 +42,36 @@ export const ProfileInputEditorCard = ({
           });
         })}
       >
-        <Label htmlFor="pm-target-roles">Target roles</Label>
-        <Input
-          id="pm-target-roles"
-          placeholder="Frontend Developer, Fullstack Developer"
-          {...register('targetRoles')}
-        />
-        {errors.targetRoles?.message ? <p className="text-app-danger text-sm">{errors.targetRoles.message}</p> : null}
+        <div className="app-field-group">
+          <Label htmlFor="pm-target-roles" className="app-inline-label">
+            Target roles
+          </Label>
+          <Input
+            id="pm-target-roles"
+            placeholder="Frontend Developer, Fullstack Developer"
+            {...register('targetRoles')}
+          />
+          <p className="text-text-soft text-xs">
+            Use a concise comma-separated list of the roles you want the system to prioritize.
+          </p>
+          {errors.targetRoles?.message ? <p className="text-app-danger text-sm">{errors.targetRoles.message}</p> : null}
+        </div>
 
-        <Label htmlFor="pm-notes">Notes</Label>
-        <Textarea
-          id="pm-notes"
-          className="min-h-24"
-          placeholder="Preferred work mode, salary, location, contracts..."
-          {...register('notes')}
-        />
-        {errors.notes?.message ? <p className="text-app-danger text-sm">{errors.notes.message}</p> : null}
+        <div className="app-field-group">
+          <Label htmlFor="pm-notes" className="app-inline-label">
+            Notes
+          </Label>
+          <Textarea
+            id="pm-notes"
+            className="min-h-28"
+            placeholder="Preferred work mode, salary, location, contracts..."
+            {...register('notes')}
+          />
+          <p className="text-text-soft text-xs">
+            Capture constraints, non-negotiables, and context that should influence filtering or ranking.
+          </p>
+          {errors.notes?.message ? <p className="text-app-danger text-sm">{errors.notes.message}</p> : null}
+        </div>
 
         {errorMessage ? <p className="text-app-danger text-sm">{errorMessage}</p> : null}
         <Button type="submit" disabled={isSaving}>

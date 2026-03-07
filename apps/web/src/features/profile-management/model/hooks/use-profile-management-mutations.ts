@@ -5,8 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { generateCareerProfile, restoreCareerProfileVersion } from '@/features/career-profiles/api/career-profiles-api';
 import { createProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
-import { invalidateQueryKeys } from '@/shared/lib/query/invalidate-query-keys';
-import { queryKeys } from '@/shared/lib/query/query-keys';
+import { useDataSync } from '@/shared/lib/query/use-data-sync';
 import { toastError, toastSuccess } from '@/shared/lib/ui/toast';
 
 type UseProfileManagementMutationsArgs = {
@@ -14,12 +13,12 @@ type UseProfileManagementMutationsArgs = {
 };
 
 export const useProfileManagementMutations = ({ token }: UseProfileManagementMutationsArgs) => {
-  const queryClient = useQueryClient();
+  const { syncProfile, syncProfileInputs } = useDataSync(token);
 
   const saveProfileInputMutation = useMutation({
     mutationFn: (payload: { targetRoles: string; notes?: string }) => createProfileInput(token as string, payload),
-    onSuccess: async () => {
-      await invalidateQueryKeys(queryClient, [queryKeys.profileInputs.latest(token)]);
+    onSuccess: (data) => {
+      syncProfileInputs(data);
       toastSuccess('Profile input saved');
     },
     onError: (error) => {
@@ -29,12 +28,8 @@ export const useProfileManagementMutations = ({ token }: UseProfileManagementMut
 
   const generateProfileMutation = useMutation({
     mutationFn: (payload: { instructions?: string }) => generateCareerProfile(token as string, payload),
-    onSuccess: async () => {
-      await invalidateQueryKeys(queryClient, [
-        queryKeys.careerProfiles.latest(token),
-        queryKeys.careerProfiles.quality(token),
-        queryKeys.careerProfiles.versions(token, 25, 0),
-      ]);
+    onSuccess: (data) => {
+      syncProfile(data);
       toastSuccess('Career profile generated');
     },
     onError: (error) => {
@@ -44,12 +39,8 @@ export const useProfileManagementMutations = ({ token }: UseProfileManagementMut
 
   const restoreProfileMutation = useMutation({
     mutationFn: (careerProfileId: string) => restoreCareerProfileVersion(token as string, careerProfileId),
-    onSuccess: async () => {
-      await invalidateQueryKeys(queryClient, [
-        queryKeys.careerProfiles.latest(token),
-        queryKeys.careerProfiles.quality(token),
-        queryKeys.careerProfiles.versions(token, 25, 0),
-      ]);
+    onSuccess: (data) => {
+      syncProfile(data);
       toastSuccess('Profile version restored');
     },
     onError: (error) => {

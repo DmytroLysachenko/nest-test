@@ -4,7 +4,7 @@ import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { useWorkspaceDashboardData } from '@/features/workspace/model/hooks/use-workspace-dashboard-data';
 import { PageErrorState, PageLoadingState, SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
-import { DataTableShell, MetricCard, SectionHeader, StatusPill } from '@/shared/ui/dashboard-primitives';
+import { DataTableShell, HeroHeader, MetricCard, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
 import { Card } from '@/shared/ui/card';
 
 const formatDateTime = (value: string | null) => {
@@ -90,10 +90,18 @@ export const WorkspaceDashboardPage = () => {
   const documentDiagnostics = dashboard.documentDiagnosticsSummary;
 
   return (
-    <main className="app-page flex flex-col gap-4 md:gap-5">
-      <SectionHeader
+    <main className="app-page">
+      <HeroHeader
+        eyebrow="Workspace Overview"
         title="JobSeeker Dashboard"
-        subtitle={`Signed in as ${auth.user?.email ?? 'unknown user'}`}
+        subtitle="Monitor sourcing health, keep your profile ready, and triage the highest-value opportunities with a tighter daily operating rhythm."
+        meta={
+          <>
+            <span className="app-badge">Signed in as {auth.user?.email ?? 'unknown user'}</span>
+            <span className="app-badge">Offers: {summary.offers.total}</span>
+            <span className="app-badge">Runs: {summary.scrape.totalRuns}</span>
+          </>
+        }
         action={
           <StatusPill
             value={summary.scrape.lastRunStatus ?? 'IDLE'}
@@ -141,15 +149,28 @@ export const WorkspaceDashboardPage = () => {
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.9fr_1fr]">
+      <section className="app-section-grid">
         <div className="space-y-4">
-          <Card title="Execution Playbook" description="Recommended operating rhythm for stable matching quality.">
-            <ol className="text-text-soft list-decimal space-y-1.5 pl-5 text-sm">
-              <li>Refresh profile input and uploaded CV whenever your targeting changes.</li>
-              <li>Run scrape and wait for run finalization before reviewing job quality.</li>
-              <li>Triage offers in strict mode first, then explore mode for discovery.</li>
-              <li>Review diagnostics daily and rerun scrape with adjusted filters when failure rate rises.</li>
-            </ol>
+          <Card
+            title="Execution Playbook"
+            description="Recommended operating rhythm for a stable, high-signal sourcing loop."
+            className="overflow-hidden"
+          >
+            <div className="grid gap-3 md:grid-cols-2">
+              {[
+                'Refresh profile input and uploaded CV whenever your targeting changes.',
+                'Run scrape and wait for run finalization before reviewing job quality.',
+                'Triage offers in strict mode first, then use explore mode for discovery.',
+                'Review diagnostics daily and rerun scrape with adjusted filters when failure rate rises.',
+              ].map((item, index) => (
+                <div key={item} className="app-muted-panel flex gap-3">
+                  <span className="bg-primary/10 text-primary inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-semibold">
+                    {index + 1}
+                  </span>
+                  <p className="text-text-soft text-sm leading-6">{item}</p>
+                </div>
+              ))}
+            </div>
           </Card>
 
           {dashboard.isDiagnosticsLoading ? (
@@ -168,7 +189,7 @@ export const WorkspaceDashboardPage = () => {
           ) : diagnostics ? (
             <Card title="Scrape Diagnostics (72h)" description="Reliability and throughput of ingestion runs.">
               <div className="grid gap-3 text-sm md:grid-cols-3">
-                <div className="app-muted-panel space-y-1">
+                <div className="app-muted-panel space-y-2">
                   <p className="text-text-soft">Total runs: {diagnostics.status.total}</p>
                   <p className="text-text-soft">Completed: {diagnostics.status.completed}</p>
                   <p className="text-text-soft">Failed: {diagnostics.status.failed}</p>
@@ -176,7 +197,7 @@ export const WorkspaceDashboardPage = () => {
                     Success rate: {(diagnostics.performance.successRate * 100).toFixed(1)}%
                   </p>
                 </div>
-                <div className="app-muted-panel space-y-1">
+                <div className="app-muted-panel space-y-2">
                   <p className="text-text-soft">
                     Avg duration:{' '}
                     {diagnostics.performance.avgDurationMs == null
@@ -191,7 +212,7 @@ export const WorkspaceDashboardPage = () => {
                   </p>
                   <p className="text-text-soft">Avg scraped: {diagnostics.performance.avgScrapedCount ?? 'n/a'}</p>
                 </div>
-                <div className="app-muted-panel space-y-1">
+                <div className="app-muted-panel space-y-2">
                   <p className="text-app-warning">Timeout failures: {diagnostics.failures.timeout}</p>
                   <p className="text-app-danger">Network failures: {diagnostics.failures.network}</p>
                   <p className="text-app-danger">Validation failures: {diagnostics.failures.validation}</p>
@@ -219,11 +240,11 @@ export const WorkspaceDashboardPage = () => {
               description="Upload and extraction stage timings from persisted metrics."
             >
               <div className="grid gap-3 text-sm md:grid-cols-3">
-                <div className="app-muted-panel space-y-1">
+                <div className="app-muted-panel space-y-2">
                   <p className="text-text-soft">Samples: {documentDiagnostics.totals.samples}</p>
                   <p className="text-text-soft">Documents: {documentDiagnostics.totals.documentsWithMetrics}</p>
                 </div>
-                <div className="app-muted-panel space-y-1">
+                <div className="app-muted-panel space-y-2">
                   <p className="text-text-soft">
                     Upload confirm p95:{' '}
                     {documentDiagnostics.stages.UPLOAD_CONFIRM.p95DurationMs == null
@@ -237,7 +258,7 @@ export const WorkspaceDashboardPage = () => {
                       : `${documentDiagnostics.stages.EXTRACTION.p95DurationMs} ms`}
                   </p>
                 </div>
-                <div className="app-muted-panel space-y-1">
+                <div className="app-muted-panel space-y-2">
                   <p className="text-app-success">
                     Pipeline success: {(documentDiagnostics.stages.TOTAL_PIPELINE.successRate * 100).toFixed(1)}%
                   </p>
@@ -256,64 +277,52 @@ export const WorkspaceDashboardPage = () => {
         <aside className="space-y-4">
           {diagnostics ? (
             <Card title="Reliability Overview" description="Scheduler and scrape resilience signals.">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-text-soft text-sm">Run reliability</span>
-                  <StatusPill
-                    value={getReliabilityLabel(diagnostics.performance.successRate).label}
-                    tone={getReliabilityLabel(diagnostics.performance.successRate).tone}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-text-soft text-sm">Timeout pressure</span>
-                  <StatusPill
-                    value={
-                      diagnostics.failures.timeout > 0 ? `${diagnostics.failures.timeout} recent` : 'No recent issues'
-                    }
-                    tone={diagnostics.failures.timeout > 0 ? 'warning' : 'success'}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-text-soft text-sm">Network failures</span>
-                  <StatusPill
-                    value={
-                      diagnostics.failures.network > 0 ? `${diagnostics.failures.network} recent` : 'No recent issues'
-                    }
-                    tone={diagnostics.failures.network > 0 ? 'danger' : 'success'}
-                  />
-                </div>
+              <div className="space-y-3">
+                <StatRow
+                  label="Run reliability"
+                  value={getReliabilityLabel(diagnostics.performance.successRate).label}
+                  tone={getReliabilityLabel(diagnostics.performance.successRate).tone}
+                />
+                <StatRow
+                  label="Timeout pressure"
+                  value={
+                    diagnostics.failures.timeout > 0 ? `${diagnostics.failures.timeout} recent` : 'No recent issues'
+                  }
+                  tone={diagnostics.failures.timeout > 0 ? 'warning' : 'success'}
+                />
+                <StatRow
+                  label="Network failures"
+                  value={
+                    diagnostics.failures.network > 0 ? `${diagnostics.failures.network} recent` : 'No recent issues'
+                  }
+                  tone={diagnostics.failures.network > 0 ? 'danger' : 'success'}
+                />
               </div>
             </Card>
           ) : null}
 
           <Card title="Pipeline Health" description="Current readiness of core stages.">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-text-soft text-sm">Profile Input</span>
-                <StatusPill
-                  value={summary.profileInput.exists ? 'Ready' : 'Missing'}
-                  tone={summary.profileInput.exists ? 'success' : 'warning'}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-text-soft text-sm">Career Profile</span>
-                <StatusPill
-                  value={summary.profile.exists ? 'Ready' : 'Missing'}
-                  tone={summary.profile.exists ? 'success' : 'warning'}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-text-soft text-sm">Last Scrape</span>
-                <StatusPill
-                  value={summary.scrape.lastRunStatus ?? 'IDLE'}
-                  tone={getRunStatusTone(summary.scrape.lastRunStatus)}
-                />
-              </div>
+            <div className="space-y-3">
+              <StatRow
+                label="Profile Input"
+                value={summary.profileInput.exists ? 'Ready' : 'Missing'}
+                tone={summary.profileInput.exists ? 'success' : 'warning'}
+              />
+              <StatRow
+                label="Career Profile"
+                value={summary.profile.exists ? 'Ready' : 'Missing'}
+                tone={summary.profile.exists ? 'success' : 'warning'}
+              />
+              <StatRow
+                label="Last Scrape"
+                value={summary.scrape.lastRunStatus ?? 'IDLE'}
+                tone={getRunStatusTone(summary.scrape.lastRunStatus)}
+              />
             </div>
           </Card>
 
           <Card title="Recent Activity" description="Key timestamps from workspace operations.">
-            <div className="space-y-2 text-sm">
+            <div className="space-y-3 text-sm">
               <div className="app-muted-panel">
                 <p className="text-text-soft">Profile updated</p>
                 <p className="text-text-strong mt-1 font-medium">{formatDateTime(summary.profile.updatedAt)}</p>
@@ -330,15 +339,22 @@ export const WorkspaceDashboardPage = () => {
           </Card>
 
           <Card title="Failure Guide" description="How to interpret most common run failures.">
-            <ul className="text-text-soft list-disc space-y-1 pl-5 text-sm">
-              <li>Timeout: source page too slow or overloaded.</li>
-              <li>Network: temporary connectivity issue or upstream outage.</li>
-              <li>Validation: scraped payload missing required structure.</li>
-              <li>Callback: worker result could not be applied reliably.</li>
-            </ul>
+            <div className="space-y-3">
+              {[
+                ['Timeout', 'Source page too slow or overloaded.'],
+                ['Network', 'Temporary connectivity issue or upstream outage.'],
+                ['Validation', 'Scraped payload missing required structure.'],
+                ['Callback', 'Worker result could not be applied reliably.'],
+              ].map(([label, description]) => (
+                <div key={label} className="app-muted-panel">
+                  <p className="text-text-strong text-sm font-semibold">{label}</p>
+                  <p className="text-text-soft mt-1 text-sm">{description}</p>
+                </div>
+              ))}
+            </div>
           </Card>
         </aside>
-      </div>
+      </section>
 
       <DataTableShell title="Recent Offers" description="Quick preview of top offers from your notebook.">
         {dashboard.isOffersLoading ? (
@@ -365,19 +381,24 @@ export const WorkspaceDashboardPage = () => {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-text-soft text-left">
-                <th className="pb-2 pr-3">Title</th>
-                <th className="pb-2 pr-3">Company</th>
-                <th className="pb-2 pr-3">Location</th>
-                <th className="pb-2">Score</th>
+                <th className="pb-3 pr-3 text-xs font-semibold uppercase tracking-[0.12em]">Title</th>
+                <th className="pb-3 pr-3 text-xs font-semibold uppercase tracking-[0.12em]">Company</th>
+                <th className="pb-3 pr-3 text-xs font-semibold uppercase tracking-[0.12em]">Location</th>
+                <th className="pb-3 text-xs font-semibold uppercase tracking-[0.12em]">Score</th>
               </tr>
             </thead>
             <tbody>
               {offers.map((offer) => (
-                <tr key={offer.id} className="border-border/60 border-t">
-                  <td className="text-text-strong py-2 pr-3">{offer.title}</td>
-                  <td className="text-text-soft py-2 pr-3">{offer.company}</td>
-                  <td className="text-text-soft py-2 pr-3">{offer.location ?? 'n/a'}</td>
-                  <td className="py-2">
+                <tr key={offer.id} className="border-border/60 border-t align-top">
+                  <td className="py-3 pr-3">
+                    <div>
+                      <p className="text-text-strong font-medium">{offer.title}</p>
+                      <p className="text-text-soft mt-1 text-xs">Offer ID {offer.id.slice(0, 8)}</p>
+                    </div>
+                  </td>
+                  <td className="text-text-soft py-3 pr-3">{offer.company}</td>
+                  <td className="text-text-soft py-3 pr-3">{offer.location ?? 'n/a'}</td>
+                  <td className="py-3">
                     <StatusPill
                       value={offer.matchScore == null ? 'n/a' : offer.matchScore.toFixed(2)}
                       tone={offer.matchScore == null ? 'neutral' : offer.matchScore >= 0.7 ? 'success' : 'info'}
@@ -388,7 +409,12 @@ export const WorkspaceDashboardPage = () => {
             </tbody>
           </table>
         ) : (
-          <p className="text-text-soft text-sm">No offers yet. Enqueue scrape from notebook or tester tools.</p>
+          <div className="app-muted-panel">
+            <p className="text-text-strong text-sm font-medium">No offers yet</p>
+            <p className="text-text-soft mt-1 text-sm">
+              Enqueue a scrape from notebook or tester tools to populate the workspace.
+            </p>
+          </div>
         )}
       </DataTableShell>
     </main>

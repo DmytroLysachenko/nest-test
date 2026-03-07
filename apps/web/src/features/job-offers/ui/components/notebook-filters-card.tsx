@@ -64,31 +64,35 @@ export const NotebookFiltersCard = ({
     title="Job Notebook"
     description="Review scraped offers, update workflow status, manage notes/tags, and inspect scoring output."
   >
-    <div className="mb-3 flex flex-wrap items-center gap-2">
-      <p className="text-text-soft text-xs">Total: {total}</p>
+    <div className="app-toolbar mb-4 flex flex-wrap items-center gap-2">
+      <span className="app-badge">Total offers: {total}</span>
       <DataFreshnessBadge updatedAt={listUpdatedAt} label="Results" />
-      <Button type="button" variant="ghost" className="h-8 px-3 text-xs" onClick={onResetFilters}>
-        Reset filters
-      </Button>
-      <Button type="button" variant="ghost" className="h-8 px-3 text-xs" onClick={onSavePreset}>
-        Save preset
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        className="h-8 px-3 text-xs"
-        onClick={onApplyPreset}
-        disabled={!hasSavedPreset}
-      >
-        Apply preset
-      </Button>
+      <div className="ml-auto flex flex-wrap gap-2">
+        <Button type="button" variant="ghost" className="h-8 px-3 text-xs" onClick={onResetFilters}>
+          Reset filters
+        </Button>
+        <Button type="button" variant="ghost" className="h-8 px-3 text-xs" onClick={onSavePreset}>
+          Save preset
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-8 px-3 text-xs"
+          onClick={onApplyPreset}
+          disabled={!hasSavedPreset}
+        >
+          Apply preset
+        </Button>
+      </div>
     </div>
 
     <FilterChipBar items={activeFilters} onResetAll={onResetFilters} />
 
     <div className="grid gap-3 md:grid-cols-6">
-      <div className="space-y-1">
-        <Label htmlFor="notebook-status">Status</Label>
+      <div className="app-field-group">
+        <Label htmlFor="notebook-status" className="app-inline-label">
+          Status
+        </Label>
         <select
           id="notebook-status"
           value={status}
@@ -104,8 +108,10 @@ export const NotebookFiltersCard = ({
         </select>
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="notebook-mode">Mode</Label>
+      <div className="app-field-group">
+        <Label htmlFor="notebook-mode" className="app-inline-label">
+          Mode
+        </Label>
         <select
           id="notebook-mode"
           value={mode}
@@ -118,8 +124,10 @@ export const NotebookFiltersCard = ({
         </select>
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="notebook-has-score">Has score</Label>
+      <div className="app-field-group">
+        <Label htmlFor="notebook-has-score" className="app-inline-label">
+          Has score
+        </Label>
         <select
           id="notebook-has-score"
           value={hasScore}
@@ -132,8 +140,10 @@ export const NotebookFiltersCard = ({
         </select>
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="notebook-tag">Tag</Label>
+      <div className="app-field-group">
+        <Label htmlFor="notebook-tag" className="app-inline-label">
+          Tag
+        </Label>
         <Input
           id="notebook-tag"
           value={tag}
@@ -142,8 +152,10 @@ export const NotebookFiltersCard = ({
         />
       </div>
 
-      <div className="space-y-1 md:col-span-2">
-        <Label htmlFor="notebook-search">Search notes/tags</Label>
+      <div className="app-field-group md:col-span-2">
+        <Label htmlFor="notebook-search" className="app-inline-label">
+          Search notes/tags
+        </Label>
         <Input
           id="notebook-search"
           value={search}
@@ -153,12 +165,12 @@ export const NotebookFiltersCard = ({
       </div>
     </div>
 
-    <div className="mt-3 flex flex-wrap items-center gap-2">
+    <div className="mt-4 flex flex-wrap items-center gap-2">
       <Button type="button" variant="secondary" onClick={onEnqueueProfileScrape} disabled={isEnqueueingScrape}>
         {isEnqueueingScrape ? 'Enqueuing scrape...' : 'Enqueue profile scrape'}
       </Button>
       {enqueueStatus ? <p className="text-secondary-foreground text-xs">{enqueueStatus}</p> : null}
-      <p className="text-text-soft text-xs">Shortcuts: S save, D dismiss, M seen, A applied.</p>
+      <p className="text-text-soft ml-auto text-xs">Shortcuts: S save, D dismiss, M seen, A applied.</p>
     </div>
   </Card>
 );

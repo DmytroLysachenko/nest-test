@@ -24,54 +24,70 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
     >
       <form className="space-y-3" onSubmit={searchViewPanel.submit}>
         <div className="grid gap-3 md:grid-cols-4">
-          <div className="space-y-1">
-            <Label htmlFor="cp-status">Status</Label>
+          <div className="app-field-group">
+            <Label htmlFor="cp-status" className="app-inline-label">
+              Status
+            </Label>
             <select id="cp-status" className="app-select" {...register('status')}>
               <option value="READY">READY</option>
               <option value="PENDING">PENDING</option>
               <option value="FAILED">FAILED</option>
             </select>
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="cp-active">Is active</Label>
+          <div className="app-field-group">
+            <Label htmlFor="cp-active" className="app-inline-label">
+              Is active
+            </Label>
             <select id="cp-active" className="app-select" {...register('isActive')}>
               <option value="true">true</option>
               <option value="false">false</option>
             </select>
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="cp-seniority">Seniority</Label>
+          <div className="app-field-group">
+            <Label htmlFor="cp-seniority" className="app-inline-label">
+              Seniority
+            </Label>
             <Input id="cp-seniority" placeholder="mid" {...register('seniority')} />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="cp-role">Role</Label>
+          <div className="app-field-group">
+            <Label htmlFor="cp-role" className="app-inline-label">
+              Role
+            </Label>
             <Input id="cp-role" placeholder="frontend" {...register('role')} />
           </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-4">
-          <div className="space-y-1">
-            <Label htmlFor="cp-keyword">Keyword</Label>
+          <div className="app-field-group">
+            <Label htmlFor="cp-keyword" className="app-inline-label">
+              Keyword
+            </Label>
             <Input id="cp-keyword" placeholder="react" {...register('keyword')} />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="cp-technology">Technology</Label>
+          <div className="app-field-group">
+            <Label htmlFor="cp-technology" className="app-inline-label">
+              Technology
+            </Label>
             <Input id="cp-technology" placeholder="typescript" {...register('technology')} />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="cp-limit">Limit</Label>
+          <div className="app-field-group">
+            <Label htmlFor="cp-limit" className="app-inline-label">
+              Limit
+            </Label>
             <Input id="cp-limit" type="number" min={1} max={100} {...register('limit')} />
             {errors.limit?.message ? <p className="text-app-danger text-xs">{errors.limit.message}</p> : null}
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="cp-offset">Offset</Label>
+          <div className="app-field-group">
+            <Label htmlFor="cp-offset" className="app-inline-label">
+              Offset
+            </Label>
             <Input id="cp-offset" type="number" min={0} {...register('offset')} />
             {errors.offset?.message ? <p className="text-app-danger text-xs">{errors.offset.message}</p> : null}
           </div>
         </div>
 
         {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
-        <div className="flex items-center gap-2">
+        <div className="app-toolbar flex items-center gap-2">
           <Button type="submit" disabled={searchViewPanel.isSubmitting}>
             {searchViewPanel.isSubmitting ? 'Loading...' : 'Load search view'}
           </Button>

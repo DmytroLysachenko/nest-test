@@ -8,6 +8,7 @@ import { NotebookOfferDetailsCard } from '@/features/job-offers/ui/components/no
 import { NotebookOffersListCard } from '@/features/job-offers/ui/components/notebook-offers-list-card';
 import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { useAppUiStore } from '@/shared/store/app-ui-store';
+import { HeroHeader } from '@/shared/ui/dashboard-primitives';
 
 type NotebookPageProps = {
   token: string;
@@ -58,7 +59,20 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
   }, [selectedOffer, updateStatus]);
 
   return (
-    <main className="app-page flex flex-col gap-4">
+    <main className="app-page">
+      <HeroHeader
+        eyebrow="Notebook"
+        title="Offer Review Workspace"
+        subtitle="Filter, compare, and update job opportunities without losing context across sourcing runs."
+        meta={
+          <>
+            <span className="app-badge">Selected: {notebook.selectedOfferIds.length}</span>
+            <span className="app-badge">Mode: {notebook.filters.mode}</span>
+            <span className="app-badge">Visible: {notebook.listQuery.data?.items.length ?? 0}</span>
+          </>
+        }
+      />
+
       <NotebookFiltersCard
         status={notebook.filters.status}
         mode={notebook.filters.mode}
@@ -88,7 +102,7 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
         onSearchChange={(value) => notebook.setNotebookFilter('search', value)}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,1fr)]">
         {notebook.listQuery.isLoading ? (
           <SectionLoadingState title="Offers" description="Loading notebook offers..." rows={7} />
         ) : notebook.listError ? (

@@ -9,7 +9,7 @@ export const Input = ({ className, ...props }: InputProps) => {
   return (
     <BaseInput
       className={cn(
-        'border-border bg-input shadow-xs placeholder:text-muted-foreground focus-visible:ring-ring/30 h-10 rounded-xl text-sm transition-colors focus-visible:ring-2',
+        'border-border bg-input shadow-xs placeholder:text-muted-foreground focus-visible:ring-ring/30 h-11 rounded-xl text-sm transition-[border-color,box-shadow,background-color] focus-visible:ring-2',
         className,
       )}
       {...props}

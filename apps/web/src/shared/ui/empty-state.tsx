@@ -9,7 +9,12 @@ type EmptyStateProps = {
 };
 
 export const EmptyState = ({ title, description, actionLabel, onAction }: EmptyStateProps) => (
-  <Card title={title} description={description} className="border-border/80 bg-surface-muted/70 border-dashed">
+  <Card
+    title={title}
+    description={description}
+    className="border-border/80 bg-surface-muted/70 border-dashed"
+    contentClassName="space-y-4"
+  >
     {actionLabel && onAction ? (
       <Button type="button" variant="secondary" onClick={onAction}>
         {actionLabel}

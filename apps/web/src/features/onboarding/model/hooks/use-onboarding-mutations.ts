@@ -6,8 +6,7 @@ import { useRouter } from 'next/navigation';
 import { generateCareerProfile } from '@/features/career-profiles/api/career-profiles-api';
 import { deleteOnboardingDraft, upsertOnboardingDraft } from '@/features/onboarding/api/onboarding-drafts-api';
 import { createProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
-import { invalidateQueryKeys } from '@/shared/lib/query/invalidate-query-keys';
-import { queryKeys } from '@/shared/lib/query/query-keys';
+import { useDataSync } from '@/shared/lib/query/use-data-sync';
 import { toastError, toastSuccess } from '@/shared/lib/ui/toast';
 
 import type { OnboardingDraft } from '@/features/onboarding/model/types/onboarding-draft';
@@ -20,7 +19,7 @@ type UseOnboardingMutationsArgs = {
 
 export const useOnboardingMutations = ({ token, draft, resetDraft }: UseOnboardingMutationsArgs) => {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { syncOnboarding, syncProfile, syncProfileInputs } = useDataSync(token);
 
   const submitProfileMutation = useMutation({
     mutationFn: async () => {
@@ -28,7 +27,7 @@ export const useOnboardingMutations = ({ token, draft, resetDraft }: UseOnboardi
         throw new Error('No auth token');
       }
 
-      await createProfileInput(token, {
+      const input = await createProfileInput(token, {
         intakePayload: {
           desiredPositions: draft.desiredPositions,
           jobDomains: draft.jobDomains,
@@ -54,19 +53,18 @@ export const useOnboardingMutations = ({ token, draft, resetDraft }: UseOnboardi
         },
       });
 
-      await generateCareerProfile(token, {
+      const profile = await generateCareerProfile(token, {
         instructions: draft.generationInstructions || undefined,
       });
 
       await deleteOnboardingDraft(token);
+      return { input, profile };
     },
-    onSuccess: async () => {
+    onSuccess: (data) => {
       resetDraft();
-      await invalidateQueryKeys(queryClient, [
-        queryKeys.profileInputs.latest(token),
-        queryKeys.careerProfiles.latest(token),
-        queryKeys.onboarding.draft(token),
-      ]);
+      syncProfileInputs(data.input);
+      syncProfile(data.profile);
+      syncOnboarding();
       toastSuccess('Profile created successfully');
       router.push('/');
     },
@@ -78,15 +76,15 @@ export const useOnboardingMutations = ({ token, draft, resetDraft }: UseOnboardi
 
   const saveDraftMutation = useMutation({
     mutationFn: (payload: Record<string, unknown>) => upsertOnboardingDraft(token as string, payload),
-    onSuccess: async () => {
-      await invalidateQueryKeys(queryClient, [queryKeys.onboarding.draft(token)]);
+    onSuccess: () => {
+      syncOnboarding();
     },
   });
 
   const clearDraftMutation = useMutation({
     mutationFn: () => deleteOnboardingDraft(token as string),
-    onSuccess: async () => {
-      await invalidateQueryKeys(queryClient, [queryKeys.onboarding.draft(token)]);
+    onSuccess: () => {
+      syncOnboarding();
       toastSuccess('Draft cleared');
     },
   });
