@@ -129,7 +129,7 @@ export const AppShell = ({ children, userEmail, token, onSignOut }: AppShellProp
 
   return (
     <div className="app-shell">
-      <aside className="border-sidebar-border bg-sidebar text-sidebar-foreground hidden min-h-screen w-80 border-r lg:block">
+      <aside className="border-sidebar-border bg-sidebar text-sidebar-foreground sticky top-0 hidden h-screen w-80 overflow-y-auto border-r lg:block">
         <AppShellSidebar pathname={pathname} items={navItems} />
       </aside>
 
@@ -143,7 +143,7 @@ export const AppShell = ({ children, userEmail, token, onSignOut }: AppShellProp
       ) : null}
 
       <aside
-        className={`border-sidebar-border bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-40 w-80 border-r transition-transform lg:hidden ${
+        className={`border-sidebar-border bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-40 w-80 overflow-y-auto border-r transition-transform lg:hidden ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
