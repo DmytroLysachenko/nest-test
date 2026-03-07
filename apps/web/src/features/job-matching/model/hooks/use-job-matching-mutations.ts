@@ -4,15 +4,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { scoreJob } from '@/features/job-matching/api/job-matching-api';
 import { setRootServerError } from '@/shared/lib/forms/set-root-server-error';
-import { invalidateQueryKeys } from '@/shared/lib/query/invalidate-query-keys';
-import { queryKeys } from '@/shared/lib/query/query-keys';
+import { useDataSync } from '@/shared/lib/query/use-data-sync';
 import { toastSuccess } from '@/shared/lib/ui/toast';
 
 import type { JobMatchingFormValues } from '@/features/job-matching/model/validation/job-matching-form-schema';
 import type { UseFormReturn } from 'react-hook-form';
 
 export const useJobMatchingMutations = (token: string, form: UseFormReturn<JobMatchingFormValues>) => {
-  const queryClient = useQueryClient();
+  const { syncJobMatching } = useDataSync(token);
 
   const scoreMutation = useMutation({
     mutationFn: (values: JobMatchingFormValues) =>
@@ -20,9 +19,9 @@ export const useJobMatchingMutations = (token: string, form: UseFormReturn<JobMa
         jobDescription: values.jobDescription,
         minScore: Number(values.minScore),
       }),
-    onSuccess: async () => {
+    onSuccess: () => {
       form.clearErrors('root');
-      await invalidateQueryKeys(queryClient, [queryKeys.jobMatching.list(token)]);
+      syncJobMatching();
       toastSuccess('Matching score calculated');
     },
     onError: (error: unknown) => {
