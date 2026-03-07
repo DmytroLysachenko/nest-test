@@ -11,8 +11,6 @@ RUN pnpm --filter worker build
 RUN pnpm --filter worker --prod deploy --legacy /prod/worker
 RUN mkdir -p /prod/worker/dist
 RUN cp -R /app/apps/worker/dist/. /prod/worker/dist/
-RUN mkdir -p /prod/worker/node_modules/@repo/db/dist
-RUN cp -R /app/packages/db/dist/. /prod/worker/node_modules/@repo/db/dist/
 
 FROM node:22-slim AS runner
 WORKDIR /app

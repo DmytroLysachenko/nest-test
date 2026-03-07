@@ -11,8 +11,6 @@ RUN pnpm --filter api build
 RUN pnpm --filter api --prod deploy --legacy /prod/api
 RUN mkdir -p /prod/api/dist
 RUN cp -R /app/apps/api/dist/. /prod/api/dist/
-RUN mkdir -p /prod/api/node_modules/@repo/db/dist
-RUN cp -R /app/packages/db/dist/. /prod/api/node_modules/@repo/db/dist/
 
 FROM node:22-slim AS runner
 WORKDIR /app
