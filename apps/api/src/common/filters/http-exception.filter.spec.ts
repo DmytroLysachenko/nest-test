@@ -1,4 +1,9 @@
-import { ArgumentsHost, BadRequestException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  BadRequestException,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 
 import { HttpExceptionFilter } from './http-exception.filter';
 
@@ -32,6 +37,8 @@ describe('HttpExceptionFilter', () => {
     expect(status).toHaveBeenCalledWith(500);
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
+        code: 'INTERNAL_ERROR',
+        requestId: 'req-1',
         error: expect.objectContaining({
           message: 'Something went wrong. Please try again.',
         }),
@@ -48,6 +55,7 @@ describe('HttpExceptionFilter', () => {
     expect(status).toHaveBeenCalledWith(401);
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
+        code: 'UNAUTHORIZED',
         error: expect.objectContaining({
           message: 'Invalid credentials or unauthorized request.',
         }),
@@ -64,6 +72,7 @@ describe('HttpExceptionFilter', () => {
     expect(status).toHaveBeenCalledWith(400);
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
+        code: 'VALIDATION_ERROR',
         error: expect.objectContaining({
           message: 'Request validation failed.',
           details: ['email must be an email', 'password is required'],

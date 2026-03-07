@@ -24,10 +24,10 @@ export const WorkflowOverviewCard = ({ completedSteps, totalSteps, isLoading, st
     >
       <div className="space-y-4">
         <div className="space-y-2">
-          <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />
+          <div className="bg-surface-muted h-2 overflow-hidden rounded-full">
+            <div className="bg-app-success h-full rounded-full transition-all" style={{ width: `${progress}%` }} />
           </div>
-          <p className="text-xs text-slate-600">
+          <p className="text-text-soft text-xs">
             {isLoading ? 'Refreshing workflow status...' : `Progress: ${progress}%`}
           </p>
         </div>
@@ -37,13 +37,13 @@ export const WorkflowOverviewCard = ({ completedSteps, totalSteps, isLoading, st
             <article
               key={step.key}
               className={`rounded-md border p-3 text-sm ${
-                step.done ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'
+                step.done ? 'border-app-success-border bg-app-success-soft' : 'border-border bg-surface-muted'
               }`}
             >
-              <p className="font-medium text-slate-900">
+              <p className="text-text-strong font-medium">
                 {index + 1}. {step.label}
               </p>
-              <p className="mt-1 text-xs text-slate-600">{step.hint}</p>
+              <p className="text-text-soft mt-1 text-xs">{step.hint}</p>
             </article>
           ))}
         </div>

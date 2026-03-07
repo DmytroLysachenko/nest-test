@@ -1,9 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { VertexAI } from '@google-cloud/vertexai';
-import type { z } from 'zod';
 
 import { Env } from '@/config/env';
+
+import type { z } from 'zod';
 
 type GenerateTextOptions = {
   model?: string;

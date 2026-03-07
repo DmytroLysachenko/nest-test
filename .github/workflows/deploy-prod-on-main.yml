@@ -14,7 +14,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate-contract:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'master'
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
+      GCP_API_SERVICE: ${{ vars.GCP_API_SERVICE }}
+      GCP_WORKER_SERVICE: ${{ vars.GCP_WORKER_SERVICE }}
+      GCP_WEB_SERVICE: ${{ vars.GCP_WEB_SERVICE }}
+      GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+      SCHEDULER_AUTH_TOKEN: ${{ secrets.SCHEDULER_AUTH_TOKEN }}
+      OPS_INTERNAL_TOKEN: ${{ secrets.OPS_INTERNAL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+      - name: Validate deploy contract
+        run: |
+          chmod +x ./scripts/validate-deploy-contract.sh
+          ./scripts/validate-deploy-contract.sh deploy-prod-on-main
+
   detect-changes:
+    needs: validate-contract
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
@@ -166,6 +197,7 @@ jobs:
             --build-arg NEXT_PUBLIC_API_URL="${{ vars.GCP_API_BASE_URL }}/api" \
             --build-arg NEXT_PUBLIC_WORKER_URL="${{ vars.GCP_WORKER_BASE_URL }}" \
             --build-arg NEXT_PUBLIC_ENABLE_TESTER="false" \
+            --build-arg NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID="${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" \
             -f apps/web/Dockerfile -t ${IMAGE_BASE}/web:${RELEASE_SHA} .
           docker push ${IMAGE_BASE}/web:${RELEASE_SHA}
 
@@ -207,6 +239,10 @@ jobs:
           test -n "${{ vars.GCP_WORKER_SERVICE }}" || (echo "Missing vars.GCP_WORKER_SERVICE" && exit 1)
           test -n "${{ vars.GCP_WEB_SERVICE }}" || (echo "Missing vars.GCP_WEB_SERVICE" && exit 1)
           test -n "${{ vars.GCS_BUCKET }}" || (echo "Missing vars.GCS_BUCKET" && exit 1)
+          test -n "${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" || (echo "Missing vars.GOOGLE_OAUTH_CLIENT_ID" && exit 1)
+          test -n "${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}" || (echo "Missing secrets.GOOGLE_OAUTH_CLIENT_SECRET" && exit 1)
+          test -n "${{ secrets.SCHEDULER_AUTH_TOKEN }}" || (echo "Missing secrets.SCHEDULER_AUTH_TOKEN" && exit 1)
+          test -n "${{ secrets.OPS_INTERNAL_TOKEN }}" || (echo "Missing secrets.OPS_INTERNAL_TOKEN" && exit 1)
 
       - name: Deploy production services
         run: |
@@ -233,8 +269,23 @@ jobs:
           MAIL_HOST: ${{ vars.MAIL_HOST }}
           MAIL_PORT: ${{ vars.MAIL_PORT }}
           MAIL_SECURE: ${{ vars.MAIL_SECURE }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           WORKER_TASKS_QUEUE: ${{ vars.WORKER_TASKS_QUEUE }}
+          WORKER_TASKS_DLQ: ${{ vars.WORKER_TASKS_DLQ }}
+          TASKS_MAX_ATTEMPTS: ${{ vars.TASKS_MAX_ATTEMPTS }}
+          TASKS_MIN_BACKOFF_SEC: ${{ vars.TASKS_MIN_BACKOFF_SEC }}
+          TASKS_MAX_BACKOFF_SEC: ${{ vars.TASKS_MAX_BACKOFF_SEC }}
+          TASKS_MAX_DOUBLINGS: ${{ vars.TASKS_MAX_DOUBLINGS }}
+          TASKS_MAX_RETRY_DURATION_SEC: ${{ vars.TASKS_MAX_RETRY_DURATION_SEC }}
           ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
+          WORKER_ALLOWED_ORIGINS: ${{ vars.WORKER_ALLOWED_ORIGINS }}
+          SCHEDULER_JOB_NAME: ${{ vars.SCHEDULER_JOB_NAME }}
+          SCHEDULER_CRON: ${{ vars.SCHEDULER_CRON }}
+          SCHEDULER_TIMEZONE: ${{ vars.SCHEDULER_TIMEZONE }}
+          OPS_RECONCILE_JOB_NAME: ${{ vars.OPS_RECONCILE_JOB_NAME }}
+          OPS_RECONCILE_CRON: ${{ vars.OPS_RECONCILE_CRON }}
+          OPS_RECONCILE_TIMEZONE: ${{ vars.OPS_RECONCILE_TIMEZONE }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
           REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET }}
@@ -242,3 +293,13 @@ jobs:
           MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
           WORKER_SHARED_TOKEN: ${{ secrets.WORKER_SHARED_TOKEN }}
           WORKER_CALLBACK_TOKEN: ${{ secrets.WORKER_CALLBACK_TOKEN }}
+          SCHEDULER_AUTH_TOKEN: ${{ secrets.SCHEDULER_AUTH_TOKEN }}
+          OPS_INTERNAL_TOKEN: ${{ secrets.OPS_INTERNAL_TOKEN }}
+
+      - name: Upload deployment verify summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-verify-summary
+          path: deployment-verify-summary.json
+          if-no-files-found: warn

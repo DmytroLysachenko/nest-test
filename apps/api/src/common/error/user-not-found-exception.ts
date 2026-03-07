@@ -1,5 +1,7 @@
-export class UserNotFoundException extends Error {
-  constructor(message: string = 'User not found') {
+import { UnauthorizedException } from '@nestjs/common';
+
+export class UserNotFoundException extends UnauthorizedException {
+  constructor(message = 'Invalid credentials or unauthorized request.') {
     super(message);
   }
 }

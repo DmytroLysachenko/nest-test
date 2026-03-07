@@ -1,0 +1,146 @@
+name: Rollback Prod On Deploy Failure
+
+on:
+  workflow_run:
+    workflows: ["Deploy Prod On Main"]
+    types: [completed]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: prod-rollback-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  rollback:
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'master'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 2
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Detect changed services
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git rev-parse "${RELEASE_SHA}^" >/dev/null 2>&1; then
+            CHANGED="$(git diff --name-only "${RELEASE_SHA}^" "${RELEASE_SHA}")"
+          else
+            CHANGED="$(git show --name-only --pretty='' "${RELEASE_SHA}")"
+          fi
+
+          rollback_api=false
+          rollback_worker=false
+          rollback_web=false
+
+          if echo "${CHANGED}" | grep -Eq '^(pnpm-lock.yaml|pnpm-workspace.yaml|package.json|turbo.json|tsconfig(\..+)?\.json|\.github/workflows/deploy-prod-on-main.yml|scripts/deploy-cloud-run-prod.sh|scripts/verify-deployment.sh)'; then
+            rollback_api=true
+            rollback_worker=true
+            rollback_web=true
+          fi
+
+          if echo "${CHANGED}" | grep -Eq '^(apps/api/|packages/db/)'; then
+            rollback_api=true
+          fi
+
+          if echo "${CHANGED}" | grep -Eq '^(apps/worker/|packages/db/)'; then
+            rollback_worker=true
+          fi
+
+          if echo "${CHANGED}" | grep -Eq '^(apps/web/|packages/ui/)'; then
+            rollback_web=true
+          fi
+
+          {
+            echo "rollback_api=${rollback_api}"
+            echo "rollback_worker=${rollback_worker}"
+            echo "rollback_web=${rollback_web}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Roll back traffic to previous revisions
+        shell: bash
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GCP_API_SERVICE: ${{ vars.GCP_API_SERVICE }}
+          GCP_WORKER_SERVICE: ${{ vars.GCP_WORKER_SERVICE }}
+          GCP_WEB_SERVICE: ${{ vars.GCP_WEB_SERVICE }}
+          ROLLBACK_API: ${{ steps.changes.outputs.rollback_api }}
+          ROLLBACK_WORKER: ${{ steps.changes.outputs.rollback_worker }}
+          ROLLBACK_WEB: ${{ steps.changes.outputs.rollback_web }}
+        run: |
+          set -euo pipefail
+
+          test -n "${GCP_PROJECT_ID}" || (echo "Missing vars.GCP_PROJECT_ID" && exit 1)
+          test -n "${GCP_REGION}" || (echo "Missing vars.GCP_REGION" && exit 1)
+
+          rollback_one() {
+            local service="$1"
+            local enabled="$2"
+            if [[ "${enabled}" != "true" ]]; then
+              echo "Skipping rollback for ${service} (not affected)"
+              return 0
+            fi
+
+            mapfile -t revisions < <(
+              gcloud run revisions list \
+                --project="${GCP_PROJECT_ID}" \
+                --region="${GCP_REGION}" \
+                --service="${service}" \
+                --sort-by="~metadata.creationTimestamp" \
+                --format="value(metadata.name)" \
+                --limit=2
+            )
+
+            if [[ "${#revisions[@]}" -lt 2 ]]; then
+              echo "No previous revision available for ${service}; skipping."
+              return 0
+            fi
+
+            local current="${revisions[0]}"
+            local previous="${revisions[1]}"
+
+            echo "Rolling back ${service} from ${current} to ${previous}"
+            gcloud run services update-traffic "${service}" \
+              --project="${GCP_PROJECT_ID}" \
+              --region="${GCP_REGION}" \
+              --to-revisions="${previous}=100" \
+              >/dev/null
+
+            echo "{\"service\":\"${service}\",\"rolledBackTo\":\"${previous}\",\"from\":\"${current}\"}" >> rollback-summary.ndjson
+          }
+
+          : > rollback-summary.ndjson
+          rollback_one "${GCP_API_SERVICE}" "${ROLLBACK_API}"
+          rollback_one "${GCP_WORKER_SERVICE}" "${ROLLBACK_WORKER}"
+          rollback_one "${GCP_WEB_SERVICE}" "${ROLLBACK_WEB}"
+
+          echo "Rollback summary:"
+          cat rollback-summary.ndjson || true
+
+      - name: Upload rollback summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rollback-summary
+          path: rollback-summary.ndjson
+          if-no-files-found: warn

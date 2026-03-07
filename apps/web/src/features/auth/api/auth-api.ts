@@ -14,6 +14,14 @@ type RegisterPayload = {
   code: string;
 };
 
+type GoogleOauthPayload = {
+  idToken?: string;
+  code?: string;
+  codeVerifier?: string;
+  redirectUri?: string;
+  nonce?: string;
+};
+
 export const login = (payload: LoginPayload) =>
   apiRequest<AuthLoginResponse>('/auth/login', {
     method: 'POST',
@@ -42,4 +50,10 @@ export const logout = (token: string) =>
   apiRequest<string>('/auth/logout', {
     method: 'POST',
     token,
+  });
+
+export const loginWithGoogle = (payload: GoogleOauthPayload) =>
+  apiRequest<AuthLoginResponse>('/auth/oauth/google', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   });

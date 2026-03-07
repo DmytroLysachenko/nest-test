@@ -78,7 +78,7 @@ export const TagInput = ({ label, placeholder, values, onChange, disabled = fals
       ) : (
         <p className="text-muted-foreground text-xs">No values added yet.</p>
       )}
-      {values.length >= maxItems ? <p className="text-xs text-amber-700">Maximum number of items reached.</p> : null}
+      {values.length >= maxItems ? <p className="text-app-warning text-xs">Maximum number of items reached.</p> : null}
     </div>
   );
 };

@@ -21,9 +21,13 @@ describe('AuthService', () => {
       createJwtToken: jest.fn(),
       rotateRefreshToken: jest.fn(),
     } as any;
+    const googleOauthService = {
+      verifyIdToken: jest.fn(),
+      exchangeAuthorizationCodeForIdToken: jest.fn(),
+    } as any;
 
-    const service = new AuthService(db, optsService, logger, tokenService);
-    return { service, db, optsService, tokenService };
+    const service = new AuthService(db, optsService, logger, tokenService, googleOauthService);
+    return { service, db, optsService, tokenService, googleOauthService };
   };
 
   it('throws when register passwords do not match', async () => {
@@ -131,5 +135,49 @@ describe('AuthService', () => {
         email: 'user@example.com',
       },
     });
+  });
+
+  it('fails google login when nonce does not match', async () => {
+    const { service, googleOauthService } = createService();
+    googleOauthService.verifyIdToken.mockResolvedValueOnce({
+      email: 'user@example.com',
+      email_verified: true,
+      nonce: 'nonce-a',
+    });
+
+    await expect(
+      service.loginWithGoogle(
+        {
+          idToken: 'id-token',
+          nonce: 'nonce-b',
+        },
+        {
+          ip: '127.0.0.1',
+          userAgent: 'test',
+          deviceType: 'desktop',
+          deviceName: 'test-device',
+          deviceOs: 'test-os',
+          browser: 'test-browser',
+        },
+      ),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('fails google login when neither id token nor code is provided', async () => {
+    const { service } = createService();
+
+    await expect(
+      service.loginWithGoogle(
+        {},
+        {
+          ip: '127.0.0.1',
+          userAgent: 'test',
+          deviceType: 'desktop',
+          deviceName: 'test-device',
+          deviceOs: 'test-os',
+          browser: 'test-browser',
+        },
+      ),
+    ).rejects.toThrow(BadRequestException);
   });
 });

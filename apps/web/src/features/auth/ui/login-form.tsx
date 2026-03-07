@@ -1,18 +1,31 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 
 import { useLoginForm } from '@/features/auth/model/hooks/use-login-form';
+import { buildGoogleOauthUrl } from '@/features/auth/model/utils/google-oauth';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 
 export const LoginForm = () => {
   const loginForm = useLoginForm();
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const {
     register,
     formState: { errors },
   } = loginForm.form;
+
+  const startGoogleOauth = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const redirectUri = `${window.location.origin}/auth/callback/google`;
+      window.location.href = await buildGoogleOauthUrl(redirectUri);
+    } catch {
+      setIsGoogleLoading(false);
+    }
+  };
 
   return (
     <form
@@ -20,24 +33,32 @@ export const LoginForm = () => {
       onSubmit={loginForm.submit}
     >
       <h1 className="text-foreground text-2xl font-semibold">Sign in</h1>
-      <p className="text-muted-foreground text-sm">Use your account to access the workflow dashboard.</p>
+      <p className="text-muted-foreground text-sm">Use your account to access the JobSeeker dashboard.</p>
 
       <Label htmlFor="login-email" className="text-foreground/90">
         Email
       </Label>
       <Input id="login-email" type="email" placeholder="you@example.com" {...register('email')} />
-      {errors.email?.message ? <p className="text-sm text-rose-600">{errors.email.message}</p> : null}
+      {errors.email?.message ? <p className="text-app-danger text-sm">{errors.email.message}</p> : null}
 
       <Label htmlFor="login-password" className="text-foreground/90">
         Password
       </Label>
       <Input id="login-password" type="password" placeholder="********" {...register('password')} />
-      {errors.password?.message ? <p className="text-sm text-rose-600">{errors.password.message}</p> : null}
+      {errors.password?.message ? <p className="text-app-danger text-sm">{errors.password.message}</p> : null}
 
-      {errors.root?.message ? <p className="text-sm text-rose-600">{errors.root.message}</p> : null}
+      {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
 
       <Button type="submit" disabled={loginForm.isSubmitting}>
         {loginForm.isSubmitting ? 'Signing in...' : 'Sign in'}
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={startGoogleOauth}
+        disabled={loginForm.isSubmitting || isGoogleLoading}
+      >
+        {isGoogleLoading ? 'Redirecting...' : 'Continue with Google'}
       </Button>
 
       <p className="text-muted-foreground text-sm">

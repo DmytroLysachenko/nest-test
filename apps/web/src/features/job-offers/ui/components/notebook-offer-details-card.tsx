@@ -1,10 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 
 import { useNotebookOfferDetailsDrafts } from '@/features/job-offers/model/hooks/use-notebook-offer-details-drafts';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
+import { ConfirmActionDialog } from '@/shared/ui/confirm-action-dialog';
+import { DataFreshnessBadge } from '@/shared/ui/data-freshness-badge';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
@@ -17,6 +20,8 @@ const STATUSES: JobOfferStatus[] = ['NEW', 'SEEN', 'SAVED', 'APPLIED', 'DISMISSE
 type NotebookOfferDetailsCardProps = {
   offer: JobOfferListItemDto | null;
   history: Awaited<ReturnType<typeof getJobOfferHistory>> | undefined;
+  historyError: string | null;
+  updatedAt: number | null | undefined;
   isBusy: boolean;
   onStatusChange: (status: JobOfferStatus) => void;
   onSaveMeta: (notes: string, tags: string[]) => void;
@@ -26,11 +31,14 @@ type NotebookOfferDetailsCardProps = {
 export const NotebookOfferDetailsCard = ({
   offer,
   history,
+  historyError,
+  updatedAt,
   isBusy,
   onStatusChange,
   onSaveMeta,
   onRescore,
 }: NotebookOfferDetailsCardProps) => {
+  const [pendingConfirmStatus, setPendingConfirmStatus] = useState<JobOfferStatus | null>(null);
   const drafts = useNotebookOfferDetailsDrafts({ offer });
 
   if (!offer) {
@@ -61,13 +69,20 @@ export const NotebookOfferDetailsCard = ({
             <Button
               key={status}
               type="button"
-              variant="secondary"
+              variant={offer.status === status ? 'default' : 'secondary'}
               disabled={isBusy}
-              onClick={() => onStatusChange(status)}
+              onClick={() => {
+                if (status === 'DISMISSED' && offer.status !== 'DISMISSED') {
+                  setPendingConfirmStatus(status);
+                  return;
+                }
+                onStatusChange(status);
+              }}
             >
               {status}
             </Button>
           ))}
+          <DataFreshnessBadge updatedAt={updatedAt} label="Offer data" />
         </div>
 
         <div className="space-y-1">
@@ -122,6 +137,8 @@ export const NotebookOfferDetailsCard = ({
           </pre>
         </details>
 
+        {historyError ? <p className="text-app-danger text-xs">{historyError}</p> : null}
+
         {history ? (
           <details className="app-muted-panel" open>
             <summary className="text-foreground cursor-pointer font-medium">Status history</summary>
@@ -135,6 +152,18 @@ export const NotebookOfferDetailsCard = ({
           </details>
         ) : null}
       </div>
+
+      <ConfirmActionDialog
+        open={pendingConfirmStatus === 'DISMISSED'}
+        title="Dismiss offer?"
+        description="This moves the offer to dismissed status. You can undo later from the success toast action."
+        confirmLabel="Dismiss offer"
+        onCancel={() => setPendingConfirmStatus(null)}
+        onConfirm={() => {
+          setPendingConfirmStatus(null);
+          onStatusChange('DISMISSED');
+        }}
+      />
     </Card>
   );
 };

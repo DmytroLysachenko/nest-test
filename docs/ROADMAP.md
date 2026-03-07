@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-03-01
+Last updated: 2026-03-05
 
 ## Now (Execution Priority)
 
@@ -16,6 +16,12 @@ Last updated: 2026-03-01
    - Status: in progress (per-user scrape backpressure + admin metrics endpoint + explicit run-state transition guards + enqueue idempotency + retry-depth cap implemented).
 6. Staging/production deployment pipeline with rollback automation.
    - Status: in progress (release-candidate image build/push + manual Cloud Run promotion + post-deploy verification implemented; rollback automation pending).
+7. Request-budget guardrails (API throttling + FE query traffic controls).
+   - Status: completed (env-driven global API throttle and frontend query refetch/stale controls shipped).
+8. Authentication hardening and OAuth onboarding.
+   - Status: in progress (normalized API error taxonomy + env-tunable auth throttles + Google OAuth login flow shipped).
+9. Scrape automation scheduling.
+   - Status: completed (user schedule model + secure trigger endpoint + deploy-managed Cloud Scheduler wiring shipped).
 
 ## Next
 

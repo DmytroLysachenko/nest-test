@@ -21,6 +21,7 @@ const booleanSchema = z.preprocess(parseBoolean, z.boolean());
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  WORKER_ALLOWED_ORIGINS: z.string().default('*'),
   WORKER_LOG_LEVEL: z.string().default('info'),
   WORKER_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   QUEUE_PROVIDER: z.enum(['local', 'cloud-tasks']).default('local'),
@@ -61,6 +62,7 @@ const envSchema = z.object({
   WORKER_MAX_CONCURRENT_TASKS: z.coerce.number().int().min(1).max(5).default(1),
   WORKER_MAX_QUEUE_SIZE: z.coerce.number().int().min(1).max(1000).default(100),
   WORKER_TASK_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600000).default(180000),
+  WORKER_SMOKE_ACCEPT_ONLY: booleanSchema.default(false),
 });
 
 export type WorkerEnv = z.infer<typeof envSchema>;
@@ -80,6 +82,9 @@ export const loadEnv = () => {
 
   if (env.NODE_ENV === 'production' && env.QUEUE_PROVIDER !== 'cloud-tasks') {
     throw new Error('QUEUE_PROVIDER must be cloud-tasks in production mode');
+  }
+  if (env.NODE_ENV === 'production' && env.WORKER_ALLOWED_ORIGINS.trim() === '*') {
+    throw new Error('WORKER_ALLOWED_ORIGINS cannot be "*" in production mode');
   }
 
   if (env.QUEUE_PROVIDER === 'cloud-tasks') {

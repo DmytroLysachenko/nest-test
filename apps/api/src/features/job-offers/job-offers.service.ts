@@ -3,12 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, desc, eq, isNull, not, sql } from 'drizzle-orm';
 import { careerProfilesTable, jobOffersTable, userJobOffersTable } from '@repo/db';
-import type { JobOfferStatus, JobSource } from '@repo/db';
 import { z } from 'zod';
 
 import { Drizzle } from '@/common/decorators';
 import { GeminiService } from '@/common/modules/gemini/gemini.service';
-import type { Env } from '@/config/env';
 import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
 import { scoreCandidateAgainstJob } from '@/features/job-matching/candidate-matcher';
 import {
@@ -18,6 +16,9 @@ import {
 } from '@/features/job-offers/notebook-ranking';
 
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
+
+import type { Env } from '@/config/env';
+import type { JobOfferStatus, JobSource } from '@repo/db';
 
 const LLM_SCORE_TIMEOUT_MS = 20000;
 

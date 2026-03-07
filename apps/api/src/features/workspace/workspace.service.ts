@@ -5,9 +5,10 @@ import { careerProfilesTable, jobSourceRunsTable, profileInputsTable, userJobOff
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { Drizzle } from '@/common/decorators';
-import type { Env } from '@/config/env';
 
 import { WorkspaceSummaryCache } from './workspace-summary-cache';
+
+import type { Env } from '@/config/env';
 
 @Injectable()
 export class WorkspaceService {

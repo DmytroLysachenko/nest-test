@@ -41,19 +41,58 @@ export const bootstrap = async (app: NestExpressApplication) => {
   if (isProduction && allowedOrigins.trim() === '*') {
     throw new Error('ALLOWED_ORIGINS cannot be "*" in production');
   }
-  const origin =
-    allowedOrigins === '*'
-      ? true
-      : allowedOrigins
-          .split(',')
-          .map((value) => value.trim())
-          .filter(Boolean);
+
+  const normalizeOrigin = (value: string) => {
+    const trimmed = value.trim().replace(/^['"]|['"]$/g, '');
+    if (!trimmed) {
+      return null;
+    }
+
+    try {
+      return new URL(trimmed).origin.toLowerCase();
+    } catch {
+      return trimmed.replace(/\/+$/, '').toLowerCase();
+    }
+  };
+
+  const originList = (() => {
+    if (allowedOrigins === '*') {
+      return null;
+    }
+
+    const parsed = allowedOrigins
+      .split(',')
+      .map(normalizeOrigin)
+      .filter((value): value is string => Boolean(value));
+
+    return Array.from(new Set(parsed));
+  })();
+
+  const isOriginAllowed = (origin: string | undefined) => {
+    if (!originList) {
+      return true;
+    }
+    if (!origin) {
+      return true;
+    }
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (!normalizedOrigin) {
+      return false;
+    }
+    return originList.includes(normalizedOrigin);
+  };
 
   app.enableCors({
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     maxAge: 3600,
-    origin,
+    origin: (origin, callback) => {
+      const isAllowed = isOriginAllowed(origin);
+      if (!isAllowed) {
+        logger.warn(`Rejected CORS origin: ${origin ?? 'unknown'}`);
+      }
+      callback(null, isAllowed);
+    },
   });
 
   // =====================================================

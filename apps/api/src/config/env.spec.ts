@@ -16,6 +16,8 @@ const baseEnv = () => ({
   DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/app',
   GCS_BUCKET: 'bucket',
   ALLOWED_ORIGINS: 'http://localhost:3000',
+  GOOGLE_OAUTH_CLIENT_ID: 'google-client-id',
+  GOOGLE_OAUTH_CLIENT_SECRET: 'google-client-secret',
 });
 
 describe('validateEnv', () => {
@@ -63,6 +65,75 @@ describe('validateEnv', () => {
         WORKER_TASKS_QUEUE: 'scrape',
         WORKER_TASK_URL: 'https://worker.example.com/tasks',
         WORKER_TASKS_SERVICE_ACCOUNT_EMAIL: 'worker@example.iam.gserviceaccount.com',
+      }),
+    ).not.toThrow();
+  });
+
+  it('accepts explicit global API throttle config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        API_THROTTLE_TTL_MS: '120000',
+        API_THROTTLE_LIMIT: '120',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects incomplete google oauth config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        GOOGLE_OAUTH_CLIENT_SECRET: undefined,
+      }),
+    ).toThrow('GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET must be configured together');
+  });
+
+  it('rejects invalid global API throttle config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        API_THROTTLE_TTL_MS: '500',
+      }),
+    ).toThrow();
+  });
+
+  it('accepts explicit scrape daily enqueue budget config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER: '80',
+      }),
+    ).not.toThrow();
+  });
+
+  it('accepts explicit auth throttle config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        AUTH_LOGIN_THROTTLE_LIMIT: '7',
+        AUTH_LOGIN_THROTTLE_TTL_MS: '30000',
+        AUTH_REFRESH_THROTTLE_LIMIT: '20',
+        AUTH_REGISTER_THROTTLE_LIMIT: '5',
+        AUTH_OTP_THROTTLE_LIMIT: '4',
+      }),
+    ).not.toThrow();
+  });
+
+  it('accepts scheduler trigger config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        SCHEDULER_AUTH_TOKEN: 'scheduler-token',
+        SCHEDULER_TRIGGER_BATCH_SIZE: '10',
+      }),
+    ).not.toThrow();
+  });
+
+  it('accepts ops internal token config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        OPS_INTERNAL_TOKEN: 'ops-internal-token',
       }),
     ).not.toThrow();
   });

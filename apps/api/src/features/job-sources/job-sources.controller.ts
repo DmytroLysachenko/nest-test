@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
@@ -15,6 +15,7 @@ import { ScrapeRunDiagnosticsResponse } from './dto/run-diagnostics.response';
 import { ListRunDiagnosticsSummaryQuery } from './dto/list-run-diagnostics-summary.query';
 import { ScrapeRunDiagnosticsSummaryResponse } from './dto/run-diagnostics-summary.response';
 import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';
+import { ScrapeScheduleResponseDto, UpdateScrapeScheduleDto } from './dto/scrape-schedule.dto';
 
 @ApiTags('job-sources')
 @ApiBearerAuth()
@@ -91,6 +92,20 @@ export class JobSourcesController {
     return this.jobSourcesService.completeScrape(dto, authorization, requestId, workerSignature, workerTimestamp);
   }
 
+  @Get('schedule')
+  @ApiOperation({ summary: 'Get scrape schedule for current user' })
+  @ApiOkResponse({ type: ScrapeScheduleResponseDto })
+  async getSchedule(@CurrentUser() user: JwtValidateUser) {
+    return this.jobSourcesService.getSchedule(user.userId);
+  }
+
+  @Put('schedule')
+  @ApiOperation({ summary: 'Create or update scrape schedule for current user' })
+  @ApiOkResponse({ type: ScrapeScheduleResponseDto })
+  async updateSchedule(@CurrentUser() user: JwtValidateUser, @Body() dto: UpdateScrapeScheduleDto) {
+    return this.jobSourcesService.updateSchedule(user.userId, dto);
+  }
+
   @Post('runs/:id/heartbeat')
   @Public()
   @ApiOperation({ summary: 'Worker heartbeat callback for active scrape runs' })
@@ -103,5 +118,15 @@ export class JobSourcesController {
     @Body() dto: ScrapeHeartbeatDto,
   ) {
     return this.jobSourcesService.heartbeatRun(id, dto, authorization, requestId, workerSignature, workerTimestamp);
+  }
+
+  @Post('schedule/trigger')
+  @Public()
+  @ApiOperation({ summary: 'Internal scheduler trigger for enabled scrape schedules' })
+  async triggerSchedules(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-request-id') requestId: string | undefined,
+  ) {
+    return this.jobSourcesService.triggerSchedules(authorization, requestId);
   }
 }

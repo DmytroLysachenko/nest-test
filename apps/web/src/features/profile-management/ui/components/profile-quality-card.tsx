@@ -9,35 +9,35 @@ type ProfileQualityCardProps = {
 };
 
 const statusClass: Record<'ok' | 'weak' | 'missing', string> = {
-  ok: 'bg-emerald-100 text-emerald-800',
-  weak: 'bg-amber-100 text-amber-800',
-  missing: 'bg-rose-100 text-rose-800',
+  ok: 'bg-app-success-soft text-app-success',
+  weak: 'bg-app-warning-soft text-app-warning',
+  missing: 'bg-app-danger-soft text-app-danger',
 };
 
 export const ProfileQualityCard = ({ quality }: ProfileQualityCardProps) => (
   <Card title="Profile quality" description="Deterministic diagnostics for search-readiness and matching consistency.">
     {quality ? (
       <div className="space-y-3">
-        <p className="text-sm text-slate-700">
+        <p className="text-text-soft text-sm">
           Score: <span className="font-semibold">{quality.score}/100</span>
         </p>
 
         <div className="space-y-2">
           {quality.signals.map((signal) => (
-            <div key={signal.key} className="rounded-md border border-slate-200 p-2 text-sm">
+            <div key={signal.key} className="border-border rounded-md border p-2 text-sm">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-slate-900">{signal.key}</span>
+                <span className="text-text-strong font-medium">{signal.key}</span>
                 <span className={`rounded px-2 py-0.5 text-xs ${statusClass[signal.status]}`}>{signal.status}</span>
               </div>
-              <p className="mt-1 text-xs text-slate-600">{signal.message}</p>
+              <p className="text-text-soft mt-1 text-xs">{signal.message}</p>
             </div>
           ))}
         </div>
 
         {quality.recommendations.length ? (
           <div>
-            <p className="text-sm font-semibold text-slate-900">Recommendations</p>
-            <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-700">
+            <p className="text-text-strong text-sm font-semibold">Recommendations</p>
+            <ul className="text-text-soft mt-1 list-disc space-y-1 pl-5 text-sm">
               {quality.recommendations.map((item) => (
                 <li key={item}>{item}</li>
               ))}
@@ -46,7 +46,7 @@ export const ProfileQualityCard = ({ quality }: ProfileQualityCardProps) => (
         ) : null}
       </div>
     ) : (
-      <p className="text-sm text-slate-500">No quality diagnostics available yet.</p>
+      <p className="text-text-soft text-sm">No quality diagnostics available yet.</p>
     )}
   </Card>
 );

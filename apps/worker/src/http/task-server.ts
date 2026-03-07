@@ -13,6 +13,15 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import type { TaskEnvelope } from '../queue/task-types';
 import type { ScrapeSourceJob } from '../types/jobs';
 
+type CorsHeaders = {
+  'Access-Control-Allow-Origin'?: string;
+  'Access-Control-Allow-Credentials'?: string;
+  Vary?: string;
+  'Access-Control-Allow-Headers'?: string;
+  'Access-Control-Allow-Methods'?: string;
+  'Access-Control-Max-Age'?: string;
+};
+
 const readJsonBody = async (req: IncomingMessage, maxBytes: number): Promise<unknown> => {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -45,6 +54,35 @@ const sendJson = (res: ServerResponse, status: number, payload: Record<string, u
     'Content-Length': Buffer.byteLength(data),
   });
   res.end(data);
+};
+
+const parseAllowedOrigins = (raw: string) =>
+  raw
+    .split(',')
+    .map((value) => value.trim().replace(/\/+$/, '').toLowerCase())
+    .filter(Boolean);
+
+const resolveCorsHeaders = (originHeader: string | string[] | undefined, allowedOriginsRaw: string): CorsHeaders => {
+  const allowedOrigins = parseAllowedOrigins(allowedOriginsRaw);
+  const origin = Array.isArray(originHeader) ? originHeader[0] : originHeader;
+  const normalizedOrigin = origin?.trim().replace(/\/+$/, '').toLowerCase();
+
+  if (!normalizedOrigin) {
+    return {};
+  }
+
+  if (allowedOriginsRaw.trim() !== '*' && !allowedOrigins.includes(normalizedOrigin)) {
+    return {};
+  }
+
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Credentials': 'true',
+    Vary: 'Origin',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Request-Id',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Max-Age': '3600',
+  };
 };
 
 const formatError = (error: unknown) => {
@@ -181,6 +219,19 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
   );
 
   return createServer(async (req, res) => {
+    const corsHeaders = resolveCorsHeaders(req.headers.origin, env.WORKER_ALLOWED_ORIGINS);
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      if (value) {
+        res.setHeader(key, value);
+      }
+    });
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
     if (req.method === 'GET' && req.url === '/health') {
       sendJson(res, 200, { ok: true, queue: runner.getStats() });
       return;
@@ -242,6 +293,19 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         },
         'Task received',
       );
+
+      if (env.WORKER_SMOKE_ACCEPT_ONLY) {
+        sendJson(res, 202, {
+          ok: true,
+          status: 'accepted',
+          queueProvider: env.QUEUE_PROVIDER,
+          requestId,
+          runId: task.payload.runId ?? null,
+          sourceRunId: task.payload.sourceRunId ?? null,
+          smokeAcceptOnly: true,
+        });
+        return;
+      }
 
       const accepted = runner.enqueue(task);
       if (!accepted) {

@@ -14,6 +14,8 @@ export const EnvSchema = z.object({
   MAIL_USERNAME: z.string(),
   MAIL_PASSWORD: z.string(),
   DATABASE_URL: z.string(),
+  GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
   GCP_LOCATION: z.string().default('us-central1'),
@@ -39,6 +41,8 @@ export const EnvSchema = z.object({
   WORKER_CALLBACK_SIGNING_SECRET: z.string().optional(),
   WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC: z.coerce.number().int().min(30).max(3600).default(300),
   WORKER_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600000).default(5000),
+  API_THROTTLE_TTL_MS: z.coerce.number().int().min(1000).max(600000).default(60000),
+  API_THROTTLE_LIMIT: z.coerce.number().int().min(5).max(1000).default(60),
   WORKER_TASK_MAX_PAYLOAD_BYTES: z.coerce.number().int().min(1024).max(5_000_000).default(262_144),
   API_BODY_LIMIT: z
     .string()
@@ -47,8 +51,12 @@ export const EnvSchema = z.object({
     .default('1mb'),
   SCRAPE_DB_REUSE_HOURS: z.coerce.number().int().min(1).max(720).default(24),
   SCRAPE_MAX_ACTIVE_RUNS_PER_USER: z.coerce.number().int().min(1).max(20).default(2),
+  SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER: z.coerce.number().int().min(1).max(500).default(40),
   SCRAPE_ENQUEUE_IDEMPOTENCY_TTL_SEC: z.coerce.number().int().min(0).max(600).default(30),
   SCRAPE_MAX_RETRY_CHAIN_DEPTH: z.coerce.number().int().min(1).max(20).default(5),
+  SCHEDULER_AUTH_TOKEN: z.string().optional(),
+  SCHEDULER_TRIGGER_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(20),
+  OPS_INTERNAL_TOKEN: z.string().optional(),
   AUTO_SCORE_ON_INGEST: z.coerce.boolean().default(true),
   AUTO_SCORE_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(1),
   AUTO_SCORE_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(0),
@@ -56,6 +64,14 @@ export const EnvSchema = z.object({
   NOTEBOOK_APPROX_VIOLATION_PENALTY: z.coerce.number().int().min(0).max(100).default(10),
   NOTEBOOK_APPROX_SCORED_BONUS: z.coerce.number().int().min(0).max(100).default(10),
   NOTEBOOK_EXPLORE_UNSCORED_BASE: z.coerce.number().int().min(0).max(100).default(0),
+  AUTH_LOGIN_THROTTLE_TTL_MS: z.coerce.number().int().min(1000).max(600000).default(60000),
+  AUTH_LOGIN_THROTTLE_LIMIT: z.coerce.number().int().min(1).max(100).default(5),
+  AUTH_REFRESH_THROTTLE_TTL_MS: z.coerce.number().int().min(1000).max(600000).default(60000),
+  AUTH_REFRESH_THROTTLE_LIMIT: z.coerce.number().int().min(1).max(200).default(10),
+  AUTH_REGISTER_THROTTLE_TTL_MS: z.coerce.number().int().min(1000).max(600000).default(60000),
+  AUTH_REGISTER_THROTTLE_LIMIT: z.coerce.number().int().min(1).max(50).default(3),
+  AUTH_OTP_THROTTLE_TTL_MS: z.coerce.number().int().min(1000).max(600000).default(60000),
+  AUTH_OTP_THROTTLE_LIMIT: z.coerce.number().int().min(1).max(50).default(3),
   WORKSPACE_SUMMARY_CACHE_TTL_SEC: z.coerce.number().int().min(0).max(300).default(0),
   JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS: z.coerce.number().int().min(1).max(720).default(72),
   SCRAPE_STALE_PENDING_MINUTES: z.coerce.number().int().min(1).max(240).default(15),
@@ -77,6 +93,12 @@ export const validateEnv = (env: Record<string, unknown>): Env => {
     if (audienceUrl.protocol !== 'https:') {
       throw new Error('WORKER_CALLBACK_OIDC_AUDIENCE must use https in production mode');
     }
+  }
+  if (
+    (parsed.data.GOOGLE_OAUTH_CLIENT_ID && !parsed.data.GOOGLE_OAUTH_CLIENT_SECRET) ||
+    (!parsed.data.GOOGLE_OAUTH_CLIENT_ID && parsed.data.GOOGLE_OAUTH_CLIENT_SECRET)
+  ) {
+    throw new Error('GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET must be configured together');
   }
   if (
     parsed.data.WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL &&
