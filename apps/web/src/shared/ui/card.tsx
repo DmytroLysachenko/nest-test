@@ -12,14 +12,19 @@ type CardProps = {
 
 export const Card = ({ title, description, children, className, contentClassName }: CardProps) => {
   return (
-    <ShadcnCard className={cn('border-border/80 bg-card/90 rounded-2xl shadow-sm backdrop-blur-sm', className)}>
-      <CardHeader className="gap-2 px-5 pt-5">
-        <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+    <ShadcnCard
+      className={cn(
+        'border-border/80 bg-card/92 rounded-[1.5rem] shadow-[0_18px_40px_-32px_color-mix(in_oklab,var(--text-strong)_20%,transparent)] backdrop-blur-md',
+        className,
+      )}
+    >
+      <CardHeader className="gap-2 px-5 pt-5 md:px-6 md:pt-6">
+        <CardTitle className="text-text-strong text-lg font-semibold tracking-[-0.02em]">{title}</CardTitle>
         {description ? (
-          <CardDescription className="text-muted-foreground text-sm">{description}</CardDescription>
+          <CardDescription className="text-text-soft max-w-3xl text-sm leading-6">{description}</CardDescription>
         ) : null}
       </CardHeader>
-      <CardContent className={cn('px-5 pb-5', contentClassName)}>{children}</CardContent>
+      <CardContent className={cn('px-5 pb-5 md:px-6 md:pb-6', contentClassName)}>{children}</CardContent>
     </ShadcnCard>
   );
 };

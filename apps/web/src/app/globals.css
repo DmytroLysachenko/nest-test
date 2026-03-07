@@ -78,11 +78,18 @@
 
 body {
   background:
-    radial-gradient(1200px 460px at 110% -16%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 60%),
-    radial-gradient(960px 360px at -8% 0%, color-mix(in oklab, var(--primary) 14%, transparent), transparent 58%),
+    radial-gradient(1200px 460px at 110% -16%, color-mix(in oklab, var(--accent) 20%, transparent), transparent 60%),
+    radial-gradient(960px 360px at -8% 0%, color-mix(in oklab, var(--primary) 16%, transparent), transparent 58%),
+    linear-gradient(180deg, color-mix(in oklab, var(--surface-elevated) 60%, transparent), transparent 28%),
     var(--background);
   color: var(--foreground);
   font-family: var(--font-body), 'Segoe UI', sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--primary) 22%, white);
+  color: var(--text-strong);
 }
 
 @layer base {
@@ -103,31 +110,31 @@ body {
   }
 
   .app-shell-content {
-    @apply min-w-0 flex-1;
+    @apply relative min-w-0 flex-1;
   }
 
   .app-shell-sidebar-link {
-    @apply text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors;
+    @apply text-sidebar-foreground/80 hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm font-medium transition-colors;
   }
 
   .app-shell-sidebar-link-active {
-    @apply bg-sidebar-primary text-sidebar-primary-foreground;
+    @apply bg-sidebar-primary text-sidebar-primary-foreground shadow-[0_12px_28px_-16px_color-mix(in_oklab,var(--sidebar-primary)_80%,black)];
   }
 
   .app-page {
-    @apply mx-auto w-full max-w-7xl px-4 py-6 md:px-6 md:py-8;
+    @apply mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-6 md:py-8 xl:px-8;
   }
 
   .app-page-header {
-    @apply border-border/80 bg-surface/90 rounded-2xl border p-5 shadow-sm backdrop-blur-sm;
+    @apply border-border/80 bg-surface/88 rounded-[1.75rem] border p-5 shadow-[0_20px_60px_-34px_color-mix(in_oklab,var(--text-strong)_16%,transparent)] backdrop-blur-md md:p-6;
   }
 
   .app-title {
-    @apply text-text-strong text-2xl font-semibold md:text-3xl;
+    @apply text-text-strong text-2xl font-semibold tracking-[-0.03em] md:text-3xl;
   }
 
   .app-subtitle {
-    @apply text-text-soft text-sm;
+    @apply text-text-soft max-w-3xl text-sm leading-6;
   }
 
   .app-select {
@@ -135,7 +142,7 @@ body {
   }
 
   .app-muted-panel {
-    @apply border-border/80 bg-surface-muted rounded-xl border p-3;
+    @apply border-border/80 bg-surface-muted/88 rounded-2xl border p-4;
   }
 
   .app-badge {
@@ -160,5 +167,47 @@ body {
 
   .app-status-info {
     @apply border-app-info-border bg-app-info-soft text-app-info;
+  }
+
+  .app-hero {
+    @apply app-page-header relative overflow-hidden;
+  }
+
+  .app-hero::before {
+    content: '';
+    @apply pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(90deg,color-mix(in_oklab,var(--primary)_12%,transparent),color-mix(in_oklab,var(--accent)_14%,transparent),transparent)];
+  }
+
+  .app-surface {
+    @apply border-border/80 bg-surface/90 rounded-[1.5rem] border shadow-[0_18px_40px_-32px_color-mix(in_oklab,var(--text-strong)_18%,transparent)];
+  }
+
+  .app-surface-elevated {
+    @apply app-surface bg-surface-elevated/95;
+  }
+
+  .app-kpi {
+    @apply app-surface-elevated relative overflow-hidden p-5;
+  }
+
+  .app-kpi::after {
+    content: '';
+    @apply pointer-events-none absolute inset-x-5 bottom-0 h-px bg-[linear-gradient(90deg,color-mix(in_oklab,var(--primary)_18%,transparent),transparent)];
+  }
+
+  .app-section-grid {
+    @apply grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,1fr)];
+  }
+
+  .app-toolbar {
+    @apply border-border/70 bg-surface-elevated/86 rounded-2xl border px-3 py-3 shadow-[0_16px_32px_-28px_color-mix(in_oklab,var(--text-strong)_18%,transparent)] backdrop-blur-sm;
+  }
+
+  .app-field-group {
+    @apply space-y-2;
+  }
+
+  .app-inline-label {
+    @apply text-text-strong text-[0.82rem] font-semibold tracking-[-0.01em];
   }
 }
