@@ -36,6 +36,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
+    "verify:prepush": "pnpm --filter web check-types && pnpm --filter api test -- --runInBand src/features/auth/auth.service.spec.ts src/config/env.spec.ts && pnpm --filter worker test && pnpm --filter api build && pnpm --filter worker build",
     "smoke:e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-e2e.ps1",
     "start": "pnpm dev:stack",
     "start:all": "turbo run start"
