@@ -42,8 +42,6 @@ const tseslintConfig = tseslint.config(
         // Enable type-aware linting
         projectService: true,
 
-        project: ['./tsconfig.json', './apps/*/tsconfig.json', './packages/*/tsconfig.json'],
-
         // it is recommended to keep version warnings turned on
         warnOnUnsupportedTypeScriptVersion: true,
       },
