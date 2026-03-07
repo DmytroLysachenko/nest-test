@@ -17,19 +17,27 @@ const statusClass: Record<'ok' | 'weak' | 'missing', string> = {
 export const ProfileQualityCard = ({ quality }: ProfileQualityCardProps) => (
   <Card title="Profile quality" description="Deterministic diagnostics for search-readiness and matching consistency.">
     {quality ? (
-      <div className="space-y-3">
-        <p className="text-text-soft text-sm">
-          Score: <span className="font-semibold">{quality.score}/100</span>
-        </p>
+      <div className="space-y-4">
+        <div className="app-muted-panel flex items-end justify-between gap-4">
+          <div>
+            <p className="text-text-soft text-xs uppercase tracking-[0.14em]">Quality score</p>
+            <p className="text-text-strong mt-2 text-3xl font-semibold tracking-[-0.04em]">{quality.score}/100</p>
+          </div>
+          <p className="text-text-soft max-w-sm text-sm">
+            This score summarizes how complete and reliable the current profile is for search and matching.
+          </p>
+        </div>
 
         <div className="space-y-2">
           {quality.signals.map((signal) => (
-            <div key={signal.key} className="border-border rounded-md border p-2 text-sm">
+            <div key={signal.key} className="border-border/80 rounded-2xl border p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-text-strong font-medium">{signal.key}</span>
-                <span className={`rounded px-2 py-0.5 text-xs ${statusClass[signal.status]}`}>{signal.status}</span>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClass[signal.status]}`}>
+                  {signal.status}
+                </span>
               </div>
-              <p className="text-text-soft mt-1 text-xs">{signal.message}</p>
+              <p className="text-text-soft mt-2 text-xs leading-5">{signal.message}</p>
             </div>
           ))}
         </div>
