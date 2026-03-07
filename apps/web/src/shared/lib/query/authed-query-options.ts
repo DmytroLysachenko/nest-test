@@ -9,8 +9,15 @@ type BuildAuthedQueryOptionsInput<TQueryFnData, TData = TQueryFnData> = {
   enabled?: boolean;
   refetchInterval?: UseQueryOptions<TQueryFnData, Error, TData>['refetchInterval'];
   select?: (data: TQueryFnData) => TData;
+  staleTime?: number;
+  gcTime?: number;
 };
 
+/**
+ * Standardizes authenticated TanStack Query options.
+ *
+ * Ensures consistency for token handling, conditional enabling, and caching policies.
+ */
 export const buildAuthedQueryOptions = <TQueryFnData, TData = TQueryFnData>({
   token,
   queryKey,
@@ -18,10 +25,14 @@ export const buildAuthedQueryOptions = <TQueryFnData, TData = TQueryFnData>({
   enabled = true,
   refetchInterval,
   select,
+  staleTime,
+  gcTime,
 }: BuildAuthedQueryOptionsInput<TQueryFnData, TData>): UseQueryOptions<TQueryFnData, Error, TData> => ({
   queryKey,
   queryFn: () => queryFn(token as string),
   enabled: Boolean(token) && enabled,
   ...(refetchInterval !== undefined ? { refetchInterval } : {}),
   ...(select ? { select } : {}),
+  ...(staleTime !== undefined ? { staleTime } : {}),
+  ...(gcTime !== undefined ? { gcTime } : {}),
 });
