@@ -21,7 +21,8 @@ export const jobSourceRunsTable = pgTable(
     finalizedAt: timestamp('finalized_at', { withTimezone: true }),
     lastHeartbeatAt: timestamp('last_heartbeat_at', { withTimezone: true }),
     progress: jsonb('progress'),
-    retryOfRunId: uuid('retry_of_run_id').references(() => jobSourceRunsTable.id, { onDelete: 'set null' }),
+    // @ts-ignore - Circular reference in Drizzle schema requires type break for declaration generation
+    retryOfRunId: uuid('retry_of_run_id').references((): any => jobSourceRunsTable.id, { onDelete: 'set null' }),
     retryCount: integer('retry_count').default(0).notNull(),
     startedAt: timestamp('started_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
