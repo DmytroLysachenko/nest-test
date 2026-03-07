@@ -94,10 +94,7 @@ export const CareerProfileVersionsCard = ({
             <article key={item.id} className="app-muted-panel space-y-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="w-full space-y-2">
-                  <InspectorRow
-                    label="Version"
-                    value={`v${item.version}${item.isActive ? ' (active)' : ''}`}
-                  />
+                  <InspectorRow label="Version" value={`v${item.version}${item.isActive ? ' (active)' : ''}`} />
                   <InspectorRow label="Status" value={item.status} />
                   <InspectorRow label="Created" value={new Date(item.createdAt).toLocaleString()} />
                 </div>

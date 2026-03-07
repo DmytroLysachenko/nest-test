@@ -72,9 +72,7 @@ export const HeroHeader = ({ eyebrow, title, subtitle, meta, action, className }
   <section className={cn('app-hero flex flex-col gap-6 md:flex-row md:items-end md:justify-between', className)}>
     <div className="relative z-10 space-y-3">
       {eyebrow ? (
-        <span className="app-badge border-primary/20 bg-primary/10 text-primary rounded-full px-3 py-1">
-          {eyebrow}
-        </span>
+        <span className="app-badge border-primary/20 bg-primary/10 text-primary rounded-full px-3 py-1">{eyebrow}</span>
       ) : null}
       <div className="space-y-2">
         <h1 className="app-title">{title}</h1>
@@ -87,7 +85,11 @@ export const HeroHeader = ({ eyebrow, title, subtitle, meta, action, className }
 );
 
 export const MetricCard = ({ label, value, caption, trend, className }: MetricCardProps) => (
-  <Card title={label} className={cn('app-kpi border-border/80 rounded-[1.5rem] p-0', className)} contentClassName="px-5 pb-5 md:px-6 md:pb-6">
+  <Card
+    title={label}
+    className={cn('app-kpi border-border/80 rounded-[1.5rem] p-0', className)}
+    contentClassName="px-5 pb-5 md:px-6 md:pb-6"
+  >
     <p className="text-text-strong text-3xl font-semibold tracking-[-0.04em] md:text-[2rem]">{value}</p>
     {caption ? <p className="text-text-soft mt-2 text-sm leading-6">{caption}</p> : null}
     {trend ? (
@@ -121,7 +123,7 @@ export const DataTableShell = ({ title, description, children, className }: Data
 );
 
 export const StatRow = ({ label, value, tone = 'neutral' }: StatRowProps) => (
-  <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-surface-muted/72 px-4 py-3">
+  <div className="border-border/70 bg-surface-muted/72 flex items-center justify-between gap-3 rounded-2xl border px-4 py-3">
     <span className="text-text-soft text-sm">{label}</span>
     {typeof value === 'string' ? <StatusPill value={value} tone={tone} /> : value}
   </div>

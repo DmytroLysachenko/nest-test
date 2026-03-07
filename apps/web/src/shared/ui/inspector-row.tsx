@@ -12,7 +12,7 @@ type InspectorRowProps = {
 export const InspectorRow = ({ label, value, hint, className }: InspectorRowProps) => (
   <div
     className={cn(
-      'rounded-2xl border border-border/70 bg-surface-elevated/88 px-4 py-3',
+      'border-border/70 bg-surface-elevated/88 rounded-2xl border px-4 py-3',
       'flex flex-col gap-1 md:flex-row md:items-start md:justify-between md:gap-4',
       className,
     )}

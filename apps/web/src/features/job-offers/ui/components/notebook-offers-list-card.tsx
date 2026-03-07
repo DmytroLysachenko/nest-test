@@ -96,7 +96,7 @@ export const NotebookOffersListCard = ({
                 type="checkbox"
                 checked={selectedOfferIds.includes(offer.id)}
                 onChange={() => onToggleOfferSelection(offer.id)}
-                className="mt-1 h-4 w-4 rounded border-border"
+                className="border-border mt-1 h-4 w-4 rounded"
                 aria-label={`Select ${offer.title}`}
               />
               <button type="button" onClick={() => onSelectOffer(offer.id)} className="min-w-0 flex-1 text-left">

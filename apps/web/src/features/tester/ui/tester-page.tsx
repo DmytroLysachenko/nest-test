@@ -165,7 +165,9 @@ export const TesterPage = ({ token }: TesterPageProps) => {
           {testerPage.error ? <p className="text-app-danger text-sm">{testerPage.error}</p> : null}
           {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
           <div className="app-toolbar flex items-center justify-between gap-3">
-            <p className="text-text-soft text-xs">Use presets for known request shapes, then edit path or payload as needed.</p>
+            <p className="text-text-soft text-xs">
+              Use presets for known request shapes, then edit path or payload as needed.
+            </p>
             <Button type="submit" disabled={testerPage.mutation.isPending}>
               {testerPage.mutation.isPending ? 'Sending...' : 'Send request'}
             </Button>

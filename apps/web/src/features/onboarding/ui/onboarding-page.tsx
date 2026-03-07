@@ -84,7 +84,8 @@ export const OnboardingPage = () => {
           <form className="space-y-4" onSubmit={onboarding.saveStepOne}>
             <div className="app-muted-panel">
               <p className="text-text-soft text-sm">
-                Fields required for progression are enforced by validation. Optional notes improve profile quality and retrieval context.
+                Fields required for progression are enforced by validation. Optional notes improve profile quality and
+                retrieval context.
               </p>
             </div>
             <TagInput

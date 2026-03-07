@@ -51,7 +51,9 @@ export const ProfileInputEditorCard = ({
             placeholder="Frontend Developer, Fullstack Developer"
             {...register('targetRoles')}
           />
-          <p className="text-text-soft text-xs">Use a concise comma-separated list of the roles you want the system to prioritize.</p>
+          <p className="text-text-soft text-xs">
+            Use a concise comma-separated list of the roles you want the system to prioritize.
+          </p>
           {errors.targetRoles?.message ? <p className="text-app-danger text-sm">{errors.targetRoles.message}</p> : null}
         </div>
 
@@ -65,7 +67,9 @@ export const ProfileInputEditorCard = ({
             placeholder="Preferred work mode, salary, location, contracts..."
             {...register('notes')}
           />
-          <p className="text-text-soft text-xs">Capture constraints, non-negotiables, and context that should influence filtering or ranking.</p>
+          <p className="text-text-soft text-xs">
+            Capture constraints, non-negotiables, and context that should influence filtering or ranking.
+          </p>
           {errors.notes?.message ? <p className="text-app-danger text-sm">{errors.notes.message}</p> : null}
         </div>
 

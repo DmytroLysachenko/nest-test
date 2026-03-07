@@ -285,12 +285,16 @@ export const WorkspaceDashboardPage = () => {
                 />
                 <StatRow
                   label="Timeout pressure"
-                  value={diagnostics.failures.timeout > 0 ? `${diagnostics.failures.timeout} recent` : 'No recent issues'}
+                  value={
+                    diagnostics.failures.timeout > 0 ? `${diagnostics.failures.timeout} recent` : 'No recent issues'
+                  }
                   tone={diagnostics.failures.timeout > 0 ? 'warning' : 'success'}
                 />
                 <StatRow
                   label="Network failures"
-                  value={diagnostics.failures.network > 0 ? `${diagnostics.failures.network} recent` : 'No recent issues'}
+                  value={
+                    diagnostics.failures.network > 0 ? `${diagnostics.failures.network} recent` : 'No recent issues'
+                  }
                   tone={diagnostics.failures.network > 0 ? 'danger' : 'success'}
                 />
               </div>
@@ -407,7 +411,9 @@ export const WorkspaceDashboardPage = () => {
         ) : (
           <div className="app-muted-panel">
             <p className="text-text-strong text-sm font-medium">No offers yet</p>
-            <p className="text-text-soft mt-1 text-sm">Enqueue a scrape from notebook or tester tools to populate the workspace.</p>
+            <p className="text-text-soft mt-1 text-sm">
+              Enqueue a scrape from notebook or tester tools to populate the workspace.
+            </p>
           </div>
         )}
       </DataTableShell>

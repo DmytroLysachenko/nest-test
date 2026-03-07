@@ -15,7 +15,8 @@ export const AuthPageShell = ({ children }: AuthPageShellProps) => (
           <div className="space-y-3">
             <h1 className="app-title text-4xl md:text-5xl">A sharper operating system for modern job search.</h1>
             <p className="app-subtitle text-base">
-              Build a stronger profile, automate sourcing, and review opportunities in a workspace designed for focused execution instead of spreadsheet drift.
+              Build a stronger profile, automate sourcing, and review opportunities in a workspace designed for focused
+              execution instead of spreadsheet drift.
             </p>
           </div>
         </div>
@@ -36,7 +37,7 @@ export const AuthPageShell = ({ children }: AuthPageShellProps) => (
         </div>
       </div>
 
-      <section className="w-full max-w-md justify-self-center space-y-4">
+      <section className="w-full max-w-md space-y-4 justify-self-center">
         <header className="space-y-2 text-center lg:text-left">
           <p className="text-text-strong text-2xl font-semibold">JobSeeker</p>
           <p className="text-text-soft text-sm">Commercial-grade workspace for focused job search execution.</p>

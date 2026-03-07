@@ -36,11 +36,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           <Label htmlFor="scrape-mode" className="app-inline-label">
             Mode
           </Label>
-          <select
-            id="scrape-mode"
-            className="app-select"
-            {...register('mode')}
-          >
+          <select id="scrape-mode" className="app-select" {...register('mode')}>
             <option value="profile">Use profile-derived filters</option>
             <option value="custom">Use custom listing URL</option>
           </select>

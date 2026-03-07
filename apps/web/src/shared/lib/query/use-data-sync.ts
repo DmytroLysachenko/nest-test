@@ -5,6 +5,8 @@ import { useCallback } from 'react';
 
 import { queryKeys } from './query-keys';
 
+import type { CareerProfileDto, ProfileInputDto } from '@/shared/types/api';
+
 /**
  * Centralized hook for manual data synchronization and invalidation.
  *
@@ -24,15 +26,18 @@ export const useDataSync = (token: string | null) => {
   /**
    * Sync Profile state (Tier 1)
    */
-  const syncProfile = useCallback((newProfile?: any) => {
-    if (newProfile) {
-      queryClient.setQueryData(queryKeys.careerProfiles.latest(token), newProfile);
-    } else {
-      queryClient.invalidateQueries({ queryKey: queryKeys.careerProfiles.latest(token) });
-    }
-    // Profile changes often affect the workspace summary
-    syncWorkspace();
-  }, [queryClient, token, syncWorkspace]);
+  const syncProfile = useCallback(
+    (newProfile?: CareerProfileDto) => {
+      if (newProfile) {
+        queryClient.setQueryData(queryKeys.careerProfiles.latest(token), newProfile);
+      } else {
+        queryClient.invalidateQueries({ queryKey: queryKeys.careerProfiles.latest(token) });
+      }
+      // Profile changes often affect the workspace summary
+      syncWorkspace();
+    },
+    [queryClient, token, syncWorkspace],
+  );
 
   /**
    * Sync Document state (Tier 2)
@@ -63,14 +68,17 @@ export const useDataSync = (token: string | null) => {
   /**
    * Sync Profile Input state (Tier 1)
    */
-  const syncProfileInputs = useCallback((newInput?: any) => {
-    if (newInput) {
-      queryClient.setQueryData(queryKeys.profileInputs.latest(token), newInput);
-    } else {
-      queryClient.invalidateQueries({ queryKey: queryKeys.profileInputs.latest(token) });
-    }
-    syncWorkspace();
-  }, [queryClient, token, syncWorkspace]);
+  const syncProfileInputs = useCallback(
+    (newInput?: ProfileInputDto) => {
+      if (newInput) {
+        queryClient.setQueryData(queryKeys.profileInputs.latest(token), newInput);
+      } else {
+        queryClient.invalidateQueries({ queryKey: queryKeys.profileInputs.latest(token) });
+      }
+      syncWorkspace();
+    },
+    [queryClient, token, syncWorkspace],
+  );
 
   /**
    * Sync Job Sources state (Tier 3)
