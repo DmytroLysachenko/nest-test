@@ -81,6 +81,13 @@ upsert_scheduler_job() {
   fi
 }
 
+ensure_service_enabled() {
+  local service="$1"
+  if ! gcloud services list --enabled --project="$GCP_PROJECT_ID" --format='value(config.name)' | grep -qx "$service"; then
+    gcloud services enable "$service" --project="$GCP_PROJECT_ID" >/dev/null
+  fi
+}
+
 require_var GCP_PROJECT_ID
 require_var GCP_REGION
 require_var GAR_REPOSITORY
@@ -340,6 +347,7 @@ if [[ "$DEPLOY_API" == "true" && -z "$ALLOWED_ORIGINS" ]]; then
 fi
 
 if [[ "$DEPLOY_API" == "true" ]]; then
+  ensure_service_enabled "cloudscheduler.googleapis.com"
   echo "Ensure Cloud Scheduler trigger job..."
   upsert_scheduler_job \
     "$SCHEDULER_JOB_NAME" \
