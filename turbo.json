@@ -13,6 +13,13 @@
     "lint:fix": {
       "dependsOn": ["^lint:fix"]
     },
+    "check-types": {
+      "dependsOn": ["^check-types"],
+      "outputs": []
+    },
+    "test": {
+      "outputs": []
+    },
     "dev": {
       "cache": false,
       "persistent": true

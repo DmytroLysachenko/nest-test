@@ -4,16 +4,17 @@ on:
   pull_request:
     branches: [master]
   push:
-    branches: [master]
+    branches: [master, dev]
 
 concurrency:
   group: ci-verify-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  lint:
+  verify-light:
+    name: Fast Validation (Lint, Types, Unit Tests)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -24,39 +25,18 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
+      - name: Turbo Verify (Cached)
+        run: pnpm turbo run lint check-types test
+      - name: UX Gate
+        run: pnpm --filter web ux:check
+      - name: Dependency Audit
+        run: pnpm audit --audit-level high
 
-  typecheck:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.11.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter web check-types
-
-  web-ux-gate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.11.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter web ux:check
-
-  test-build:
+  test-build-heavy:
+    name: Heavy Validation (DB, Build, E2E)
+    # Run only on master or PRs to master. Skips push to dev to save budget.
+    if: github.ref == 'refs/heads/master' || github.event_name == 'pull_request'
+    needs: verify-light
     runs-on: ubuntu-latest
     timeout-minutes: 35
     services:
@@ -89,34 +69,19 @@ jobs:
       - name: Wait for Postgres
         run: |
           for i in {1..30}; do
-            pg_isready -h localhost -p 5432 -U postgres -d nest_test && exit 0
+            if pg_isready -h localhost -p 5432 -U postgres -d nest_test; then
+              exit 0
+            fi
             sleep 2
           done
           exit 1
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter api test --runInBand
-      - run: pnpm --filter worker test
-      - run: pnpm --filter web check-types
-      - run: pnpm --filter api build
-      - run: pnpm --filter worker build
-
-  web-e2e:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    continue-on-error: ${{ github.event_name == 'pull_request' }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.11.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - name: Build All Services
+        run: pnpm turbo run build
       - name: Install Playwright (Chromium)
         run: pnpm --filter web exec playwright install --with-deps chromium
-      - run: pnpm --filter web test:e2e
+      - name: Web E2E Tests
+        run: pnpm --filter web test:e2e
       - name: Upload e2e artifacts
         if: always()
         uses: actions/upload-artifact@v4
