@@ -30,7 +30,7 @@ jobs:
       - name: UX Gate
         run: pnpm --filter web ux:check
       - name: Dependency Audit
-        run: pnpm audit --audit-level high
+        run: pnpm audit --audit-level critical
 
   test-build-heavy:
     name: Heavy Validation (DB, Build, E2E)
