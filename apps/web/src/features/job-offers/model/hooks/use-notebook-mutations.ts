@@ -5,8 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueScrape } from '@/features/job-sources/api/job-sources-api';
 import { scoreJobOffer, updateJobOfferMeta, updateJobOfferStatus } from '@/features/job-offers/api/job-offers-api';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
-import { invalidateQueryKeys } from '@/shared/lib/query/invalidate-query-keys';
-import { queryKeys } from '@/shared/lib/query/query-keys';
+import { useDataSync } from '@/shared/lib/query/use-data-sync';
 import { toastError, toastInfo, toastSuccess, toastSuccessWithAction } from '@/shared/lib/ui/toast';
 
 import type { JobOfferStatus, JobOffersListDto } from '@/shared/types/api';
@@ -17,6 +16,7 @@ type UseNotebookMutationsArgs = {
 
 export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const queryClient = useQueryClient();
+  const { syncJobOffers, syncJobSources } = useDataSync(token);
 
   const statusMutation = useMutation({
     mutationFn: ({
@@ -67,7 +67,7 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       });
       toastError(toUserErrorMessage(error, 'Failed to update status.'));
     },
-    onSuccess: async (_result, variables, context) => {
+    onSuccess: (result, variables, context) => {
       if (!variables.suppressUndoToast) {
         const previousStatus = context?.previousStatus;
         if (previousStatus && previousStatus !== variables.status) {
@@ -84,10 +84,7 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
         }
       }
 
-      await invalidateQueryKeys(queryClient, [
-        ['job-offers', token],
-        ['job-offers', 'history', token],
-      ]);
+      syncJobOffers();
     },
   });
 
@@ -111,11 +108,8 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
         status,
       };
     },
-    onSuccess: async (result) => {
-      await invalidateQueryKeys(queryClient, [
-        ['job-offers', token],
-        ['job-offers', 'history', token],
-      ]);
+    onSuccess: (result) => {
+      syncJobOffers();
       if (result.failed === 0) {
         toastSuccess(`Updated ${result.updated} offers`);
       } else {
@@ -139,18 +133,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const metaMutation = useMutation({
     mutationFn: ({ id, notes, tags }: { id: string; notes: string; tags: string[] }) =>
       updateJobOfferMeta(token, id, { notes, tags }),
-    onSuccess: async () => {
-      await invalidateQueryKeys(queryClient, [
-        ['job-offers', token],
-        ['job-offers', 'history', token],
-      ]);
+    onSuccess: () => {
+      syncJobOffers();
     },
   });
 
   const scoreMutation = useMutation({
     mutationFn: ({ id }: { id: string }) => scoreJobOffer(token, id, 0),
-    onSuccess: async () => {
-      await invalidateQueryKeys(queryClient, [['job-offers', token]]);
+    onSuccess: () => {
+      syncJobOffers();
     },
   });
 
@@ -159,8 +150,9 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       enqueueScrape(token, {
         limit: 20,
       }),
-    onSuccess: async (result) => {
-      await invalidateQueryKeys(queryClient, [queryKeys.jobSources.runs(token), ['job-offers', token]]);
+    onSuccess: (result) => {
+      syncJobSources();
+      syncJobOffers();
       toastSuccess(
         result.status === 'reused'
           ? 'Scrape served from recent cached run'

@@ -11,7 +11,7 @@ import {
 } from '@/features/documents/api/documents-api';
 import { detectDocumentType } from '@/features/documents/model/utils/detect-document-type';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
-import { invalidateQueryKeys } from '@/shared/lib/query/invalidate-query-keys';
+import { useDataSync } from '@/shared/lib/query/use-data-sync';
 import { toastError, toastSuccess } from '@/shared/lib/ui/toast';
 
 type UseDocumentsPanelMutationsArgs = {
@@ -31,7 +31,7 @@ export const useDocumentsPanelMutations = ({
   setStatus,
   setError,
 }: UseDocumentsPanelMutationsArgs) => {
-  const queryClient = useQueryClient();
+  const { syncDocuments } = useDataSync(token);
   const resolveMimeType = (file: File) => {
     if (file.type) {
       return file.type;
@@ -68,10 +68,7 @@ export const useDocumentsPanelMutations = ({
       await extractDocument(token, documentId);
       setStatus('Extraction completed.');
       setActiveStage('idle');
-      await invalidateQueryKeys(queryClient, [
-        ['documents', token],
-        ['documents', 'events', token, documentId],
-      ]);
+      syncDocuments();
       toastSuccess('Document uploaded and extracted');
     },
     onError: (error: unknown) => {
@@ -85,11 +82,8 @@ export const useDocumentsPanelMutations = ({
 
   const retryExtractMutation = useMutation({
     mutationFn: (documentId: string) => extractDocument(token, documentId),
-    onSuccess: async (_value, documentId) => {
-      await invalidateQueryKeys(queryClient, [
-        ['documents', token],
-        ['documents', 'events', token, documentId],
-      ]);
+    onSuccess: () => {
+      syncDocuments();
       toastSuccess('Extraction retried');
     },
     onError: (error) => {
@@ -99,8 +93,8 @@ export const useDocumentsPanelMutations = ({
 
   const removeDocumentMutation = useMutation({
     mutationFn: (documentId: string) => removeDocument(token, documentId),
-    onSuccess: async () => {
-      await invalidateQueryKeys(queryClient, [['documents', token]]);
+    onSuccess: () => {
+      syncDocuments();
       setSelectedDocumentId(null);
       toastSuccess('Document removed');
     },
