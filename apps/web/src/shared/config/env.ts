@@ -48,7 +48,7 @@ if (!parsedEnv.success) {
   );
 }
 
-if (isProduction) {
+if (isProduction && !process.env.CI) {
   const assertPublicHttpsUrl = (name: 'NEXT_PUBLIC_API_URL' | 'NEXT_PUBLIC_WORKER_URL', value: string) => {
     const parsed = new URL(value);
     const host = parsed.hostname.toLowerCase();

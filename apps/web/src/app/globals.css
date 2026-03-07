@@ -170,7 +170,7 @@ body {
   }
 
   .app-hero {
-    @apply app-page-header relative overflow-hidden;
+    @apply relative overflow-hidden border-border/80 bg-surface/88 rounded-[1.75rem] border p-5 shadow-[0_20px_60px_-34px_color-mix(in_oklab,var(--text-strong)_16%,transparent)] backdrop-blur-md md:p-6;
   }
 
   .app-hero::before {
@@ -183,11 +183,11 @@ body {
   }
 
   .app-surface-elevated {
-    @apply app-surface bg-surface-elevated/95;
+    @apply border-border/80 bg-surface-elevated/95 rounded-[1.5rem] border shadow-[0_18px_40px_-32px_color-mix(in_oklab,var(--text-strong)_18%,transparent)];
   }
 
   .app-kpi {
-    @apply app-surface-elevated relative overflow-hidden p-5;
+    @apply border-border/80 bg-surface-elevated/95 rounded-[1.5rem] border shadow-[0_18px_40px_-32px_color-mix(in_oklab,var(--text-strong)_18%,transparent)] relative overflow-hidden p-5;
   }
 
   .app-kpi::after {
