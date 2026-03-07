@@ -4,6 +4,7 @@ import { useJobMatchingPanel } from '@/features/job-matching/model/hooks/use-job
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
+import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
 
@@ -23,7 +24,7 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
   return (
     <Card title="Job matching" description="Score a job description and track matching history.">
       <form
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
           if (disabled) {
@@ -32,47 +33,47 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
           void jobMatchingPanel.submit(event);
         }}
       >
-        <Label htmlFor="job-description" className="text-text-soft">
-          Job description
-        </Label>
-        <Textarea
-          id="job-description"
-          className="min-h-28"
-          placeholder="Paste a full job description..."
-          {...register('jobDescription')}
-        />
+        <div className="app-field-group">
+          <Label htmlFor="job-description" className="app-inline-label">
+            Job description
+          </Label>
+          <Textarea
+            id="job-description"
+            className="min-h-28"
+            placeholder="Paste a full job description..."
+            {...register('jobDescription')}
+          />
+        </div>
         {errors.jobDescription?.message ? (
           <p className="text-app-danger text-sm">{errors.jobDescription.message}</p>
         ) : null}
 
-        <Label htmlFor="job-min-score" className="text-text-soft">
-          Minimum score
-        </Label>
-        <Input id="job-min-score" className="max-w-24" type="number" min={0} max={100} {...register('minScore')} />
+        <div className="app-field-group">
+          <Label htmlFor="job-min-score" className="app-inline-label">
+            Minimum score
+          </Label>
+          <Input id="job-min-score" className="max-w-24" type="number" min={0} max={100} {...register('minScore')} />
+        </div>
         {errors.minScore?.message ? <p className="text-app-danger text-sm">{errors.minScore.message}</p> : null}
 
         {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
-        <Button type="submit" disabled={disabled || jobMatchingPanel.isSubmitting}>
-          {jobMatchingPanel.isSubmitting ? 'Scoring...' : 'Score job'}
-        </Button>
-        {disabled && disabledReason ? <p className="text-app-warning text-sm">{disabledReason}</p> : null}
+        <div className="app-toolbar flex items-center justify-between gap-3">
+          {disabled && disabledReason ? <p className="text-app-warning text-sm">{disabledReason}</p> : <span />}
+          <Button type="submit" disabled={disabled || jobMatchingPanel.isSubmitting}>
+            {jobMatchingPanel.isSubmitting ? 'Scoring...' : 'Score job'}
+          </Button>
+        </div>
       </form>
 
       {jobMatchingPanel.scoreResult ? (
-        <div className="border-border bg-surface-muted mt-5 rounded-md border p-3 text-sm">
-          <p className="text-text-strong font-semibold">Latest score: {jobMatchingPanel.scoreResult.score.score}</p>
-          <p className="text-text-soft">Match: {jobMatchingPanel.scoreResult.isMatch ? 'Yes' : 'No'}</p>
+        <div className="app-muted-panel mt-5 space-y-3 text-sm">
+          <InspectorRow label="Latest score" value={String(jobMatchingPanel.scoreResult.score.score)} />
+          <InspectorRow label="Match" value={jobMatchingPanel.scoreResult.isMatch ? 'Yes' : 'No'} />
           {jobMatchingPanel.scoreResult.breakdown ? (
             <div className="mt-2 space-y-1">
               <p className="text-text-strong font-medium">Score breakdown</p>
               {Object.entries(jobMatchingPanel.scoreResult.breakdown).map(([key, value]) => (
-                <div
-                  key={key}
-                  className="bg-surface-elevated text-text-soft flex items-center justify-between rounded px-2 py-1 text-xs"
-                >
-                  <span>{key}</span>
-                  <span>{value}</span>
-                </div>
+                <InspectorRow key={key} label={key} value={String(value)} />
               ))}
             </div>
           ) : null}
@@ -83,7 +84,7 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
           ) : null}
           <details className="mt-2">
             <summary className="text-text-strong cursor-pointer font-medium">Explanation</summary>
-            <pre className="text-text-soft mt-2 whitespace-pre-wrap">
+            <pre className="app-code mt-2 whitespace-pre-wrap">
               {JSON.stringify(jobMatchingPanel.scoreResult.explanation, null, 2)}
             </pre>
           </details>
@@ -94,14 +95,9 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
         <p className="text-text-strong text-sm font-semibold">History</p>
         {jobMatchingPanel.historyQuery.data?.items?.length ? (
           jobMatchingPanel.historyQuery.data.items.map((item) => (
-            <article
-              key={item.id}
-              className="border-border bg-surface-muted text-text-soft rounded-md border p-3 text-sm"
-            >
-              <p className="text-text-strong font-medium">
-                Score: {item.score} | Match: {item.isMatch ? 'Yes' : 'No'}
-              </p>
-              <p>Profile version: {item.profileVersion}</p>
+            <article key={item.id} className="app-muted-panel space-y-3 text-sm">
+              <InspectorRow label="Score" value={`${item.score} | ${item.isMatch ? 'Match' : 'No match'}`} />
+              <InspectorRow label="Profile version" value={String(item.profileVersion)} />
             </article>
           ))
         ) : (

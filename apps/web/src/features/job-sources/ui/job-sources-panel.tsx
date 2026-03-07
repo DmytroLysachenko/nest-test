@@ -4,6 +4,7 @@ import { useJobSourcesPanel } from '@/features/job-sources/model/hooks/use-job-s
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
+import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
 
 type JobSourcesPanelProps = {
@@ -22,7 +23,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
   return (
     <Card title="Worker integration" description="Trigger scrape runs and track worker lifecycle status.">
       <form
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
           if (disabled) {
@@ -31,11 +32,13 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           void jobSourcesPanel.submit(event);
         }}
       >
-        <div className="space-y-1">
-          <Label htmlFor="scrape-mode">Mode</Label>
+        <div className="app-field-group">
+          <Label htmlFor="scrape-mode" className="app-inline-label">
+            Mode
+          </Label>
           <select
             id="scrape-mode"
-            className="border-border bg-surface-elevated h-10 rounded-md border px-3 text-sm"
+            className="app-select"
             {...register('mode')}
           >
             <option value="profile">Use profile-derived filters</option>
@@ -43,8 +46,10 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           </select>
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="listing-url">Listing URL</Label>
+        <div className="app-field-group">
+          <Label htmlFor="listing-url" className="app-inline-label">
+            Listing URL
+          </Label>
           <Input
             id="listing-url"
             placeholder="https://it.pracuj.pl/praca?..."
@@ -54,31 +59,37 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           {errors.listingUrl?.message ? <p className="text-app-danger text-sm">{errors.listingUrl.message}</p> : null}
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="listing-limit">Limit</Label>
+        <div className="app-field-group">
+          <Label htmlFor="listing-limit" className="app-inline-label">
+            Limit
+          </Label>
           <Input id="listing-limit" type="number" min={1} max={100} {...register('limit')} />
           {errors.limit?.message ? <p className="text-app-danger text-sm">{errors.limit.message}</p> : null}
         </div>
 
         {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
-        <Button type="submit" disabled={disabled || jobSourcesPanel.isSubmitting}>
-          {jobSourcesPanel.isSubmitting ? 'Enqueuing...' : 'Enqueue scrape run'}
-        </Button>
-        {disabled && disabledReason ? <p className="text-app-warning text-sm">{disabledReason}</p> : null}
+        <div className="app-toolbar flex items-center justify-between gap-3">
+          {disabled && disabledReason ? <p className="text-app-warning text-sm">{disabledReason}</p> : <span />}
+          <Button type="submit" disabled={disabled || jobSourcesPanel.isSubmitting}>
+            {jobSourcesPanel.isSubmitting ? 'Enqueuing...' : 'Enqueue scrape run'}
+          </Button>
+        </div>
       </form>
 
       {jobSourcesPanel.enqueueResult ? (
-        <div className="border-border bg-surface-muted text-text-soft mt-4 rounded-md border p-3 text-sm">
+        <div className="app-muted-panel mt-4 space-y-3 text-sm">
           <p className="text-text-strong font-semibold">Latest enqueue metadata</p>
-          <p>Status: {jobSourcesPanel.enqueueResult.status}</p>
-          {jobSourcesPanel.enqueueResult.resolvedFromProfile ? <p>Resolved from active profile: yes</p> : null}
+          <InspectorRow label="Status" value={jobSourcesPanel.enqueueResult.status} />
+          {jobSourcesPanel.enqueueResult.resolvedFromProfile ? (
+            <InspectorRow label="Resolved from active profile" value="yes" />
+          ) : null}
           {jobSourcesPanel.enqueueResult.intentFingerprint ? (
-            <p>Intent fingerprint: {jobSourcesPanel.enqueueResult.intentFingerprint}</p>
+            <InspectorRow label="Intent fingerprint" value={jobSourcesPanel.enqueueResult.intentFingerprint} />
           ) : null}
           {jobSourcesPanel.enqueueResult.acceptedFilters ? (
             <details className="mt-2">
               <summary className="text-text-strong cursor-pointer font-medium">Accepted filters</summary>
-              <pre className="bg-surface-elevated mt-2 whitespace-pre-wrap rounded-md p-2 text-xs">
+              <pre className="app-code mt-2 whitespace-pre-wrap">
                 {JSON.stringify(jobSourcesPanel.enqueueResult.acceptedFilters, null, 2)}
               </pre>
             </details>
@@ -90,10 +101,10 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         <p className="text-text-strong text-sm font-semibold">Recent runs</p>
         {jobSourcesPanel.runsQuery.data?.items?.length ? (
           jobSourcesPanel.runsQuery.data.items.map((run) => (
-            <article key={run.id} className="border-border bg-surface-muted rounded-md border p-3 text-sm">
-              <p className="text-text-strong font-medium">Status: {run.status}</p>
-              <p className="text-text-soft">Scraped: {run.scrapedCount ?? 0}</p>
-              <p className="text-text-soft">Found: {run.totalFound ?? 0}</p>
+            <article key={run.id} className="app-muted-panel space-y-3 text-sm">
+              <InspectorRow label="Status" value={run.status} />
+              <InspectorRow label="Scraped" value={String(run.scrapedCount ?? 0)} />
+              <InspectorRow label="Found" value={String(run.totalFound ?? 0)} />
               <div className="mt-2">
                 <Button type="button" variant="secondary" onClick={() => jobSourcesPanel.setSelectedRunId(run.id)}>
                   Show diagnostics
@@ -108,20 +119,30 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
       </div>
 
       {jobSourcesPanel.diagnosticsQuery.data ? (
-        <div className="border-border bg-surface-muted text-text-soft mt-4 rounded-md border p-3 text-sm">
+        <div className="app-muted-panel mt-4 space-y-3 text-sm">
           <p className="text-text-strong font-semibold">Run diagnostics</p>
-          <p>Run id: {jobSourcesPanel.diagnosticsQuery.data.runId}</p>
-          <p>Status: {jobSourcesPanel.diagnosticsQuery.data.status}</p>
-          <p>Pages visited: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.pagesVisited}</p>
-          <p>Job links discovered: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.jobLinksDiscovered}</p>
-          <p>Blocked pages: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.blockedPages}</p>
-          <p>
-            Ignored recommended links: {jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.ignoredRecommendedLinks}
-          </p>
-          <p>
-            Zero-offers step observed:{' '}
-            {jobSourcesPanel.diagnosticsQuery.data.diagnostics.hadZeroOffersStep ? 'yes' : 'no'}
-          </p>
+          <InspectorRow label="Run id" value={jobSourcesPanel.diagnosticsQuery.data.runId} />
+          <InspectorRow label="Status" value={jobSourcesPanel.diagnosticsQuery.data.status} />
+          <InspectorRow
+            label="Pages visited"
+            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.pagesVisited)}
+          />
+          <InspectorRow
+            label="Job links discovered"
+            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.jobLinksDiscovered)}
+          />
+          <InspectorRow
+            label="Blocked pages"
+            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.blockedPages)}
+          />
+          <InspectorRow
+            label="Ignored recommended links"
+            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.ignoredRecommendedLinks)}
+          />
+          <InspectorRow
+            label="Zero-offers step observed"
+            value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.hadZeroOffersStep ? 'yes' : 'no'}
+          />
         </div>
       ) : null}
     </Card>

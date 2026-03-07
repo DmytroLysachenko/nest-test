@@ -6,68 +6,18 @@ import { useRouter } from 'next/navigation';
 import { DocumentsPanel } from '@/features/documents';
 import { useOnboardingPage } from '@/features/onboarding/model/hooks/use-onboarding-page';
 import { Button } from '@/shared/ui/button';
+import { ChoiceChipGroup } from '@/shared/ui/choice-chip-group';
 import { Card } from '@/shared/ui/card';
+import { HeroHeader } from '@/shared/ui/dashboard-primitives';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+import { StepProgress } from '@/shared/ui/step-progress';
 import { TagInput } from '@/shared/ui/tag-input';
 import { Textarea } from '@/shared/ui/textarea';
 
 const seniorityValues = ['intern', 'junior', 'mid', 'senior', 'lead', 'manager'] as const;
 const workModes = ['remote', 'hybrid', 'onsite', 'mobile'] as const;
 const contractTypes = ['uop', 'b2b', 'mandate', 'specific-task', 'internship'] as const;
-
-const ToggleGroup = <T extends string>({
-  values,
-  selected,
-  onToggle,
-}: {
-  values: readonly T[];
-  selected: T[];
-  onToggle: (value: T) => void;
-}) => (
-  <div className="flex flex-wrap gap-2">
-    {values.map((value) => {
-      const isActive = selected.includes(value);
-      return (
-        <button
-          key={value}
-          type="button"
-          className={`rounded-full border px-3 py-1 text-xs ${
-            isActive
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border bg-card text-secondary-foreground'
-          }`}
-          onClick={() => onToggle(value)}
-        >
-          {value}
-        </button>
-      );
-    })}
-  </div>
-);
-
-const StepIndicator = ({ step }: { step: 1 | 2 | 3 }) => (
-  <div className="grid gap-2 md:grid-cols-3">
-    {[
-      { id: 1, label: '1. Preferences' },
-      { id: 2, label: '2. Documents' },
-      { id: 3, label: '3. Review & generate' },
-    ].map((item) => (
-      <div
-        key={item.id}
-        className={`rounded-lg border p-3 text-sm ${
-          step === item.id
-            ? 'border-primary bg-primary text-primary-foreground'
-            : step > item.id
-              ? 'border-app-success-border bg-app-success-soft text-app-success'
-              : 'border-border bg-muted/50 text-muted-foreground'
-        }`}
-      >
-        {item.label}
-      </div>
-    ))}
-  </div>
-);
 
 export const OnboardingPage = () => {
   const router = useRouter();
@@ -99,12 +49,31 @@ export const OnboardingPage = () => {
   };
 
   return (
-    <main className="app-page flex max-w-5xl flex-col gap-4">
-      <Card
+    <main className="app-page max-w-5xl">
+      <HeroHeader
+        eyebrow="Guided Setup"
         title="Build your job-search profile"
+        subtitle="Define search preferences, upload source documents, and generate a career profile that powers better sourcing and matching decisions."
+        meta={
+          <>
+            <span className="app-badge">Step {onboarding.step} of 3</span>
+            <span className="app-badge">Ready docs: {onboarding.hasReadyDocument ? 'yes' : 'no'}</span>
+          </>
+        }
+      />
+
+      <Card
+        title="Onboarding Flow"
         description="Follow the guided flow: define preferences, upload documents, review data, then generate profile."
       >
-        <StepIndicator step={onboarding.step} />
+        <StepProgress
+          currentStep={onboarding.step}
+          steps={[
+            { id: 1, label: '1. Preferences' },
+            { id: 2, label: '2. Documents' },
+            { id: 3, label: '3. Review & generate' },
+          ]}
+        />
       </Card>
 
       {onboarding.step === 1 ? (
@@ -113,9 +82,11 @@ export const OnboardingPage = () => {
           description="Provide role, domain, skills and constraints. This input is persisted locally until generation."
         >
           <form className="space-y-4" onSubmit={onboarding.saveStepOne}>
-            <p className="text-muted-foreground text-xs">
-              Fields marked by behavior are required for progressing. Optional notes improve profile quality.
-            </p>
+            <div className="app-muted-panel">
+              <p className="text-text-soft text-sm">
+                Fields required for progression are enforced by validation. Optional notes improve profile quality and retrieval context.
+              </p>
+            </div>
             <TagInput
               label="1) Positions you want to apply for"
               placeholder="e.g. Frontend Developer"
@@ -141,8 +112,10 @@ export const OnboardingPage = () => {
             />
             {errors.coreSkills?.message ? <p className="text-app-danger text-sm">{errors.coreSkills.message}</p> : null}
 
-            <div className="space-y-2">
-              <Label htmlFor="experienceYearsInRole">4) Experience in this role (years)</Label>
+            <div className="app-field-group">
+              <Label htmlFor="experienceYearsInRole" className="app-inline-label">
+                4) Experience in this role (years)
+              </Label>
               <Input
                 id="experienceYearsInRole"
                 type="number"
@@ -157,9 +130,9 @@ export const OnboardingPage = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <p className="text-foreground text-sm font-medium">Target seniority</p>
-              <ToggleGroup
+            <div className="app-field-group">
+              <p className="app-inline-label">Target seniority</p>
+              <ChoiceChipGroup
                 values={seniorityValues}
                 selected={current.targetSeniority}
                 onToggle={(value) =>
@@ -170,9 +143,9 @@ export const OnboardingPage = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <p className="text-foreground text-sm font-medium">Hard work-mode constraints</p>
-              <ToggleGroup
+            <div className="app-field-group">
+              <p className="app-inline-label">Hard work-mode constraints</p>
+              <ChoiceChipGroup
                 values={workModes}
                 selected={current.hardWorkModes}
                 onToggle={(value) =>
@@ -183,9 +156,9 @@ export const OnboardingPage = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <p className="text-foreground text-sm font-medium">Soft work-mode preferences</p>
-              <ToggleGroup
+            <div className="app-field-group">
+              <p className="app-inline-label">Soft work-mode preferences</p>
+              <ChoiceChipGroup
                 values={workModes}
                 selected={current.softWorkModes}
                 onToggle={(value) =>
@@ -196,9 +169,9 @@ export const OnboardingPage = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <p className="text-foreground text-sm font-medium">Hard contract constraints</p>
-              <ToggleGroup
+            <div className="app-field-group">
+              <p className="app-inline-label">Hard contract constraints</p>
+              <ChoiceChipGroup
                 values={contractTypes}
                 selected={current.hardContractTypes}
                 onToggle={(value) =>
@@ -209,9 +182,9 @@ export const OnboardingPage = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <p className="text-foreground text-sm font-medium">Soft contract preferences</p>
-              <ToggleGroup
+            <div className="app-field-group">
+              <p className="app-inline-label">Soft contract preferences</p>
+              <ChoiceChipGroup
                 values={contractTypes}
                 selected={current.softContractTypes}
                 onToggle={(value) =>
@@ -223,30 +196,40 @@ export const OnboardingPage = () => {
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="section-notes-positions">Optional notes for positions</Label>
+              <div className="app-field-group">
+                <Label htmlFor="section-notes-positions" className="app-inline-label">
+                  Optional notes for positions
+                </Label>
                 <Textarea id="section-notes-positions" {...register('sectionNotes.positions')} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="section-notes-skills">Optional notes for skills</Label>
+              <div className="app-field-group">
+                <Label htmlFor="section-notes-skills" className="app-inline-label">
+                  Optional notes for skills
+                </Label>
                 <Textarea id="section-notes-skills" {...register('sectionNotes.skills')} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="section-notes-domains">Optional notes for domains</Label>
+              <div className="app-field-group">
+                <Label htmlFor="section-notes-domains" className="app-inline-label">
+                  Optional notes for domains
+                </Label>
                 <Textarea id="section-notes-domains" {...register('sectionNotes.domains')} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="section-notes-preferences">Optional notes for constraints/preferences</Label>
+              <div className="app-field-group">
+                <Label htmlFor="section-notes-preferences" className="app-inline-label">
+                  Optional notes for constraints/preferences
+                </Label>
                 <Textarea id="section-notes-preferences" {...register('sectionNotes.preferences')} />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="general-notes">General notes</Label>
+            <div className="app-field-group">
+              <Label htmlFor="general-notes" className="app-inline-label">
+                General notes
+              </Label>
               <Textarea id="general-notes" className="min-h-24" {...register('generalNotes')} />
             </div>
 
-            <div className="flex items-center justify-between gap-3">
+            <div className="app-toolbar flex items-center justify-between gap-3">
               <div className="space-y-1">
                 <p className="text-muted-foreground text-xs">Draft is saved automatically in local storage.</p>
                 {onboarding.stepOneForm.formState.isDirty ? (
@@ -473,11 +456,13 @@ export const OnboardingPage = () => {
           description="Upload PDF files and run extraction. Content quality matters more than format details."
         >
           <div className="space-y-4">
-            <p className="text-muted-foreground text-sm">
-              Supported now: PDF upload. After extraction, move to review and generation.
-            </p>
+            <div className="app-muted-panel">
+              <p className="text-muted-foreground text-sm">
+                Supported now: PDF upload. After extraction, move to review and generation.
+              </p>
+            </div>
             <DocumentsPanel token={onboarding.auth.token} />
-            <div className="flex items-center justify-between gap-2">
+            <div className="app-toolbar flex items-center justify-between gap-2">
               <Button variant="secondary" type="button" onClick={() => onboarding.setStep(1)}>
                 Back to preferences
               </Button>
@@ -519,8 +504,10 @@ export const OnboardingPage = () => {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="generation-instructions">Optional AI generation instructions</Label>
+            <div className="app-field-group">
+              <Label htmlFor="generation-instructions" className="app-inline-label">
+                Optional AI generation instructions
+              </Label>
               <Textarea
                 id="generation-instructions"
                 className="min-h-24"
@@ -529,7 +516,7 @@ export const OnboardingPage = () => {
               />
             </div>
 
-            <div className="flex items-center justify-between gap-2">
+            <div className="app-toolbar flex items-center justify-between gap-2">
               <Button variant="secondary" type="button" onClick={() => onboarding.setStep(2)}>
                 Back to documents
               </Button>
