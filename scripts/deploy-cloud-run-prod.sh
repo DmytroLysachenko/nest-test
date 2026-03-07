@@ -91,6 +91,14 @@ ensure_tasks_queue() {
     >/dev/null
 }
 
+resolve_service_sha() {
+  local service="$1"
+  gcloud run services describe "$service" \
+    --project="$GCP_PROJECT_ID" \
+    --region="$GCP_REGION" \
+    --format='value(spec.template.spec.containers[0].image)' 2>/dev/null | rev | cut -d: -f1 | rev || echo ""
+}
+
 upsert_scheduler_job() {
   local job_name="$1"
   local schedule="$2"
@@ -98,8 +106,11 @@ upsert_scheduler_job() {
   local uri="$4"
   local token="$5"
 
+  # Use semicolon as delimiter if possible, or ensure very strict quoting
   local headers="Authorization=Bearer ${token},Content-Type=application/json"
+  
   if gcloud scheduler jobs describe "$job_name" --project="$GCP_PROJECT_ID" --location="$GCP_REGION" >/dev/null 2>&1; then
+    echo "Updating existing scheduler job: $job_name"
     gcloud scheduler jobs update http "$job_name" \
       --project="$GCP_PROJECT_ID" \
       --location="$GCP_REGION" \
@@ -112,6 +123,7 @@ upsert_scheduler_job() {
       --attempt-deadline=30s \
       >/dev/null
   else
+    echo "Creating new scheduler job: $job_name"
     gcloud scheduler jobs create http "$job_name" \
       --project="$GCP_PROJECT_ID" \
       --location="$GCP_REGION" \
@@ -243,26 +255,31 @@ WEB_URL="$(resolve_service_url "$GCP_WEB_SERVICE")"
 WEB_URLS_CSV="$(resolve_service_urls_csv "$GCP_WEB_SERVICE")"
 
 if [[ "$DEPLOY_WORKER" == "true" ]]; then
-  echo "Deploy worker (pass 1)..."
-  WORKER_TASK_URL="https://example.com/tasks"
-  if [[ -n "$WORKER_URL" ]]; then
-    WORKER_TASK_URL="${WORKER_URL%/}/tasks"
-  fi
+  CURRENT_WORKER_SHA="$(resolve_service_sha "$GCP_WORKER_SERVICE")"
+  if [[ "$CURRENT_WORKER_SHA" == "$RELEASE_SHA" ]]; then
+    echo "Worker is already at SHA $RELEASE_SHA. Skipping deploy."
+  else
+    echo "Deploy worker (pass 1)..."
+    WORKER_TASK_URL="https://example.com/tasks"
+    if [[ -n "$WORKER_URL" ]]; then
+      WORKER_TASK_URL="${WORKER_URL%/}/tasks"
+    fi
 
-  gcloud run deploy "$GCP_WORKER_SERVICE" \
-    --project="$GCP_PROJECT_ID" \
-    --region="$GCP_REGION" \
-    --platform=managed \
-    --image="${IMAGE_BASE}/worker:${RELEASE_SHA}" \
-    --allow-unauthenticated \
-    --service-account="$WORKER_RUNTIME_SA" \
-    --min-instances=0 \
-    --max-instances=2 \
-    --cpu=1 \
-    --memory=1Gi \
-    --set-secrets="TASKS_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest" \
-    --set-env-vars="^|^NODE_ENV=production|WORKER_ALLOWED_ORIGINS=${WORKER_ALLOWED_ORIGINS}|QUEUE_PROVIDER=cloud-tasks|TASKS_PROJECT_ID=${GCP_PROJECT_ID}|TASKS_LOCATION=${GCP_REGION}|TASKS_QUEUE=${WORKER_TASKS_QUEUE}|TASKS_URL=${WORKER_TASK_URL}|PLAYWRIGHT_HEADLESS=true|WORKER_MAX_CONCURRENT_TASKS=1|WORKER_MAX_QUEUE_SIZE=20|WORKER_TASK_TIMEOUT_MS=180000" \
-    >/dev/null
+    gcloud run deploy "$GCP_WORKER_SERVICE" \
+      --project="$GCP_PROJECT_ID" \
+      --region="$GCP_REGION" \
+      --platform=managed \
+      --image="${IMAGE_BASE}/worker:${RELEASE_SHA}" \
+      --allow-unauthenticated \
+      --service-account="$WORKER_RUNTIME_SA" \
+      --min-instances=0 \
+      --max-instances=2 \
+      --cpu=1 \
+      --memory=1Gi \
+      --set-secrets="TASKS_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest" \
+      --set-env-vars="^|^NODE_ENV=production|WORKER_ALLOWED_ORIGINS=${WORKER_ALLOWED_ORIGINS}|QUEUE_PROVIDER=cloud-tasks|TASKS_PROJECT_ID=${GCP_PROJECT_ID}|TASKS_LOCATION=${GCP_REGION}|TASKS_QUEUE=${WORKER_TASKS_QUEUE}|TASKS_URL=${WORKER_TASK_URL}|PLAYWRIGHT_HEADLESS=true|WORKER_MAX_CONCURRENT_TASKS=1|WORKER_MAX_QUEUE_SIZE=20|WORKER_TASK_TIMEOUT_MS=180000" \
+      >/dev/null
+  fi
 
   WORKER_URL="$(resolve_service_url "$GCP_WORKER_SERVICE")"
   if [[ -z "$WORKER_URL" ]]; then
@@ -280,26 +297,31 @@ if [[ "$DEPLOY_API" == "true" ]]; then
     exit 1
   fi
 
-  echo "Deploy api..."
-  API_ALLOWED_ORIGINS="$(merge_csv_unique "$ALLOWED_ORIGINS" "$WEB_URLS_CSV")"
-  if [[ -z "$API_ALLOWED_ORIGINS" ]]; then
-    API_ALLOWED_ORIGINS="https://example.com"
-  fi
+  CURRENT_API_SHA="$(resolve_service_sha "$GCP_API_SERVICE")"
+  if [[ "$CURRENT_API_SHA" == "$RELEASE_SHA" ]]; then
+    echo "API is already at SHA $RELEASE_SHA. Skipping deploy."
+  else
+    echo "Deploy api..."
+    API_ALLOWED_ORIGINS="$(merge_csv_unique "$ALLOWED_ORIGINS" "$WEB_URLS_CSV")"
+    if [[ -z "$API_ALLOWED_ORIGINS" ]]; then
+      API_ALLOWED_ORIGINS="https://example.com"
+    fi
 
-  gcloud run deploy "$GCP_API_SERVICE" \
-    --project="$GCP_PROJECT_ID" \
-    --region="$GCP_REGION" \
-    --platform=managed \
-    --image="${IMAGE_BASE}/api:${RELEASE_SHA}" \
-    --allow-unauthenticated \
-    --service-account="$API_RUNTIME_SA" \
-    --min-instances=0 \
-    --max-instances=2 \
-    --cpu=1 \
-    --memory=512Mi \
-    --set-secrets="DATABASE_URL=app-database-url:latest,ACCESS_TOKEN_SECRET=app-access-token-secret:latest,REFRESH_TOKEN_SECRET=app-refresh-token-secret:latest,MAIL_USERNAME=app-mail-username:latest,MAIL_PASSWORD=app-mail-password:latest,GOOGLE_OAUTH_CLIENT_SECRET=app-google-oauth-client-secret:latest,WORKER_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest,SCHEDULER_AUTH_TOKEN=app-scheduler-auth-token:latest,OPS_INTERNAL_TOKEN=app-ops-internal-token:latest" \
-    --set-env-vars="^|^NODE_ENV=production|HOST=0.0.0.0|ACCESS_TOKEN_EXPIRATION=${ACCESS_TOKEN_EXPIRATION}|REFRESH_TOKEN_EXPIRATION=${REFRESH_TOKEN_EXPIRATION}|MAIL_HOST=${MAIL_HOST}|MAIL_PORT=${MAIL_PORT}|MAIL_SECURE=${MAIL_SECURE}|GCS_BUCKET=${GCS_BUCKET}|GCP_PROJECT_ID=${GCP_PROJECT_ID}|GCP_LOCATION=${GCP_REGION}|GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID}|API_PREFIX=api|ALLOWED_ORIGINS=${API_ALLOWED_ORIGINS}|API_THROTTLE_TTL_MS=${API_THROTTLE_TTL_MS}|API_THROTTLE_LIMIT=${API_THROTTLE_LIMIT}|WORKER_TASK_PROVIDER=cloud-tasks|WORKER_TASK_URL=${WORKER_URL}/tasks|WORKER_TASKS_PROJECT_ID=${GCP_PROJECT_ID}|WORKER_TASKS_LOCATION=${GCP_REGION}|WORKER_TASKS_QUEUE=${WORKER_TASKS_QUEUE}" \
-    >/dev/null
+    gcloud run deploy "$GCP_API_SERVICE" \
+      --project="$GCP_PROJECT_ID" \
+      --region="$GCP_REGION" \
+      --platform=managed \
+      --image="${IMAGE_BASE}/api:${RELEASE_SHA}" \
+      --allow-unauthenticated \
+      --service-account="$API_RUNTIME_SA" \
+      --min-instances=0 \
+      --max-instances=2 \
+      --cpu=1 \
+      --memory=512Mi \
+      --set-secrets="DATABASE_URL=app-database-url:latest,ACCESS_TOKEN_SECRET=app-access-token-secret:latest,REFRESH_TOKEN_SECRET=app-refresh-token-secret:latest,MAIL_USERNAME=app-mail-username:latest,MAIL_PASSWORD=app-mail-password:latest,GOOGLE_OAUTH_CLIENT_SECRET=app-google-oauth-client-secret:latest,WORKER_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest,SCHEDULER_AUTH_TOKEN=app-scheduler-auth-token:latest,OPS_INTERNAL_TOKEN=app-ops-internal-token:latest" \
+      --set-env-vars="^|^NODE_ENV=production|HOST=0.0.0.0|ACCESS_TOKEN_EXPIRATION=${ACCESS_TOKEN_EXPIRATION}|REFRESH_TOKEN_EXPIRATION=${REFRESH_TOKEN_EXPIRATION}|MAIL_HOST=${MAIL_HOST}|MAIL_PORT=${MAIL_PORT}|MAIL_SECURE=${MAIL_SECURE}|GCS_BUCKET=${GCS_BUCKET}|GCP_PROJECT_ID=${GCP_PROJECT_ID}|GCP_LOCATION=${GCP_REGION}|GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID}|API_PREFIX=api|ALLOWED_ORIGINS=${API_ALLOWED_ORIGINS}|API_THROTTLE_TTL_MS=${API_THROTTLE_TTL_MS}|API_THROTTLE_LIMIT=${API_THROTTLE_LIMIT}|WORKER_TASK_PROVIDER=cloud-tasks|WORKER_TASK_URL=${WORKER_URL}/tasks|WORKER_TASKS_PROJECT_ID=${GCP_PROJECT_ID}|WORKER_TASKS_LOCATION=${GCP_REGION}|WORKER_TASKS_QUEUE=${WORKER_TASKS_QUEUE}" \
+      >/dev/null
+  fi
 
   API_URL="$(resolve_service_url "$GCP_API_SERVICE")"
   if [[ -z "$API_URL" ]]; then
@@ -320,20 +342,25 @@ if [[ "$DEPLOY_WEB" == "true" ]]; then
     exit 1
   fi
 
-  echo "Deploy web..."
-  gcloud run deploy "$GCP_WEB_SERVICE" \
-    --project="$GCP_PROJECT_ID" \
-    --region="$GCP_REGION" \
-    --platform=managed \
-    --image="${IMAGE_BASE}/web:${RELEASE_SHA}" \
-    --allow-unauthenticated \
-    --service-account="$WEB_RUNTIME_SA" \
-    --min-instances=0 \
-    --max-instances=2 \
-    --cpu=1 \
-    --memory=512Mi \
-    --set-env-vars="^|^NODE_ENV=production|NEXT_PUBLIC_API_URL=${API_URL}/api|NEXT_PUBLIC_WORKER_URL=${WORKER_URL}|NEXT_PUBLIC_ENABLE_TESTER=false|NEXT_PUBLIC_QUERY_STALE_TIME_MS=${WEB_QUERY_STALE_TIME_MS}|NEXT_PUBLIC_QUERY_REFETCH_ON_WINDOW_FOCUS=${WEB_QUERY_REFETCH_ON_WINDOW_FOCUS}|NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS=${WEB_QUERY_DIAGNOSTICS_REFETCH_MS}" \
-    >/dev/null
+  CURRENT_WEB_SHA="$(resolve_service_sha "$GCP_WEB_SERVICE")"
+  if [[ "$CURRENT_WEB_SHA" == "$RELEASE_SHA" ]]; then
+    echo "Web is already at SHA $RELEASE_SHA. Skipping deploy."
+  else
+    echo "Deploy web..."
+    gcloud run deploy "$GCP_WEB_SERVICE" \
+      --project="$GCP_PROJECT_ID" \
+      --region="$GCP_REGION" \
+      --platform=managed \
+      --image="${IMAGE_BASE}/web:${RELEASE_SHA}" \
+      --allow-unauthenticated \
+      --service-account="$WEB_RUNTIME_SA" \
+      --min-instances=0 \
+      --max-instances=2 \
+      --cpu=1 \
+      --memory=512Mi \
+      --set-env-vars="^|^NODE_ENV=production|NEXT_PUBLIC_API_URL=${API_URL}/api|NEXT_PUBLIC_WORKER_URL=${WORKER_URL}|NEXT_PUBLIC_ENABLE_TESTER=false|NEXT_PUBLIC_QUERY_STALE_TIME_MS=${WEB_QUERY_STALE_TIME_MS}|NEXT_PUBLIC_QUERY_REFETCH_ON_WINDOW_FOCUS=${WEB_QUERY_REFETCH_ON_WINDOW_FOCUS}|NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS=${WEB_QUERY_DIAGNOSTICS_REFETCH_MS}" \
+      >/dev/null
+  fi
 
   WEB_URL="$(resolve_service_url "$GCP_WEB_SERVICE")"
   if [[ -z "$WEB_URL" ]]; then
@@ -373,6 +400,7 @@ if [[ "$DEPLOY_API" == "true" ]]; then
   FINAL_API_ALLOWED_ORIGINS="$(merge_csv_unique "$ALLOWED_ORIGINS" "$WEB_URLS_CSV")"
   if [[ -n "$FINAL_API_ALLOWED_ORIGINS" ]]; then
     echo "Finalize API allowed origins from deployed web URLs..."
+    # Always run final sync if deploy was requested, to ensure allowed origins are fresh
     gcloud run deploy "$GCP_API_SERVICE" \
       --project="$GCP_PROJECT_ID" \
       --region="$GCP_REGION" \
