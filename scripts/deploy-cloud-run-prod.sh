@@ -23,6 +23,51 @@ resolve_service_url() {
   gcloud run services describe "$service" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format='value(status.url)' 2>/dev/null || true
 }
 
+resolve_service_urls_csv() {
+  local service="$1"
+  local urls_raw=""
+  local status_url=""
+
+  urls_raw="$(gcloud run services describe "$service" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format="value(metadata.annotations.'run.googleapis.com/urls')" 2>/dev/null || true)"
+  urls_raw="${urls_raw//[[:space:]]/}"
+  urls_raw="${urls_raw#[}"
+  urls_raw="${urls_raw%]}"
+  urls_raw="${urls_raw//\"/}"
+
+  if [[ -n "$urls_raw" ]]; then
+    echo "$urls_raw"
+    return
+  fi
+
+  status_url="$(resolve_service_url "$service")"
+  echo "$status_url"
+}
+
+merge_csv_unique() {
+  local merged=""
+  local csv=""
+  local value=""
+  local values=()
+
+  for csv in "$@"; do
+    [[ -z "$csv" ]] && continue
+    IFS=',' read -r -a values <<< "$csv"
+    for value in "${values[@]}"; do
+      value="$(echo "$value" | xargs)"
+      [[ -z "$value" ]] && continue
+      if [[ ",$merged," != *",$value,"* ]]; then
+        if [[ -z "$merged" ]]; then
+          merged="$value"
+        else
+          merged="${merged},${value}"
+        fi
+      fi
+    done
+  done
+
+  echo "$merged"
+}
+
 ensure_tasks_queue() {
   local queue_name="$1"
   local location="$2"
@@ -188,6 +233,7 @@ fi
 API_URL="$(resolve_service_url "$GCP_API_SERVICE")"
 WORKER_URL="$(resolve_service_url "$GCP_WORKER_SERVICE")"
 WEB_URL="$(resolve_service_url "$GCP_WEB_SERVICE")"
+WEB_URLS_CSV="$(resolve_service_urls_csv "$GCP_WEB_SERVICE")"
 
 if [[ "$DEPLOY_WORKER" == "true" ]]; then
   echo "Deploy worker (pass 1)..."
@@ -228,7 +274,7 @@ if [[ "$DEPLOY_API" == "true" ]]; then
   fi
 
   echo "Deploy api..."
-  API_ALLOWED_ORIGINS="$ALLOWED_ORIGINS"
+  API_ALLOWED_ORIGINS="$(merge_csv_unique "$ALLOWED_ORIGINS" "$WEB_URLS_CSV")"
   if [[ -z "$API_ALLOWED_ORIGINS" ]]; then
     API_ALLOWED_ORIGINS="https://example.com"
   fi
