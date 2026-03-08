@@ -29,8 +29,10 @@ const envSchema = z.object({
 });
 
 const isProduction = process.env.NODE_ENV === 'production';
-const defaultApiUrl = isProduction ? undefined : 'http://localhost:3000/api';
-const defaultWorkerUrl = isProduction ? undefined : 'http://localhost:4000';
+const isCI = process.env.CI === 'true' || process.env.CI === '1';
+
+const defaultApiUrl = isProduction && !isCI ? undefined : 'http://localhost:3000/api';
+const defaultWorkerUrl = isProduction && !isCI ? undefined : 'http://localhost:4000';
 
 const parsedEnv = envSchema.safeParse({
   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? defaultApiUrl,
@@ -48,7 +50,7 @@ if (!parsedEnv.success) {
   );
 }
 
-if (isProduction && !process.env.CI) {
+if (isProduction && !isCI) {
   const assertPublicHttpsUrl = (name: 'NEXT_PUBLIC_API_URL' | 'NEXT_PUBLIC_WORKER_URL', value: string) => {
     const parsed = new URL(value);
     const host = parsed.hostname.toLowerCase();
