@@ -11,7 +11,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, count, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, getTableColumns, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { OAuth2Client } from 'google-auth-library';
 import { CloudTasksClient } from '@google-cloud/tasks';
@@ -921,6 +921,8 @@ export class JobSourcesService {
     if (sanitizedJobs.length) {
       const now = new Date();
       const jobsToPersist = await this.reuseExistingUrlsBySourceId(run.source, sanitizedJobs);
+      const cols = getTableColumns(jobOffersTable);
+
       await this.db
         .insert(jobOffersTable)
         .values(
@@ -952,58 +954,58 @@ export class JobSourcesService {
           set: {
             runId: run.id,
             sourceId: sql`CASE
-              WHEN excluded."source_id" IS NOT NULL AND excluded."source_id" != ''
-              THEN excluded."source_id"
-              ELSE "job_offers"."source_id"
+              WHEN excluded.${cols.sourceId} IS NOT NULL AND excluded.${cols.sourceId} != ''
+              THEN excluded.${cols.sourceId}
+              ELSE ${jobOffersTable.sourceId}
             END`,
             title: sql`CASE
-              WHEN excluded."title" IS NOT NULL AND excluded."title" != '' AND excluded."title" != 'Unknown title'
-              THEN excluded."title"
-              ELSE "job_offers"."title"
+              WHEN excluded.${cols.title} IS NOT NULL AND excluded.${cols.title} != '' AND excluded.${cols.title} != 'Unknown title'
+              THEN excluded.${cols.title}
+              ELSE ${jobOffersTable.title}
             END`,
             company: sql`CASE
-              WHEN excluded."company" IS NOT NULL AND excluded."company" != ''
-              THEN excluded."company"
-              ELSE "job_offers"."company"
+              WHEN excluded.${cols.company} IS NOT NULL AND excluded.${cols.company} != ''
+              THEN excluded.${cols.company}
+              ELSE ${jobOffersTable.company}
             END`,
             location: sql`CASE
-              WHEN excluded."location" IS NOT NULL AND excluded."location" != ''
-              THEN excluded."location"
-              ELSE "job_offers"."location"
+              WHEN excluded.${cols.location} IS NOT NULL AND excluded.${cols.location} != ''
+              THEN excluded.${cols.location}
+              ELSE ${jobOffersTable.location}
             END`,
             salary: sql`CASE
-              WHEN excluded."salary" IS NOT NULL AND excluded."salary" != ''
-              THEN excluded."salary"
-              ELSE "job_offers"."salary"
+              WHEN excluded.${cols.salary} IS NOT NULL AND excluded.${cols.salary} != ''
+              THEN excluded.${cols.salary}
+              ELSE ${jobOffersTable.salary}
             END`,
             employmentType: sql`CASE
-              WHEN excluded."employment_type" IS NOT NULL AND excluded."employment_type" != ''
-              THEN excluded."employment_type"
-              ELSE "job_offers"."employment_type"
+              WHEN excluded.${cols.employmentType} IS NOT NULL AND excluded.${cols.employmentType} != ''
+              THEN excluded.${cols.employmentType}
+              ELSE ${jobOffersTable.employmentType}
             END`,
             description: sql`CASE
-              WHEN excluded."description" IS NOT NULL
-               AND excluded."description" != ''
-               AND excluded."description" != 'No description found'
-               AND excluded."description" != 'Listing summary only'
-              THEN excluded."description"
-              ELSE "job_offers"."description"
+              WHEN excluded.${cols.description} IS NOT NULL
+               AND excluded.${cols.description} != ''
+               AND excluded.${cols.description} != 'No description found'
+               AND excluded.${cols.description} != 'Listing summary only'
+              THEN excluded.${cols.description}
+              ELSE ${jobOffersTable.description}
             END`,
             requirements: sql`CASE
-              WHEN excluded."requirements" IS NOT NULL THEN excluded."requirements"
-              ELSE "job_offers"."requirements"
+              WHEN excluded.${cols.requirements} IS NOT NULL THEN excluded.${cols.requirements}
+              ELSE ${jobOffersTable.requirements}
             END`,
             details: sql`CASE
-              WHEN excluded."details" IS NOT NULL THEN excluded."details"
-              ELSE "job_offers"."details"
+              WHEN excluded.${cols.details} IS NOT NULL THEN excluded.${cols.details}
+              ELSE ${jobOffersTable.details}
             END`,
-            isExpired: sql`excluded."is_expired"`,
+            isExpired: sql`excluded.${cols.isExpired}`,
             expiresAt: sql`CASE
-              WHEN excluded."is_expired" = TRUE AND "job_offers"."expires_at" IS NULL
-              THEN excluded."expires_at"
-              ELSE "job_offers"."expires_at"
+              WHEN excluded.${cols.isExpired} = TRUE AND ${jobOffersTable.expiresAt} IS NULL
+              THEN excluded.${cols.expiresAt}
+              ELSE ${jobOffersTable.expiresAt}
             END`,
-            lastFullScrapeAt: sql`excluded."last_full_scrape_at"`,
+            lastFullScrapeAt: sql`excluded.${cols.lastFullScrapeAt}`,
             fetchedAt: now,
           },
         });

@@ -75,8 +75,11 @@ export const NotebookFiltersCard = ({
   <Card title="Filters & Tools" description="Refine offer list or trigger background maintenance.">
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <div className="app-field-group">
-        <Label className="app-inline-label">Status</Label>
+        <Label className="app-inline-label" htmlFor="filter-status">
+          Status
+        </Label>
         <select
+          id="filter-status"
           className="app-select"
           value={status}
           onChange={(e) => onStatusChange(e.target.value as 'ALL' | JobOfferStatus)}
@@ -91,8 +94,11 @@ export const NotebookFiltersCard = ({
       </div>
 
       <div className="app-field-group">
-        <Label className="app-inline-label">Mode</Label>
+        <Label className="app-inline-label" htmlFor="filter-mode">
+          Mode
+        </Label>
         <select
+          id="filter-mode"
           className="app-select"
           value={mode}
           onChange={(e) => onModeChange(e.target.value as 'strict' | 'approx' | 'explore')}
@@ -104,8 +110,11 @@ export const NotebookFiltersCard = ({
       </div>
 
       <div className="app-field-group">
-        <Label className="app-inline-label">Scoring</Label>
+        <Label className="app-inline-label" htmlFor="filter-scoring">
+          Scoring
+        </Label>
         <select
+          id="filter-scoring"
           className="app-select"
           value={hasScore}
           onChange={(e) => onHasScoreChange(e.target.value as 'all' | 'yes' | 'no')}
