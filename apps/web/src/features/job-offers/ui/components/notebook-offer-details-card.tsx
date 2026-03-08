@@ -189,6 +189,8 @@ export const NotebookOfferDetailsCard = ({
           ) : null}
         </div>
 
+        {/* AI Assistant features hidden per user request to avoid accidental costs */}
+        {/*
         <div className="app-muted-panel space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-text-strong font-semibold">AI Match Feedback</h4>
@@ -262,7 +264,6 @@ export const NotebookOfferDetailsCard = ({
                 <div className="app-muted-panel space-y-2">
                   <h4 className="text-text-strong text-xs font-semibold uppercase tracking-wider">Interview Focus</h4>
                   <ul className="text-text-soft list-disc space-y-1 pl-4 text-sm">
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {(offer.prepMaterials as any).interviewFocus?.map((point: string, i: number) => (
                       <li key={i}>{point}</li>
                     ))}
@@ -273,7 +274,6 @@ export const NotebookOfferDetailsCard = ({
                     Cover Letter Draft
                   </h4>
                   <pre className="text-text-soft whitespace-pre-wrap font-sans text-xs">
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {(offer.prepMaterials as any).coverLetter}
                   </pre>
                 </div>
@@ -292,6 +292,7 @@ export const NotebookOfferDetailsCard = ({
             )}
           </div>
         </details>
+        */}
 
         <details className="group">
           <summary className="text-text-strong hover:text-primary cursor-pointer text-sm font-medium transition-colors">

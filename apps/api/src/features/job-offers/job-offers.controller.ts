@@ -107,7 +107,9 @@ export class JobOffersController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() dto: GeneratePrepDto,
   ) {
-    return this.jobOffersService.generatePrepMaterials(user.userId, id, dto.instructions);
+    // Feature disabled per user request to avoid accidental costs
+    throw new MethodNotAllowedException('AI Assistant features are currently disabled.');
+    // return this.jobOffersService.generatePrepMaterials(user.userId, id, dto.instructions);
   }
 
   @Post(':id/score')
