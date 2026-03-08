@@ -41,8 +41,29 @@ import type { Env } from '@/config/env';
       useFactory: (configService: ConfigService<Env, true>) => ({
         throttlers: [
           {
+            name: 'api',
             ttl: configService.get('API_THROTTLE_TTL_MS', { infer: true }),
             limit: configService.get('API_THROTTLE_LIMIT', { infer: true }),
+          },
+          {
+            name: 'login',
+            ttl: configService.get('AUTH_LOGIN_THROTTLE_TTL_MS', { infer: true }),
+            limit: configService.get('AUTH_LOGIN_THROTTLE_LIMIT', { infer: true }),
+          },
+          {
+            name: 'otp',
+            ttl: configService.get('AUTH_OTP_THROTTLE_TTL_MS', { infer: true }),
+            limit: configService.get('AUTH_OTP_THROTTLE_LIMIT', { infer: true }),
+          },
+          {
+            name: 'register',
+            ttl: configService.get('AUTH_REGISTER_THROTTLE_TTL_MS', { infer: true }),
+            limit: configService.get('AUTH_REGISTER_THROTTLE_LIMIT', { infer: true }),
+          },
+          {
+            name: 'refresh',
+            ttl: configService.get('AUTH_REFRESH_THROTTLE_TTL_MS', { infer: true }),
+            limit: configService.get('AUTH_REFRESH_THROTTLE_LIMIT', { infer: true }),
           },
         ],
       }),
