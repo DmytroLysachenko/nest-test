@@ -60,7 +60,7 @@ const PipelineColumn = ({
                   <span className="text-primary/80 bg-primary/10 rounded px-1 text-[9px] font-semibold">Has Meta</span>
                 ) : null}
                 {offer.aiFeedbackScore ? (
-                  <div className="flex items-center gap-0.5 text-app-warning">
+                  <div className="text-app-warning flex items-center gap-0.5">
                     <Star className="h-2.5 w-2.5 fill-current" />
                     <span className="text-[9px] font-bold">{offer.aiFeedbackScore}</span>
                   </div>
