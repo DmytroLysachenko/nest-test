@@ -174,15 +174,15 @@ export const NotebookFiltersCard = ({
 
     <div className="border-border/40 mt-4 flex flex-wrap items-center gap-2 border-t pt-4">
       <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        disabled={isBusy || enqueueStatus === 'pending'}
-        onClick={onEnqueueProfileScrape}
-        className="border-primary/20 hover:bg-primary/5 hover:text-primary h-8 transition-colors"
+      type="button"
+      size="sm"
+      variant="outline"
+      disabled={isBusy || enqueueStatus === 'pending'}
+      onClick={onEnqueueProfileScrape}
+      className="h-8 border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors"
       >
-        <Sparkles className="mr-2 h-3.5 w-3.5 text-amber-500" />
-        {enqueueStatus === 'pending' ? 'Enqueueing...' : 'Sync via Profile'}
+      <Sparkles className="h-3.5 w-3.5 mr-2 text-app-warning" />
+      {enqueueStatus === 'pending' ? 'Enqueueing...' : 'Sync via Profile'}
       </Button>
 
       {onDismissAllSeen && (

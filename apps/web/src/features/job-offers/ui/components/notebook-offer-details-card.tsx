@@ -205,7 +205,7 @@ export const NotebookOfferDetailsCard = ({
                   <Star
                     className={cn(
                       'h-5 w-5 transition-colors',
-                      feedbackScore >= star ? 'fill-amber-400 text-amber-500' : 'text-text-soft/20',
+                      feedbackScore >= star ? 'fill-app-warning text-app-warning' : 'text-text-soft/20',
                     )}
                   />
                 </button>
