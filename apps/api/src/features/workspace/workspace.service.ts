@@ -55,40 +55,19 @@ export class WorkspaceService {
       .orderBy(desc(careerProfilesTable.updatedAt))
       .limit(1);
 
-    const [offersTotal] = await this.db
-      .select({ value: count() })
+    const offersStatusCounts = await this.db
+      .select({
+        status: userJobOffersTable.status,
+        count: count(),
+      })
       .from(userJobOffersTable)
-      .where(eq(userJobOffersTable.userId, userId));
+      .where(eq(userJobOffersTable.userId, userId))
+      .groupBy(userJobOffersTable.status);
 
     const [offersScored] = await this.db
       .select({ value: count() })
       .from(userJobOffersTable)
       .where(and(eq(userJobOffersTable.userId, userId), isNotNull(userJobOffersTable.matchScore)));
-
-    const [offersSaved] = await this.db
-      .select({ value: count() })
-      .from(userJobOffersTable)
-      .where(and(eq(userJobOffersTable.userId, userId), eq(userJobOffersTable.status, 'SAVED')));
-
-    const [offersApplied] = await this.db
-      .select({ value: count() })
-      .from(userJobOffersTable)
-      .where(and(eq(userJobOffersTable.userId, userId), eq(userJobOffersTable.status, 'APPLIED')));
-
-    const [offersInterviewing] = await this.db
-      .select({ value: count() })
-      .from(userJobOffersTable)
-      .where(and(eq(userJobOffersTable.userId, userId), eq(userJobOffersTable.status, 'INTERVIEWING')));
-
-    const [offersWithOffer] = await this.db
-      .select({ value: count() })
-      .from(userJobOffersTable)
-      .where(and(eq(userJobOffersTable.userId, userId), eq(userJobOffersTable.status, 'OFFER')));
-
-    const [offersRejected] = await this.db
-      .select({ value: count() })
-      .from(userJobOffersTable)
-      .where(and(eq(userJobOffersTable.userId, userId), eq(userJobOffersTable.status, 'REJECTED')));
 
     const [lastOffer] = await this.db
       .select({ updatedAt: userJobOffersTable.updatedAt })
@@ -115,6 +94,11 @@ export class WorkspaceService {
 
     const needsOnboarding = !profileInput || !profile || profile.status !== 'READY';
 
+    const getCount = (status: string) => {
+      const found = offersStatusCounts.find((c) => c.status === status);
+      return Number(found?.count ?? 0);
+    };
+
     return {
       profile: {
         exists: Boolean(profile),
@@ -127,13 +111,13 @@ export class WorkspaceService {
         updatedAt: profileInput?.updatedAt ?? null,
       },
       offers: {
-        total: Number(offersTotal?.value ?? 0),
+        total: offersStatusCounts.reduce((acc, curr) => acc + Number(curr.count), 0),
         scored: Number(offersScored?.value ?? 0),
-        saved: Number(offersSaved?.value ?? 0),
-        applied: Number(offersApplied?.value ?? 0),
-        interviewing: Number(offersInterviewing?.value ?? 0),
-        offersMade: Number(offersWithOffer?.value ?? 0),
-        rejected: Number(offersRejected?.value ?? 0),
+        saved: getCount('SAVED'),
+        applied: getCount('APPLIED'),
+        interviewing: getCount('INTERVIEWING'),
+        offersMade: getCount('OFFER'),
+        rejected: getCount('REJECTED'),
         lastUpdatedAt: lastOffer?.updatedAt ?? null,
       },
       scrape: {

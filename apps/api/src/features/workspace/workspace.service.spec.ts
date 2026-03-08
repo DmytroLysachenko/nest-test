@@ -7,12 +7,14 @@ describe('WorkspaceService', () => {
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockImplementation(() => {
             const data = results.shift() ?? [];
-            return {
+            const resultObj = {
               orderBy: jest.fn().mockReturnValue({
                 limit: jest.fn().mockResolvedValue(data),
               }),
+              groupBy: jest.fn().mockResolvedValue(data),
               then: (cb: (rows: unknown[]) => unknown) => Promise.resolve(cb(data)),
             };
+            return resultObj;
           }),
         }),
       })),
@@ -27,13 +29,8 @@ describe('WorkspaceService', () => {
     const values: unknown[][] = [
       [], // profile input
       [], // profile
-      [{ value: 0 }], // offers total
+      [], // offers status counts (groupBy)
       [{ value: 0 }], // offers scored
-      [{ value: 0 }], // offers saved
-      [{ value: 0 }], // offers applied
-      [{ value: 0 }], // offers interviewing
-      [{ value: 0 }], // offers made
-      [{ value: 0 }], // offers rejected
       [], // last offer
       [{ value: 0 }], // run total
       [], // latest run
@@ -52,13 +49,12 @@ describe('WorkspaceService', () => {
     const values: unknown[][] = [
       [{ id: 'pi-1', updatedAt: new Date('2026-01-01') }], // profile input
       [{ id: 'cp-1', status: 'READY', version: 3, updatedAt: new Date('2026-01-02') }], // profile
-      [{ value: 10 }], // offers total
+      [
+        { status: 'SAVED', count: 5 },
+        { status: 'APPLIED', count: 3 },
+        { status: 'INTERVIEWING', count: 1 },
+      ], // offers status counts
       [{ value: 8 }], // offers scored
-      [{ value: 5 }], // offers saved
-      [{ value: 3 }], // offers applied
-      [{ value: 1 }], // offers interviewing
-      [{ value: 0 }], // offers made
-      [{ value: 0 }], // offers rejected
       [{ updatedAt: new Date('2026-01-03') }], // last offer
       [{ value: 2 }], // run total
       [{ status: 'COMPLETED', createdAt: new Date('2026-01-04') }], // latest run
@@ -70,7 +66,9 @@ describe('WorkspaceService', () => {
     const summary = await service.getSummary('user-1');
 
     expect(summary.workflow.needsOnboarding).toBe(false);
-    expect(summary.offers.total).toBe(10);
+    expect(summary.offers.total).toBe(9); // 5 + 3 + 1
+    expect(summary.offers.saved).toBe(5);
+    expect(summary.offers.applied).toBe(3);
     expect(summary.scrape.lastRunStatus).toBe('COMPLETED');
   });
 });
