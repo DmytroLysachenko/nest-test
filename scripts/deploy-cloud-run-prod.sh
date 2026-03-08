@@ -106,11 +106,14 @@ upsert_scheduler_job() {
   local uri="$4"
   local token="$5"
 
-  # Use semicolon as delimiter if possible, or ensure very strict quoting
-  local headers="Authorization=Bearer ${token},Content-Type=application/json"
+  echo "Syncing scheduler job: $job_name ($schedule)"
   
+  # We use comma as delimiter for gcloud's dict parser.
+  # The space in "Bearer token" must be handled carefully.
+  # Using double-quotes inside the outer gcloud command to preserve the space.
+  local headers="Authorization=Bearer ${token},Content-Type=application/json"
+
   if gcloud scheduler jobs describe "$job_name" --project="$GCP_PROJECT_ID" --location="$GCP_REGION" >/dev/null 2>&1; then
-    echo "Updating existing scheduler job: $job_name"
     gcloud scheduler jobs update http "$job_name" \
       --project="$GCP_PROJECT_ID" \
       --location="$GCP_REGION" \
@@ -123,7 +126,6 @@ upsert_scheduler_job() {
       --attempt-deadline=30s \
       >/dev/null
   else
-    echo "Creating new scheduler job: $job_name"
     gcloud scheduler jobs create http "$job_name" \
       --project="$GCP_PROJECT_ID" \
       --location="$GCP_REGION" \
@@ -199,12 +201,15 @@ API_THROTTLE_LIMIT="${API_THROTTLE_LIMIT:-60}"
 WEB_QUERY_STALE_TIME_MS="${WEB_QUERY_STALE_TIME_MS:-30000}"
 WEB_QUERY_REFETCH_ON_WINDOW_FOCUS="${WEB_QUERY_REFETCH_ON_WINDOW_FOCUS:-false}"
 WEB_QUERY_DIAGNOSTICS_REFETCH_MS="${WEB_QUERY_DIAGNOSTICS_REFETCH_MS:-60000}"
+
+# DEFAULT SCHEDULES: Dramatically reduced to save budget and allow 0-scaling
 SCHEDULER_JOB_NAME="${SCHEDULER_JOB_NAME:-job-seek-schedule-trigger}"
-SCHEDULER_CRON="${SCHEDULER_CRON:-*/10 * * * *}"
-SCHEDULER_TIMEZONE="${SCHEDULER_TIMEZONE:-Etc/UTC}"
+SCHEDULER_CRON="${SCHEDULER_CRON:-0 */4 * * *}" # Every 4 hours instead of 10 mins
+SCHEDULER_TIMEZONE="${SCHEDULER_TIMEZONE:-Europe/Warsaw}"
+
 OPS_RECONCILE_JOB_NAME="${OPS_RECONCILE_JOB_NAME:-job-seek-reconcile-stale-runs}"
-OPS_RECONCILE_CRON="${OPS_RECONCILE_CRON:-*/15 * * * *}"
-OPS_RECONCILE_TIMEZONE="${OPS_RECONCILE_TIMEZONE:-Etc/UTC}"
+OPS_RECONCILE_CRON="${OPS_RECONCILE_CRON:-30 */6 * * *}" # Every 6 hours instead of 15 mins
+OPS_RECONCILE_TIMEZONE="${OPS_RECONCILE_TIMEZONE:-Europe/Warsaw}"
 
 IMAGE_BASE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}"
 API_RUNTIME_SA="${GCP_API_RUNTIME_SERVICE_ACCOUNT:-api-runtime@${GCP_PROJECT_ID}.iam.gserviceaccount.com}"
@@ -391,7 +396,7 @@ if [[ "$DEPLOY_WORKER" == "true" ]]; then
     --cpu=1 \
     --memory=1Gi \
     --set-secrets="TASKS_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest" \
-    --set-env-vars="^|^NODE_ENV=production|WORKER_ALLOWED_ORIGINS=${WORKER_ALLOWED_ORIGINS}|QUEUE_PROVIDER=cloud-tasks|TASKS_PROJECT_ID=${GCP_PROJECT_ID}|TASKS_LOCATION=${GCP_REGION}|TASKS_QUEUE=${WORKER_TASKS_QUEUE}|TASKS_URL=${WORKER_URL}/tasks|WORKER_CALLBACK_URL=${API_URL}/api/job-sources/complete|PLAYWRIGHT_HEADLESS=true|WORKER_MAX_CONCURRENT_TASKS=1|WORKER_MAX_QUEUE_SIZE=20|WORKER_TASK_TIMEOUT_MS=180000" \
+    --set-env-vars="^|^NODE_ENV=production|WORKER_ALLOWED_ORIGINS=${WORKER_ALLOWED_ORIGINS}|QUEUE_PROVIDER=cloud-tasks|TASKS_PROJECT_ID=${GCP_PROJECT_ID}|TASKS_LOCATION=${GCP_REGION}|TASKS_QUEUE=${WORKER_TASKS_QUEUE}|TASKS_URL=${WORKER_TASK_URL}|WORKER_CALLBACK_URL=${API_URL}/api/job-sources/complete|PLAYWRIGHT_HEADLESS=true|WORKER_MAX_CONCURRENT_TASKS=1|WORKER_MAX_QUEUE_SIZE=20|WORKER_TASK_TIMEOUT_MS=180000" \
     >/dev/null
 fi
 
