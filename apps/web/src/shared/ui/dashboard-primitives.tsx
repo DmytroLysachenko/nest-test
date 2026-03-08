@@ -17,7 +17,7 @@ type MetricCardProps = {
   caption?: string;
   trend?: {
     label: string;
-    tone?: 'success' | 'warning' | 'danger' | 'info';
+    tone?: 'success' | 'warning' | 'danger' | 'info' | 'neutral';
   };
   className?: string;
 };
@@ -58,6 +58,11 @@ const toneClasses: Record<SemanticTone, string> = {
   info: 'app-status-info',
 };
 
+const trendToneClasses: Record<Exclude<StatRowProps['tone'], undefined>, string> = {
+  ...toneClasses,
+  neutral: 'bg-surface-muted text-text-soft',
+};
+
 export const SectionHeader = ({ title, subtitle, action, className }: SectionHeaderProps) => (
   <div className={cn('app-page-header flex flex-wrap items-center justify-between gap-3', className)}>
     <div>
@@ -94,7 +99,7 @@ export const MetricCard = ({ label, value, caption, trend, className }: MetricCa
         <span
           className={cn(
             'border-border mt-1 inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-medium',
-            trend.tone ? toneClasses[trend.tone] : 'bg-surface-muted text-text-soft',
+            trend.tone ? trendToneClasses[trend.tone] : 'bg-surface-muted text-text-soft',
           )}
         >
           {trend.label}

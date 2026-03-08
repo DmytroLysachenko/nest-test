@@ -29,9 +29,11 @@ describe('WorkspaceService', () => {
       [], // profile
       [{ value: 0 }], // offers total
       [{ value: 0 }], // offers scored
+      [{ value: 0 }], // offers saved
       [{ value: 0 }], // offers applied
       [{ value: 0 }], // offers interviewing
       [{ value: 0 }], // offers made
+      [{ value: 0 }], // offers rejected
       [], // last offer
       [{ value: 0 }], // run total
       [], // latest run
@@ -52,9 +54,11 @@ describe('WorkspaceService', () => {
       [{ id: 'cp-1', status: 'READY', version: 3, updatedAt: new Date('2026-01-02') }], // profile
       [{ value: 10 }], // offers total
       [{ value: 8 }], // offers scored
+      [{ value: 5 }], // offers saved
       [{ value: 3 }], // offers applied
       [{ value: 1 }], // offers interviewing
       [{ value: 0 }], // offers made
+      [{ value: 0 }], // offers rejected
       [{ updatedAt: new Date('2026-01-03') }], // last offer
       [{ value: 2 }], // run total
       [{ status: 'COMPLETED', createdAt: new Date('2026-01-04') }], // latest run
