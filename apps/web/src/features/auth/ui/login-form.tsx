@@ -29,7 +29,7 @@ export const LoginForm = () => {
 
   return (
     <form
-      className="border-border/80 bg-card/95 flex w-full flex-col gap-4 rounded-[1.75rem] border p-7 shadow-[0_24px_60px_-36px_color-mix(in_oklab,var(--text-strong)_18%,transparent)] backdrop-blur-md"
+      className="border-border/80 bg-surface/95 flex w-full flex-col gap-4 rounded-[1.75rem] border p-7 shadow-[0_12px_40px_-24px_color-mix(in_oklab,var(--text-strong)_14%,transparent)] backdrop-blur-md"
       onSubmit={loginForm.submit}
     >
       <h1 className="text-foreground text-2xl font-semibold">Sign in</h1>

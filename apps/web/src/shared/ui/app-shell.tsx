@@ -161,7 +161,7 @@ export const AppShell = ({ children, userEmail, token, onSignOut, hideSidebar }:
           className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(70%_70%_at_50%_0%,color-mix(in_oklab,var(--primary)_8%,transparent),transparent_72%)]"
         />
         <header className="sticky top-0 z-20 px-4 pt-4 md:px-6 md:pt-5">
-          <div className="border-border/70 bg-surface/82 rounded-[1.75rem] border px-4 py-3 shadow-[0_20px_50px_-36px_color-mix(in_oklab,var(--text-strong)_18%,transparent)] backdrop-blur-md md:px-5">
+          <div className="border-border/60 bg-surface/85 rounded-[1.75rem] border px-4 py-3 shadow-[0_8px_30px_-20px_color-mix(in_oklab,var(--text-strong)_10%,transparent)] backdrop-blur-xl md:px-5">
             <div className="flex flex-wrap items-center gap-3">
               {!hideSidebar && (
                 <Button

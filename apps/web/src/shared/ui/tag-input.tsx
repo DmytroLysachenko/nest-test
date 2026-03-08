@@ -67,11 +67,12 @@ export const TagInput = ({ label, placeholder, values, onChange, disabled = fals
               key={value}
               type="button"
               disabled={disabled}
-              className="app-badge hover:bg-muted/85 disabled:opacity-60"
+              className="app-badge border-border hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive group flex cursor-pointer items-center gap-1.5 transition-colors disabled:opacity-60"
               onClick={() => removeTag(value)}
               title="Remove"
             >
-              {value} x
+              <span>{value}</span>
+              <span className="opacity-60 group-hover:opacity-100">&times;</span>
             </button>
           ))}
         </div>

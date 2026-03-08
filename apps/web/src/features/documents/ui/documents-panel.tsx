@@ -42,7 +42,7 @@ export const DocumentsPanel = ({
           accept="application/pdf"
           onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
           disabled={disabled}
-          className="border-border rounded-md border p-2 text-sm"
+          className="border-border/80 bg-surface-muted/50 text-text-soft file:text-primary file:bg-primary/10 hover:file:bg-primary/20 cursor-pointer rounded-2xl border p-2 text-sm file:mr-4 file:rounded-xl file:border-0 file:px-4 file:py-2 file:text-sm file:font-semibold file:transition-colors disabled:cursor-not-allowed disabled:opacity-60"
         />
         <Button
           onClick={() => uploadMutation.mutate()}
@@ -56,7 +56,7 @@ export const DocumentsPanel = ({
         {error ? <p className="text-app-danger text-sm">{error}</p> : null}
         {uploadHealthQuery.data ? (
           <div
-            className={`rounded-md border p-2 text-xs ${uploadHealthQuery.data.ok ? 'border-app-success-border bg-app-success-soft' : 'border-app-warning-border bg-app-warning-soft'}`}
+            className={`rounded-2xl border p-3 text-xs ${uploadHealthQuery.data.ok ? 'border-app-success-border bg-app-success-soft' : 'border-app-warning-border bg-app-warning-soft'}`}
           >
             <p className="font-semibold">Upload health: {uploadHealthQuery.data.ok ? 'OK' : 'Degraded'}</p>
             <p>
@@ -74,30 +74,32 @@ export const DocumentsPanel = ({
         ) : null}
       </div>
 
-      <div className="mt-5 space-y-3">
+      <div className="mt-6 space-y-3">
         <p className="text-text-strong text-sm font-semibold">Document list</p>
         {documentsQuery.data?.length ? (
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           documentsQuery.data.map((document: any) => (
-            <article key={document.id} className="border-border bg-surface-muted rounded-md border p-3 text-sm">
-              <p className="text-text-strong font-medium">{document.originalName}</p>
-              <p className="text-text-soft">
-                Type: {document.type} | Extraction: {document.extractionStatus}
-              </p>
-              <p className="mt-1 text-xs">
+            <article key={document.id} className="app-muted-panel space-y-3 text-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-text-strong font-medium">{document.originalName}</p>
+                  <p className="text-text-soft mt-1">
+                    Type: {document.type} | Extraction: {document.extractionStatus}
+                  </p>
+                </div>
                 <span
-                  className={`rounded-full px-2 py-0.5 ${
+                  className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
                     document.extractionStatus === 'READY'
-                      ? 'bg-app-success-soft text-app-success'
+                      ? 'border-app-success-border bg-app-success-soft text-app-success'
                       : document.extractionStatus === 'FAILED'
-                        ? 'bg-app-danger-soft text-app-danger'
-                        : 'bg-app-warning-soft text-app-warning'
+                        ? 'border-app-danger-border bg-app-danger-soft text-app-danger'
+                        : 'border-app-warning-border bg-app-warning-soft text-app-warning'
                   }`}
                 >
                   {document.extractionStatus}
                 </span>
-              </p>
-              <div className="mt-2">
+              </div>
+              <div>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" variant="secondary" onClick={() => setSelectedDocumentId(document.id)}>
                     View diagnostics
@@ -122,38 +124,42 @@ export const DocumentsPanel = ({
                   </Button>
                 </div>
                 {retryExtractMutation.isPending ? (
-                  <p className="text-text-soft mt-1 text-xs">Re-extracting document text...</p>
+                  <p className="text-text-soft mt-2 text-xs">Re-extracting document text...</p>
                 ) : null}
                 {removeDocumentMutation.isPending ? (
-                  <p className="text-text-soft mt-1 text-xs">Removing document...</p>
+                  <p className="text-text-soft mt-2 text-xs">Removing document...</p>
                 ) : null}
                 {document.extractionStatus === 'FAILED' ? (
-                  <p className="text-app-warning mt-1 text-xs">Extraction failed. Use retry or replace document.</p>
+                  <p className="text-app-warning mt-2 text-xs">Extraction failed. Use retry or replace document.</p>
                 ) : null}
               </div>
               {document.extractionError ? <p className="text-app-danger">{document.extractionError}</p> : null}
             </article>
           ))
         ) : (
-          <p className="text-text-soft text-sm">No documents yet.</p>
+          <div className="app-muted-panel">
+            <p className="text-text-soft text-sm">No documents yet.</p>
+          </div>
         )}
       </div>
 
       {selectedDocumentId && documentEventsQuery.data?.length ? (
-        <div className="mt-5 space-y-2">
+        <div className="mt-6 space-y-3">
           <p className="text-text-strong text-sm font-semibold">
             Diagnostics timeline ({selectedDocumentId.slice(0, 8)})
           </p>
-          {documentEventsQuery.data.map((event) => (
-            <article key={event.id} className="border-border bg-surface-elevated rounded-md border p-2 text-xs">
-              <p className="text-text-strong font-medium">
-                {event.stage} · {event.status}
-              </p>
-              <p className="text-text-soft">{event.message}</p>
-              {event.errorCode ? <p className="text-app-danger">code: {event.errorCode}</p> : null}
-              {event.traceId ? <p className="text-text-soft">traceId: {event.traceId}</p> : null}
-            </article>
-          ))}
+          <div className="space-y-2">
+            {documentEventsQuery.data.map((event) => (
+              <article key={event.id} className="app-muted-panel space-y-1 text-xs">
+                <p className="text-text-strong font-medium">
+                  {event.stage} · {event.status}
+                </p>
+                <p className="text-text-soft">{event.message}</p>
+                {event.errorCode ? <p className="text-app-danger mt-1">code: {event.errorCode}</p> : null}
+                {event.traceId ? <p className="text-text-soft mt-1">traceId: {event.traceId}</p> : null}
+              </article>
+            ))}
+          </div>
         </div>
       ) : null}
     </Card>
