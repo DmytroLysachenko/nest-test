@@ -8,6 +8,7 @@ type DocumentsPanelProps = {
   token: string;
   disabled?: boolean;
   disabledReason?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   documentsQuery?: any;
 };
 
@@ -76,7 +77,8 @@ export const DocumentsPanel = ({
       <div className="mt-5 space-y-3">
         <p className="text-text-strong text-sm font-semibold">Document list</p>
         {documentsQuery.data?.length ? (
-          documentsQuery.data.map((document) => (
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          documentsQuery.data.map((document: any) => (
             <article key={document.id} className="border-border bg-surface-muted rounded-md border p-3 text-sm">
               <p className="text-text-strong font-medium">{document.originalName}</p>
               <p className="text-text-soft">

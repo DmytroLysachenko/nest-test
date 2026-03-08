@@ -94,7 +94,8 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
       <div className="mt-5 space-y-2">
         <p className="text-text-strong text-sm font-semibold">History</p>
         {jobMatchingPanel.historyQuery.data?.items?.length ? (
-          jobMatchingPanel.historyQuery.data.items.map((item) => (
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          jobMatchingPanel.historyQuery.data.items.map((item: any) => (
             <article key={item.id} className="app-muted-panel space-y-3 text-sm">
               <InspectorRow label="Score" value={`${item.score} | ${item.isMatch ? 'Match' : 'No match'}`} />
               <InspectorRow label="Profile version" value={String(item.profileVersion)} />

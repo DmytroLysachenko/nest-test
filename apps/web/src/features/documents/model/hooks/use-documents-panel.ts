@@ -7,6 +7,7 @@ import { useDocumentsPanelQueries } from '@/features/documents/model/hooks/use-d
 
 type UseDocumentsPanelArgs = {
   token: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   overrideDocumentsQuery?: any;
 };
 

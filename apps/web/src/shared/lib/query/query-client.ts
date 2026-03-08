@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 
 import { env } from '@/shared/config/env';
+
 import { QUERY_GC_TIME, QUERY_STALE_TIME } from './query-constants';
 
 export const createQueryClient = () =>
