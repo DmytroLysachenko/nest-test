@@ -8,9 +8,15 @@ type DocumentsPanelProps = {
   token: string;
   disabled?: boolean;
   disabledReason?: string;
+  documentsQuery?: any;
 };
 
-export const DocumentsPanel = ({ token, disabled = false, disabledReason }: DocumentsPanelProps) => {
+export const DocumentsPanel = ({
+  token,
+  disabled = false,
+  disabledReason,
+  documentsQuery: overrideDocumentsQuery,
+}: DocumentsPanelProps) => {
   const {
     selectedFile,
     setSelectedFile,
@@ -25,7 +31,7 @@ export const DocumentsPanel = ({ token, disabled = false, disabledReason }: Docu
     uploadMutation,
     retryExtractMutation,
     removeDocumentMutation,
-  } = useDocumentsPanel({ token });
+  } = useDocumentsPanel({ token, overrideDocumentsQuery });
 
   return (
     <Card title="Documents" description="Upload PDF documents, confirm upload, and extract text.">

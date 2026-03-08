@@ -11,6 +11,7 @@ import {
 import { listDocuments } from '@/features/documents/api/documents-api';
 import { getLatestProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
+import { QUERY_GC_TIME, QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
 type UseProfileManagementQueriesArgs = {
@@ -26,6 +27,8 @@ export const useProfileManagementQueries = ({ token }: UseProfileManagementQueri
       queryKey: queryKeys.profileInputs.latest(token),
       queryFn: getLatestProfileInput,
       enabled: hasToken,
+      staleTime: QUERY_STALE_TIME.CORE_DATA,
+      gcTime: QUERY_GC_TIME.LONG_LIVED,
     }),
   );
 
@@ -35,6 +38,11 @@ export const useProfileManagementQueries = ({ token }: UseProfileManagementQueri
       queryKey: queryKeys.documents.list(token),
       queryFn: listDocuments,
       enabled: hasToken,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      refetchInterval: (query) => {
+        const docs = (query.state.data as Array<{ extractionStatus?: string }> | undefined) ?? [];
+        return docs.some((item) => item.extractionStatus === 'PENDING') ? 2500 : false;
+      },
     }),
   );
 
@@ -44,6 +52,8 @@ export const useProfileManagementQueries = ({ token }: UseProfileManagementQueri
       queryKey: queryKeys.careerProfiles.latest(token),
       queryFn: getLatestCareerProfile,
       enabled: hasToken,
+      staleTime: QUERY_STALE_TIME.CORE_DATA,
+      gcTime: QUERY_GC_TIME.LONG_LIVED,
     }),
   );
 
@@ -53,6 +63,7 @@ export const useProfileManagementQueries = ({ token }: UseProfileManagementQueri
       queryKey: queryKeys.careerProfiles.quality(token),
       queryFn: getCareerProfileQuality,
       enabled: hasToken,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
     }),
   );
 
@@ -62,6 +73,7 @@ export const useProfileManagementQueries = ({ token }: UseProfileManagementQueri
       queryKey: queryKeys.careerProfiles.versions(token, 25, 0),
       queryFn: (authToken) => listCareerProfileVersions(authToken, { limit: 25, offset: 0 }),
       enabled: hasToken,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
     }),
   );
 
@@ -71,6 +83,7 @@ export const useProfileManagementQueries = ({ token }: UseProfileManagementQueri
       queryKey: ['career-profiles', 'documents', token, latestCareerProfileQuery.data?.id],
       queryFn: (authToken) => listCareerProfileDocuments(authToken, latestCareerProfileQuery.data!.id),
       enabled: hasToken && Boolean(latestCareerProfileQuery.data?.id),
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
     }),
   );
 

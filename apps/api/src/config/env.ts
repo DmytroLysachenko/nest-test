@@ -42,7 +42,7 @@ export const EnvSchema = z.object({
   WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC: z.coerce.number().int().min(30).max(3600).default(300),
   WORKER_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600000).default(5000),
   API_THROTTLE_TTL_MS: z.coerce.number().int().min(1000).max(600000).default(60000),
-  API_THROTTLE_LIMIT: z.coerce.number().int().min(5).max(1000).default(60),
+  API_THROTTLE_LIMIT: z.coerce.number().int().min(5).max(1000).default(120),
   WORKER_TASK_MAX_PAYLOAD_BYTES: z.coerce.number().int().min(1024).max(5_000_000).default(262_144),
   API_BODY_LIMIT: z
     .string()
@@ -86,7 +86,11 @@ export type Env = z.infer<typeof EnvSchema>;
 export const validateEnv = (env: Record<string, unknown>): Env => {
   const parsed = EnvSchema.safeParse(env);
   if (!parsed.success) {
-    throw new Error(parsed.error.message || 'Invalid environment variables');
+    const errors = parsed.error.flatten().fieldErrors;
+    const errorMessages = Object.entries(errors)
+      .map(([key, messages]) => `${key}: ${messages?.join(', ')}`)
+      .join('; ');
+    throw new Error(`Invalid environment variables: ${errorMessages}`);
   }
   if (parsed.data.NODE_ENV === 'production' && parsed.data.WORKER_CALLBACK_OIDC_AUDIENCE) {
     const audienceUrl = new URL(parsed.data.WORKER_CALLBACK_OIDC_AUDIENCE);

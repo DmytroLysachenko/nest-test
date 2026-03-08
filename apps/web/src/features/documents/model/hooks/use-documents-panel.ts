@@ -7,19 +7,23 @@ import { useDocumentsPanelQueries } from '@/features/documents/model/hooks/use-d
 
 type UseDocumentsPanelArgs = {
   token: string;
+  overrideDocumentsQuery?: any;
 };
 
-export const useDocumentsPanel = ({ token }: UseDocumentsPanelArgs) => {
+export const useDocumentsPanel = ({ token, overrideDocumentsQuery }: UseDocumentsPanelArgs) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<'idle' | 'create-url' | 'upload' | 'confirm' | 'extract'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
-  const { documentsQuery, uploadHealthQuery, documentEventsQuery } = useDocumentsPanelQueries(
-    token,
-    selectedDocumentId,
-  );
+  const {
+    documentsQuery: internalDocumentsQuery,
+    uploadHealthQuery,
+    documentEventsQuery,
+  } = useDocumentsPanelQueries(token, selectedDocumentId);
+
+  const documentsQuery = overrideDocumentsQuery ?? internalDocumentsQuery;
 
   const { uploadMutation, retryExtractMutation, removeDocumentMutation } = useDocumentsPanelMutations({
     token,

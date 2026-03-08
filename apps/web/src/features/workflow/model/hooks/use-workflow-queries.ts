@@ -8,6 +8,7 @@ import { listJobOffers } from '@/features/job-offers/api/job-offers-api';
 import { listJobSourceRuns } from '@/features/job-sources/api/job-sources-api';
 import { getLatestProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
+import { QUERY_GC_TIME, QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
 export const useWorkflowQueries = (token: string | null) => {
@@ -19,6 +20,8 @@ export const useWorkflowQueries = (token: string | null) => {
       queryKey: queryKeys.profileInputs.latest(token),
       queryFn: getLatestProfileInput,
       enabled: hasToken,
+      staleTime: QUERY_STALE_TIME.CORE_DATA,
+      gcTime: QUERY_GC_TIME.LONG_LIVED,
     }),
   );
 
@@ -28,6 +31,7 @@ export const useWorkflowQueries = (token: string | null) => {
       queryKey: queryKeys.documents.list(token),
       queryFn: listDocuments,
       enabled: hasToken,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
     }),
   );
 
@@ -37,6 +41,8 @@ export const useWorkflowQueries = (token: string | null) => {
       queryKey: queryKeys.careerProfiles.latest(token),
       queryFn: getLatestCareerProfile,
       enabled: hasToken,
+      staleTime: QUERY_STALE_TIME.CORE_DATA,
+      gcTime: QUERY_GC_TIME.LONG_LIVED,
     }),
   );
 
@@ -46,6 +52,7 @@ export const useWorkflowQueries = (token: string | null) => {
       queryKey: queryKeys.jobSources.runs(token),
       queryFn: listJobSourceRuns,
       enabled: hasToken,
+      staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
     }),
   );
 
@@ -55,6 +62,7 @@ export const useWorkflowQueries = (token: string | null) => {
       queryKey: queryKeys.jobOffers.list(token, { limit: 1, offset: 0 }),
       queryFn: (authToken) => listJobOffers(authToken, { limit: 1, offset: 0 }),
       enabled: hasToken,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
     }),
   );
 

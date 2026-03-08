@@ -45,9 +45,11 @@ const parsedEnv = envSchema.safeParse({
 });
 
 if (!parsedEnv.success) {
-  throw new Error(
-    'Invalid frontend env. Check NEXT_PUBLIC_API_URL, NEXT_PUBLIC_WORKER_URL, NEXT_PUBLIC_ENABLE_TESTER, NEXT_PUBLIC_QUERY_*.',
-  );
+  const errors = parsedEnv.error.flatten().fieldErrors;
+  const errorMessages = Object.entries(errors)
+    .map(([key, messages]) => `${key}: ${messages?.join(', ')}`)
+    .join('; ');
+  throw new Error(`Invalid frontend environment variables: ${errorMessages}`);
 }
 
 if (isProduction && !isCI) {
