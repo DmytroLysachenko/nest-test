@@ -108,6 +108,7 @@ const sanitizeCallbackJobs = (jobs: ScrapeCompleteDto['jobs']) => {
       location: normalizeString(job.location) ?? undefined,
       salary: normalizeString(job.salary) ?? undefined,
       employmentType: normalizeString(job.employmentType) ?? undefined,
+      isExpired: job.isExpired,
       requirements: sanitizeStringArray(job.requirements),
       tags: sanitizeStringArray(job.tags),
     });
@@ -918,6 +919,7 @@ export class JobSourcesService {
     }
 
     if (sanitizedJobs.length) {
+      const now = new Date();
       const jobsToPersist = await this.reuseExistingUrlsBySourceId(run.source, sanitizedJobs);
       await this.db
         .insert(jobOffersTable)
@@ -939,7 +941,10 @@ export class JobSourcesService {
             description: job.description,
             requirements: job.requirements?.length ? job.requirements : null,
             details: job.details ?? null,
-            fetchedAt: new Date(),
+            isExpired: job.isExpired ?? false,
+            expiresAt: job.isExpired ? now : null,
+            lastFullScrapeAt: now,
+            fetchedAt: now,
           })),
         )
         .onConflictDoUpdate({
@@ -992,7 +997,14 @@ export class JobSourcesService {
               WHEN excluded."details" IS NOT NULL THEN excluded."details"
               ELSE "job_offers"."details"
             END`,
-            fetchedAt: new Date(),
+            isExpired: sql`excluded."is_expired"`,
+            expiresAt: sql`CASE
+              WHEN excluded."is_expired" = TRUE AND "job_offers"."expires_at" IS NULL
+              THEN excluded."expires_at"
+              ELSE "job_offers"."expires_at"
+            END`,
+            lastFullScrapeAt: now,
+            fetchedAt: now,
           },
         });
     }

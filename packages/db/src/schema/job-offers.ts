@@ -1,4 +1,4 @@
-import { index, jsonb, pgTable, text, timestamp, uuid, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, index, jsonb, pgTable, text, timestamp, uuid, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { jobSourceEnum } from './_enums';
 import { jobSourceRunsTable } from './job-source-runs';
@@ -20,6 +20,9 @@ export const jobOffersTable = pgTable(
     description: text('description').notNull(),
     requirements: jsonb('requirements'),
     details: jsonb('details'),
+    isExpired: boolean('is_expired').notNull().default(false),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    lastFullScrapeAt: timestamp('last_full_scrape_at', { withTimezone: true }),
     fetchedAt: timestamp('fetched_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({

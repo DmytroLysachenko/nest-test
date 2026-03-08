@@ -72,5 +72,6 @@ export const normalizePracujPl = (jobs: ParsedJob[], source = 'pracuj-pl'): Norm
     employmentType: normalizeText(job.employmentType),
     requirements: job.requirements?.map((item) => item.trim()).filter(Boolean) ?? [],
     details: normalizeDetails(job.details),
+    isExpired: job.isExpired,
   }));
 };

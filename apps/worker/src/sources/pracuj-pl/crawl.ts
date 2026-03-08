@@ -143,6 +143,15 @@ const isBlockedPage = (html: string) => {
   return html.includes('cf_chl') || html.includes('Just a moment...');
 };
 
+const isExpiredPage = (html: string) => {
+  const normalized = html.toLowerCase();
+  return (
+    normalized.includes('oferta jest nieaktywna') ||
+    normalized.includes('ta oferta wygasła') ||
+    normalized.includes('nie znaleźliśmy oferty, której szukasz')
+  );
+};
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const randomBetween = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -229,9 +238,21 @@ const loadCookies = async (cookiesPath?: string, logger?: Logger): Promise<Cooki
 
 const humanizePage = async (page: Page, delayMs: number) => {
   const jitter = Math.max(250, Math.floor(delayMs / 3));
+
+  // Random small mouse movements
+  for (let i = 0; i < randomBetween(2, 5); i++) {
+    await page.mouse.move(randomBetween(50, 600), randomBetween(50, 600), { steps: randomBetween(5, 15) });
+    await page.waitForTimeout(randomBetween(100, 400));
+  }
+
+  await page.mouse.wheel(0, randomBetween(300, 800));
   await page.waitForTimeout(randomBetween(jitter, delayMs));
-  await page.mouse.move(randomBetween(50, 400), randomBetween(50, 400));
-  await page.mouse.wheel(0, randomBetween(200, 600));
+
+  // Maybe move mouse again
+  if (Math.random() > 0.5) {
+    await page.mouse.move(randomBetween(100, 500), randomBetween(100, 500), { steps: 10 });
+  }
+
   await page.waitForTimeout(randomBetween(jitter, delayMs));
 };
 
@@ -442,6 +463,8 @@ export const crawlPracujPl = async (
       try {
         let result = await loadJobPage(jobPage, url, detailDelayMs, detailHumanize, logger);
         let blocked = isBlockedPage(result.html);
+        let expired = isExpiredPage(result.html);
+
         detailDiagnostics.push({
           url,
           finalUrl: result.finalUrl,
@@ -449,6 +472,7 @@ export const crawlPracujPl = async (
           title: result.title,
           htmlLength: result.html.length,
           blocked,
+          expired,
           attempt: 1,
         });
 
@@ -457,6 +481,7 @@ export const crawlPracujPl = async (
           await sleep(detailDelayMs + randomBetween(500, 1500));
           result = await loadJobPage(jobPage, url, detailDelayMs * 2, true, logger);
           blocked = isBlockedPage(result.html);
+          expired = isExpiredPage(result.html);
           detailDiagnostics.push({
             url,
             finalUrl: result.finalUrl,
@@ -464,6 +489,7 @@ export const crawlPracujPl = async (
             title: result.title,
             htmlLength: result.html.length,
             blocked,
+            expired,
             attempt: 2,
           });
         }
@@ -471,7 +497,7 @@ export const crawlPracujPl = async (
         if (blocked) {
           blockedUrls.push(url);
         } else {
-          pages.push({ url, html: result.html });
+          pages.push({ url, html: result.html, isExpired: expired });
         }
       } catch (error) {
         detailDiagnostics.push({
