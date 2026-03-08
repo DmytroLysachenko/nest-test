@@ -4,6 +4,7 @@ describe('frontend env config', () => {
   it('rejects localhost urls in production', async () => {
     vi.resetModules();
     vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('CI', '');
     vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3000/api');
     vi.stubEnv('NEXT_PUBLIC_WORKER_URL', 'https://worker.example.com');
     vi.stubEnv('NEXT_PUBLIC_ENABLE_TESTER', 'false');
