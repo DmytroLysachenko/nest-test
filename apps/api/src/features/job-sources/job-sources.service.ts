@@ -1008,7 +1008,6 @@ export class JobSourcesService {
           },
         });
     }
-    }
 
     const finalizedAt = new Date();
     await this.registerRunAttempt(run.id, callbackAttemptNo, {
