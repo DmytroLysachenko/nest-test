@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Pointer, Star } from 'lucide-react';
+import { cn } from '@repo/ui/lib/utils';
 
 import { useNotebookOfferDetailsDrafts } from '@/features/job-offers/model/hooks/use-notebook-offer-details-drafts';
 import { Button } from '@/shared/ui/button';
@@ -14,7 +15,6 @@ import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
 import { EmptyState } from '@/shared/ui/empty-state';
-import { cn } from '@repo/ui/lib/utils';
 
 import type { getJobOfferHistory } from '@/features/job-offers/api/job-offers-api';
 import type { JobOfferListItemDto, JobOfferStatus } from '@/shared/types/api';
@@ -61,12 +61,16 @@ export const NotebookOfferDetailsCard = ({
   const [feedbackScore, setFeedbackScore] = useState<number>(offer?.aiFeedbackScore ?? 0);
   const [feedbackNotes, setFeedbackNotes] = useState<string>(offer?.aiFeedbackNotes ?? '');
   const [prepInstructions, setPrepInstructions] = useState<string>('');
+  const [pipelineMetaStr, setPipelineMetaStr] = useState<string>(
+    offer?.pipelineMeta ? JSON.stringify(offer.pipelineMeta, null, 2) : '',
+  );
   const drafts = useNotebookOfferDetailsDrafts({ offer });
 
   useEffect(() => {
     setFeedbackScore(offer?.aiFeedbackScore ?? 0);
     setFeedbackNotes(offer?.aiFeedbackNotes ?? '');
-  }, [offer?.id, offer?.aiFeedbackScore, offer?.aiFeedbackNotes]);
+    setPipelineMetaStr(offer?.pipelineMeta ? JSON.stringify(offer.pipelineMeta, null, 2) : '');
+  }, [offer?.id, offer?.aiFeedbackScore, offer?.aiFeedbackNotes, offer?.pipelineMeta]);
 
   if (!offer) {
     return (
@@ -116,6 +120,22 @@ export const NotebookOfferDetailsCard = ({
             </Button>
           ))}
         </div>
+
+        {['APPLIED', 'INTERVIEWING', 'OFFER', 'REJECTED'].includes(offer.status) && (
+          <div className="app-field-group">
+            <Label htmlFor="pipeline-meta" className="app-inline-label">
+              Pipeline Metadata (JSON)
+            </Label>
+            <Textarea
+              id="pipeline-meta"
+              rows={3}
+              value={pipelineMetaStr}
+              onChange={(event) => setPipelineMetaStr(event.target.value)}
+              placeholder='{ "interviewDate": "2026-04-01" }'
+              className="font-mono text-xs"
+            />
+          </div>
+        )}
 
         <div className="app-field-group">
           <Label htmlFor="offer-notes" className="app-inline-label">

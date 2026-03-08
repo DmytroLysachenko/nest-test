@@ -1,5 +1,7 @@
 'use client';
 
+import { LayoutGrid, List } from 'lucide-react';
+
 import { useNotebookPage } from '@/features/job-offers/model/use-notebook-page';
 import { NotebookFiltersCard } from '@/features/job-offers/ui/components/notebook-filters-card';
 import { NotebookOfferDetailsCard } from '@/features/job-offers/ui/components/notebook-offer-details-card';
@@ -8,7 +10,6 @@ import { NotebookPipelineCard } from '@/features/job-offers/ui/components/notebo
 import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
 import { Button } from '@/shared/ui/button';
-import { LayoutGrid, List } from 'lucide-react';
 
 type NotebookPageProps = {
   token: string;
@@ -87,6 +88,7 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
               offers={notebook.listQuery.data?.items ?? []}
               selectedId={notebook.selectedId}
               onSelectOffer={notebook.setNotebookSelectedOffer}
+              onUpdateStatus={notebook.updateStatus}
             />
           ) : (
             <NotebookOffersListCard
