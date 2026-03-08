@@ -136,23 +136,23 @@ test('onboarding flow saves structured input and triggers generation', async ({ 
 
   await expect(page.getByText('Build your job-search profile')).toBeVisible();
 
-  await page.getByPlaceholder('e.g. Frontend Developer').fill('Frontend Developer');
-  await page.getByPlaceholder('e.g. Frontend Developer').press('Enter');
-  await page.getByPlaceholder('e.g. TypeScript').fill('TypeScript');
-  await page.getByPlaceholder('e.g. TypeScript').press('Enter');
-  await page.getByPlaceholder('e.g. TypeScript').fill('React');
-  await page.getByPlaceholder('e.g. TypeScript').press('Enter');
-  await page.getByPlaceholder('e.g. TypeScript').fill('Next.js');
-  await page.getByPlaceholder('e.g. TypeScript').press('Enter');
+  await page.getByPlaceholder('e.g. Frontend Developer, Software Engineer').fill('Frontend Developer');
+  await page.getByPlaceholder('e.g. Frontend Developer, Software Engineer').press('Enter');
+  await page.getByPlaceholder('e.g. React, TypeScript, Node.js').fill('TypeScript');
+  await page.getByPlaceholder('e.g. React, TypeScript, Node.js').press('Enter');
+  await page.getByPlaceholder('e.g. React, TypeScript, Node.js').fill('React');
+  await page.getByPlaceholder('e.g. React, TypeScript, Node.js').press('Enter');
+  await page.getByPlaceholder('e.g. React, TypeScript, Node.js').fill('Next.js');
+  await page.getByPlaceholder('e.g. React, TypeScript, Node.js').press('Enter');
 
   await page.getByRole('button', { name: 'Continue to documents' }).click();
-  await expect(page.getByText('Step 2: Upload CV / LinkedIn export')).toBeVisible();
+  await expect(page.getByText('Step 2: Source Documents')).toBeVisible();
   await page.getByRole('button', { name: 'Continue to review' }).click();
-  await expect(page.getByText('Step 3: Review and generate profile')).toBeVisible();
+  await expect(page.getByText('Step 3: Review & Generate')).toBeVisible();
 
   const saveRequest = page.waitForRequest('**/api/profile-inputs');
   const generateRequest = page.waitForRequest('**/api/career-profiles');
-  await page.getByRole('button', { name: 'Generate profile and open dashboard' }).click();
+  await page.getByRole('button', { name: 'Generate Profile' }).click();
   const intakePayload = (await saveRequest).postDataJSON();
   expect(Array.isArray(intakePayload.intakePayload?.desiredPositions)).toBeTruthy();
   await generateRequest;
@@ -243,9 +243,8 @@ test('onboarding loads server draft into form', async ({ page }) => {
 
   await page.goto('/onboarding', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByRole('button', { name: 'Load server draft' })).toBeVisible();
-  await page.getByRole('button', { name: 'Load server draft' }).click();
   await expect(page.getByText(/Backend Developer/)).toBeVisible();
+  await expect(page.getByText(/Node\.js/)).toBeVisible();
 });
 
 test('onboarding keeps step-one values after reload via local draft persistence', async ({ page }) => {
@@ -319,11 +318,11 @@ test('onboarding keeps step-one values after reload via local draft persistence'
 
   await page.goto('/onboarding', { waitUntil: 'domcontentloaded' });
 
-  await page.getByPlaceholder('e.g. Frontend Developer').fill('Data Engineer');
-  await page.getByPlaceholder('e.g. Frontend Developer').press('Enter');
-  await page.getByLabel('General notes').fill('Need roles with data platform ownership.');
+  await page.getByPlaceholder('e.g. Frontend Developer, Software Engineer').fill('Data Engineer');
+  await page.getByPlaceholder('e.g. Frontend Developer, Software Engineer').press('Enter');
+  await page.getByLabel('General Notes').fill('Need roles with data platform ownership.');
   await page.reload({ waitUntil: 'domcontentloaded' });
 
   await expect(page.getByText(/Data Engineer/)).toBeVisible();
-  await expect(page.getByLabel('General notes')).toHaveValue('Need roles with data platform ownership.');
+  await expect(page.getByLabel('General Notes')).toHaveValue('Need roles with data platform ownership.');
 });

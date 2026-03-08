@@ -206,7 +206,7 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
   await expect(page.getByLabel('Mode')).toHaveValue('strict');
 
   const scrapeRequest = page.waitForRequest('**/api/job-sources/scrape');
-  await page.getByRole('button', { name: 'Enqueue profile scrape' }).click();
+  await page.getByRole('button', { name: 'Sync via Profile' }).click();
   const scrapePayload = (await scrapeRequest).postDataJSON();
   expect(scrapePayload).toEqual({ limit: 20 });
 
@@ -223,10 +223,10 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
   await page.getByLabel('Tags (comma separated)').fill('smoke, backend');
 
   const metaRequest = page.waitForRequest('**/api/job-offers/ujo-1/meta');
-  await page.getByRole('button', { name: 'Save notes/tags' }).click();
+  await page.getByRole('button', { name: 'Save metadata' }).click();
   await metaRequest;
 
   const scoreRequest = page.waitForRequest('**/api/job-offers/ujo-1/score');
-  await page.getByRole('button', { name: 'Re-score offer' }).click();
+  await page.getByRole('button', { name: 'Re-score' }).click();
   await scoreRequest;
 });

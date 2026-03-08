@@ -1012,6 +1012,16 @@ export class JobSourcesService {
     }
 
     const finalizedAt = new Date();
+    let statusForCompletion = run.status as RunStatus;
+    if (statusForCompletion === 'PENDING') {
+      await this.transitionRunStatus(run.id, 'PENDING', 'RUNNING', {
+        error: null,
+        failureType: null,
+        finalizedAt: null,
+        startedAt: callbackEmittedAt ?? finalizedAt,
+      });
+      statusForCompletion = 'RUNNING';
+    }
     await this.registerRunAttempt(run.id, callbackAttemptNo, {
       status: 'COMPLETED',
       payloadHash: callbackPayloadHash,
@@ -1021,7 +1031,7 @@ export class JobSourcesService {
       failureCode: null,
       error: null,
     });
-    await this.transitionRunStatus(run.id, run.status as RunStatus, 'COMPLETED', {
+    await this.transitionRunStatus(run.id, statusForCompletion, 'COMPLETED', {
       scrapedCount,
       totalFound,
       error: null,

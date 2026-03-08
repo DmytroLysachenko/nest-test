@@ -137,7 +137,7 @@ export const useOnboardingPage = () => {
       return;
     }
 
-    patchDraft({
+    const nextDraftValues = toStepOneFormValues({
       desiredPositions: Array.isArray(server.desiredPositions) ? (server.desiredPositions as string[]) : [],
       jobDomains: Array.isArray(server.jobDomains) ? (server.jobDomains as string[]) : [],
       coreSkills: Array.isArray(server.coreSkills) ? (server.coreSkills as string[]) : [],
@@ -181,6 +181,8 @@ export const useOnboardingPage = () => {
       },
       generalNotes: typeof server.generalNotes === 'string' ? server.generalNotes : '',
     });
+    patchDraft(nextDraftValues);
+    stepOneForm.reset(nextDraftValues);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboardingDraftQuery.data]);
 

@@ -787,7 +787,11 @@ describe('JobSourcesService', () => {
           }),
         }),
       }),
-      update: jest.fn(),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
       insert: jest.fn(),
     } as any;
 
@@ -832,7 +836,11 @@ describe('JobSourcesService', () => {
           }),
         }),
       }),
-      update: jest.fn(),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
       insert: jest.fn(),
     } as any;
 
@@ -1030,7 +1038,11 @@ describe('JobSourcesService', () => {
           }),
         }),
       }),
-      update: jest.fn(),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
       insert: jest.fn(),
     } as any;
 
@@ -1621,7 +1633,7 @@ describe('JobSourcesService', () => {
     expect(db.update).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects invalid pending-to-completed transition for callback finalization', async () => {
+  it('promotes pending run to running before completed callback finalization', async () => {
     const db = {
       select: jest.fn().mockReturnValue({
         from: jest.fn().mockReturnValue({
@@ -1645,19 +1657,30 @@ describe('JobSourcesService', () => {
           }),
         }),
       }),
-      update: jest.fn(),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
       insert: jest.fn(),
     } as any;
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
-    await expect(
-      service.completeScrape({
-        sourceRunId: 'run-transition-1',
-        status: 'COMPLETED',
-        scrapedCount: 0,
-        totalFound: 0,
-      }),
-    ).rejects.toThrow('Invalid scrape run status transition: PENDING -> COMPLETED');
+    const result = await service.completeScrape({
+      sourceRunId: 'run-transition-1',
+      status: 'COMPLETED',
+      scrapedCount: 0,
+      totalFound: 0,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'COMPLETED',
+      inserted: 0,
+      totalOffers: 0,
+      idempotent: true,
+    });
+    expect(db.update).toHaveBeenCalledTimes(2);
   });
 
   it('marks stale pending/running runs as failed before listing', async () => {
