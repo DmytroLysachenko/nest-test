@@ -1003,10 +1003,11 @@ export class JobSourcesService {
               THEN excluded."expires_at"
               ELSE "job_offers"."expires_at"
             END`,
-            lastFullScrapeAt: now,
+            lastFullScrapeAt: sql`excluded."last_full_scrape_at"`,
             fetchedAt: now,
           },
         });
+    }
     }
 
     const finalizedAt = new Date();
