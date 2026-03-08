@@ -81,6 +81,8 @@ const normalizeString = (value: string | undefined | null) => {
   return trimmed ? trimmed : null;
 };
 
+const excludedColumn = (column: { name: string }) => sql.raw(`excluded."${column.name}"`);
+
 const sanitizeStringArray = (value: string[] | undefined | null) =>
   Array.from(new Set((value ?? []).map((item) => item.trim()).filter(Boolean)));
 
@@ -954,58 +956,58 @@ export class JobSourcesService {
           set: {
             runId: run.id,
             sourceId: sql`CASE
-              WHEN excluded.${cols.sourceId} IS NOT NULL AND excluded.${cols.sourceId} != ''
-              THEN excluded.${cols.sourceId}
+              WHEN ${excludedColumn(cols.sourceId)} IS NOT NULL AND ${excludedColumn(cols.sourceId)} != ''
+              THEN ${excludedColumn(cols.sourceId)}
               ELSE ${jobOffersTable.sourceId}
             END`,
             title: sql`CASE
-              WHEN excluded.${cols.title} IS NOT NULL AND excluded.${cols.title} != '' AND excluded.${cols.title} != 'Unknown title'
-              THEN excluded.${cols.title}
+              WHEN ${excludedColumn(cols.title)} IS NOT NULL AND ${excludedColumn(cols.title)} != '' AND ${excludedColumn(cols.title)} != 'Unknown title'
+              THEN ${excludedColumn(cols.title)}
               ELSE ${jobOffersTable.title}
             END`,
             company: sql`CASE
-              WHEN excluded.${cols.company} IS NOT NULL AND excluded.${cols.company} != ''
-              THEN excluded.${cols.company}
+              WHEN ${excludedColumn(cols.company)} IS NOT NULL AND ${excludedColumn(cols.company)} != ''
+              THEN ${excludedColumn(cols.company)}
               ELSE ${jobOffersTable.company}
             END`,
             location: sql`CASE
-              WHEN excluded.${cols.location} IS NOT NULL AND excluded.${cols.location} != ''
-              THEN excluded.${cols.location}
+              WHEN ${excludedColumn(cols.location)} IS NOT NULL AND ${excludedColumn(cols.location)} != ''
+              THEN ${excludedColumn(cols.location)}
               ELSE ${jobOffersTable.location}
             END`,
             salary: sql`CASE
-              WHEN excluded.${cols.salary} IS NOT NULL AND excluded.${cols.salary} != ''
-              THEN excluded.${cols.salary}
+              WHEN ${excludedColumn(cols.salary)} IS NOT NULL AND ${excludedColumn(cols.salary)} != ''
+              THEN ${excludedColumn(cols.salary)}
               ELSE ${jobOffersTable.salary}
             END`,
             employmentType: sql`CASE
-              WHEN excluded.${cols.employmentType} IS NOT NULL AND excluded.${cols.employmentType} != ''
-              THEN excluded.${cols.employmentType}
+              WHEN ${excludedColumn(cols.employmentType)} IS NOT NULL AND ${excludedColumn(cols.employmentType)} != ''
+              THEN ${excludedColumn(cols.employmentType)}
               ELSE ${jobOffersTable.employmentType}
             END`,
             description: sql`CASE
-              WHEN excluded.${cols.description} IS NOT NULL
-               AND excluded.${cols.description} != ''
-               AND excluded.${cols.description} != 'No description found'
-               AND excluded.${cols.description} != 'Listing summary only'
-              THEN excluded.${cols.description}
+              WHEN ${excludedColumn(cols.description)} IS NOT NULL
+               AND ${excludedColumn(cols.description)} != ''
+               AND ${excludedColumn(cols.description)} != 'No description found'
+               AND ${excludedColumn(cols.description)} != 'Listing summary only'
+              THEN ${excludedColumn(cols.description)}
               ELSE ${jobOffersTable.description}
             END`,
             requirements: sql`CASE
-              WHEN excluded.${cols.requirements} IS NOT NULL THEN excluded.${cols.requirements}
+              WHEN ${excludedColumn(cols.requirements)} IS NOT NULL THEN ${excludedColumn(cols.requirements)}
               ELSE ${jobOffersTable.requirements}
             END`,
             details: sql`CASE
-              WHEN excluded.${cols.details} IS NOT NULL THEN excluded.${cols.details}
+              WHEN ${excludedColumn(cols.details)} IS NOT NULL THEN ${excludedColumn(cols.details)}
               ELSE ${jobOffersTable.details}
             END`,
-            isExpired: sql`excluded.${cols.isExpired}`,
+            isExpired: excludedColumn(cols.isExpired),
             expiresAt: sql`CASE
-              WHEN excluded.${cols.isExpired} = TRUE AND ${jobOffersTable.expiresAt} IS NULL
-              THEN excluded.${cols.expiresAt}
+              WHEN ${excludedColumn(cols.isExpired)} = TRUE AND ${jobOffersTable.expiresAt} IS NULL
+              THEN ${excludedColumn(cols.expiresAt)}
               ELSE ${jobOffersTable.expiresAt}
             END`,
-            lastFullScrapeAt: sql`excluded.${cols.lastFullScrapeAt}`,
+            lastFullScrapeAt: excludedColumn(cols.lastFullScrapeAt),
             fetchedAt: now,
           },
         });

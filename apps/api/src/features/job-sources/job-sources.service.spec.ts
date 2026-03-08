@@ -1,6 +1,7 @@
 import { CloudTasksClient } from '@google-cloud/tasks';
 import { jobOffersTable, jobSourceCallbackEventsTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
 import { OAuth2Client } from 'google-auth-library';
+import { PgDialect } from 'drizzle-orm/pg-core';
 
 import { JobSourcesService } from './job-sources.service';
 
@@ -1681,6 +1682,109 @@ describe('JobSourcesService', () => {
       idempotent: true,
     });
     expect(db.update).toHaveBeenCalledTimes(2);
+  });
+
+  it('builds valid postgres excluded column references for offer upserts', async () => {
+    let capturedConflictConfig: { set: Record<string, unknown> } | null = null;
+
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) =>
+                  Promise.resolve(
+                    cb([
+                      {
+                        id: 'run-upsert-1',
+                        source: 'PRACUJ_PL',
+                        userId: 'user-upsert-1',
+                        careerProfileId: 'profile-upsert-1',
+                        status: 'RUNNING',
+                        totalFound: null,
+                        scrapedCount: null,
+                      },
+                    ]),
+                  ),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ id: 'offer-upsert-1' }]),
+          }),
+        }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+      insert: jest.fn().mockImplementation((table) => {
+        if (table === jobOffersTable) {
+          return {
+            values: jest.fn().mockReturnValue({
+              onConflictDoUpdate: jest.fn().mockImplementation((config: { set: Record<string, unknown> }) => {
+                capturedConflictConfig = config;
+                return Promise.resolve(undefined);
+              }),
+            }),
+          };
+        }
+
+        if (table === userJobOffersTable) {
+          return {
+            values: jest.fn().mockReturnValue({
+              onConflictDoNothing: jest.fn().mockReturnValue({
+                returning: jest.fn().mockResolvedValue([{ id: 'user-offer-upsert-1' }]),
+              }),
+            }),
+          };
+        }
+
+        throw new Error('Unexpected insert table');
+      }),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'autoScoreIngestedOffers').mockResolvedValue(undefined);
+
+    const result = await service.completeScrape({
+      sourceRunId: 'run-upsert-1',
+      status: 'COMPLETED',
+      scrapedCount: 1,
+      totalFound: 1,
+      jobs: [
+        {
+          url: 'https://example.com/jobs/1',
+          title: 'Frontend Engineer',
+          description: 'A real job description',
+          company: 'Example Inc',
+          location: 'Remote',
+          source: 'pracuj-pl',
+          requirements: ['TypeScript'],
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'COMPLETED',
+      inserted: 1,
+      totalOffers: 1,
+    });
+    expect(capturedConflictConfig).not.toBeNull();
+
+    const dialect = new PgDialect();
+    const sourceIdQuery = dialect.sqlToQuery(capturedConflictConfig!.set.sourceId as any);
+    const expiresAtQuery = dialect.sqlToQuery(capturedConflictConfig!.set.expiresAt as any);
+
+    expect(sourceIdQuery.sql).toContain('excluded."source_id"');
+    expect(sourceIdQuery.sql).not.toContain('excluded."job_offers"');
+    expect(expiresAtQuery.sql).toContain('excluded."is_expired"');
+    expect(expiresAtQuery.sql).toContain('excluded."expires_at"');
   });
 
   it('marks stale pending/running runs as failed before listing', async () => {
