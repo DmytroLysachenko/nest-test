@@ -64,11 +64,51 @@ export const updateJobOfferMeta = (token: string, id: string, payload: { notes?:
     body: JSON.stringify(payload),
   });
 
+export const updateJobOfferFeedback = (
+  token: string,
+  id: string,
+  payload: { aiFeedbackScore: number; aiFeedbackNotes?: string },
+) =>
+  apiRequest<{ id: string; aiFeedbackScore: number | null; aiFeedbackNotes: string | null }>(
+    `/job-offers/${id}/feedback`,
+    {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(payload),
+    },
+  );
+
+export const updateJobOfferPipeline = (token: string, id: string, payload: { pipelineMeta: Record<string, unknown> }) =>
+  apiRequest<{ id: string; pipelineMeta: Record<string, unknown> | null }>(`/job-offers/${id}/pipeline`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload),
+  });
+
+export const dismissAllSeenJobOffers = (token: string) =>
+  apiRequest<{ count: number }>('/job-offers/dismiss-all-seen', {
+    method: 'POST',
+    token,
+  });
+
+export const autoArchiveOldJobOffers = (token: string) =>
+  apiRequest<{ count: number }>('/job-offers/auto-archive', {
+    method: 'POST',
+    token,
+  });
+
 export const scoreJobOffer = (token: string, id: string, minScore = 0) =>
   apiRequest<JobOfferScoreResultDto>(`/job-offers/${id}/score`, {
     method: 'POST',
     token,
     body: JSON.stringify({ minScore }),
+  });
+
+export const generateJobOfferPrep = (token: string, id: string, payload: { instructions?: string } = {}) =>
+  apiRequest<Record<string, unknown>>(`/job-offers/${id}/generate-prep`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
   });
 
 export const getJobOfferHistory = (token: string, id: string) =>

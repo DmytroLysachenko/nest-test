@@ -61,6 +61,11 @@ class ScrapeResultJobDto {
   @IsString()
   description!: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isExpired?: boolean;
+
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()

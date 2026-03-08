@@ -1,8 +1,11 @@
 'use client';
 
+import { Inbox } from 'lucide-react';
+
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { useWorkspaceDashboardData } from '@/features/workspace/model/hooks/use-workspace-dashboard-data';
 import { PageErrorState, PageLoadingState, SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
+import { EmptyState } from '@/shared/ui/empty-state';
 import { Button } from '@/shared/ui/button';
 import { DataTableShell, HeroHeader, MetricCard, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
 import { Card } from '@/shared/ui/card';
@@ -130,7 +133,29 @@ export const WorkspaceDashboardPage = () => {
           }}
         />
         <MetricCard
-          label="Notebook Offers"
+          label="Pipeline Progress"
+          value={String(summary.offers.applied)}
+          caption="Active job applications"
+          trend={{
+            label: `${summary.offers.interviewing} interviews · ${summary.offers.offersMade} offers`,
+            tone: summary.offers.offersMade > 0 ? 'success' : 'info',
+          }}
+        />
+        <MetricCard
+          label="Conversion Rate"
+          value={
+            summary.offers.applied > 0
+              ? `${Math.round((summary.offers.offersMade / summary.offers.applied) * 100)}%`
+              : '0%'
+          }
+          caption="Applied to Offer success"
+          trend={{
+            label: `${summary.offers.rejected} rejections tracked`,
+            tone: 'neutral',
+          }}
+        />
+        <MetricCard
+          label="Total Leads"
           value={String(summary.offers.total)}
           caption={`Scored: ${summary.offers.scored}`}
           trend={{
@@ -138,15 +163,79 @@ export const WorkspaceDashboardPage = () => {
             tone: summary.offers.total > 0 ? 'info' : 'warning',
           }}
         />
-        <MetricCard
-          label="Onboarding"
-          value={summary.workflow.needsOnboarding ? 'Required' : 'Complete'}
-          caption="Career preferences and profile readiness"
-          trend={{
-            label: summary.workflow.needsOnboarding ? 'Action required' : 'All set',
-            tone: summary.workflow.needsOnboarding ? 'warning' : 'success',
-          }}
-        />
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
+        <Card title="Job Search Funnel" description="Visual breakdown of your application stages.">
+          <div className="space-y-4 pt-2">
+            {[
+              { label: 'Leads Found', value: summary.offers.total, color: 'bg-primary/20' },
+              { label: 'AI Scored', value: summary.offers.scored, color: 'bg-primary/40' },
+              { label: 'Saved for later', value: summary.offers.saved, color: 'bg-primary/60' },
+              { label: 'Applied', value: summary.offers.applied, color: 'bg-primary/80' },
+              { label: 'Interviewing', value: summary.offers.interviewing, color: 'bg-primary' },
+              { label: 'Offers Received', value: summary.offers.offersMade, color: 'bg-app-success' },
+            ].map((stage, i) => {
+              const percentage = summary.offers.total > 0 ? (stage.value / summary.offers.total) * 100 : 0;
+              return (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex items-center justify-between px-1 text-xs font-medium">
+                    <span className="text-text-soft">{stage.label}</span>
+                    <span className="text-text-strong">{stage.value}</span>
+                  </div>
+                  <div className="bg-surface-muted border-border/40 h-3 w-full overflow-hidden rounded-full border">
+                    <div
+                      className={`h-full transition-all duration-500 ease-out ${stage.color}`}
+                      style={{ width: `${Math.max(2, percentage)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card title="Scraper Health" description="Last run performance diagnostics.">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-text-soft text-sm font-medium">Status</span>
+              <StatusPill
+                value={summary.scrape.lastRunStatus ?? 'UNKNOWN'}
+                tone={summary.scrape.lastRunStatus === 'COMPLETED' ? 'success' : 'warning'}
+              />
+            </div>
+
+            {summary.scrape.lastRunProgress ? (
+              <div className="space-y-3">
+                <StatRow label="Phase" value={String(summary.scrape.lastRunProgress.phase ?? 'n/a')} />
+                <StatRow label="Visited" value={`${summary.scrape.lastRunProgress.pagesVisited} pages`} />
+                <StatRow label="Discovered" value={`${summary.scrape.lastRunProgress.jobLinksDiscovered} links`} />
+                <div className="border-border/40 border-t pt-2">
+                  <p className="text-text-soft mb-1 text-[10px] font-bold uppercase tracking-wider">Latest activity</p>
+                  <p className="text-text-strong truncate text-xs">
+                    {String(
+                      summary.scrape.lastRunProgress.updatedAt
+                        ? new Date(String(summary.scrape.lastRunProgress.updatedAt)).toLocaleTimeString()
+                        : 'n/a',
+                    )}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="app-muted-panel py-8 text-center">
+                <p className="text-text-soft text-xs italic">No progress data available</p>
+              </div>
+            )}
+
+            <Button
+              variant="secondary"
+              className="h-9 w-full text-xs"
+              onClick={() => (window.location.href = '/tester')}
+            >
+              View Full Diagnostics
+            </Button>
+          </div>
+        </Card>
       </div>
 
       <section className="app-section-grid">
@@ -409,11 +498,12 @@ export const WorkspaceDashboardPage = () => {
             </tbody>
           </table>
         ) : (
-          <div className="app-muted-panel">
-            <p className="text-text-strong text-sm font-medium">No offers yet</p>
-            <p className="text-text-soft mt-1 text-sm">
-              Enqueue a scrape from notebook or tester tools to populate the workspace.
-            </p>
+          <div className="p-4">
+            <EmptyState
+              icon={<Inbox className="h-8 w-8" />}
+              title="No offers yet"
+              description="Enqueue a scrape from notebook or tester tools to populate the workspace."
+            />
           </div>
         )}
       </DataTableShell>

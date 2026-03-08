@@ -406,6 +406,7 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
       sourceId: extractSourceId(page.url) ?? undefined,
       requirements,
       details,
+      isExpired: page.isExpired,
     };
   });
 };

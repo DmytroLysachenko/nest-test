@@ -1,7 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsIn } from 'class-validator';
 
-const STATUS_VALUES = ['NEW', 'SEEN', 'SAVED', 'APPLIED', 'DISMISSED'] as const;
+const STATUS_VALUES = [
+  'NEW',
+  'SEEN',
+  'SAVED',
+  'APPLIED',
+  'INTERVIEWING',
+  'OFFER',
+  'REJECTED',
+  'ARCHIVED',
+  'DISMISSED',
+] as const;
 
 export class UpdateJobOfferStatusDto {
   @ApiProperty({ enum: STATUS_VALUES })

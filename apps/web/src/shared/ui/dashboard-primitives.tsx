@@ -17,7 +17,7 @@ type MetricCardProps = {
   caption?: string;
   trend?: {
     label: string;
-    tone?: 'success' | 'warning' | 'danger' | 'info';
+    tone?: 'success' | 'warning' | 'danger' | 'info' | 'neutral';
   };
   className?: string;
 };
@@ -58,6 +58,11 @@ const toneClasses: Record<SemanticTone, string> = {
   info: 'app-status-info',
 };
 
+const trendToneClasses: Record<Exclude<StatRowProps['tone'], undefined>, string> = {
+  ...toneClasses,
+  neutral: 'bg-surface-muted text-text-soft',
+};
+
 export const SectionHeader = ({ title, subtitle, action, className }: SectionHeaderProps) => (
   <div className={cn('app-page-header flex flex-wrap items-center justify-between gap-3', className)}>
     <div>
@@ -85,24 +90,23 @@ export const HeroHeader = ({ eyebrow, title, subtitle, meta, action, className }
 );
 
 export const MetricCard = ({ label, value, caption, trend, className }: MetricCardProps) => (
-  <Card
-    title={label}
-    className={cn('app-kpi border-border/80 rounded-[1.5rem] p-0', className)}
-    contentClassName="px-5 pb-5 md:px-6 md:pb-6"
-  >
+  <div className={cn('app-kpi flex flex-col', className)}>
+    <p className="text-text-soft mb-2 text-sm font-medium uppercase tracking-wider">{label}</p>
     <p className="text-text-strong text-3xl font-semibold tracking-[-0.04em] md:text-[2rem]">{value}</p>
     {caption ? <p className="text-text-soft mt-2 text-sm leading-6">{caption}</p> : null}
     {trend ? (
-      <span
-        className={cn(
-          'border-border mt-4 inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-medium',
-          trend.tone ? toneClasses[trend.tone] : 'bg-surface-muted text-text-soft',
-        )}
-      >
-        {trend.label}
-      </span>
+      <div className="mt-auto pt-4">
+        <span
+          className={cn(
+            'border-border mt-1 inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-medium',
+            trend.tone ? trendToneClasses[trend.tone] : 'bg-surface-muted text-text-soft',
+          )}
+        >
+          {trend.label}
+        </span>
+      </div>
     ) : null}
-  </Card>
+  </div>
 );
 
 export const StatusPill = ({ value, tone = 'neutral' }: StatusPillProps) => (

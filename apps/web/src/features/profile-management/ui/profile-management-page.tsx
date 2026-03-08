@@ -75,7 +75,7 @@ export const ProfileManagementPage = () => {
         <DocumentsReadinessCard documents={documents} />
       </div>
 
-      <DocumentsPanel token={auth.token} />
+      <DocumentsPanel token={auth.token} documentsQuery={documentsQuery} />
 
       <CareerProfileVersionsCard
         latestProfile={latestCareerProfileQuery.data ?? null}

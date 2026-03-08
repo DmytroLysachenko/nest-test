@@ -3,7 +3,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { enqueueScrape } from '@/features/job-sources/api/job-sources-api';
-import { scoreJobOffer, updateJobOfferMeta, updateJobOfferStatus } from '@/features/job-offers/api/job-offers-api';
+import {
+  scoreJobOffer,
+  generateJobOfferPrep,
+  updateJobOfferFeedback,
+  updateJobOfferMeta,
+  updateJobOfferPipeline,
+  updateJobOfferStatus,
+  dismissAllSeenJobOffers,
+  autoArchiveOldJobOffers,
+} from '@/features/job-offers/api/job-offers-api';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { useDataSync } from '@/shared/lib/query/use-data-sync';
 import { toastError, toastInfo, toastSuccess, toastSuccessWithAction } from '@/shared/lib/ui/toast';
@@ -130,6 +139,30 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     },
   });
 
+  const dismissAllSeenMutation = useMutation({
+    mutationFn: () => dismissAllSeenJobOffers(token),
+    onSuccess: (result) => {
+      syncJobOffers();
+      toastSuccess(`Marked ${result.count} offers as dismissed`);
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to dismiss offers'));
+    },
+  });
+
+  const autoArchiveMutation = useMutation({
+    mutationFn: () => autoArchiveOldJobOffers(token),
+    onSuccess: (result) => {
+      syncJobOffers();
+      if (result.count > 0) {
+        toastSuccess(`Automatically archived ${result.count} old offers`);
+      }
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to archive old offers'));
+    },
+  });
+
   const metaMutation = useMutation({
     mutationFn: ({ id, notes, tags }: { id: string; notes: string; tags: string[] }) =>
       updateJobOfferMeta(token, id, { notes, tags }),
@@ -138,10 +171,52 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     },
   });
 
+  const feedbackMutation = useMutation({
+    mutationFn: ({
+      id,
+      aiFeedbackScore,
+      aiFeedbackNotes,
+    }: {
+      id: string;
+      aiFeedbackScore: number;
+      aiFeedbackNotes?: string;
+    }) => updateJobOfferFeedback(token, id, { aiFeedbackScore, aiFeedbackNotes }),
+    onSuccess: () => {
+      syncJobOffers();
+      toastSuccess('Feedback submitted');
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to submit feedback'));
+    },
+  });
+
+  const pipelineMutation = useMutation({
+    mutationFn: ({ id, pipelineMeta }: { id: string; pipelineMeta: Record<string, unknown> }) =>
+      updateJobOfferPipeline(token, id, { pipelineMeta }),
+    onSuccess: () => {
+      syncJobOffers();
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to update pipeline details'));
+    },
+  });
+
   const scoreMutation = useMutation({
     mutationFn: ({ id }: { id: string }) => scoreJobOffer(token, id, 0),
     onSuccess: () => {
       syncJobOffers();
+    },
+  });
+
+  const generatePrepMutation = useMutation({
+    mutationFn: ({ id, instructions }: { id: string; instructions?: string }) =>
+      generateJobOfferPrep(token, id, { instructions }),
+    onSuccess: () => {
+      syncJobOffers();
+      toastSuccess('Interview prep generated');
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to generate prep materials'));
     },
   });
 
@@ -167,8 +242,13 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   return {
     statusMutation,
     bulkStatusMutation,
+    dismissAllSeenMutation,
+    autoArchiveMutation,
     metaMutation,
+    feedbackMutation,
+    pipelineMutation,
     scoreMutation,
+    generatePrepMutation,
     enqueueProfileScrapeMutation,
   };
 };

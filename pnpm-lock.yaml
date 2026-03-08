@@ -313,6 +313,9 @@ importers:
       '@tanstack/react-query-devtools':
         specifier: ^5.90.2
         version: 5.91.3(@tanstack/react-query@5.90.21(react@19.2.3))(react@19.2.3)
+      lucide-react:
+        specifier: ^0.511.0
+        version: 0.511.0(react@19.2.3)
       next:
         specifier: 16.1.6
         version: 16.1.6(@playwright/test@1.58.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)

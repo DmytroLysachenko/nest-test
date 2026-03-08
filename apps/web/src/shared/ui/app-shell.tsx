@@ -14,6 +14,7 @@ type AppShellProps = {
   userEmail: string | null | undefined;
   token: string | null;
   onSignOut: () => void;
+  hideSidebar?: boolean;
 };
 
 type AppNavItem = {
@@ -98,7 +99,7 @@ const AppShellSidebar = ({
   </>
 );
 
-export const AppShell = ({ children, userEmail, token, onSignOut }: AppShellProps) => {
+export const AppShell = ({ children, userEmail, token, onSignOut, hideSidebar }: AppShellProps) => {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -123,15 +124,19 @@ export const AppShell = ({ children, userEmail, token, onSignOut }: AppShellProp
     return items.filter((item) => !item.hidden);
   }, [workflow.allowNotebook]);
 
-  const activePage = navItems.find((item) => getIsActive(pathname, item.href))?.label ?? 'Workspace';
+  const activePage = hideSidebar
+    ? 'Setup Workspace'
+    : (navItems.find((item) => getIsActive(pathname, item.href))?.label ?? 'Workspace');
 
   return (
     <div className="app-shell">
-      <aside className="border-sidebar-border bg-sidebar text-sidebar-foreground sticky top-0 hidden h-screen w-80 overflow-y-auto border-r lg:block">
-        <AppShellSidebar pathname={pathname} items={navItems} />
-      </aside>
+      {!hideSidebar && (
+        <aside className="border-sidebar-border bg-sidebar text-sidebar-foreground sticky top-0 hidden h-screen w-80 overflow-y-auto border-r lg:block">
+          <AppShellSidebar pathname={pathname} items={navItems} />
+        </aside>
+      )}
 
-      {mobileOpen ? (
+      {!hideSidebar && mobileOpen ? (
         <button
           type="button"
           className="fixed inset-0 z-30 bg-black/35 lg:hidden"
@@ -140,13 +145,15 @@ export const AppShell = ({ children, userEmail, token, onSignOut }: AppShellProp
         />
       ) : null}
 
-      <aside
-        className={`border-sidebar-border bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-40 w-80 overflow-y-auto border-r transition-transform lg:hidden ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <AppShellSidebar pathname={pathname} items={navItems} onNavigate={() => setMobileOpen(false)} />
-      </aside>
+      {!hideSidebar && (
+        <aside
+          className={`border-sidebar-border bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-40 w-80 overflow-y-auto border-r transition-transform lg:hidden ${
+            mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <AppShellSidebar pathname={pathname} items={navItems} onNavigate={() => setMobileOpen(false)} />
+        </aside>
+      )}
 
       <div className="app-shell-content">
         <div
@@ -154,29 +161,33 @@ export const AppShell = ({ children, userEmail, token, onSignOut }: AppShellProp
           className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(70%_70%_at_50%_0%,color-mix(in_oklab,var(--primary)_8%,transparent),transparent_72%)]"
         />
         <header className="sticky top-0 z-20 px-4 pt-4 md:px-6 md:pt-5">
-          <div className="border-border/70 bg-surface/82 rounded-[1.75rem] border px-4 py-3 shadow-[0_20px_50px_-36px_color-mix(in_oklab,var(--text-strong)_18%,transparent)] backdrop-blur-md md:px-5">
+          <div className="border-border/60 bg-surface/85 rounded-[1.75rem] border px-4 py-3 shadow-[0_8px_30px_-20px_color-mix(in_oklab,var(--text-strong)_10%,transparent)] backdrop-blur-xl md:px-5">
             <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="secondary"
-                className="h-9 w-9 px-0 lg:hidden"
-                aria-label="Open navigation"
-                onClick={() => setMobileOpen(true)}
-              >
-                <span className="text-sm">=</span>
-              </Button>
+              {!hideSidebar && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-9 w-9 px-0 lg:hidden"
+                  aria-label="Open navigation"
+                  onClick={() => setMobileOpen(true)}
+                >
+                  <span className="text-sm">=</span>
+                </Button>
+              )}
 
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="h-9 w-9 px-0"
-                    aria-label="Go back"
-                    onClick={() => router.back()}
-                  >
-                    <span className="text-base leading-none">{'<'}</span>
-                  </Button>
+                  {!hideSidebar && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="h-9 w-9 px-0"
+                      aria-label="Go back"
+                      onClick={() => router.back()}
+                    >
+                      <span className="text-base leading-none">{'<'}</span>
+                    </Button>
+                  )}
                   <div>
                     <p className="text-text-strong text-lg font-semibold leading-tight tracking-[-0.02em]">
                       {activePage}
@@ -186,9 +197,11 @@ export const AppShell = ({ children, userEmail, token, onSignOut }: AppShellProp
                 </div>
               </div>
 
-              <div className="relative ml-auto hidden min-w-[320px] max-w-[520px] flex-1 xl:block">
-                <Input placeholder="Search jobs, notes, companies..." className="bg-surface-elevated/90 pl-4" />
-              </div>
+              {!hideSidebar && (
+                <div className="relative ml-auto hidden min-w-[320px] max-w-[520px] flex-1 xl:block">
+                  <Input placeholder="Search jobs, notes, companies..." className="bg-surface-elevated/90 pl-4" />
+                </div>
+              )}
 
               <div className="ml-auto flex items-center gap-2">
                 <div className="border-border bg-surface-elevated/88 hidden rounded-2xl border px-3.5 py-2 md:block">

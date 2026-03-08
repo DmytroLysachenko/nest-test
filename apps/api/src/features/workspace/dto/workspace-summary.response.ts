@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 class WorkspaceSummaryProfile {
   @ApiProperty()
@@ -29,6 +29,21 @@ class WorkspaceSummaryOffers {
   @ApiProperty()
   scored!: number;
 
+  @ApiProperty()
+  saved!: number;
+
+  @ApiProperty()
+  applied!: number;
+
+  @ApiProperty()
+  interviewing!: number;
+
+  @ApiProperty()
+  offersMade!: number;
+
+  @ApiProperty()
+  rejected!: number;
+
   @ApiProperty({ nullable: true })
   lastUpdatedAt!: Date | null;
 }
@@ -39,6 +54,9 @@ class WorkspaceSummaryScrape {
 
   @ApiProperty({ nullable: true })
   lastRunAt!: Date | null;
+
+  @ApiPropertyOptional({ type: 'object', nullable: true, additionalProperties: true })
+  lastRunProgress!: Record<string, unknown> | null;
 
   @ApiProperty()
   totalRuns!: number;

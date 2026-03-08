@@ -11,7 +11,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, count, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, getTableColumns, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { OAuth2Client } from 'google-auth-library';
 import { CloudTasksClient } from '@google-cloud/tasks';
@@ -24,11 +24,13 @@ import {
   jobSourceRunsTable,
   scrapeSchedulesTable,
   userJobOffersTable,
+  usersTable,
 } from '@repo/db';
 import { buildPracujListingUrl, normalizePracujFilters, type PracujSourceKind, JobSourceRunStatus } from '@repo/db';
 
 import { Drizzle } from '@/common/decorators';
 import { JobOffersService } from '@/features/job-offers/job-offers.service';
+import { MailService } from '@/features/auth/mail.service';
 import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
 
 import { EnqueueScrapeDto } from './dto/enqueue-scrape.dto';
@@ -79,6 +81,8 @@ const normalizeString = (value: string | undefined | null) => {
   return trimmed ? trimmed : null;
 };
 
+const excludedColumn = (column: { name: string }) => sql.raw(`excluded."${column.name}"`);
+
 const sanitizeStringArray = (value: string[] | undefined | null) =>
   Array.from(new Set((value ?? []).map((item) => item.trim()).filter(Boolean)));
 
@@ -106,6 +110,7 @@ const sanitizeCallbackJobs = (jobs: ScrapeCompleteDto['jobs']) => {
       location: normalizeString(job.location) ?? undefined,
       salary: normalizeString(job.salary) ?? undefined,
       employmentType: normalizeString(job.employmentType) ?? undefined,
+      isExpired: job.isExpired,
       requirements: sanitizeStringArray(job.requirements),
       tags: sanitizeStringArray(job.tags),
     });
@@ -269,6 +274,7 @@ export class JobSourcesService {
     private readonly logger: Logger,
     @Drizzle() private readonly db: NodePgDatabase,
     @Optional() private readonly jobOffersService?: JobOffersService,
+    @Optional() private readonly mailService?: MailService,
   ) {}
 
   async getSchedule(userId: string) {
@@ -915,7 +921,10 @@ export class JobSourcesService {
     }
 
     if (sanitizedJobs.length) {
+      const now = new Date();
       const jobsToPersist = await this.reuseExistingUrlsBySourceId(run.source, sanitizedJobs);
+      const cols = getTableColumns(jobOffersTable);
+
       await this.db
         .insert(jobOffersTable)
         .values(
@@ -936,7 +945,10 @@ export class JobSourcesService {
             description: job.description,
             requirements: job.requirements?.length ? job.requirements : null,
             details: job.details ?? null,
-            fetchedAt: new Date(),
+            isExpired: job.isExpired ?? false,
+            expiresAt: job.isExpired ? now : null,
+            lastFullScrapeAt: now,
+            fetchedAt: now,
           })),
         )
         .onConflictDoUpdate({
@@ -944,57 +956,74 @@ export class JobSourcesService {
           set: {
             runId: run.id,
             sourceId: sql`CASE
-              WHEN excluded."source_id" IS NOT NULL AND excluded."source_id" != ''
-              THEN excluded."source_id"
-              ELSE "job_offers"."source_id"
+              WHEN ${excludedColumn(cols.sourceId)} IS NOT NULL AND ${excludedColumn(cols.sourceId)} != ''
+              THEN ${excludedColumn(cols.sourceId)}
+              ELSE ${jobOffersTable.sourceId}
             END`,
             title: sql`CASE
-              WHEN excluded."title" IS NOT NULL AND excluded."title" != '' AND excluded."title" != 'Unknown title'
-              THEN excluded."title"
-              ELSE "job_offers"."title"
+              WHEN ${excludedColumn(cols.title)} IS NOT NULL AND ${excludedColumn(cols.title)} != '' AND ${excludedColumn(cols.title)} != 'Unknown title'
+              THEN ${excludedColumn(cols.title)}
+              ELSE ${jobOffersTable.title}
             END`,
             company: sql`CASE
-              WHEN excluded."company" IS NOT NULL AND excluded."company" != ''
-              THEN excluded."company"
-              ELSE "job_offers"."company"
+              WHEN ${excludedColumn(cols.company)} IS NOT NULL AND ${excludedColumn(cols.company)} != ''
+              THEN ${excludedColumn(cols.company)}
+              ELSE ${jobOffersTable.company}
             END`,
             location: sql`CASE
-              WHEN excluded."location" IS NOT NULL AND excluded."location" != ''
-              THEN excluded."location"
-              ELSE "job_offers"."location"
+              WHEN ${excludedColumn(cols.location)} IS NOT NULL AND ${excludedColumn(cols.location)} != ''
+              THEN ${excludedColumn(cols.location)}
+              ELSE ${jobOffersTable.location}
             END`,
             salary: sql`CASE
-              WHEN excluded."salary" IS NOT NULL AND excluded."salary" != ''
-              THEN excluded."salary"
-              ELSE "job_offers"."salary"
+              WHEN ${excludedColumn(cols.salary)} IS NOT NULL AND ${excludedColumn(cols.salary)} != ''
+              THEN ${excludedColumn(cols.salary)}
+              ELSE ${jobOffersTable.salary}
             END`,
             employmentType: sql`CASE
-              WHEN excluded."employment_type" IS NOT NULL AND excluded."employment_type" != ''
-              THEN excluded."employment_type"
-              ELSE "job_offers"."employment_type"
+              WHEN ${excludedColumn(cols.employmentType)} IS NOT NULL AND ${excludedColumn(cols.employmentType)} != ''
+              THEN ${excludedColumn(cols.employmentType)}
+              ELSE ${jobOffersTable.employmentType}
             END`,
             description: sql`CASE
-              WHEN excluded."description" IS NOT NULL
-               AND excluded."description" != ''
-               AND excluded."description" != 'No description found'
-               AND excluded."description" != 'Listing summary only'
-              THEN excluded."description"
-              ELSE "job_offers"."description"
+              WHEN ${excludedColumn(cols.description)} IS NOT NULL
+               AND ${excludedColumn(cols.description)} != ''
+               AND ${excludedColumn(cols.description)} != 'No description found'
+               AND ${excludedColumn(cols.description)} != 'Listing summary only'
+              THEN ${excludedColumn(cols.description)}
+              ELSE ${jobOffersTable.description}
             END`,
             requirements: sql`CASE
-              WHEN excluded."requirements" IS NOT NULL THEN excluded."requirements"
-              ELSE "job_offers"."requirements"
+              WHEN ${excludedColumn(cols.requirements)} IS NOT NULL THEN ${excludedColumn(cols.requirements)}
+              ELSE ${jobOffersTable.requirements}
             END`,
             details: sql`CASE
-              WHEN excluded."details" IS NOT NULL THEN excluded."details"
-              ELSE "job_offers"."details"
+              WHEN ${excludedColumn(cols.details)} IS NOT NULL THEN ${excludedColumn(cols.details)}
+              ELSE ${jobOffersTable.details}
             END`,
-            fetchedAt: new Date(),
+            isExpired: excludedColumn(cols.isExpired),
+            expiresAt: sql`CASE
+              WHEN ${excludedColumn(cols.isExpired)} = TRUE AND ${jobOffersTable.expiresAt} IS NULL
+              THEN ${excludedColumn(cols.expiresAt)}
+              ELSE ${jobOffersTable.expiresAt}
+            END`,
+            lastFullScrapeAt: excludedColumn(cols.lastFullScrapeAt),
+            fetchedAt: now,
           },
         });
     }
 
     const finalizedAt = new Date();
+    let statusForCompletion = run.status as RunStatus;
+    if (statusForCompletion === 'PENDING') {
+      await this.transitionRunStatus(run.id, 'PENDING', 'RUNNING', {
+        error: null,
+        failureType: null,
+        finalizedAt: null,
+        startedAt: callbackEmittedAt ?? finalizedAt,
+      });
+      statusForCompletion = 'RUNNING';
+    }
     await this.registerRunAttempt(run.id, callbackAttemptNo, {
       status: 'COMPLETED',
       payloadHash: callbackPayloadHash,
@@ -1004,7 +1033,7 @@ export class JobSourcesService {
       failureCode: null,
       error: null,
     });
-    await this.transitionRunStatus(run.id, run.status as RunStatus, 'COMPLETED', {
+    await this.transitionRunStatus(run.id, statusForCompletion, 'COMPLETED', {
       scrapedCount,
       totalFound,
       error: null,
@@ -2144,6 +2173,10 @@ export class JobSourcesService {
     let failed = 0;
     let retried = 0;
     const queue = [...userOfferIds];
+
+    // Track high matches for alerting
+    const highMatchOfferIds: string[] = [];
+
     const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
       while (queue.length) {
         const nextId = queue.shift();
@@ -2155,9 +2188,12 @@ export class JobSourcesService {
         let success = false;
         for (let attempt = 1; attempt <= retryAttempts; attempt += 1) {
           try {
-            await this.jobOffersService.scoreOffer(userId, nextId, minScore);
+            const result = await this.jobOffersService.scoreOffer(userId, nextId, minScore);
             scored += 1;
             success = true;
+            if (result.score >= 85) {
+              highMatchOfferIds.push(nextId);
+            }
             break;
           } catch (error) {
             if (attempt < retryAttempts) {
@@ -2184,6 +2220,7 @@ export class JobSourcesService {
     });
 
     await Promise.all(workers);
+
     this.logger.log(
       {
         userId,

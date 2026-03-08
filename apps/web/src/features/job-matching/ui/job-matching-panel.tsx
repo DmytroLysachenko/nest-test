@@ -1,5 +1,7 @@
 'use client';
 
+import { FolderSearch } from 'lucide-react';
+
 import { useJobMatchingPanel } from '@/features/job-matching/model/hooks/use-job-matching-panel';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -7,6 +9,7 @@ import { Input } from '@/shared/ui/input';
 import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
+import { EmptyState } from '@/shared/ui/empty-state';
 
 type JobMatchingPanelProps = {
   token: string;
@@ -94,14 +97,19 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
       <div className="mt-5 space-y-2">
         <p className="text-text-strong text-sm font-semibold">History</p>
         {jobMatchingPanel.historyQuery.data?.items?.length ? (
-          jobMatchingPanel.historyQuery.data.items.map((item) => (
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          jobMatchingPanel.historyQuery.data.items.map((item: any) => (
             <article key={item.id} className="app-muted-panel space-y-3 text-sm">
               <InspectorRow label="Score" value={`${item.score} | ${item.isMatch ? 'Match' : 'No match'}`} />
               <InspectorRow label="Profile version" value={String(item.profileVersion)} />
             </article>
           ))
         ) : (
-          <p className="text-text-soft text-sm">No scoring history yet.</p>
+          <EmptyState
+            icon={<FolderSearch className="h-8 w-8" />}
+            title="No scoring history"
+            description="Manually evaluate a job description to see the results here."
+          />
         )}
       </div>
     </Card>

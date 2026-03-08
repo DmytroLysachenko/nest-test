@@ -10,15 +10,37 @@ type AppUiState = {
     selectedOfferId: string | null;
     selectedOfferIds: string[];
     filters: {
-      status: 'ALL' | 'NEW' | 'SEEN' | 'SAVED' | 'APPLIED' | 'DISMISSED';
+      status:
+        | 'ALL'
+        | 'NEW'
+        | 'SEEN'
+        | 'SAVED'
+        | 'APPLIED'
+        | 'INTERVIEWING'
+        | 'OFFER'
+        | 'REJECTED'
+        | 'ARCHIVED'
+        | 'DISMISSED';
       mode: 'strict' | 'approx' | 'explore';
+      view: 'LIST' | 'PIPELINE';
       search: string;
       tag: string;
       hasScore: 'all' | 'yes' | 'no';
     };
     savedPreset: {
-      status: 'ALL' | 'NEW' | 'SEEN' | 'SAVED' | 'APPLIED' | 'DISMISSED';
+      status:
+        | 'ALL'
+        | 'NEW'
+        | 'SEEN'
+        | 'SAVED'
+        | 'APPLIED'
+        | 'INTERVIEWING'
+        | 'OFFER'
+        | 'REJECTED'
+        | 'ARCHIVED'
+        | 'DISMISSED';
       mode: 'strict' | 'approx' | 'explore';
+      view: 'LIST' | 'PIPELINE';
       search: string;
       tag: string;
       hasScore: 'all' | 'yes' | 'no';
@@ -50,6 +72,7 @@ type AppUiActions = {
 const initialNotebookFilters: AppUiState['notebook']['filters'] = {
   status: 'ALL',
   mode: 'strict',
+  view: 'LIST',
   search: '',
   tag: '',
   hasScore: 'all',

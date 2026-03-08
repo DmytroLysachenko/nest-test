@@ -137,6 +137,7 @@ export const sanitizeCallbackJobs = (jobs: NormalizedJob[] | undefined) => {
       salary: normalizeString(job.salary),
       employmentType: normalizeString(job.employmentType),
       requirements: sanitizeStringArray(job.requirements),
+      isExpired: job.isExpired,
     });
   }
 

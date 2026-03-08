@@ -55,10 +55,14 @@ export class WorkspaceService {
       .orderBy(desc(careerProfilesTable.updatedAt))
       .limit(1);
 
-    const [offersTotal] = await this.db
-      .select({ value: count() })
+    const offersStatusCounts = await this.db
+      .select({
+        status: userJobOffersTable.status,
+        count: count(),
+      })
       .from(userJobOffersTable)
-      .where(eq(userJobOffersTable.userId, userId));
+      .where(eq(userJobOffersTable.userId, userId))
+      .groupBy(userJobOffersTable.status);
 
     const [offersScored] = await this.db
       .select({ value: count() })
@@ -81,6 +85,7 @@ export class WorkspaceService {
       .select({
         status: jobSourceRunsTable.status,
         createdAt: jobSourceRunsTable.createdAt,
+        progress: jobSourceRunsTable.progress,
       })
       .from(jobSourceRunsTable)
       .where(eq(jobSourceRunsTable.userId, userId))
@@ -88,6 +93,11 @@ export class WorkspaceService {
       .limit(1);
 
     const needsOnboarding = !profileInput || !profile || profile.status !== 'READY';
+
+    const getCount = (status: string) => {
+      const found = offersStatusCounts.find((c) => c.status === status);
+      return Number(found?.count ?? 0);
+    };
 
     return {
       profile: {
@@ -101,13 +111,19 @@ export class WorkspaceService {
         updatedAt: profileInput?.updatedAt ?? null,
       },
       offers: {
-        total: Number(offersTotal?.value ?? 0),
+        total: offersStatusCounts.reduce((acc, curr) => acc + Number(curr.count), 0),
         scored: Number(offersScored?.value ?? 0),
+        saved: getCount('SAVED'),
+        applied: getCount('APPLIED'),
+        interviewing: getCount('INTERVIEWING'),
+        offersMade: getCount('OFFER'),
+        rejected: getCount('REJECTED'),
         lastUpdatedAt: lastOffer?.updatedAt ?? null,
       },
       scrape: {
         lastRunStatus: latestRun?.status ?? null,
         lastRunAt: latestRun?.createdAt ?? null,
+        lastRunProgress: (latestRun?.progress as Record<string, unknown> | null) ?? null,
         totalRuns: Number(runTotal?.value ?? 0),
       },
       workflow: {

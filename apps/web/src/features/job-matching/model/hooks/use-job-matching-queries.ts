@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { getJobMatchHistory } from '@/features/job-matching/api/job-matching-api';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
+import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
 export const useJobMatchingQueries = (token: string) => {
@@ -12,6 +13,7 @@ export const useJobMatchingQueries = (token: string) => {
       token,
       queryKey: queryKeys.jobMatching.list(token),
       queryFn: getJobMatchHistory,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
     }),
   );
 

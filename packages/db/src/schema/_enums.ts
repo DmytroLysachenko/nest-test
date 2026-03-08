@@ -12,7 +12,17 @@ export const careerProfileStatusEnum = pgEnum('career_profile_status', ['PENDING
 export const documentExtractionStatusEnum = pgEnum('document_extraction_status', ['PENDING', 'READY', 'FAILED']);
 export const jobSourceEnum = pgEnum('job_source', ['PRACUJ_PL']);
 export const jobSourceRunStatusEnum = pgEnum('job_source_run_status', ['PENDING', 'RUNNING', 'COMPLETED', 'FAILED']);
-export const jobOfferStatusEnum = pgEnum('job_offer_status', ['NEW', 'SEEN', 'SAVED', 'APPLIED', 'DISMISSED']);
+export const jobOfferStatusEnum = pgEnum('job_offer_status', [
+  'NEW',
+  'SEEN',
+  'SAVED',
+  'APPLIED',
+  'INTERVIEWING',
+  'OFFER',
+  'REJECTED',
+  'ARCHIVED',
+  'DISMISSED',
+]);
 
 export type OTPType = (typeof otpTypeEnum.enumValues)[number];
 export type Gender = (typeof genderEnum.enumValues)[number];

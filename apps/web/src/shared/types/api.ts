@@ -101,11 +101,17 @@ export type WorkspaceSummaryDto = {
   offers: {
     total: number;
     scored: number;
+    saved: number;
+    applied: number;
+    interviewing: number;
+    offersMade: number;
+    rejected: number;
     lastUpdatedAt: string | null;
   };
   scrape: {
     lastRunStatus: string | null;
     lastRunAt: string | null;
+    lastRunProgress: Record<string, unknown> | null;
     totalRuns: number;
   };
   workflow: {
@@ -391,7 +397,16 @@ export type EnqueueScrapeResponseDto = {
   retryCount?: number;
 };
 
-export type JobOfferStatus = 'NEW' | 'SEEN' | 'SAVED' | 'APPLIED' | 'DISMISSED';
+export type JobOfferStatus =
+  | 'NEW'
+  | 'SEEN'
+  | 'SAVED'
+  | 'APPLIED'
+  | 'INTERVIEWING'
+  | 'OFFER'
+  | 'REJECTED'
+  | 'ARCHIVED'
+  | 'DISMISSED';
 
 export type JobOfferListItemDto = {
   id: string;
@@ -402,6 +417,10 @@ export type JobOfferListItemDto = {
   rankingScore?: number | null;
   explanationTags?: string[];
   matchMeta: Record<string, unknown> | null;
+  aiFeedbackScore: number | null;
+  aiFeedbackNotes: string | null;
+  pipelineMeta: Record<string, unknown> | null;
+  prepMaterials: Record<string, unknown> | null;
   notes: string | null;
   tags: string[] | null;
   statusHistory: Array<{ status: JobOfferStatus; changedAt: string }> | null;

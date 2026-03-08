@@ -7,8 +7,6 @@ import { useNotebookQueries } from '@/features/job-offers/model/hooks/use-notebo
 import { useAppUiStore } from '@/shared/store/app-ui-store';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
-import type { JobOfferStatus } from '@/shared/types/api';
-
 type UseNotebookPageArgs = {
   token: string;
 };
@@ -48,8 +46,19 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     listParams,
     selectedId,
   });
-  const { statusMutation, bulkStatusMutation, metaMutation, scoreMutation, enqueueProfileScrapeMutation } =
-    useNotebookMutations({ token });
+
+  const {
+    statusMutation,
+    bulkStatusMutation,
+    dismissAllSeenMutation,
+    autoArchiveMutation,
+    metaMutation,
+    feedbackMutation,
+    pipelineMutation,
+    scoreMutation,
+    generatePrepMutation,
+    enqueueProfileScrapeMutation,
+  } = useNotebookMutations({ token });
 
   const canPrev = pagination.offset > 0;
   const canNext = (listQuery.data?.items.length ?? 0) === pagination.limit;
@@ -132,8 +141,13 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     isBusy:
       statusMutation.isPending ||
       bulkStatusMutation.isPending ||
+      dismissAllSeenMutation.isPending ||
+      autoArchiveMutation.isPending ||
       metaMutation.isPending ||
       scoreMutation.isPending ||
+      feedbackMutation.isPending ||
+      pipelineMutation.isPending ||
+      generatePrepMutation.isPending ||
       enqueueProfileScrapeMutation.isPending,
     enqueueProfileScrapeMutation,
     setNotebookSelectedOffer,
@@ -148,7 +162,13 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     updateStatus: statusMutation.mutate,
     updateStatusAsync: statusMutation.mutateAsync,
     bulkUpdateStatus: bulkStatusMutation.mutate,
+    dismissAllSeen: dismissAllSeenMutation.mutate,
+    autoArchive: autoArchiveMutation.mutate,
     updateMeta: metaMutation.mutate,
+    updateFeedback: feedbackMutation.mutate,
+    updatePipeline: pipelineMutation.mutate,
     rescore: scoreMutation.mutate,
+    generatePrep: generatePrepMutation.mutate,
+    isGeneratingPrep: generatePrepMutation.isPending,
   };
 };

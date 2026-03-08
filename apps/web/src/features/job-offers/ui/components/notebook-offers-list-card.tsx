@@ -1,5 +1,7 @@
 'use client';
 
+import { Inbox } from 'lucide-react';
+
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
@@ -85,10 +87,10 @@ export const NotebookOffersListCard = ({
         offers.map((offer) => (
           <article
             key={offer.id}
-            className={`w-full rounded-[1.35rem] border p-4 text-left text-sm transition ${
+            className={`w-full rounded-[1.35rem] border p-4 text-left text-sm transition-all duration-200 ${
               selectedId === offer.id
-                ? 'border-primary bg-accent/18 shadow-[0_20px_40px_-32px_color-mix(in_oklab,var(--primary)_42%,black)]'
-                : 'border-border/80 bg-card/92 hover:border-primary/35 hover:bg-surface-elevated/95'
+                ? 'border-primary/50 bg-primary/5 shadow-[0_12px_32px_-16px_color-mix(in_oklab,var(--primary)_20%,transparent)]'
+                : 'border-border/60 bg-surface/80 hover:border-primary/30 hover:bg-surface-elevated/95 hover:shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--text-strong)_10%,transparent)]'
             }`}
           >
             <div className="mb-3 flex items-start gap-3">
@@ -126,6 +128,7 @@ export const NotebookOffersListCard = ({
       ) : (
         <div className="space-y-3">
           <EmptyState
+            icon={<Inbox className="h-8 w-8" />}
             title="No offers found"
             description="Try relaxing filters or switch mode to explore to discover more opportunities."
           />

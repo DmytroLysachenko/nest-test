@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { and, desc, eq, isNull, not, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, lt, not, sql } from 'drizzle-orm';
 import { careerProfilesTable, jobOffersTable, userJobOffersTable } from '@repo/db';
 import { z } from 'zod';
 
@@ -230,6 +230,41 @@ export class JobOffersService {
     return updated;
   }
 
+  async updateFeedback(userId: string, id: string, input: { aiFeedbackScore: number; aiFeedbackNotes?: string }) {
+    const [updated] = await this.db
+      .update(userJobOffersTable)
+      .set({
+        aiFeedbackScore: input.aiFeedbackScore,
+        aiFeedbackNotes: input.aiFeedbackNotes,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(userJobOffersTable.id, id), eq(userJobOffersTable.userId, userId)))
+      .returning();
+
+    if (!updated) {
+      throw new NotFoundException('Job offer not found');
+    }
+
+    return updated;
+  }
+
+  async updatePipelineMeta(userId: string, id: string, input: { pipelineMeta: Record<string, unknown> }) {
+    const [updated] = await this.db
+      .update(userJobOffersTable)
+      .set({
+        pipelineMeta: input.pipelineMeta,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(userJobOffersTable.id, id), eq(userJobOffersTable.userId, userId)))
+      .returning();
+
+    if (!updated) {
+      throw new NotFoundException('Job offer not found');
+    }
+
+    return updated;
+  }
+
   async getHistory(userId: string, id: string) {
     const item = await this.db
       .select({
@@ -253,6 +288,92 @@ export class JobOffersService {
     }
 
     return item;
+  }
+
+  async generatePrepMaterials(userId: string, id: string, instructions?: string) {
+    const offer = await this.db
+      .select({
+        id: userJobOffersTable.id,
+        jobOfferId: jobOffersTable.id,
+        description: jobOffersTable.description,
+        title: jobOffersTable.title,
+        company: jobOffersTable.company,
+        prepMaterials: userJobOffersTable.prepMaterials,
+      })
+      .from(userJobOffersTable)
+      .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .where(and(eq(userJobOffersTable.id, id), eq(userJobOffersTable.userId, userId)))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!offer) {
+      throw new NotFoundException('Job offer not found');
+    }
+
+    const profile = await this.db
+      .select()
+      .from(careerProfilesTable)
+      .where(
+        and(
+          eq(careerProfilesTable.userId, userId),
+          eq(careerProfilesTable.isActive, true),
+          eq(careerProfilesTable.status, 'READY'),
+        ),
+      )
+      .orderBy(desc(careerProfilesTable.createdAt))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!profile?.contentJson) {
+      throw new BadRequestException('Career profile JSON is missing');
+    }
+
+    const parsedProfile = parseCandidateProfile(profile.contentJson);
+    if (!parsedProfile.success) {
+      throw new BadRequestException('Career profile JSON does not match canonical schema');
+    }
+
+    const prompt = [
+      'You are an expert career coach and technical recruiter. Your task is to prepare the candidate for an application to the provided job.',
+      'Return ONLY JSON in this exact shape:',
+      '{ "coverLetter": string, "interviewFocus": [string, string, string] }',
+      'The coverLetter should be a concise, modern cover letter bridging the candidate profile to the job description.',
+      'The interviewFocus should be an array of exactly 3 bullet points highlighting the strongest overlap or potential questions to prepare for.',
+      instructions ? `User instructions: ${instructions}` : '',
+      '',
+      'Candidate profile JSON:',
+      JSON.stringify(parsedProfile.data),
+      '',
+      'Job offer:',
+      JSON.stringify({ title: offer.title, company: offer.company, description: offer.description }),
+    ].join('\n');
+
+    const content = await this.geminiService.generateText(prompt, { model: this.scoringModel });
+
+    let prepMaterials: Record<string, unknown> = {};
+    const match = content.match(/```json\s*([\s\S]*?)\s*```/i);
+    const candidate = match?.[1] ?? this.extractJsonObject(content);
+
+    if (candidate) {
+      try {
+        prepMaterials = JSON.parse(candidate);
+      } catch {
+        throw new BadRequestException('Failed to parse generated materials');
+      }
+    } else {
+      throw new BadRequestException('LLM did not return JSON');
+    }
+
+    const [updated] = await this.db
+      .update(userJobOffersTable)
+      .set({
+        prepMaterials,
+        updatedAt: new Date(),
+      })
+      .where(eq(userJobOffersTable.id, offer.id))
+      .returning();
+
+    return updated.prepMaterials;
   }
 
   async listStatusHistory(userId: string, limit = 20, offset = 0) {
@@ -393,6 +514,47 @@ export class JobOffersService {
       isMatch,
       matchMeta,
     };
+  }
+
+  async dismissAllSeen(userId: string) {
+    const now = new Date();
+    const result = await this.db
+      .update(userJobOffersTable)
+      .set({
+        status: 'DISMISSED',
+        updatedAt: now,
+        lastStatusAt: now,
+        // We append to status history using sql
+        statusHistory: sql`"status_history" || ${JSON.stringify([{ status: 'DISMISSED', changedAt: now.toISOString() }])}::jsonb`,
+      })
+      .where(and(eq(userJobOffersTable.userId, userId), eq(userJobOffersTable.status, 'SEEN')))
+      .returning();
+
+    return { count: result.length };
+  }
+
+  async autoArchiveOldOffers(userId: string, olderThanDays = 14) {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - olderThanDays * 24 * 60 * 60 * 1000);
+
+    const result = await this.db
+      .update(userJobOffersTable)
+      .set({
+        status: 'ARCHIVED',
+        updatedAt: now,
+        lastStatusAt: now,
+        statusHistory: sql`"status_history" || ${JSON.stringify([{ status: 'ARCHIVED', changedAt: now.toISOString() }])}::jsonb`,
+      })
+      .where(
+        and(
+          eq(userJobOffersTable.userId, userId),
+          eq(userJobOffersTable.status, 'NEW'),
+          lt(userJobOffersTable.createdAt, cutoff),
+        ),
+      )
+      .returning();
+
+    return { count: result.length };
   }
 
   private buildScorePrompt(

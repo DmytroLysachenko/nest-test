@@ -1,6 +1,7 @@
 export type RawPage = {
   url: string;
   html: string;
+  isExpired?: boolean;
 };
 
 export type DetailFetchDiagnostics = {
@@ -10,6 +11,7 @@ export type DetailFetchDiagnostics = {
   title?: string;
   htmlLength?: number;
   blocked?: boolean;
+  expired?: boolean;
   attempt: number;
   error?: string;
 };
@@ -58,6 +60,7 @@ export type ParsedJob = {
   sourceId?: string;
   requirements?: string[];
   details?: JobDetails;
+  isExpired?: boolean;
 };
 
 export type NormalizedJob = {
@@ -73,4 +76,5 @@ export type NormalizedJob = {
   employmentType: string | null;
   requirements: string[];
   details?: JobDetails;
+  isExpired?: boolean;
 };
