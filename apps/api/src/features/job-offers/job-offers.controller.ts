@@ -13,6 +13,8 @@ import { ScoreJobOfferDto } from './dto/score-job-offer.dto';
 import { JobOfferListResponse } from './dto/job-offer.response';
 import { UpdateJobOfferMetaDto } from './dto/update-job-offer-meta.dto';
 import { ListStatusHistoryQuery } from './dto/list-status-history.query';
+import { UpdateJobOfferFeedbackDto } from './dto/update-job-offer-feedback.dto';
+import { UpdateJobOfferPipelineDto } from './dto/update-job-offer-pipeline.dto';
 
 @ApiTags('job-offers')
 @ApiBearerAuth()
@@ -43,7 +45,7 @@ export class JobOffersController {
   }
 
   @Patch(':id/status')
-  @ApiOperation({ summary: 'Update job offer status (seen/saved/applied/dismissed)' })
+  @ApiOperation({ summary: 'Update job offer status (seen/saved/applied/interviewing/offer/rejected/dismissed)' })
   async updateStatus(
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -60,6 +62,26 @@ export class JobOffersController {
     @Body() dto: UpdateJobOfferMetaDto,
   ) {
     return this.jobOffersService.updateMeta(user.userId, id, dto);
+  }
+
+  @Patch(':id/feedback')
+  @ApiOperation({ summary: 'Update user feedback for AI match' })
+  async updateFeedback(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: UpdateJobOfferFeedbackDto,
+  ) {
+    return this.jobOffersService.updateFeedback(user.userId, id, dto);
+  }
+
+  @Patch(':id/pipeline')
+  @ApiOperation({ summary: 'Update application pipeline metadata' })
+  async updatePipelineMeta(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: UpdateJobOfferPipelineDto,
+  ) {
+    return this.jobOffersService.updatePipelineMeta(user.userId, id, dto);
   }
 
   @Post(':id/score')

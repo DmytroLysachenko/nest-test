@@ -3,7 +3,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { enqueueScrape } from '@/features/job-sources/api/job-sources-api';
-import { scoreJobOffer, updateJobOfferMeta, updateJobOfferStatus } from '@/features/job-offers/api/job-offers-api';
+import {
+  scoreJobOffer,
+  updateJobOfferFeedback,
+  updateJobOfferMeta,
+  updateJobOfferPipeline,
+  updateJobOfferStatus,
+} from '@/features/job-offers/api/job-offers-api';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { useDataSync } from '@/shared/lib/query/use-data-sync';
 import { toastError, toastInfo, toastSuccess, toastSuccessWithAction } from '@/shared/lib/ui/toast';
@@ -138,6 +144,36 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     },
   });
 
+  const feedbackMutation = useMutation({
+    mutationFn: ({
+      id,
+      aiFeedbackScore,
+      aiFeedbackNotes,
+    }: {
+      id: string;
+      aiFeedbackScore: number;
+      aiFeedbackNotes?: string;
+    }) => updateJobOfferFeedback(token, id, { aiFeedbackScore, aiFeedbackNotes }),
+    onSuccess: () => {
+      syncJobOffers();
+      toastSuccess('Feedback submitted');
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to submit feedback'));
+    },
+  });
+
+  const pipelineMutation = useMutation({
+    mutationFn: ({ id, pipelineMeta }: { id: string; pipelineMeta: Record<string, unknown> }) =>
+      updateJobOfferPipeline(token, id, { pipelineMeta }),
+    onSuccess: () => {
+      syncJobOffers();
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to update pipeline details'));
+    },
+  });
+
   const scoreMutation = useMutation({
     mutationFn: ({ id }: { id: string }) => scoreJobOffer(token, id, 0),
     onSuccess: () => {
@@ -168,6 +204,8 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     statusMutation,
     bulkStatusMutation,
     metaMutation,
+    feedbackMutation,
+    pipelineMutation,
     scoreMutation,
     enqueueProfileScrapeMutation,
   };

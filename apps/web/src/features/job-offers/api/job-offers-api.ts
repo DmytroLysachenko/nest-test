@@ -64,6 +64,27 @@ export const updateJobOfferMeta = (token: string, id: string, payload: { notes?:
     body: JSON.stringify(payload),
   });
 
+export const updateJobOfferFeedback = (
+  token: string,
+  id: string,
+  payload: { aiFeedbackScore: number; aiFeedbackNotes?: string },
+) =>
+  apiRequest<{ id: string; aiFeedbackScore: number | null; aiFeedbackNotes: string | null }>(
+    `/job-offers/${id}/feedback`,
+    {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(payload),
+    },
+  );
+
+export const updateJobOfferPipeline = (token: string, id: string, payload: { pipelineMeta: Record<string, unknown> }) =>
+  apiRequest<{ id: string; pipelineMeta: Record<string, unknown> | null }>(`/job-offers/${id}/pipeline`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload),
+  });
+
 export const scoreJobOffer = (token: string, id: string, minScore = 0) =>
   apiRequest<JobOfferScoreResultDto>(`/job-offers/${id}/score`, {
     method: 'POST',

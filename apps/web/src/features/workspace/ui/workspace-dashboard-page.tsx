@@ -133,21 +133,21 @@ export const WorkspaceDashboardPage = () => {
           }}
         />
         <MetricCard
-          label="Notebook Offers"
+          label="Pipeline Progress"
+          value={String(summary.offers.applied)}
+          caption="Active job applications"
+          trend={{
+            label: `${summary.offers.interviewing} interviews · ${summary.offers.offersMade} offers`,
+            tone: summary.offers.offersMade > 0 ? 'success' : 'info',
+          }}
+        />
+        <MetricCard
+          label="Total Leads"
           value={String(summary.offers.total)}
           caption={`Scored: ${summary.offers.scored}`}
           trend={{
             label: summary.offers.total > 0 ? 'Ready for triage' : 'No offers yet',
             tone: summary.offers.total > 0 ? 'info' : 'warning',
-          }}
-        />
-        <MetricCard
-          label="Onboarding"
-          value={summary.workflow.needsOnboarding ? 'Required' : 'Complete'}
-          caption="Career preferences and profile readiness"
-          trend={{
-            label: summary.workflow.needsOnboarding ? 'Action required' : 'All set',
-            tone: summary.workflow.needsOnboarding ? 'warning' : 'success',
           }}
         />
       </div>

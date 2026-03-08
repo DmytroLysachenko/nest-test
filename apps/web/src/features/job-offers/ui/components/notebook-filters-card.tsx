@@ -9,7 +9,16 @@ import { FilterChipBar } from '@/shared/ui/filter-chip-bar';
 
 import type { JobOfferStatus } from '@/shared/types/api';
 
-const STATUSES: JobOfferStatus[] = ['NEW', 'SEEN', 'SAVED', 'APPLIED', 'DISMISSED'];
+const STATUSES: JobOfferStatus[] = [
+  'NEW',
+  'SEEN',
+  'SAVED',
+  'APPLIED',
+  'INTERVIEWING',
+  'OFFER',
+  'REJECTED',
+  'DISMISSED',
+];
 
 type NotebookFiltersCardProps = {
   status: 'ALL' | JobOfferStatus;

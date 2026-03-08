@@ -230,6 +230,41 @@ export class JobOffersService {
     return updated;
   }
 
+  async updateFeedback(userId: string, id: string, input: { aiFeedbackScore: number; aiFeedbackNotes?: string }) {
+    const [updated] = await this.db
+      .update(userJobOffersTable)
+      .set({
+        aiFeedbackScore: input.aiFeedbackScore,
+        aiFeedbackNotes: input.aiFeedbackNotes,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(userJobOffersTable.id, id), eq(userJobOffersTable.userId, userId)))
+      .returning();
+
+    if (!updated) {
+      throw new NotFoundException('Job offer not found');
+    }
+
+    return updated;
+  }
+
+  async updatePipelineMeta(userId: string, id: string, input: { pipelineMeta: Record<string, unknown> }) {
+    const [updated] = await this.db
+      .update(userJobOffersTable)
+      .set({
+        pipelineMeta: input.pipelineMeta,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(userJobOffersTable.id, id), eq(userJobOffersTable.userId, userId)))
+      .returning();
+
+    if (!updated) {
+      throw new NotFoundException('Job offer not found');
+    }
+
+    return updated;
+  }
+
   async getHistory(userId: string, id: string) {
     const item = await this.db
       .select({

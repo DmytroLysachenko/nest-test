@@ -7,8 +7,6 @@ import { useNotebookQueries } from '@/features/job-offers/model/hooks/use-notebo
 import { useAppUiStore } from '@/shared/store/app-ui-store';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
-import type { JobOfferStatus } from '@/shared/types/api';
-
 type UseNotebookPageArgs = {
   token: string;
 };
@@ -48,8 +46,16 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     listParams,
     selectedId,
   });
-  const { statusMutation, bulkStatusMutation, metaMutation, scoreMutation, enqueueProfileScrapeMutation } =
-    useNotebookMutations({ token });
+
+  const {
+    statusMutation,
+    bulkStatusMutation,
+    metaMutation,
+    feedbackMutation,
+    pipelineMutation,
+    scoreMutation,
+    enqueueProfileScrapeMutation,
+  } = useNotebookMutations({ token });
 
   const canPrev = pagination.offset > 0;
   const canNext = (listQuery.data?.items.length ?? 0) === pagination.limit;
@@ -134,6 +140,8 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
       bulkStatusMutation.isPending ||
       metaMutation.isPending ||
       scoreMutation.isPending ||
+      feedbackMutation.isPending ||
+      pipelineMutation.isPending ||
       enqueueProfileScrapeMutation.isPending,
     enqueueProfileScrapeMutation,
     setNotebookSelectedOffer,
@@ -149,6 +157,8 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     updateStatusAsync: statusMutation.mutateAsync,
     bulkUpdateStatus: bulkStatusMutation.mutate,
     updateMeta: metaMutation.mutate,
+    updateFeedback: feedbackMutation.mutate,
+    updatePipeline: pipelineMutation.mutate,
     rescore: scoreMutation.mutate,
   };
 };

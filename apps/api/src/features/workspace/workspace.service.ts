@@ -65,6 +65,21 @@ export class WorkspaceService {
       .from(userJobOffersTable)
       .where(and(eq(userJobOffersTable.userId, userId), isNotNull(userJobOffersTable.matchScore)));
 
+    const [offersApplied] = await this.db
+      .select({ value: count() })
+      .from(userJobOffersTable)
+      .where(and(eq(userJobOffersTable.userId, userId), eq(userJobOffersTable.status, 'APPLIED')));
+
+    const [offersInterviewing] = await this.db
+      .select({ value: count() })
+      .from(userJobOffersTable)
+      .where(and(eq(userJobOffersTable.userId, userId), eq(userJobOffersTable.status, 'INTERVIEWING')));
+
+    const [offersWithOffer] = await this.db
+      .select({ value: count() })
+      .from(userJobOffersTable)
+      .where(and(eq(userJobOffersTable.userId, userId), eq(userJobOffersTable.status, 'OFFER')));
+
     const [lastOffer] = await this.db
       .select({ updatedAt: userJobOffersTable.updatedAt })
       .from(userJobOffersTable)
@@ -103,6 +118,9 @@ export class WorkspaceService {
       offers: {
         total: Number(offersTotal?.value ?? 0),
         scored: Number(offersScored?.value ?? 0),
+        applied: Number(offersApplied?.value ?? 0),
+        interviewing: Number(offersInterviewing?.value ?? 0),
+        offersMade: Number(offersWithOffer?.value ?? 0),
         lastUpdatedAt: lastOffer?.updatedAt ?? null,
       },
       scrape: {
