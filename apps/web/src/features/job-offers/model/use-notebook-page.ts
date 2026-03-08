@@ -50,6 +50,8 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
   const {
     statusMutation,
     bulkStatusMutation,
+    dismissAllSeenMutation,
+    autoArchiveMutation,
     metaMutation,
     feedbackMutation,
     pipelineMutation,
@@ -139,6 +141,8 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     isBusy:
       statusMutation.isPending ||
       bulkStatusMutation.isPending ||
+      dismissAllSeenMutation.isPending ||
+      autoArchiveMutation.isPending ||
       metaMutation.isPending ||
       scoreMutation.isPending ||
       feedbackMutation.isPending ||
@@ -158,6 +162,8 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     updateStatus: statusMutation.mutate,
     updateStatusAsync: statusMutation.mutateAsync,
     bulkUpdateStatus: bulkStatusMutation.mutate,
+    dismissAllSeen: dismissAllSeenMutation.mutate,
+    autoArchive: autoArchiveMutation.mutate,
     updateMeta: metaMutation.mutate,
     updateFeedback: feedbackMutation.mutate,
     updatePipeline: pipelineMutation.mutate,

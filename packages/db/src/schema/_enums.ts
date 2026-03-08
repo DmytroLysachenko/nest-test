@@ -20,6 +20,7 @@ export const jobOfferStatusEnum = pgEnum('job_offer_status', [
   'INTERVIEWING',
   'OFFER',
   'REJECTED',
+  'ARCHIVED',
   'DISMISSED',
 ]);
 

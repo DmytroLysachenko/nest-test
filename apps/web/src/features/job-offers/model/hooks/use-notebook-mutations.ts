@@ -10,6 +10,8 @@ import {
   updateJobOfferMeta,
   updateJobOfferPipeline,
   updateJobOfferStatus,
+  dismissAllSeenJobOffers,
+  autoArchiveOldJobOffers,
 } from '@/features/job-offers/api/job-offers-api';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { useDataSync } from '@/shared/lib/query/use-data-sync';
@@ -137,6 +139,30 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     },
   });
 
+  const dismissAllSeenMutation = useMutation({
+    mutationFn: () => dismissAllSeenJobOffers(token),
+    onSuccess: (result) => {
+      syncJobOffers();
+      toastSuccess(`Marked ${result.count} offers as dismissed`);
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to dismiss offers'));
+    },
+  });
+
+  const autoArchiveMutation = useMutation({
+    mutationFn: () => autoArchiveOldJobOffers(token),
+    onSuccess: (result) => {
+      syncJobOffers();
+      if (result.count > 0) {
+        toastSuccess(`Automatically archived ${result.count} old offers`);
+      }
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to archive old offers'));
+    },
+  });
+
   const metaMutation = useMutation({
     mutationFn: ({ id, notes, tags }: { id: string; notes: string; tags: string[] }) =>
       updateJobOfferMeta(token, id, { notes, tags }),
@@ -216,6 +242,8 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   return {
     statusMutation,
     bulkStatusMutation,
+    dismissAllSeenMutation,
+    autoArchiveMutation,
     metaMutation,
     feedbackMutation,
     pipelineMutation,

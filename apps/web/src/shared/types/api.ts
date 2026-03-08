@@ -101,14 +101,17 @@ export type WorkspaceSummaryDto = {
   offers: {
     total: number;
     scored: number;
+    saved: number;
     applied: number;
     interviewing: number;
     offersMade: number;
+    rejected: number;
     lastUpdatedAt: string | null;
   };
   scrape: {
     lastRunStatus: string | null;
     lastRunAt: string | null;
+    lastRunProgress: Record<string, unknown> | null;
     totalRuns: number;
   };
   workflow: {
@@ -394,7 +397,16 @@ export type EnqueueScrapeResponseDto = {
   retryCount?: number;
 };
 
-export type JobOfferStatus = 'NEW' | 'SEEN' | 'SAVED' | 'APPLIED' | 'INTERVIEWING' | 'OFFER' | 'REJECTED' | 'DISMISSED';
+export type JobOfferStatus =
+  | 'NEW'
+  | 'SEEN'
+  | 'SAVED'
+  | 'APPLIED'
+  | 'INTERVIEWING'
+  | 'OFFER'
+  | 'REJECTED'
+  | 'ARCHIVED'
+  | 'DISMISSED';
 
 export type JobOfferListItemDto = {
   id: string;

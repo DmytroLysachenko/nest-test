@@ -66,9 +66,11 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
         activeFilters={notebook.activeFilters}
         total={notebook.listQuery.data?.total ?? 0}
         listUpdatedAt={notebook.listQuery.dataUpdatedAt}
-        isEnqueueingScrape={notebook.isBusy}
+        isBusy={notebook.isBusy}
         onEnqueueProfileScrape={() => notebook.enqueueProfileScrapeMutation.mutate()}
         enqueueStatus={notebook.enqueueProfileScrapeMutation.status}
+        onDismissAllSeen={notebook.dismissAllSeen}
+        onAutoArchive={notebook.autoArchive}
       />
 
       <div className="relative grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,1fr)]">

@@ -85,6 +85,18 @@ export const updateJobOfferPipeline = (token: string, id: string, payload: { pip
     body: JSON.stringify(payload),
   });
 
+export const dismissAllSeenJobOffers = (token: string) =>
+  apiRequest<{ count: number }>('/job-offers/dismiss-all-seen', {
+    method: 'POST',
+    token,
+  });
+
+export const autoArchiveOldJobOffers = (token: string) =>
+  apiRequest<{ count: number }>('/job-offers/auto-archive', {
+    method: 'POST',
+    token,
+  });
+
 export const scoreJobOffer = (token: string, id: string, minScore = 0) =>
   apiRequest<JobOfferScoreResultDto>(`/job-offers/${id}/score`, {
     method: 'POST',

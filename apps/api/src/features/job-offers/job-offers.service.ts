@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { and, desc, eq, isNull, not, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, lt, not, sql } from 'drizzle-orm';
 import { careerProfilesTable, jobOffersTable, userJobOffersTable } from '@repo/db';
 import { z } from 'zod';
 
@@ -514,6 +514,47 @@ export class JobOffersService {
       isMatch,
       matchMeta,
     };
+  }
+
+  async dismissAllSeen(userId: string) {
+    const now = new Date();
+    const result = await this.db
+      .update(userJobOffersTable)
+      .set({
+        status: 'DISMISSED',
+        updatedAt: now,
+        lastStatusAt: now,
+        // We append to status history using sql
+        statusHistory: sql`"status_history" || ${JSON.stringify([{ status: 'DISMISSED', changedAt: now.toISOString() }])}::jsonb`,
+      })
+      .where(and(eq(userJobOffersTable.userId, userId), eq(userJobOffersTable.status, 'SEEN')))
+      .returning();
+
+    return { count: result.length };
+  }
+
+  async autoArchiveOldOffers(userId: string, olderThanDays = 14) {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - olderThanDays * 24 * 60 * 60 * 1000);
+
+    const result = await this.db
+      .update(userJobOffersTable)
+      .set({
+        status: 'ARCHIVED',
+        updatedAt: now,
+        lastStatusAt: now,
+        statusHistory: sql`"status_history" || ${JSON.stringify([{ status: 'ARCHIVED', changedAt: now.toISOString() }])}::jsonb`,
+      })
+      .where(
+        and(
+          eq(userJobOffersTable.userId, userId),
+          eq(userJobOffersTable.status, 'NEW'),
+          lt(userJobOffersTable.createdAt, cutoff),
+        ),
+      )
+      .returning();
+
+    return { count: result.length };
   }
 
   private buildScorePrompt(

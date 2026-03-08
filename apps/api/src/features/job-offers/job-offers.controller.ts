@@ -47,6 +47,18 @@ export class JobOffersController {
     return this.jobOffersService.getHistory(user.userId, id);
   }
 
+  @Post('dismiss-all-seen')
+  @ApiOperation({ summary: 'Mark all job offers with status SEEN as DISMISSED' })
+  async dismissAllSeen(@CurrentUser() user: JwtValidateUser) {
+    return this.jobOffersService.dismissAllSeen(user.userId);
+  }
+
+  @Post('auto-archive')
+  @ApiOperation({ summary: 'Automatically archive old non-triaged offers' })
+  async autoArchive(@CurrentUser() user: JwtValidateUser) {
+    return this.jobOffersService.autoArchiveOldOffers(user.userId);
+  }
+
   @Patch(':id/status')
   @ApiOperation({ summary: 'Update job offer status (seen/saved/applied/interviewing/offer/rejected/dismissed)' })
   async updateStatus(

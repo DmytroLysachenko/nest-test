@@ -10,7 +10,17 @@ type AppUiState = {
     selectedOfferId: string | null;
     selectedOfferIds: string[];
     filters: {
-      status: 'ALL' | 'NEW' | 'SEEN' | 'SAVED' | 'APPLIED' | 'INTERVIEWING' | 'OFFER' | 'REJECTED' | 'DISMISSED';
+      status:
+        | 'ALL'
+        | 'NEW'
+        | 'SEEN'
+        | 'SAVED'
+        | 'APPLIED'
+        | 'INTERVIEWING'
+        | 'OFFER'
+        | 'REJECTED'
+        | 'ARCHIVED'
+        | 'DISMISSED';
       mode: 'strict' | 'approx' | 'explore';
       view: 'LIST' | 'PIPELINE';
       search: string;
@@ -18,7 +28,17 @@ type AppUiState = {
       hasScore: 'all' | 'yes' | 'no';
     };
     savedPreset: {
-      status: 'ALL' | 'NEW' | 'SEEN' | 'SAVED' | 'APPLIED' | 'INTERVIEWING' | 'OFFER' | 'REJECTED' | 'DISMISSED';
+      status:
+        | 'ALL'
+        | 'NEW'
+        | 'SEEN'
+        | 'SAVED'
+        | 'APPLIED'
+        | 'INTERVIEWING'
+        | 'OFFER'
+        | 'REJECTED'
+        | 'ARCHIVED'
+        | 'DISMISSED';
       mode: 'strict' | 'approx' | 'explore';
       view: 'LIST' | 'PIPELINE';
       search: string;
