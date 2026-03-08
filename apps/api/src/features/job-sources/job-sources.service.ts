@@ -24,11 +24,13 @@ import {
   jobSourceRunsTable,
   scrapeSchedulesTable,
   userJobOffersTable,
+  usersTable,
 } from '@repo/db';
 import { buildPracujListingUrl, normalizePracujFilters, type PracujSourceKind, JobSourceRunStatus } from '@repo/db';
 
 import { Drizzle } from '@/common/decorators';
 import { JobOffersService } from '@/features/job-offers/job-offers.service';
+import { MailService } from '@/features/auth/mail.service';
 import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
 
 import { EnqueueScrapeDto } from './dto/enqueue-scrape.dto';
@@ -269,6 +271,7 @@ export class JobSourcesService {
     private readonly logger: Logger,
     @Drizzle() private readonly db: NodePgDatabase,
     @Optional() private readonly jobOffersService?: JobOffersService,
+    @Optional() private readonly mailService?: MailService,
   ) {}
 
   async getSchedule(userId: string) {
@@ -2144,6 +2147,10 @@ export class JobSourcesService {
     let failed = 0;
     let retried = 0;
     const queue = [...userOfferIds];
+
+    // Track high matches for alerting
+    const highMatchOfferIds: string[] = [];
+
     const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
       while (queue.length) {
         const nextId = queue.shift();
@@ -2155,9 +2162,12 @@ export class JobSourcesService {
         let success = false;
         for (let attempt = 1; attempt <= retryAttempts; attempt += 1) {
           try {
-            await this.jobOffersService.scoreOffer(userId, nextId, minScore);
+            const result = await this.jobOffersService.scoreOffer(userId, nextId, minScore);
             scored += 1;
             success = true;
+            if (result.score >= 85) {
+              highMatchOfferIds.push(nextId);
+            }
             break;
           } catch (error) {
             if (attempt < retryAttempts) {
@@ -2184,6 +2194,7 @@ export class JobSourcesService {
     });
 
     await Promise.all(workers);
+
     this.logger.log(
       {
         userId,
