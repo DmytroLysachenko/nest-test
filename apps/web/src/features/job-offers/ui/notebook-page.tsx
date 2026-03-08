@@ -163,6 +163,13 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
                 aiFeedbackNotes: notes,
               });
             }}
+            onGeneratePrep={(instructions) => {
+              if (!notebook.selectedOffer) {
+                return;
+              }
+              notebook.generatePrep({ id: notebook.selectedOffer.id, instructions });
+            }}
+            isGeneratingPrep={notebook.isGeneratingPrep}
           />
         </div>
       </div>

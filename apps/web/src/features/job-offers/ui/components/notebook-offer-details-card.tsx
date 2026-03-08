@@ -40,6 +40,8 @@ type NotebookOfferDetailsCardProps = {
   onSaveMeta: (notes: string, tags: string[]) => void;
   onSaveFeedback: (score: number, notes: string) => void;
   onRescore: () => void;
+  onGeneratePrep: (instructions?: string) => void;
+  isGeneratingPrep?: boolean;
 };
 
 export const NotebookOfferDetailsCard = ({
@@ -52,10 +54,13 @@ export const NotebookOfferDetailsCard = ({
   onSaveMeta,
   onSaveFeedback,
   onRescore,
+  onGeneratePrep,
+  isGeneratingPrep,
 }: NotebookOfferDetailsCardProps) => {
   const [pendingConfirmStatus, setPendingConfirmStatus] = useState<JobOfferStatus | null>(null);
   const [feedbackScore, setFeedbackScore] = useState<number>(offer?.aiFeedbackScore ?? 0);
   const [feedbackNotes, setFeedbackNotes] = useState<string>(offer?.aiFeedbackNotes ?? '');
+  const [prepInstructions, setPrepInstructions] = useState<string>('');
   const drafts = useNotebookOfferDetailsDrafts({ offer });
 
   useEffect(() => {
@@ -205,6 +210,68 @@ export const NotebookOfferDetailsCard = ({
             Submit calibration
           </Button>
         </div>
+
+        <details className="group">
+          <summary className="text-text-strong hover:text-primary cursor-pointer text-sm font-medium transition-colors">
+            Application Assistant
+          </summary>
+          <div className="mt-3 space-y-4">
+            {!offer.prepMaterials ? (
+              <div className="app-muted-panel space-y-3">
+                <p className="text-text-soft text-sm">
+                  Generate a tailored cover letter and interview cheat sheet for this role.
+                </p>
+                <Textarea
+                  placeholder="Optional instructions (e.g. emphasize my backend experience)"
+                  value={prepInstructions}
+                  onChange={(e) => setPrepInstructions(e.target.value)}
+                  className="border-border/40 min-h-16 text-xs shadow-none"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full"
+                  disabled={isBusy || isGeneratingPrep}
+                  onClick={() => onGeneratePrep(prepInstructions)}
+                >
+                  {isGeneratingPrep ? 'Generating materials...' : 'Generate Prep Materials'}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="app-muted-panel space-y-2">
+                  <h4 className="text-text-strong text-xs font-semibold uppercase tracking-wider">Interview Focus</h4>
+                  <ul className="text-text-soft list-disc space-y-1 pl-4 text-sm">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {(offer.prepMaterials as any).interviewFocus?.map((point: string, i: number) => (
+                      <li key={i}>{point}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="app-muted-panel space-y-2">
+                  <h4 className="text-text-strong text-xs font-semibold uppercase tracking-wider">
+                    Cover Letter Draft
+                  </h4>
+                  <pre className="text-text-soft whitespace-pre-wrap font-sans text-xs">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {(offer.prepMaterials as any).coverLetter}
+                  </pre>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={isBusy || isGeneratingPrep}
+                    onClick={() => onGeneratePrep(prepInstructions)}
+                  >
+                    {isGeneratingPrep ? 'Regenerating...' : 'Regenerate'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </details>
 
         <details className="group">
           <summary className="text-text-strong hover:text-primary cursor-pointer text-sm font-medium transition-colors">

@@ -54,6 +54,7 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     feedbackMutation,
     pipelineMutation,
     scoreMutation,
+    generatePrepMutation,
     enqueueProfileScrapeMutation,
   } = useNotebookMutations({ token });
 
@@ -142,6 +143,7 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
       scoreMutation.isPending ||
       feedbackMutation.isPending ||
       pipelineMutation.isPending ||
+      generatePrepMutation.isPending ||
       enqueueProfileScrapeMutation.isPending,
     enqueueProfileScrapeMutation,
     setNotebookSelectedOffer,
@@ -160,5 +162,7 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     updateFeedback: feedbackMutation.mutate,
     updatePipeline: pipelineMutation.mutate,
     rescore: scoreMutation.mutate,
+    generatePrep: generatePrepMutation.mutate,
+    isGeneratingPrep: generatePrepMutation.isPending,
   };
 };

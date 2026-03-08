@@ -92,6 +92,13 @@ export const scoreJobOffer = (token: string, id: string, minScore = 0) =>
     body: JSON.stringify({ minScore }),
   });
 
+export const generateJobOfferPrep = (token: string, id: string, payload: { instructions?: string } = {}) =>
+  apiRequest<Record<string, unknown>>(`/job-offers/${id}/generate-prep`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  });
+
 export const getJobOfferHistory = (token: string, id: string) =>
   apiRequest<JobOfferHistoryDto>(`/job-offers/${id}/history`, {
     method: 'GET',

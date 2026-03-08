@@ -10,6 +10,7 @@ describe('useAppUiStore', () => {
         filters: {
           status: 'ALL',
           mode: 'strict',
+          view: 'LIST',
           search: '',
           tag: '',
           hasScore: 'all',

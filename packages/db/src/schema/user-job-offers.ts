@@ -26,6 +26,7 @@ export const userJobOffersTable = pgTable(
     aiFeedbackScore: integer('ai_feedback_score'),
     aiFeedbackNotes: text('ai_feedback_notes'),
     pipelineMeta: jsonb('pipeline_meta'),
+    prepMaterials: jsonb('prep_materials'),
     notes: text('notes'),
     tags: jsonb('tags'),
     statusHistory: jsonb('status_history'),

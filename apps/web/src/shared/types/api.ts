@@ -408,6 +408,7 @@ export type JobOfferListItemDto = {
   aiFeedbackScore: number | null;
   aiFeedbackNotes: string | null;
   pipelineMeta: Record<string, unknown> | null;
+  prepMaterials: Record<string, unknown> | null;
   notes: string | null;
   tags: string[] | null;
   statusHistory: Array<{ status: JobOfferStatus; changedAt: string }> | null;

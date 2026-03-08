@@ -290,6 +290,92 @@ export class JobOffersService {
     return item;
   }
 
+  async generatePrepMaterials(userId: string, id: string, instructions?: string) {
+    const offer = await this.db
+      .select({
+        id: userJobOffersTable.id,
+        jobOfferId: jobOffersTable.id,
+        description: jobOffersTable.description,
+        title: jobOffersTable.title,
+        company: jobOffersTable.company,
+        prepMaterials: userJobOffersTable.prepMaterials,
+      })
+      .from(userJobOffersTable)
+      .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .where(and(eq(userJobOffersTable.id, id), eq(userJobOffersTable.userId, userId)))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!offer) {
+      throw new NotFoundException('Job offer not found');
+    }
+
+    const profile = await this.db
+      .select()
+      .from(careerProfilesTable)
+      .where(
+        and(
+          eq(careerProfilesTable.userId, userId),
+          eq(careerProfilesTable.isActive, true),
+          eq(careerProfilesTable.status, 'READY'),
+        ),
+      )
+      .orderBy(desc(careerProfilesTable.createdAt))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!profile?.contentJson) {
+      throw new BadRequestException('Career profile JSON is missing');
+    }
+
+    const parsedProfile = parseCandidateProfile(profile.contentJson);
+    if (!parsedProfile.success) {
+      throw new BadRequestException('Career profile JSON does not match canonical schema');
+    }
+
+    const prompt = [
+      'You are an expert career coach and technical recruiter. Your task is to prepare the candidate for an application to the provided job.',
+      'Return ONLY JSON in this exact shape:',
+      '{ "coverLetter": string, "interviewFocus": [string, string, string] }',
+      'The coverLetter should be a concise, modern cover letter bridging the candidate profile to the job description.',
+      'The interviewFocus should be an array of exactly 3 bullet points highlighting the strongest overlap or potential questions to prepare for.',
+      instructions ? `User instructions: ${instructions}` : '',
+      '',
+      'Candidate profile JSON:',
+      JSON.stringify(parsedProfile.data),
+      '',
+      'Job offer:',
+      JSON.stringify({ title: offer.title, company: offer.company, description: offer.description }),
+    ].join('\n');
+
+    const content = await this.geminiService.generateText(prompt, { model: this.scoringModel });
+
+    let prepMaterials: Record<string, unknown> = {};
+    const match = content.match(/```json\s*([\s\S]*?)\s*```/i);
+    const candidate = match?.[1] ?? this.extractJsonObject(content);
+
+    if (candidate) {
+      try {
+        prepMaterials = JSON.parse(candidate);
+      } catch {
+        throw new BadRequestException('Failed to parse generated materials');
+      }
+    } else {
+      throw new BadRequestException('LLM did not return JSON');
+    }
+
+    const [updated] = await this.db
+      .update(userJobOffersTable)
+      .set({
+        prepMaterials,
+        updatedAt: new Date(),
+      })
+      .where(eq(userJobOffersTable.id, offer.id))
+      .returning();
+
+    return updated.prepMaterials;
+  }
+
   async listStatusHistory(userId: string, limit = 20, offset = 0) {
     const items = await this.db
       .select({

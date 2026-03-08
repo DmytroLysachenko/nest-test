@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueScrape } from '@/features/job-sources/api/job-sources-api';
 import {
   scoreJobOffer,
+  generateJobOfferPrep,
   updateJobOfferFeedback,
   updateJobOfferMeta,
   updateJobOfferPipeline,
@@ -181,6 +182,18 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     },
   });
 
+  const generatePrepMutation = useMutation({
+    mutationFn: ({ id, instructions }: { id: string; instructions?: string }) =>
+      generateJobOfferPrep(token, id, { instructions }),
+    onSuccess: () => {
+      syncJobOffers();
+      toastSuccess('Interview prep generated');
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to generate prep materials'));
+    },
+  });
+
   const enqueueProfileScrapeMutation = useMutation({
     mutationFn: () =>
       enqueueScrape(token, {
@@ -207,6 +220,7 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     feedbackMutation,
     pipelineMutation,
     scoreMutation,
+    generatePrepMutation,
     enqueueProfileScrapeMutation,
   };
 };

@@ -15,15 +15,18 @@ import { UpdateJobOfferMetaDto } from './dto/update-job-offer-meta.dto';
 import { ListStatusHistoryQuery } from './dto/list-status-history.query';
 import { UpdateJobOfferFeedbackDto } from './dto/update-job-offer-feedback.dto';
 import { UpdateJobOfferPipelineDto } from './dto/update-job-offer-pipeline.dto';
+import { GeneratePrepDto } from './dto/generate-prep.dto';
 
 @ApiTags('job-offers')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('job-offers')
 export class JobOffersController {
+  // ... existing constructor ...
   constructor(private readonly jobOffersService: JobOffersService) {}
 
   @Get()
+  // ... existing get and patches ...
   @ApiOperation({ summary: 'List job offers for user' })
   @ApiOkResponse({ type: JobOfferListResponse })
   async list(@CurrentUser() user: JwtValidateUser, @Query() query: ListJobOffersQuery) {
@@ -82,6 +85,17 @@ export class JobOffersController {
     @Body() dto: UpdateJobOfferPipelineDto,
   ) {
     return this.jobOffersService.updatePipelineMeta(user.userId, id, dto);
+  }
+
+  @Post(':id/generate-prep')
+  @ApiOperation({ summary: 'Generate interview prep materials and cover letter' })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async generatePrepMaterials(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: GeneratePrepDto,
+  ) {
+    return this.jobOffersService.generatePrepMaterials(user.userId, id, dto.instructions);
   }
 
   @Post(':id/score')
