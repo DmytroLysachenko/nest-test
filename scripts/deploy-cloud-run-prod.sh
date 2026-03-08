@@ -108,10 +108,9 @@ upsert_scheduler_job() {
 
   echo "Syncing scheduler job: $job_name ($schedule)"
   
-  # We use comma as delimiter for gcloud's dict parser.
-  # The space in "Bearer token" must be handled carefully.
-  # Using double-quotes inside the outer gcloud command to preserve the space.
-  local headers="Authorization=Bearer ${token},Content-Type=application/json"
+  # We use ^|^ delimiter to safely handle the space in "Bearer token".
+  # Also using --update-headers as per gcloud documentation.
+  local headers="^|^Authorization=Bearer ${token}|Content-Type=application/json"
 
   if gcloud scheduler jobs describe "$job_name" --project="$GCP_PROJECT_ID" --location="$GCP_REGION" >/dev/null 2>&1; then
     gcloud scheduler jobs update http "$job_name" \
@@ -121,7 +120,7 @@ upsert_scheduler_job() {
       --time-zone="$timezone" \
       --uri="$uri" \
       --http-method=POST \
-      --headers="$headers" \
+      --update-headers="$headers" \
       --message-body='{}' \
       --attempt-deadline=30s \
       >/dev/null
