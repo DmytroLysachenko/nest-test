@@ -122,6 +122,18 @@ jobs:
           exit 1
       - name: Run smoke e2e
         run: pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-e2e.ps1
+      - name: Dump smoke logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          echo "== api.log =="
+          tail -n 200 .tmp-test-logs/api.log || true
+          echo "== worker.log =="
+          tail -n 200 .tmp-test-logs/worker.log || true
+          echo "== web.log =="
+          tail -n 200 .tmp-test-logs/web.log || true
+          echo "== .smoke-stack.log =="
+          tail -n 200 .smoke-stack.log || true
       - name: Stop local stack
         if: always()
         shell: bash
@@ -141,3 +153,4 @@ jobs:
             .profile-run-result.json
             .tmp-test-logs
           if-no-files-found: ignore
+          include-hidden-files: true
