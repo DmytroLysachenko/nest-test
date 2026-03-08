@@ -211,11 +211,11 @@ WEB_QUERY_DIAGNOSTICS_REFETCH_MS="${WEB_QUERY_DIAGNOSTICS_REFETCH_MS:-60000}"
 
 # DEFAULT SCHEDULES: Dramatically reduced to save budget and allow 0-scaling
 SCHEDULER_JOB_NAME="${SCHEDULER_JOB_NAME:-job-seek-schedule-trigger}"
-SCHEDULER_CRON="${SCHEDULER_CRON:-0 */4 * * *}" # Every 4 hours instead of 10 mins
+SCHEDULER_CRON="${SCHEDULER_CRON:-0 */12 * * *}" # Every 12 hours instead of 4
 SCHEDULER_TIMEZONE="${SCHEDULER_TIMEZONE:-Europe/Warsaw}"
 
 OPS_RECONCILE_JOB_NAME="${OPS_RECONCILE_JOB_NAME:-job-seek-reconcile-stale-runs}"
-OPS_RECONCILE_CRON="${OPS_RECONCILE_CRON:-30 */6 * * *}" # Every 6 hours instead of 15 mins
+OPS_RECONCILE_CRON="${OPS_RECONCILE_CRON:-0 2 * * *}" # Every 24 hours (at 2:00 AM) instead of 6
 OPS_RECONCILE_TIMEZONE="${OPS_RECONCILE_TIMEZONE:-Europe/Warsaw}"
 
 IMAGE_BASE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}"
