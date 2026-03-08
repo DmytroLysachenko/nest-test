@@ -169,6 +169,13 @@
       "when": 1772672400000,
       "tag": "0023_scrape_schedule_next_run",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1772899200000,
+      "tag": "0024_job_offers_expiry_fields",
+      "breakpoints": true
     }
   ]
 }
