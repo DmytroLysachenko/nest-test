@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { Pointer } from 'lucide-react';
 
 import { useNotebookOfferDetailsDrafts } from '@/features/job-offers/model/hooks/use-notebook-offer-details-drafts';
 import { Button } from '@/shared/ui/button';
@@ -12,6 +13,7 @@ import { Input } from '@/shared/ui/input';
 import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
+import { EmptyState } from '@/shared/ui/empty-state';
 
 import type { getJobOfferHistory } from '@/features/job-offers/api/job-offers-api';
 import type { JobOfferListItemDto, JobOfferStatus } from '@/shared/types/api';
@@ -45,9 +47,11 @@ export const NotebookOfferDetailsCard = ({
   if (!offer) {
     return (
       <Card title="Offer details" description="Select an offer from the list to inspect and edit it.">
-        <div className="app-muted-panel">
-          <p className="text-muted-foreground text-sm">No offer selected.</p>
-        </div>
+        <EmptyState
+          icon={<Pointer className="h-8 w-8" />}
+          title="No offer selected"
+          description="Click on an offer in the list to view its full details and history."
+        />
       </Card>
     );
   }

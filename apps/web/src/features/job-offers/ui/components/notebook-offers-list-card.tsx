@@ -1,5 +1,7 @@
 'use client';
 
+import { Inbox } from 'lucide-react';
+
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
@@ -126,6 +128,7 @@ export const NotebookOffersListCard = ({
       ) : (
         <div className="space-y-3">
           <EmptyState
+            icon={<Inbox className="h-8 w-8" />}
             title="No offers found"
             description="Try relaxing filters or switch mode to explore to discover more opportunities."
           />

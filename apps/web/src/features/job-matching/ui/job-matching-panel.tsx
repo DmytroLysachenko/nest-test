@@ -1,5 +1,7 @@
 'use client';
 
+import { FolderSearch } from 'lucide-react';
+
 import { useJobMatchingPanel } from '@/features/job-matching/model/hooks/use-job-matching-panel';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -7,6 +9,7 @@ import { Input } from '@/shared/ui/input';
 import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
+import { EmptyState } from '@/shared/ui/empty-state';
 
 type JobMatchingPanelProps = {
   token: string;
@@ -102,7 +105,11 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
             </article>
           ))
         ) : (
-          <p className="text-text-soft text-sm">No scoring history yet.</p>
+          <EmptyState
+            icon={<FolderSearch className="h-8 w-8" />}
+            title="No scoring history"
+            description="Manually evaluate a job description to see the results here."
+          />
         )}
       </div>
     </Card>

@@ -1,8 +1,11 @@
 'use client';
 
+import { FileX } from 'lucide-react';
+
 import { useDocumentsPanel } from '@/features/documents/model/hooks/use-documents-panel';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
+import { EmptyState } from '@/shared/ui/empty-state';
 
 type DocumentsPanelProps = {
   token: string;
@@ -137,9 +140,11 @@ export const DocumentsPanel = ({
             </article>
           ))
         ) : (
-          <div className="app-muted-panel">
-            <p className="text-text-soft text-sm">No documents yet.</p>
-          </div>
+          <EmptyState
+            icon={<FileX className="h-8 w-8" />}
+            title="No documents yet"
+            description="Upload your CV or LinkedIn export to ground the AI generation."
+          />
         )}
       </div>
 

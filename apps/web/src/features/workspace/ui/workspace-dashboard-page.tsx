@@ -1,8 +1,11 @@
 'use client';
 
+import { Inbox } from 'lucide-react';
+
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { useWorkspaceDashboardData } from '@/features/workspace/model/hooks/use-workspace-dashboard-data';
 import { PageErrorState, PageLoadingState, SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
+import { EmptyState } from '@/shared/ui/empty-state';
 import { Button } from '@/shared/ui/button';
 import { DataTableShell, HeroHeader, MetricCard, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
 import { Card } from '@/shared/ui/card';
@@ -409,11 +412,12 @@ export const WorkspaceDashboardPage = () => {
             </tbody>
           </table>
         ) : (
-          <div className="app-muted-panel">
-            <p className="text-text-strong text-sm font-medium">No offers yet</p>
-            <p className="text-text-soft mt-1 text-sm">
-              Enqueue a scrape from notebook or tester tools to populate the workspace.
-            </p>
+          <div className="p-4">
+            <EmptyState
+              icon={<Inbox className="h-8 w-8" />}
+              title="No offers yet"
+              description="Enqueue a scrape from notebook or tester tools to populate the workspace."
+            />
           </div>
         )}
       </DataTableShell>

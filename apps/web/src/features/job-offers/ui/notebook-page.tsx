@@ -9,6 +9,7 @@ import { NotebookOffersListCard } from '@/features/job-offers/ui/components/note
 import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { useAppUiStore } from '@/shared/store/app-ui-store';
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
+import { Button } from '@/shared/ui/button';
 
 type NotebookPageProps = {
   token: string;
@@ -102,50 +103,59 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
         onSearchChange={(value) => notebook.setNotebookFilter('search', value)}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,1fr)]">
-        {notebook.listQuery.isLoading ? (
-          <SectionLoadingState title="Offers" description="Loading notebook offers..." rows={7} />
-        ) : notebook.listError ? (
-          <SectionErrorState
-            title="Offers"
-            message={notebook.listError}
-            onRetry={() => {
-              void notebook.listQuery.refetch();
-            }}
-          />
-        ) : (
-          <NotebookOffersListCard
-            offers={notebook.listQuery.data?.items ?? []}
-            selectedId={notebook.selectedId}
-            selectedOfferIds={notebook.selectedOfferIds}
-            isBusy={notebook.isBusy}
-            offset={notebook.pagination.offset}
-            canPrev={notebook.canPrev}
-            canNext={notebook.canNext}
-            isAllVisibleSelected={notebook.isAllVisibleSelected}
-            mode={notebook.filters.mode}
-            onSelectOffer={notebook.setNotebookSelectedOffer}
-            onToggleOfferSelection={notebook.toggleNotebookSelectedOfferId}
-            onSelectAllVisible={() => {
-              if (notebook.isAllVisibleSelected) {
-                notebook.clearNotebookSelectedOfferIds();
-                return;
-              }
-              notebook.setNotebookSelectedOfferIds(notebook.selectedVisibleIds);
-            }}
-            onClearSelected={notebook.clearNotebookSelectedOfferIds}
-            onBulkStatusChange={(status) => {
-              notebook.bulkUpdateStatus({
-                ids: notebook.selectedOfferIds,
-                status,
-              });
-            }}
-            onPrev={() => notebook.setNotebookOffset(notebook.pagination.offset - notebook.pagination.limit)}
-            onNext={() => notebook.setNotebookOffset(notebook.pagination.offset + notebook.pagination.limit)}
-          />
-        )}
+      <div className="relative grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,1fr)]">
+        <div className={notebook.selectedId ? 'hidden xl:block' : 'block'}>
+          {notebook.listQuery.isLoading ? (
+            <SectionLoadingState title="Offers" description="Loading notebook offers..." rows={7} />
+          ) : notebook.listError ? (
+            <SectionErrorState
+              title="Offers"
+              message={notebook.listError}
+              onRetry={() => {
+                void notebook.listQuery.refetch();
+              }}
+            />
+          ) : (
+            <NotebookOffersListCard
+              offers={notebook.listQuery.data?.items ?? []}
+              selectedId={notebook.selectedId}
+              selectedOfferIds={notebook.selectedOfferIds}
+              isBusy={notebook.isBusy}
+              offset={notebook.pagination.offset}
+              canPrev={notebook.canPrev}
+              canNext={notebook.canNext}
+              isAllVisibleSelected={notebook.isAllVisibleSelected}
+              mode={notebook.filters.mode}
+              onSelectOffer={notebook.setNotebookSelectedOffer}
+              onToggleOfferSelection={notebook.toggleNotebookSelectedOfferId}
+              onSelectAllVisible={() => {
+                if (notebook.isAllVisibleSelected) {
+                  notebook.clearNotebookSelectedOfferIds();
+                  return;
+                }
+                notebook.setNotebookSelectedOfferIds(notebook.selectedVisibleIds);
+              }}
+              onClearSelected={notebook.clearNotebookSelectedOfferIds}
+              onBulkStatusChange={(status) => {
+                notebook.bulkUpdateStatus({
+                  ids: notebook.selectedOfferIds,
+                  status,
+                });
+              }}
+              onPrev={() => notebook.setNotebookOffset(notebook.pagination.offset - notebook.pagination.limit)}
+              onNext={() => notebook.setNotebookOffset(notebook.pagination.offset + notebook.pagination.limit)}
+            />
+          )}
+        </div>
 
-        <div className="xl:sticky xl:top-24 xl:self-start">
+        <div className={`${notebook.selectedId ? 'block' : 'hidden xl:block'} xl:sticky xl:top-24 xl:self-start`}>
+          {notebook.selectedId && (
+            <div className="mb-4 xl:hidden">
+              <Button variant="secondary" onClick={() => notebook.setNotebookSelectedOffer('')}>
+                ← Back to offers list
+              </Button>
+            </div>
+          )}
           <NotebookOfferDetailsCard
             offer={notebook.selectedOffer}
             history={notebook.historyQuery.data}

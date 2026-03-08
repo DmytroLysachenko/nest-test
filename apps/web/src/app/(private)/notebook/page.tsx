@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { Lock } from 'lucide-react';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { NotebookPage } from '@/features/job-offers';
@@ -37,6 +38,7 @@ export default function NotebookRoute() {
     return (
       <main className="app-page">
         <EmptyState
+          icon={<Lock className="h-8 w-8" />}
           title="Notebook is locked"
           description="Complete onboarding and finish at least one scrape run to unlock offer triage."
           actionLabel="Go to dashboard"
