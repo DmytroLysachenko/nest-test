@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
-const STATUS_VALUES = ['NEW', 'SEEN', 'SAVED', 'APPLIED', 'DISMISSED'] as const;
+const STATUS_VALUES = ['NEW', 'SEEN', 'SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER', 'REJECTED', 'ARCHIVED', 'DISMISSED'] as const;
 const SOURCE_VALUES = ['PRACUJ_PL'] as const;
 const RANKING_MODE_VALUES = ['strict', 'approx', 'explore'] as const;
 

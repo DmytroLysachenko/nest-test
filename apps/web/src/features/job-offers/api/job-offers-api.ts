@@ -1,6 +1,14 @@
 import { apiRequest } from '@/shared/lib/http/api-client';
 
-import type { JobOfferHistoryDto, JobOffersListDto, JobOfferScoreResultDto, JobOfferStatus } from '@/shared/types/api';
+import type {
+  JobOfferHistoryDto,
+  JobOfferSummaryDto,
+  JobOffersListDto,
+  JobOfferScoreResultDto,
+  JobOfferStatus,
+  NotebookPreferencesDto,
+  NotebookFiltersDto,
+} from '@/shared/types/api';
 
 export type ListJobOffersParams = {
   limit?: number;
@@ -115,6 +123,28 @@ export const getJobOfferHistory = (token: string, id: string) =>
   apiRequest<JobOfferHistoryDto>(`/job-offers/${id}/history`, {
     method: 'GET',
     token,
+  });
+
+export const getNotebookPreferences = (token: string) =>
+  apiRequest<NotebookPreferencesDto>('/job-offers/preferences', {
+    method: 'GET',
+    token,
+  });
+
+export const getNotebookSummary = (token: string) =>
+  apiRequest<JobOfferSummaryDto>('/job-offers/summary', {
+    method: 'GET',
+    token,
+  });
+
+export const updateNotebookPreferences = (
+  token: string,
+  payload: { filters: NotebookFiltersDto; savedPreset: NotebookFiltersDto | null },
+) =>
+  apiRequest<NotebookPreferencesDto>('/job-offers/preferences', {
+    method: 'PUT',
+    token,
+    body: JSON.stringify(payload),
   });
 
 export type JobOfferPreviewRow = {

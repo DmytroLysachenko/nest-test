@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, desc, eq, isNull, lt, not, sql } from 'drizzle-orm';
-import { careerProfilesTable, jobOffersTable, userJobOffersTable } from '@repo/db';
+import { careerProfilesTable, jobOffersTable, notebookPreferencesTable, userJobOffersTable } from '@repo/db';
 import { z } from 'zod';
 
 import { Drizzle } from '@/common/decorators';
@@ -16,11 +16,20 @@ import {
 } from '@/features/job-offers/notebook-ranking';
 
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
+import { UpdateNotebookPreferencesDto } from './dto/notebook-preferences.dto';
 
 import type { Env } from '@/config/env';
 import type { JobOfferStatus, JobSource } from '@repo/db';
 
 const LLM_SCORE_TIMEOUT_MS = 20000;
+const defaultNotebookFilters = {
+  status: 'ALL',
+  mode: 'strict',
+  view: 'LIST',
+  search: '',
+  tag: '',
+  hasScore: 'all',
+} as const;
 
 @Injectable()
 export class JobOffersService {
@@ -169,6 +178,142 @@ export class JobOffersService {
         tuning: this.rankingTuning,
       },
     };
+  }
+
+  async getNotebookSummary(userId: string) {
+    const items = await this.db
+      .select({
+        id: userJobOffersTable.id,
+        status: userJobOffersTable.status,
+        matchScore: userJobOffersTable.matchScore,
+        matchMeta: userJobOffersTable.matchMeta,
+        createdAt: userJobOffersTable.createdAt,
+        lastStatusAt: userJobOffersTable.lastStatusAt,
+      })
+      .from(userJobOffersTable)
+      .where(eq(userJobOffersTable.userId, userId))
+      .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt));
+
+    const total = items.length;
+    const scored = items.filter((item) => item.matchScore != null).length;
+    const unscored = total - scored;
+    const rankedStrictItems = items.map((item) => ({
+      ...item,
+      ranking: computeNotebookOfferRanking(
+        {
+          matchScore: item.matchScore,
+          matchMeta: (item.matchMeta as Record<string, unknown> | null) ?? null,
+        },
+        'strict',
+        this.rankingTuning,
+      ),
+    }));
+
+    const highConfidenceStrict = rankedStrictItems.filter(
+      (item) =>
+        Number(item.matchScore ?? 0) >= 70 &&
+        item.ranking.include &&
+        item.ranking.explanationTags.includes('strict-mode'),
+    ).length;
+    const staleCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const staleUntriaged = items.filter(
+      (item) =>
+        (item.status === 'NEW' || item.status === 'SEEN') &&
+        new Date(item.lastStatusAt ?? item.createdAt) < staleCutoff,
+    ).length;
+
+    const bucketDefinitions = [
+      { key: 'new', label: 'New', count: items.filter((item) => item.status === 'NEW').length },
+      { key: 'saved', label: 'Saved', count: items.filter((item) => item.status === 'SAVED').length },
+      { key: 'applied', label: 'Applied', count: items.filter((item) => item.status === 'APPLIED').length },
+      {
+        key: 'interviewing',
+        label: 'Interviewing',
+        count: items.filter((item) => item.status === 'INTERVIEWING').length,
+      },
+      { key: 'offer', label: 'Offers', count: items.filter((item) => item.status === 'OFFER').length },
+      { key: 'rejected', label: 'Rejected', count: items.filter((item) => item.status === 'REJECTED').length },
+    ];
+
+    const tagCounts = new Map<string, number>();
+    for (const item of rankedStrictItems) {
+      for (const tag of item.ranking.explanationTags) {
+        tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+      }
+    }
+
+    return {
+      total,
+      scored,
+      unscored,
+      highConfidenceStrict,
+      staleUntriaged,
+      buckets: bucketDefinitions,
+      topExplanationTags: Array.from(tagCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([tag, count]) => ({ tag, count })),
+    };
+  }
+
+  async getPreferences(userId: string) {
+    const existing = await this.db
+      .select()
+      .from(notebookPreferencesTable)
+      .where(eq(notebookPreferencesTable.userId, userId))
+      .limit(1)
+      .then(([item]) => item);
+
+    if (existing) {
+      return existing;
+    }
+
+    const now = new Date();
+    return {
+      id: 'default',
+      userId,
+      filters: defaultNotebookFilters,
+      savedPreset: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  async updatePreferences(userId: string, input: UpdateNotebookPreferencesDto) {
+    const now = new Date();
+    const existing = await this.db
+      .select({ id: notebookPreferencesTable.id })
+      .from(notebookPreferencesTable)
+      .where(eq(notebookPreferencesTable.userId, userId))
+      .limit(1)
+      .then(([item]) => item);
+
+    if (existing) {
+      const [updated] = await this.db
+        .update(notebookPreferencesTable)
+        .set({
+          filters: input.filters,
+          savedPreset: input.savedPreset ?? null,
+          updatedAt: now,
+        })
+        .where(eq(notebookPreferencesTable.id, existing.id))
+        .returning();
+
+      return updated;
+    }
+
+    const [created] = await this.db
+      .insert(notebookPreferencesTable)
+      .values({
+        userId,
+        filters: input.filters,
+        savedPreset: input.savedPreset ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+
+    return created;
   }
 
   async updateStatus(userId: string, id: string, status: JobOfferStatus) {

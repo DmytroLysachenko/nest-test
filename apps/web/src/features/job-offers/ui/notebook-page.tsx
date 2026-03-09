@@ -67,6 +67,8 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
         total={notebook.listQuery.data?.total ?? 0}
         listUpdatedAt={notebook.listQuery.dataUpdatedAt}
         isBusy={notebook.isBusy}
+        summary={notebook.notebookSummary ?? null}
+        onQuickAction={notebook.applyQuickAction}
         onEnqueueProfileScrape={() => notebook.enqueueProfileScrapeMutation.mutate()}
         enqueueStatus={notebook.enqueueProfileScrapeMutation.status}
         onDismissAllSeen={notebook.dismissAllSeen}

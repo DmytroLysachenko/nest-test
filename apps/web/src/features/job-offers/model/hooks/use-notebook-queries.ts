@@ -3,7 +3,12 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { getJobOfferHistory, listJobOffers } from '@/features/job-offers/api/job-offers-api';
+import {
+  getJobOfferHistory,
+  getNotebookPreferences,
+  getNotebookSummary,
+  listJobOffers,
+} from '@/features/job-offers/api/job-offers-api';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
 import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
@@ -41,9 +46,29 @@ export const useNotebookQueries = ({ token, listParams, selectedId }: UseNoteboo
     }),
   );
 
+  const preferencesQuery = useQuery(
+    buildAuthedQueryOptions({
+      token,
+      queryKey: queryKeys.jobOffers.preferences(token),
+      queryFn: getNotebookPreferences,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+    }),
+  );
+
+  const summaryQuery = useQuery(
+    buildAuthedQueryOptions({
+      token,
+      queryKey: queryKeys.jobOffers.summary(token),
+      queryFn: getNotebookSummary,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+    }),
+  );
+
   return {
     listQuery,
     selectedOffer,
     historyQuery,
+    preferencesQuery,
+    summaryQuery,
   };
 };

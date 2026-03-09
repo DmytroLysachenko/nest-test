@@ -5,6 +5,7 @@ import * as sessions from './passport';
 import * as otps from './otps';
 import * as profileInputs from './profile-inputs';
 import * as onboardingDrafts from './onboarding-drafts';
+import * as notebookPreferences from './notebook-preferences';
 import * as documents from './documents';
 import * as documentEvents from './document-events';
 import * as documentStageMetrics from './document-stage-metrics';
@@ -25,6 +26,7 @@ export * from './passport';
 export * from './otps';
 export * from './profile-inputs';
 export * from './onboarding-drafts';
+export * from './notebook-preferences';
 export * from './documents';
 export * from './document-events';
 export * from './document-stage-metrics';
@@ -49,6 +51,7 @@ const schema = {
   ...otps,
   ...profileInputs,
   ...onboardingDrafts,
+  ...notebookPreferences,
   ...documents,
   ...documentEvents,
   ...documentStageMetrics,

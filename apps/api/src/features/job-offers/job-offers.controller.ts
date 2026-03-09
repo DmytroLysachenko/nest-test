@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -22,12 +23,13 @@ import { JobOffersService } from './job-offers.service';
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
 import { UpdateJobOfferStatusDto } from './dto/update-job-offer-status.dto';
 import { ScoreJobOfferDto } from './dto/score-job-offer.dto';
-import { JobOfferListResponse } from './dto/job-offer.response';
+import { JobOfferListResponse, JobOfferSummaryResponse } from './dto/job-offer.response';
 import { UpdateJobOfferMetaDto } from './dto/update-job-offer-meta.dto';
 import { ListStatusHistoryQuery } from './dto/list-status-history.query';
 import { UpdateJobOfferFeedbackDto } from './dto/update-job-offer-feedback.dto';
 import { UpdateJobOfferPipelineDto } from './dto/update-job-offer-pipeline.dto';
 import { GeneratePrepDto } from './dto/generate-prep.dto';
+import { NotebookPreferencesResponse, UpdateNotebookPreferencesDto } from './dto/notebook-preferences.dto';
 
 @ApiTags('job-offers')
 @ApiBearerAuth()
@@ -43,6 +45,27 @@ export class JobOffersController {
   @ApiOkResponse({ type: JobOfferListResponse })
   async list(@CurrentUser() user: JwtValidateUser, @Query() query: ListJobOffersQuery) {
     return this.jobOffersService.list(user.userId, query);
+  }
+
+  @Get('summary')
+  @ApiOperation({ summary: 'Get notebook triage summary for current user' })
+  @ApiOkResponse({ type: JobOfferSummaryResponse })
+  async getSummary(@CurrentUser() user: JwtValidateUser) {
+    return this.jobOffersService.getNotebookSummary(user.userId);
+  }
+
+  @Get('preferences')
+  @ApiOperation({ summary: 'Get persisted notebook preferences for current user' })
+  @ApiOkResponse({ type: NotebookPreferencesResponse })
+  async getPreferences(@CurrentUser() user: JwtValidateUser) {
+    return this.jobOffersService.getPreferences(user.userId);
+  }
+
+  @Put('preferences')
+  @ApiOperation({ summary: 'Create or update persisted notebook preferences for current user' })
+  @ApiOkResponse({ type: NotebookPreferencesResponse })
+  async updatePreferences(@CurrentUser() user: JwtValidateUser, @Body() dto: UpdateNotebookPreferencesDto) {
+    return this.jobOffersService.updatePreferences(user.userId, dto);
   }
 
   @Get('status-history')

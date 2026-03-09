@@ -95,3 +95,45 @@ export class JobOfferListResponse {
   @ApiProperty({ enum: ['strict', 'approx', 'explore'] })
   mode!: 'strict' | 'approx' | 'explore';
 }
+
+class JobOfferSummaryBucket {
+  @ApiProperty()
+  key!: string;
+
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  count!: number;
+}
+
+class JobOfferExplanationTag {
+  @ApiProperty()
+  tag!: string;
+
+  @ApiProperty()
+  count!: number;
+}
+
+export class JobOfferSummaryResponse {
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  scored!: number;
+
+  @ApiProperty()
+  unscored!: number;
+
+  @ApiProperty()
+  highConfidenceStrict!: number;
+
+  @ApiProperty()
+  staleUntriaged!: number;
+
+  @ApiProperty({ type: [JobOfferSummaryBucket] })
+  buckets!: JobOfferSummaryBucket[];
+
+  @ApiProperty({ type: [JobOfferExplanationTag] })
+  topExplanationTags!: JobOfferExplanationTag[];
+}

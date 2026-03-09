@@ -17,6 +17,7 @@ describe('useAppUiStore', () => {
         },
         savedPreset: null,
         lastInteractionAt: null,
+        hydratedFromServer: false,
         pagination: {
           offset: 0,
           limit: 20,
