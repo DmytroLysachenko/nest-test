@@ -60,6 +60,22 @@ export class DocumentsController {
     return this.documentsService.extractText(user.userId, dto, requestId);
   }
 
+  @Post(':id/retry-extraction')
+  @ApiOperation({ summary: 'Retry extraction for a specific document' })
+  async retryExtraction(
+    @CurrentUser() user: JwtValidateUser,
+    @Headers('x-request-id') requestId: string | undefined,
+    @Param('id') documentId: string,
+  ) {
+    return this.documentsService.retryExtraction(user.userId, documentId, requestId);
+  }
+
+  @Post('retry-failed')
+  @ApiOperation({ summary: 'Retry extraction for all failed documents' })
+  async retryFailed(@CurrentUser() user: JwtValidateUser, @Headers('x-request-id') requestId: string | undefined) {
+    return this.documentsService.retryFailedExtractions(user.userId, requestId);
+  }
+
   @Get(':id/events')
   @ApiOperation({ summary: 'Get document upload/extraction diagnostics timeline' })
   @ApiOkResponse({ type: [DocumentEventResponse] })

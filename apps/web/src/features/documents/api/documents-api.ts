@@ -40,6 +40,21 @@ export const extractDocument = (token: string, documentId: string) =>
     body: JSON.stringify({ documentId }),
   });
 
+export const retryDocumentExtraction = (token: string, documentId: string) =>
+  apiRequest<DocumentDto>(`/documents/${documentId}/retry-extraction`, {
+    method: 'POST',
+    token,
+  });
+
+export const retryFailedDocumentExtractions = (token: string) =>
+  apiRequest<{ retried: number; failed: Array<{ documentId: string; error: string }>; totalFailed: number }>(
+    '/documents/retry-failed',
+    {
+      method: 'POST',
+      token,
+    },
+  );
+
 export const listDocuments = (token: string) =>
   apiRequest<DocumentDto[]>('/documents', {
     method: 'GET',

@@ -3,8 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { getDocumentDiagnosticsSummary } from '@/features/documents/api/documents-api';
-import { getJobSourceRunDiagnosticsSummary } from '@/features/job-sources/api/job-sources-api';
-import { getJobOffersPreview, listJobOffers } from '@/features/job-offers/api/job-offers-api';
+import { getJobSourceRunDiagnosticsSummary, getScrapeSchedule } from '@/features/job-sources/api/job-sources-api';
+import { getJobOffersPreview, getNotebookSummary, listJobOffers } from '@/features/job-offers/api/job-offers-api';
 import { getWorkspaceSummary } from '@/features/workspace/api/workspace-api';
 import { env } from '@/shared/config/env';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
@@ -52,10 +52,30 @@ export const useWorkspaceDashboardQueries = (token: string | null) => {
     }),
   );
 
+  const notebookSummaryQuery = useQuery(
+    buildAuthedQueryOptions({
+      token,
+      queryKey: queryKeys.jobOffers.summary(token),
+      queryFn: getNotebookSummary,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+    }),
+  );
+
+  const scheduleQuery = useQuery(
+    buildAuthedQueryOptions({
+      token,
+      queryKey: queryKeys.jobSources.schedule(token),
+      queryFn: getScrapeSchedule,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+    }),
+  );
+
   return {
     summaryQuery,
     offersQuery,
     diagnosticsSummaryQuery,
     documentDiagnosticsSummaryQuery,
+    notebookSummaryQuery,
+    scheduleQuery,
   };
 };

@@ -26,7 +26,7 @@ export const useDocumentsPanel = ({ token, overrideDocumentsQuery }: UseDocument
 
   const documentsQuery = overrideDocumentsQuery ?? internalDocumentsQuery;
 
-  const { uploadMutation, retryExtractMutation, removeDocumentMutation } = useDocumentsPanelMutations({
+  const { uploadMutation, retryExtractMutation, retryAllFailedMutation, removeDocumentMutation } = useDocumentsPanelMutations({
     token,
     selectedFile,
     setSelectedDocumentId,
@@ -48,6 +48,7 @@ export const useDocumentsPanel = ({ token, overrideDocumentsQuery }: UseDocument
     documentEventsQuery,
     uploadMutation,
     retryExtractMutation,
+    retryAllFailedMutation,
     removeDocumentMutation,
   };
 };

@@ -91,6 +91,25 @@ export const WorkspaceDashboardPage = () => {
   const offers = dashboard.offers;
   const diagnostics = dashboard.diagnosticsSummary;
   const documentDiagnostics = dashboard.documentDiagnosticsSummary;
+  const notebookSummary = dashboard.notebookSummary;
+  const schedule = dashboard.schedule;
+  const nextAction = summary.nextAction ?? {
+    key: 'triage-notebook',
+    title: 'Review your notebook',
+    description: 'Use notebook and profile tools to keep the workspace moving.',
+    href: '/notebook',
+    priority: 'info' as const,
+  };
+  const health = summary.health ?? {
+    readinessScore: 0,
+    blockers: [],
+    scrapeReliability: 'watch' as const,
+  };
+  const activity = summary.activity ?? [
+    { key: 'profile', label: 'Profile updated', timestamp: summary.profile.updatedAt, tone: 'info' as const },
+    { key: 'offers', label: 'Offers last updated', timestamp: summary.offers.lastUpdatedAt, tone: 'info' as const },
+    { key: 'scrape', label: 'Last scrape run', timestamp: summary.scrape.lastRunAt, tone: 'info' as const },
+  ];
 
   return (
     <main className="app-page">
@@ -163,6 +182,20 @@ export const WorkspaceDashboardPage = () => {
             tone: summary.offers.total > 0 ? 'info' : 'warning',
           }}
         />
+        <MetricCard
+          label="Readiness Score"
+          value={`${health.readinessScore}%`}
+          caption={`Next: ${nextAction.title}`}
+          trend={{
+            label: health.blockers.length ? health.blockers.join(', ') : 'Workspace unblocked',
+            tone:
+              health.scrapeReliability === 'stable'
+                ? 'success'
+                : health.scrapeReliability === 'watch'
+                  ? 'warning'
+                  : 'danger',
+          }}
+        />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
@@ -230,13 +263,44 @@ export const WorkspaceDashboardPage = () => {
             <Button
               variant="secondary"
               className="h-9 w-full text-xs"
-              onClick={() => (window.location.href = '/tester')}
+              onClick={() => (window.location.href = auth.user?.role === 'admin' ? '/ops' : '/tester')}
             >
               View Full Diagnostics
             </Button>
           </div>
         </Card>
       </div>
+
+      <Card title="Next Best Action" description="Recommended move based on current workspace state.">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-2">
+            <StatusPill value={nextAction.priority} tone={nextAction.priority === 'critical' ? 'danger' : nextAction.priority === 'recommended' ? 'warning' : 'info'} />
+            <p className="text-text-strong text-lg font-semibold">{nextAction.title}</p>
+            <p className="text-text-soft text-sm">{nextAction.description}</p>
+          </div>
+          <Button onClick={() => (window.location.href = nextAction.href)}>Open</Button>
+        </div>
+      </Card>
+
+      {summary.blockerDetails?.length ? (
+        <Card title="Recovery Center" description="Targeted fixes for current workflow blockers.">
+          <div className="grid gap-3 md:grid-cols-2">
+            {summary.blockerDetails.map((blocker) => (
+              <div key={blocker.key} className="app-muted-panel space-y-2">
+                <StatusPill
+                  value={blocker.severity}
+                  tone={blocker.severity === 'critical' ? 'danger' : blocker.severity === 'warning' ? 'warning' : 'info'}
+                />
+                <p className="text-text-strong font-semibold">{blocker.title}</p>
+                <p className="text-text-soft text-sm">{blocker.description}</p>
+                <Button size="sm" onClick={() => (window.location.href = blocker.href)}>
+                  {blocker.ctaLabel}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       <section className="app-section-grid">
         <div className="space-y-4">
@@ -261,6 +325,29 @@ export const WorkspaceDashboardPage = () => {
               ))}
             </div>
           </Card>
+
+          {schedule ? (
+            <Card title="Automation Schedule" description="Current scrape automation status and next run.">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="app-muted-panel">
+                  <p className="text-text-soft">Enabled</p>
+                  <p className="text-text-strong mt-1 font-medium">{schedule.enabled ? 'Yes' : 'No'}</p>
+                </div>
+                <div className="app-muted-panel">
+                  <p className="text-text-soft">Next run</p>
+                  <p className="text-text-strong mt-1 font-medium">{formatDateTime(schedule.nextRunAt)}</p>
+                </div>
+                <div className="app-muted-panel">
+                  <p className="text-text-soft">Last status</p>
+                  <p className="text-text-strong mt-1 font-medium">{schedule.lastRunStatus ?? 'n/a'}</p>
+                </div>
+                <div className="app-muted-panel">
+                  <p className="text-text-soft">Cadence</p>
+                  <p className="text-text-strong mt-1 font-medium">{schedule.cron}</p>
+                </div>
+              </div>
+            </Card>
+          ) : null}
 
           {dashboard.isDiagnosticsLoading ? (
             <SectionLoadingState
@@ -412,20 +499,40 @@ export const WorkspaceDashboardPage = () => {
 
           <Card title="Recent Activity" description="Key timestamps from workspace operations.">
             <div className="space-y-3 text-sm">
-              <div className="app-muted-panel">
-                <p className="text-text-soft">Profile updated</p>
-                <p className="text-text-strong mt-1 font-medium">{formatDateTime(summary.profile.updatedAt)}</p>
-              </div>
-              <div className="app-muted-panel">
-                <p className="text-text-soft">Offers last updated</p>
-                <p className="text-text-strong mt-1 font-medium">{formatDateTime(summary.offers.lastUpdatedAt)}</p>
-              </div>
-              <div className="app-muted-panel">
-                <p className="text-text-soft">Last scrape run</p>
-                <p className="text-text-strong mt-1 font-medium">{formatDateTime(summary.scrape.lastRunAt)}</p>
-              </div>
+              {activity.map((item) => (
+                <div key={item.key} className="app-muted-panel">
+                  <p className="text-text-soft">{item.label}</p>
+                  <p className="text-text-strong mt-1 font-medium">{formatDateTime(item.timestamp)}</p>
+                </div>
+              ))}
             </div>
           </Card>
+
+          {summary.readinessBreakdown?.length ? (
+            <Card title="Readiness Breakdown" description="Server-driven stage health for setup and daily usage.">
+              <div className="space-y-3">
+                {summary.readinessBreakdown.map((step) => (
+                  <div key={step.key} className="app-muted-panel">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-text-strong text-sm font-semibold">{step.label}</p>
+                      <StatusPill value={step.ready ? 'ready' : 'blocked'} tone={step.ready ? 'success' : 'warning'} />
+                    </div>
+                    <p className="text-text-soft mt-2 text-sm">{step.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ) : null}
+
+          {notebookSummary ? (
+            <Card title="Notebook Focus" description="Suggested buckets for the next triage session.">
+              <div className="space-y-3">
+                <StatRow label="Unscored offers" value={String(notebookSummary.unscored)} tone={notebookSummary.unscored > 0 ? 'warning' : 'success'} />
+                <StatRow label="High confidence strict" value={String(notebookSummary.highConfidenceStrict)} tone="success" />
+                <StatRow label="Stale untriaged" value={String(notebookSummary.staleUntriaged)} tone={notebookSummary.staleUntriaged > 0 ? 'warning' : 'neutral'} />
+              </div>
+            </Card>
+          ) : null}
 
           <Card title="Failure Guide" description="How to interpret most common run failures.">
             <div className="space-y-3">

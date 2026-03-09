@@ -7,6 +7,8 @@ import {
   createUploadUrl,
   extractDocument,
   removeDocument,
+  retryDocumentExtraction,
+  retryFailedDocumentExtractions,
   uploadFileToSignedUrl,
 } from '@/features/documents/api/documents-api';
 import { detectDocumentType } from '@/features/documents/model/utils/detect-document-type';
@@ -81,13 +83,24 @@ export const useDocumentsPanelMutations = ({
   });
 
   const retryExtractMutation = useMutation({
-    mutationFn: (documentId: string) => extractDocument(token, documentId),
+    mutationFn: (documentId: string) => retryDocumentExtraction(token, documentId),
     onSuccess: () => {
       syncDocuments();
       toastSuccess('Extraction retried');
     },
     onError: (error) => {
       toastError(toUserErrorMessage(error, 'Failed to retry extraction'));
+    },
+  });
+
+  const retryAllFailedMutation = useMutation({
+    mutationFn: () => retryFailedDocumentExtractions(token),
+    onSuccess: (result) => {
+      syncDocuments();
+      toastSuccess(`Retried ${result.retried} failed document(s)`);
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to retry failed documents'));
     },
   });
 
@@ -106,6 +119,7 @@ export const useDocumentsPanelMutations = ({
   return {
     uploadMutation,
     retryExtractMutation,
+    retryAllFailedMutation,
     removeDocumentMutation,
   };
 };
