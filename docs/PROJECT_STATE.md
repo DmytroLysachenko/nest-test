@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-03-05
+Last updated: 2026-03-09
 
 ## Current Architecture
 
@@ -75,6 +75,8 @@ Last updated: 2026-03-05
 - Onboarding draft persistence now supports both local draft and server-side draft recovery (`/onboarding/draft`).
 - Workspace summary read model (`/workspace/summary`) powers dashboard cards and onboarding guard decisions.
 - Workspace summary supports optional in-memory ttl cache (`WORKSPACE_SUMMARY_CACHE_TTL_SEC`).
+- Workspace summary now includes deterministic next-action, activity timeline, and readiness health signals for the product dashboard.
+- Workspace summary now also exposes server-driven recovery guidance (`readinessBreakdown`, `blockerDetails`, `recommendedSequence`) for dashboard and notebook blocked states.
 - Global API throttling is now env-tunable (`API_THROTTLE_TTL_MS`, `API_THROTTLE_LIMIT`).
 - Frontend query freshness/polling defaults are env-tunable (`NEXT_PUBLIC_QUERY_*`).
 - Frontend runtime env guard now rejects localhost/non-https API/worker URLs in production.
@@ -90,6 +92,14 @@ Last updated: 2026-03-05
 - Production deploy now auto-upserts a second Cloud Scheduler job for `/api/ops/reconcile-stale-runs`.
 - Production deploy now converges Cloud Tasks queue retry policy on every rollout (main queue + reserved DLQ queue provisioning).
 - Production bootstrap rejects wildcard CORS (`ALLOWED_ORIGINS=*`) in production mode.
+- Notebook filter/view preferences are now persisted server-side and restored across sessions/devices.
+- Notebook now exposes a dedicated summary read model (`GET /api/job-offers/summary`) for triage counts, quick actions, and explanation-tag rollups.
+- Scrape runs now support richer filtered history, CSV export, and per-source health summary endpoints.
+- Admin ops now supports callback event CSV export and a private web ops console.
+- Worker diagnostics now classify empty/degraded/blocked outcomes with explicit `resultKind`, `emptyReason`, and `sourceQuality` fields.
+- Documents now support authenticated extraction recovery endpoints (`POST /api/documents/:id/retry-extraction`, `POST /api/documents/retry-failed`) with audit events.
+- Job-source UX now exposes authenticated scrape preflight (`GET /api/job-sources/preflight`) and user-triggered schedule enqueue (`POST /api/job-sources/schedule/trigger-now`).
+- Local e2e fixture seeding now uses retry/backoff and smoke waits for service health before workflow assertions.
 
 ## Data Model Highlights
 
@@ -114,9 +124,15 @@ Last updated: 2026-03-05
 
 - `GET /api/career-profiles/search-view`
 - `GET /api/workspace/summary`
+- `GET /api/job-offers/preferences`
+- `PUT /api/job-offers/preferences`
 - `GET /api/job-matching/audit`
 - `GET /api/job-matching/audit/export.csv`
 - `GET /api/documents/diagnostics/summary`
+- `GET /api/job-sources/sources/health`
+- `GET /api/job-sources/runs/export.csv`
+- `GET /api/ops/scrape/callback-events/export.csv`
+- `GET /api/job-offers/summary`
 - Purpose:
   - fast filtering without parsing `content_json`
   - FE/tester support for profile diagnostics and search-readiness checks
@@ -140,3 +156,4 @@ Last updated: 2026-03-05
 - Worker runtime now prioritizes Cloud Run `PORT` with local fallback to `WORKER_PORT`.
 - Canonical deployment/runtime env+secret contract is documented in `docs/GCP_DEPLOY_MATRIX.md`.
 - New table `job_source_run_attempts` captures per-run attempt outcomes for deterministic callback auditing.
+- Recovery and automation smoke still require local API/worker/web services to be started before the readiness probes can succeed.
