@@ -2,6 +2,21 @@
 
 Last updated: 2026-03-09
 
+## Milestone Progress Snapshot
+
+- M1 Core Intake + AI: completed
+  - auth, profile input intake, document extraction, career-profile generation
+- M2 Extraction + Matching: completed
+  - canonical profile schema, deterministic matching, persisted match audit metadata
+- M3 BE + Worker Hardening: completed
+  - worker callback safety, retry taxonomy, stale-run reconciliation, diagnostics, queue/deploy hardening
+- M4 Frontend Workflow Completion: substantially implemented, still being polished
+  - onboarding, notebook-first dashboard, persisted notebook preferences, recovery guidance, schedule/preflight controls
+- M5 Robust Job Assistant Service: started
+  - notebook triage summary, ops surfaces, workflow recovery, support-grade exports
+- M6 Automation + Cloud Readiness: partially implemented
+  - scheduler wiring, Cloud Run release path, post-deploy health checks, smoke/readiness hardening
+
 ## Current Architecture
 
 - Monorepo apps:
@@ -22,6 +37,60 @@ Last updated: 2026-03-09
 - Scrape orchestration from API to worker callback.
 - User notebook flow for status/meta/history/scoring.
 - End-to-end smoke script with DB seed + API/worker/web checks.
+
+## User-Facing Product Progress
+
+- Onboarding and setup
+  - guided onboarding route
+  - local + server draft recovery
+  - profile/document based readiness signals
+- Workspace and recovery
+  - notebook-first dashboard
+  - next-action and activity timeline
+  - recovery center with blocker-specific CTA routing
+  - readiness breakdown and recommended setup sequence
+- Documents
+  - upload + extraction diagnostics
+  - upload-health visibility
+  - retry single failed extraction
+  - retry all failed extractions
+- Notebook and applications
+  - list/pipeline views
+  - strict/approx/explore ranking modes
+  - persisted filters and saved preset
+  - summary counts for quick triage
+  - bulk status flows, metadata, scoring, prep generation
+- Scraping and automation
+  - manual enqueue
+  - profile-derived scrape resolution
+  - preflight blockers/warnings before enqueue
+  - user-managed scrape schedule
+  - trigger-now for enabled schedule
+- Admin/support operations
+  - metrics dashboard
+  - run history and callback event export
+  - source health summary
+  - dead-letter replay and stale-run reconcile controls
+
+## Backend and Platform Progress By Area
+
+- API orchestrator
+  - owns all user workflow read models and recovery decisions
+  - explicit DTO coverage has improved for notebook, ops, schedule, and workspace summary
+  - contract surface is now broad enough to support a product UI instead of internal-tool panels
+- Worker
+  - scrape lifecycle visibility is materially stronger
+  - diagnostics now distinguish degraded/empty/blocked outcomes
+  - callback envelope is replay-safe and increasingly support-friendly
+- Web
+  - major move from panel-heavy internal tooling toward guided product workflow
+  - still contains mixed maturity areas where some screens feel productized and some remain utilitarian
+- Database and migrations
+  - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields
+- CI/CD and smoke
+  - split verify/smoke gates exist
+  - release candidate and manual production promotion exist
+  - smoke is broader, but still depends on local services actually being started
 
 ## Key Technical Decisions Active in Code
 
@@ -157,3 +226,13 @@ Last updated: 2026-03-09
 - Canonical deployment/runtime env+secret contract is documented in `docs/GCP_DEPLOY_MATRIX.md`.
 - New table `job_source_run_attempts` captures per-run attempt outcomes for deterministic callback auditing.
 - Recovery and automation smoke still require local API/worker/web services to be started before the readiness probes can succeed.
+
+## Highest-Value Remaining Gaps
+
+- Local and CI smoke is more robust, but full startup orchestration is still not self-contained.
+- Worker queue remains in-memory, so crash resilience is below production-grade background-job expectations.
+- Scraper quality is still heavily tied to one source and its DOM behavior.
+- Notebook productivity is better, but there is not yet a full follow-up/reminder or pipeline automation layer.
+- Document recovery exists, but extraction/profile-generation background execution is not yet moved to a durable async pipeline.
+- Support surfaces are present, but alerting and long-horizon observability are still limited.
+- Frontend has improved workflow structure, but visual/design consistency is still mixed across older and newer surfaces.

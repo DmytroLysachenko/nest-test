@@ -2,6 +2,15 @@
 
 Last updated: 2026-03-09
 
+## Product Direction
+
+The current direction is to finish turning the repo from a technically capable internal tool into a reliable job-assistant product. That means prioritizing:
+
+1. smooth setup and recovery for normal users
+2. faster notebook triage and application workflow throughput
+3. stronger scrape reliability and support diagnostics
+4. safer automation, smoke, and deployment behavior
+
 ## Now (Execution Priority)
 
 1. Frontend productization from internal tooling to user workflow UX.
@@ -47,6 +56,32 @@ Last updated: 2026-03-09
    - alerting
    - trace correlation across API/worker callbacks
 4. Full rollback automation for staging/production deployment pipeline.
+
+## Delivery Themes For Upcoming Sprints
+
+1. Workflow completion
+   - remove remaining dead ends in onboarding, recovery, notebook, and schedule UX
+2. Reliability and supportability
+   - improve scrape/source observability, startup stability, and operator diagnostics
+3. Assistant quality
+   - improve triage, prioritization, and prep/follow-up outcomes users get from the product
+4. Platform hardening
+   - move fragile local/in-memory assumptions toward production-safe background execution and deployment
+
+## Near-Term Sprint Sequence
+
+1. Sprint A: workflow completion and blocker removal
+   - tighten recovery-center usage across dashboard/notebook/profile
+   - finish schedule UX and preflight clarity
+   - remove remaining ambiguous empty states
+2. Sprint B: notebook throughput and application pipeline
+   - follow-up queues, stale-offer actions, better bulk triage, stronger summary views
+3. Sprint C: scraper/source quality hardening
+   - source normalization, parser resilience, better degraded/blocked classification, replay/debug improvements
+4. Sprint D: durable async and automation
+   - move extraction/profile generation and later scrape orchestration toward durable queue execution
+5. Sprint E: release and observability hardening
+   - startup orchestration, smoke reliability, deploy rollback, alerting, and operational dashboards
 
 ## Definition of Done (for each milestone item)
 

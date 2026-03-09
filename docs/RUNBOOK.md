@@ -244,4 +244,5 @@ For exact variable-level mapping and secret sources, use:
 4. Update:
    - `docs/PROJECT_STATE.md`
    - `docs/ROADMAP.md`
+   - `docs/SPRINT_PLAN.md` when future sprint sequencing changes materially
    - `docs/DECISIONS.md` (if architecture/contracts changed)
