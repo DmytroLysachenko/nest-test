@@ -69,11 +69,11 @@ export class OpsController {
   @ApiOperation({ summary: 'Export scrape callback events as CSV (admin only)' })
   async exportCallbackEventsCsv(
     @CurrentUser() user: JwtValidateUser,
+    @Res() res: Response,
     @Query('status') status?: string,
     @Query('sourceRunId') sourceRunId?: string,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
-    @Res() res: Response,
   ) {
     this.assertAdmin(user);
     const csv = await this.opsService.exportCallbackEventsCsv({ status, sourceRunId, limit, offset });
