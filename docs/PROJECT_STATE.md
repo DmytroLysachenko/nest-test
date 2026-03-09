@@ -58,7 +58,9 @@ Last updated: 2026-03-09
   - list/pipeline views
   - strict/approx/explore ranking modes
   - persisted filters and saved preset
+  - persisted follow-up filters and reminder metadata
   - summary counts for quick triage
+  - dashboard focus queue for follow-up due, strict top matches, and unscored leads
   - bulk status flows, metadata, scoring, prep generation
 - Scraping and automation
   - manual enqueue
@@ -163,6 +165,8 @@ Last updated: 2026-03-09
 - Production bootstrap rejects wildcard CORS (`ALLOWED_ORIGINS=*`) in production mode.
 - Notebook filter/view preferences are now persisted server-side and restored across sessions/devices.
 - Notebook now exposes a dedicated summary read model (`GET /api/job-offers/summary`) for triage counts, quick actions, and explanation-tag rollups.
+- Notebook now supports follow-up-aware filtering (`due` / `upcoming` / `none`) and exposes due/upcoming reminder counts in its summary payload.
+- Dashboard now consumes a dedicated focus queue read model (`GET /api/job-offers/focus`) for follow-up due items, strict top matches, and fresh unscored leads.
 - Scrape runs now support richer filtered history, CSV export, and per-source health summary endpoints.
 - Admin ops now supports callback event CSV export and a private web ops console.
 - Worker diagnostics now classify empty/degraded/blocked outcomes with explicit `resultKind`, `emptyReason`, and `sourceQuality` fields.

@@ -70,6 +70,11 @@ Reduce time from “offers exist” to “user made progress on real application
 
 ### Primary Scope
 
+- Implemented in current branch:
+  - follow-up reminder metadata in notebook pipeline details
+  - persisted follow-up-aware notebook filters
+  - notebook summary follow-up counts
+  - dashboard focus queue for due follow-ups, strict top matches, and unscored leads
 - Add stronger notebook quick-action flows:
   - unscored first
   - strict top matches
@@ -93,6 +98,13 @@ Reduce time from “offers exist” to “user made progress on real application
 - Users can enter notebook and immediately act on a meaningful subset without manually building filters.
 - Notebook summary and quick actions stay aligned with ranking behavior.
 - Basic application follow-up state is persisted, searchable, and reflected in summary surfaces.
+
+### Remaining Follow-On Work
+
+- Add bulk follow-up date assignment and batch next-step editing.
+- Surface focus-queue actions directly from dashboard cards into notebook filtered views.
+- Add overdue follow-up emphasis in pipeline view and mobile layouts.
+- Extend smoke coverage to assert focus queue and follow-up summary contracts.
 
 ## Sprint 3: Scraper Quality and Source Reliability
 

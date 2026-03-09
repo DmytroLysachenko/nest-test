@@ -18,3 +18,11 @@ Use these canonical docs instead:
 - M4 Frontend Workflow Completion: Current
 - M5 Robust Job Assistant Service: Next
 - M6 Automation + Cloud Readiness: Planned
+
+## Planning Reference
+
+Use `docs/SPRINT_PLAN.md` for the current multi-sprint implementation plan.
+
+## Current Sprint Notes
+
+- Sprint 2 notebook throughput work now includes follow-up-aware filtering, pipeline reminder metadata, and dashboard focus queues.
