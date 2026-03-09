@@ -2,6 +2,7 @@ import { apiRequest } from '@/shared/lib/http/api-client';
 
 import type {
   JobOfferHistoryDto,
+  JobOfferFocusDto,
   JobOfferSummaryDto,
   JobOffersListDto,
   JobOfferScoreResultDto,
@@ -137,6 +138,12 @@ export const getNotebookPreferences = (token: string) =>
 
 export const getNotebookSummary = (token: string) =>
   apiRequest<JobOfferSummaryDto>('/job-offers/summary', {
+    method: 'GET',
+    token,
+  });
+
+export const getJobOfferFocus = (token: string) =>
+  apiRequest<JobOfferFocusDto>('/job-offers/focus', {
     method: 'GET',
     token,
   });

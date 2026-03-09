@@ -118,6 +118,40 @@ class JobOfferExplanationTag {
   count!: number;
 }
 
+class JobOfferFocusItem {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty({ required: false })
+  company!: string | null;
+
+  @ApiProperty({ required: false })
+  location!: string | null;
+
+  @ApiProperty({ required: false })
+  matchScore!: number | null;
+
+  @ApiProperty({ required: false, enum: ['due', 'upcoming', 'none'] })
+  followUpState!: 'due' | 'upcoming' | 'none';
+}
+
+class JobOfferFocusGroup {
+  @ApiProperty()
+  key!: string;
+
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  count!: number;
+
+  @ApiProperty({ type: [JobOfferFocusItem] })
+  items!: JobOfferFocusItem[];
+}
+
 export class JobOfferSummaryResponse {
   @ApiProperty()
   total!: number;
@@ -145,4 +179,9 @@ export class JobOfferSummaryResponse {
 
   @ApiProperty({ type: [JobOfferExplanationTag] })
   topExplanationTags!: JobOfferExplanationTag[];
+}
+
+export class JobOfferFocusResponse {
+  @ApiProperty({ type: [JobOfferFocusGroup] })
+  groups!: JobOfferFocusGroup[];
 }

@@ -92,6 +92,7 @@ export const WorkspaceDashboardPage = () => {
   const diagnostics = dashboard.diagnosticsSummary;
   const documentDiagnostics = dashboard.documentDiagnosticsSummary;
   const notebookSummary = dashboard.notebookSummary;
+  const focusQueue = dashboard.focusQueue;
   const schedule = dashboard.schedule;
   const nextAction = summary.nextAction ?? {
     key: 'triage-notebook',
@@ -530,6 +531,31 @@ export const WorkspaceDashboardPage = () => {
                 <StatRow label="High confidence strict" value={String(notebookSummary.highConfidenceStrict)} tone="success" />
                 <StatRow label="Stale untriaged" value={String(notebookSummary.staleUntriaged)} tone={notebookSummary.staleUntriaged > 0 ? 'warning' : 'neutral'} />
                 <StatRow label="Follow-up due" value={String(notebookSummary.followUpDue)} tone={notebookSummary.followUpDue > 0 ? 'warning' : 'success'} />
+              </div>
+            </Card>
+          ) : null}
+
+          {focusQueue?.groups?.length ? (
+            <Card title="Focus Queue" description="Small set of offers to act on first in the next session.">
+              <div className="space-y-4">
+                {focusQueue.groups.map((group) => (
+                  <div key={group.key} className="app-muted-panel space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-text-strong text-sm font-semibold">{group.label}</p>
+                      <span className="app-badge">{group.count}</span>
+                    </div>
+                    {group.items.length ? (
+                      group.items.map((item) => (
+                        <div key={item.id} className="border-border/40 border-t pt-2 text-sm first:border-t-0 first:pt-0">
+                          <p className="text-text-strong font-medium">{item.title}</p>
+                          <p className="text-text-soft text-xs">{item.company ?? 'Unknown company'} · {item.location ?? 'Unknown location'}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-text-soft text-xs">No offers in this queue right now.</p>
+                    )}
+                  </div>
+                ))}
               </div>
             </Card>
           ) : null}

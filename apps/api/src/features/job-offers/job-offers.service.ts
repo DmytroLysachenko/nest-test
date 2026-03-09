@@ -268,6 +268,82 @@ export class JobOffersService {
     };
   }
 
+  async getFocusQueue(userId: string) {
+    const items = await this.db
+      .select({
+        id: userJobOffersTable.id,
+        status: userJobOffersTable.status,
+        matchScore: userJobOffersTable.matchScore,
+        matchMeta: userJobOffersTable.matchMeta,
+        pipelineMeta: userJobOffersTable.pipelineMeta,
+        title: jobOffersTable.title,
+        company: jobOffersTable.company,
+        location: jobOffersTable.location,
+        lastStatusAt: userJobOffersTable.lastStatusAt,
+        createdAt: userJobOffersTable.createdAt,
+      })
+      .from(userJobOffersTable)
+      .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .where(eq(userJobOffersTable.userId, userId))
+      .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt));
+
+    const now = new Date();
+    const followUpDue = items
+      .filter((item) => resolveFollowUpState(item.status, item.pipelineMeta, now) === 'due')
+      .slice(0, 5)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        company: item.company,
+        location: item.location,
+        matchScore: item.matchScore,
+        followUpState: 'due' as const,
+      }));
+
+    const strictTopMatches = items
+      .map((item) => ({
+        ...item,
+        ranking: computeNotebookOfferRanking(
+          {
+            matchScore: item.matchScore,
+            matchMeta: (item.matchMeta as Record<string, unknown> | null) ?? null,
+          },
+          'strict',
+          this.rankingTuning,
+        ),
+      }))
+      .filter((item) => item.ranking.include && Number(item.matchScore ?? 0) >= 70)
+      .slice(0, 5)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        company: item.company,
+        location: item.location,
+        matchScore: item.matchScore,
+        followUpState: resolveFollowUpState(item.status, item.pipelineMeta, now),
+      }));
+
+    const unscoredFresh = items
+      .filter((item) => item.matchScore == null)
+      .slice(0, 5)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        company: item.company,
+        location: item.location,
+        matchScore: item.matchScore,
+        followUpState: resolveFollowUpState(item.status, item.pipelineMeta, now),
+      }));
+
+    return {
+      groups: [
+        { key: 'follow-up-due', label: 'Follow-up due', count: followUpDue.length, items: followUpDue },
+        { key: 'strict-top', label: 'Strict top matches', count: strictTopMatches.length, items: strictTopMatches },
+        { key: 'unscored-fresh', label: 'Unscored fresh leads', count: unscoredFresh.length, items: unscoredFresh },
+      ],
+    };
+  }
+
   async getPreferences(userId: string) {
     const existing = await this.db
       .select()

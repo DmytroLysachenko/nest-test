@@ -23,7 +23,7 @@ import { JobOffersService } from './job-offers.service';
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
 import { UpdateJobOfferStatusDto } from './dto/update-job-offer-status.dto';
 import { ScoreJobOfferDto } from './dto/score-job-offer.dto';
-import { JobOfferListResponse, JobOfferSummaryResponse } from './dto/job-offer.response';
+import { JobOfferFocusResponse, JobOfferListResponse, JobOfferSummaryResponse } from './dto/job-offer.response';
 import { UpdateJobOfferMetaDto } from './dto/update-job-offer-meta.dto';
 import { ListStatusHistoryQuery } from './dto/list-status-history.query';
 import { UpdateJobOfferFeedbackDto } from './dto/update-job-offer-feedback.dto';
@@ -52,6 +52,13 @@ export class JobOffersController {
   @ApiOkResponse({ type: JobOfferSummaryResponse })
   async getSummary(@CurrentUser() user: JwtValidateUser) {
     return this.jobOffersService.getNotebookSummary(user.userId);
+  }
+
+  @Get('focus')
+  @ApiOperation({ summary: 'Get dashboard focus queues for current user' })
+  @ApiOkResponse({ type: JobOfferFocusResponse })
+  async getFocus(@CurrentUser() user: JwtValidateUser) {
+    return this.jobOffersService.getFocusQueue(user.userId);
   }
 
   @Get('preferences')

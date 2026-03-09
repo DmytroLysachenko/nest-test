@@ -15,7 +15,7 @@ type UseWorkspaceDashboardDataArgs = {
 export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceDashboardDataArgs) => {
   const router = useRouter();
 
-  const { summaryQuery, offersQuery, diagnosticsSummaryQuery, documentDiagnosticsSummaryQuery, notebookSummaryQuery, scheduleQuery } =
+  const { summaryQuery, offersQuery, diagnosticsSummaryQuery, documentDiagnosticsSummaryQuery, notebookSummaryQuery, focusQuery, scheduleQuery } =
     useWorkspaceDashboardQueries(token);
   const { logoutMutation } = useWorkspaceDashboardMutations({ token, clearSession });
 
@@ -49,6 +49,7 @@ export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceD
       diagnosticsSummary: diagnosticsSummaryQuery.data ?? null,
       documentDiagnosticsSummary: documentDiagnosticsSummaryQuery.data ?? null,
       notebookSummary: notebookSummaryQuery.data ?? null,
+      focusQueue: focusQuery.data ?? null,
       schedule: scheduleQuery.data ?? null,
       isInitialLoading,
       summaryError,
@@ -60,11 +61,13 @@ export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceD
       isDocumentDiagnosticsLoading: documentDiagnosticsSummaryQuery.isLoading,
       isNotebookSummaryLoading: notebookSummaryQuery.isLoading,
       isScheduleLoading: scheduleQuery.isLoading,
+      isFocusLoading: focusQuery.isLoading,
       refetchSummary: summaryQuery.refetch,
       refetchOffers: offersQuery.refetch,
       refetchDiagnostics: diagnosticsSummaryQuery.refetch,
       refetchDocumentDiagnostics: documentDiagnosticsSummaryQuery.refetch,
       refetchNotebookSummary: notebookSummaryQuery.refetch,
+      refetchFocusQueue: focusQuery.refetch,
       refetchSchedule: scheduleQuery.refetch,
       logout: logoutMutation.mutate,
       isLoggingOut: logoutMutation.isPending,
@@ -79,6 +82,9 @@ export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceD
       notebookSummaryQuery.data,
       notebookSummaryQuery.isLoading,
       notebookSummaryQuery.refetch,
+      focusQuery.data,
+      focusQuery.isLoading,
+      focusQuery.refetch,
       scheduleQuery.data,
       scheduleQuery.isLoading,
       scheduleQuery.refetch,

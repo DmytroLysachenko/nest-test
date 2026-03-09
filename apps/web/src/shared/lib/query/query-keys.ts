@@ -73,6 +73,7 @@ export const queryKeys = {
     history: (token: string | null, offerId: string | null) => ['job-offers', 'history', token, offerId] as const,
     preferences: (token: string | null) => ['job-offers', 'preferences', token] as const,
     summary: (token: string | null) => ['job-offers', 'summary', token] as const,
+    focus: (token: string | null) => ['job-offers', 'focus', token] as const,
   },
   ops: {
     callbackEvents: (

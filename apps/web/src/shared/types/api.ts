@@ -559,6 +559,22 @@ export type JobOfferSummaryDto = {
   }>;
 };
 
+export type JobOfferFocusDto = {
+  groups: Array<{
+    key: string;
+    label: string;
+    count: number;
+    items: Array<{
+      id: string;
+      title: string;
+      company: string | null;
+      location: string | null;
+      matchScore: number | null;
+      followUpState: 'due' | 'upcoming' | 'none';
+    }>;
+  }>;
+};
+
 export type NotebookFiltersDto = {
   status: 'ALL' | JobOfferStatus;
   mode: 'strict' | 'approx' | 'explore';

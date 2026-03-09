@@ -24,6 +24,16 @@ const createSelectProfileQuery = (profile: Record<string, unknown> | undefined) 
   }),
 });
 
+const createFocusQueueQuery = (items: Array<Record<string, unknown>>) => ({
+  from: jest.fn().mockReturnValue({
+    innerJoin: jest.fn().mockReturnValue({
+      where: jest.fn().mockReturnValue({
+        orderBy: jest.fn().mockResolvedValue(items),
+      }),
+    }),
+  }),
+});
+
 describe('JobOffersService', () => {
   const baseOffer = {
     id: 'ujo-1',
@@ -245,5 +255,85 @@ describe('JobOffersService', () => {
       }),
     );
     expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it('builds focus queues for due follow-ups, strict matches, and unscored leads', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-03-09T10:00:00.000Z'));
+
+    const select = jest.fn().mockReturnValue(
+      createFocusQueueQuery([
+        {
+          id: 'ujo-due',
+          status: 'SAVED',
+          matchScore: 81,
+          matchMeta: { hardConstraintViolations: [] },
+          pipelineMeta: { followUpAt: '2026-03-08T10:00:00.000Z' },
+          title: 'Frontend Engineer',
+          company: 'Acme',
+          location: 'Remote',
+          lastStatusAt: new Date('2026-03-08T12:00:00.000Z'),
+          createdAt: new Date('2026-03-08T12:00:00.000Z'),
+        },
+        {
+          id: 'ujo-strict',
+          status: 'NEW',
+          matchScore: 74,
+          matchMeta: { hardConstraintViolations: [] },
+          pipelineMeta: null,
+          title: 'React Engineer',
+          company: 'Globex',
+          location: 'Warsaw',
+          lastStatusAt: new Date('2026-03-07T12:00:00.000Z'),
+          createdAt: new Date('2026-03-07T12:00:00.000Z'),
+        },
+        {
+          id: 'ujo-unscored',
+          status: 'NEW',
+          matchScore: null,
+          matchMeta: null,
+          pipelineMeta: null,
+          title: 'Junior Frontend',
+          company: 'Initech',
+          location: 'Krakow',
+          lastStatusAt: new Date('2026-03-06T12:00:00.000Z'),
+          createdAt: new Date('2026-03-06T12:00:00.000Z'),
+        },
+      ]),
+    );
+    const db = { select } as any;
+    const service = new JobOffersService(
+      db,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'NOTEBOOK_APPROX_VIOLATION_PENALTY') return 15;
+          if (key === 'NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY') return 45;
+          if (key === 'NOTEBOOK_APPROX_SCORED_BONUS') return 5;
+          if (key === 'NOTEBOOK_EXPLORE_UNSCORED_BASE') return 55;
+          if (key === 'NOTEBOOK_EXPLORE_RECENCY_WEIGHT') return 12;
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          return undefined;
+        }),
+      } as any,
+    );
+
+    const result = await service.getFocusQueue('user-1');
+
+    expect(result.groups).toEqual([
+      expect.objectContaining({
+        key: 'follow-up-due',
+        count: 1,
+        items: [expect.objectContaining({ id: 'ujo-due', followUpState: 'due' })],
+      }),
+      expect.objectContaining({
+        key: 'strict-top',
+        count: 2,
+      }),
+      expect.objectContaining({
+        key: 'unscored-fresh',
+        count: 1,
+        items: [expect.objectContaining({ id: 'ujo-unscored', matchScore: null })],
+      }),
+    ]);
   });
 });
