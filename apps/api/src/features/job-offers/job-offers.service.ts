@@ -17,6 +17,7 @@ import {
 
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
 import { UpdateNotebookPreferencesDto } from './dto/notebook-preferences.dto';
+import { resolveFollowUpState } from './job-offer-follow-up';
 
 import type { Env } from '@/config/env';
 import type { JobOfferStatus, JobSource } from '@repo/db';
@@ -95,6 +96,7 @@ export class JobOffersService {
         status: userJobOffersTable.status,
         matchScore: userJobOffersTable.matchScore,
         matchMeta: userJobOffersTable.matchMeta,
+        pipelineMeta: userJobOffersTable.pipelineMeta,
         notes: userJobOffersTable.notes,
         tags: userJobOffersTable.tags,
         statusHistory: userJobOffersTable.statusHistory,
@@ -118,7 +120,8 @@ export class JobOffersService {
       .limit(fetchWindow)
       .offset(fetchOffset);
 
-    const rankedItems = items
+    const followUpNow = new Date();
+    const filteredRankedItems = items
       .map((item) => {
         const ranking = computeNotebookOfferRanking(
           {
@@ -133,9 +136,16 @@ export class JobOffersService {
           ...item,
           rankingScore: ranking.rankingScore,
           explanationTags: ranking.explanationTags,
+          followUpState: resolveFollowUpState(item.status, item.pipelineMeta, followUpNow),
           __createdAtMs: new Date(item.createdAt).getTime(),
           __include: ranking.include,
         };
+      })
+      .filter((item) => {
+        if (!query.followUp) {
+          return true;
+        }
+        return item.followUpState === query.followUp;
       })
       .filter((item) => item.__include)
       .sort((a, b) => {
@@ -147,7 +157,9 @@ export class JobOffersService {
           return a.id.localeCompare(b.id);
         }
         return (b.rankingScore ?? 0) - (a.rankingScore ?? 0);
-      })
+      });
+
+    const rankedItems = filteredRankedItems
       .map((item, index, arr) => {
         if (mode !== 'explore') {
           return item;
@@ -163,15 +175,9 @@ export class JobOffersService {
       .slice(offset, offset + limit)
       .map(({ __include, __createdAtMs, ...item }) => item);
 
-    const [{ total }] = await this.db
-      .select({ total: sql<number>`count(*)` })
-      .from(userJobOffersTable)
-      .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
-      .where(and(...conditions));
-
     return {
       items: rankedItems,
-      total: Number(total ?? 0),
+      total: filteredRankedItems.length,
       mode,
       rankingMeta: {
         mode,
@@ -187,6 +193,7 @@ export class JobOffersService {
         status: userJobOffersTable.status,
         matchScore: userJobOffersTable.matchScore,
         matchMeta: userJobOffersTable.matchMeta,
+        pipelineMeta: userJobOffersTable.pipelineMeta,
         createdAt: userJobOffersTable.createdAt,
         lastStatusAt: userJobOffersTable.lastStatusAt,
       })
@@ -197,6 +204,8 @@ export class JobOffersService {
     const total = items.length;
     const scored = items.filter((item) => item.matchScore != null).length;
     const unscored = total - scored;
+    const followUpDue = items.filter((item) => resolveFollowUpState(item.status, item.pipelineMeta) === 'due').length;
+    const followUpUpcoming = items.filter((item) => resolveFollowUpState(item.status, item.pipelineMeta) === 'upcoming').length;
     const rankedStrictItems = items.map((item) => ({
       ...item,
       ranking: computeNotebookOfferRanking(
@@ -248,6 +257,8 @@ export class JobOffersService {
       unscored,
       highConfidenceStrict,
       staleUntriaged,
+      followUpDue,
+      followUpUpcoming,
       buckets: bucketDefinitions,
       topExplanationTags: Array.from(tagCounts.entries())
         .sort((a, b) => b[1] - a[1])

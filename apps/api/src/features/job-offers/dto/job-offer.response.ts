@@ -131,6 +131,12 @@ export class JobOfferSummaryResponse {
   @ApiProperty()
   staleUntriaged!: number;
 
+  @ApiProperty()
+  followUpDue!: number;
+
+  @ApiProperty()
+  followUpUpcoming!: number;
+
   @ApiProperty({ type: [JobOfferSummaryBucket] })
   buckets!: JobOfferSummaryBucket[];
 
