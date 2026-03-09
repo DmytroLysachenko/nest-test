@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, count, desc, eq, isNotNull } from 'drizzle-orm';
-import { careerProfilesTable, jobSourceRunsTable, profileInputsTable, userJobOffersTable } from '@repo/db';
+import { careerProfilesTable, documentsTable, jobSourceRunsTable, profileInputsTable, userJobOffersTable } from '@repo/db';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { Drizzle } from '@/common/decorators';
+import { resolveFollowUpState } from '@/features/job-offers/job-offer-follow-up';
 
 import { WorkspaceSummaryCache } from './workspace-summary-cache';
 
@@ -76,6 +77,23 @@ export class WorkspaceService {
       .orderBy(desc(userJobOffersTable.updatedAt))
       .limit(1);
 
+    const followUpOffers = await this.db
+      .select({
+        status: userJobOffersTable.status,
+        pipelineMeta: userJobOffersTable.pipelineMeta,
+      })
+      .from(userJobOffersTable)
+      .where(eq(userJobOffersTable.userId, userId));
+
+    const documentStatusCounts = await this.db
+      .select({
+        status: documentsTable.extractionStatus,
+        count: count(),
+      })
+      .from(documentsTable)
+      .where(eq(documentsTable.userId, userId))
+      .groupBy(documentsTable.extractionStatus);
+
     const [runTotal] = await this.db
       .select({ value: count() })
       .from(jobSourceRunsTable)
@@ -93,15 +111,21 @@ export class WorkspaceService {
       .limit(1);
 
     const needsOnboarding = !profileInput || !profile || profile.status !== 'READY';
+    const followUpDue = followUpOffers.filter((offer) => resolveFollowUpState(offer.status, offer.pipelineMeta) === 'due').length;
+    const failedDocuments = Number(documentStatusCounts.find((item) => item.status === 'FAILED')?.count ?? 0);
 
     const getCount = (status: string) => {
       const found = offersStatusCounts.find((c) => c.status === status);
       return Number(found?.count ?? 0);
     };
 
+    const getDocumentCount = (status: string) =>
+      Number(documentStatusCounts.find((item) => item.status === status)?.count ?? 0);
+
     const blockers = [
       ...(!profileInput ? ['profile-input-missing'] : []),
       ...(!profile || profile.status !== 'READY' ? ['career-profile-not-ready'] : []),
+      ...(failedDocuments > 0 ? ['document-extraction-failed'] : []),
       ...(latestRun?.status === 'FAILED' ? ['scrape-failed'] : []),
       ...(Number(runTotal?.value ?? 0) === 0 ? ['scrape-not-started'] : []),
     ];
@@ -121,6 +145,14 @@ export class WorkspaceService {
           href: '/onboarding',
           priority: 'critical' as const,
         }
+      : failedDocuments > 0
+        ? {
+            key: 'retry-document-extraction',
+            title: 'Recover failed document extraction',
+            description: 'Retry failed document processing so the profile and matching inputs stay complete.',
+            href: '/profile',
+            priority: 'critical' as const,
+          }
       : !profile || profile.status !== 'READY'
         ? {
             key: 'generate-career-profile',
@@ -145,13 +177,21 @@ export class WorkspaceService {
                 href: '/ops',
                 priority: 'recommended' as const,
               }
-            : {
-                key: 'triage-notebook',
+            : followUpDue > 0
+              ? {
+                  key: 'complete-follow-ups',
+                  title: 'Complete due follow-ups',
+                  description: 'Review saved and applied offers that have scheduled follow-up actions due now.',
+                  href: '/notebook',
+                  priority: 'recommended' as const,
+                }
+              : {
+                  key: 'triage-notebook',
                 title: 'Triage top notebook offers',
                 description: 'Work strict-mode results first, then save or advance promising leads.',
                 href: '/notebook',
-            priority: 'info' as const,
-          };
+                priority: 'info' as const,
+              };
 
     const readinessBreakdown = [
       {
@@ -168,6 +208,17 @@ export class WorkspaceService {
           profile && profile.status === 'READY'
             ? 'Active career profile is ready.'
             : 'Generate or restore an active READY profile.',
+      },
+      {
+        key: 'documents',
+        label: 'Documents',
+        ready: failedDocuments === 0,
+        detail:
+          failedDocuments > 0
+            ? `${failedDocuments} document extraction failures need retry.`
+            : getDocumentCount('READY') > 0
+              ? 'Uploaded documents are available for profile generation.'
+              : 'Upload CV or profile artifacts to improve profile quality.',
       },
       {
         key: 'scrape-run',
@@ -201,6 +252,18 @@ export class WorkspaceService {
               description: 'Define desired roles and preferences so profile generation and scraping can use explicit intent.',
               href: '/onboarding',
               ctaLabel: 'Complete onboarding',
+            },
+          ]
+        : []),
+      ...(failedDocuments > 0
+        ? [
+            {
+              key: 'document-extraction-failed',
+              severity: 'critical' as const,
+              title: 'Document extraction failed',
+              description: 'One or more uploaded documents failed extraction and should be retried before continuing.',
+              href: '/profile',
+              ctaLabel: 'Retry document extraction',
             },
           ]
         : []),
@@ -261,7 +324,14 @@ export class WorkspaceService {
         interviewing: getCount('INTERVIEWING'),
         offersMade: getCount('OFFER'),
         rejected: getCount('REJECTED'),
+        followUpDue,
         lastUpdatedAt: lastOffer?.updatedAt ?? null,
+      },
+      documents: {
+        total: documentStatusCounts.reduce((acc, curr) => acc + Number(curr.count), 0),
+        ready: getDocumentCount('READY'),
+        pending: getDocumentCount('PENDING'),
+        failed: failedDocuments,
       },
       scrape: {
         lastRunStatus: latestRun?.status ?? null,

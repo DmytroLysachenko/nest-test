@@ -156,21 +156,20 @@ export const WorkspaceDashboardPage = () => {
           value={String(summary.offers.applied)}
           caption="Active job applications"
           trend={{
-            label: `${summary.offers.interviewing} interviews · ${summary.offers.offersMade} offers`,
-            tone: summary.offers.offersMade > 0 ? 'success' : 'info',
+            label: `${summary.offers.followUpDue} follow-ups due`,
+            tone: summary.offers.followUpDue > 0 ? 'warning' : 'info',
           }}
         />
         <MetricCard
-          label="Conversion Rate"
-          value={
-            summary.offers.applied > 0
-              ? `${Math.round((summary.offers.offersMade / summary.offers.applied) * 100)}%`
-              : '0%'
-          }
-          caption="Applied to Offer success"
+          label="Document Recovery"
+          value={String(summary.documents.failed)}
+          caption="Failed document extractions"
           trend={{
-            label: `${summary.offers.rejected} rejections tracked`,
-            tone: 'neutral',
+            label:
+              summary.documents.failed > 0
+                ? 'Retry failed document extraction'
+                : `${summary.documents.ready} ready documents`,
+            tone: summary.documents.failed > 0 ? 'danger' : 'success',
           }}
         />
         <MetricCard
@@ -530,6 +529,7 @@ export const WorkspaceDashboardPage = () => {
                 <StatRow label="Unscored offers" value={String(notebookSummary.unscored)} tone={notebookSummary.unscored > 0 ? 'warning' : 'success'} />
                 <StatRow label="High confidence strict" value={String(notebookSummary.highConfidenceStrict)} tone="success" />
                 <StatRow label="Stale untriaged" value={String(notebookSummary.staleUntriaged)} tone={notebookSummary.staleUntriaged > 0 ? 'warning' : 'neutral'} />
+                <StatRow label="Follow-up due" value={String(notebookSummary.followUpDue)} tone={notebookSummary.followUpDue > 0 ? 'warning' : 'success'} />
               </div>
             </Card>
           ) : null}

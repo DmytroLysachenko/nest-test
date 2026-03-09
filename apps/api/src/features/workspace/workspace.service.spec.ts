@@ -32,6 +32,8 @@ describe('WorkspaceService', () => {
       [], // offers status counts (groupBy)
       [{ value: 0 }], // offers scored
       [], // last offer
+      [], // follow-up offers
+      [], // document status counts
       [{ value: 0 }], // run total
       [], // latest run
     ];
@@ -56,6 +58,8 @@ describe('WorkspaceService', () => {
       ], // offers status counts
       [{ value: 8 }], // offers scored
       [{ updatedAt: new Date('2026-01-03') }], // last offer
+      [{ status: 'APPLIED', pipelineMeta: { followUpAt: '2026-01-01T00:00:00.000Z' } }], // follow-up offers
+      [{ status: 'READY', count: 2 }], // document status counts
       [{ value: 2 }], // run total
       [{ status: 'COMPLETED', createdAt: new Date('2026-01-04') }], // latest run
     ];
@@ -69,6 +73,8 @@ describe('WorkspaceService', () => {
     expect(summary.offers.total).toBe(9); // 5 + 3 + 1
     expect(summary.offers.saved).toBe(5);
     expect(summary.offers.applied).toBe(3);
+    expect(summary.offers.followUpDue).toBe(1);
     expect(summary.scrape.lastRunStatus).toBe('COMPLETED');
+    expect(summary.documents.ready).toBe(2);
   });
 });

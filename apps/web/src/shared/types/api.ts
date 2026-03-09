@@ -107,7 +107,14 @@ export type WorkspaceSummaryDto = {
     interviewing: number;
     offersMade: number;
     rejected: number;
+    followUpDue: number;
     lastUpdatedAt: string | null;
+  };
+  documents: {
+    total: number;
+    ready: number;
+    pending: number;
+    failed: number;
   };
   scrape: {
     lastRunStatus: string | null;

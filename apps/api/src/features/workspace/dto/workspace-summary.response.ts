@@ -44,8 +44,25 @@ class WorkspaceSummaryOffers {
   @ApiProperty()
   rejected!: number;
 
+  @ApiProperty()
+  followUpDue!: number;
+
   @ApiProperty({ nullable: true })
   lastUpdatedAt!: Date | null;
+}
+
+class WorkspaceSummaryDocuments {
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  ready!: number;
+
+  @ApiProperty()
+  pending!: number;
+
+  @ApiProperty()
+  failed!: number;
 }
 
 class WorkspaceSummaryScrape {
@@ -152,6 +169,9 @@ export class WorkspaceSummaryResponse {
 
   @ApiProperty({ type: WorkspaceSummaryOffers })
   offers!: WorkspaceSummaryOffers;
+
+  @ApiProperty({ type: WorkspaceSummaryDocuments })
+  documents!: WorkspaceSummaryDocuments;
 
   @ApiProperty({ type: WorkspaceSummaryScrape })
   scrape!: WorkspaceSummaryScrape;
