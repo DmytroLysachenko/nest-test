@@ -98,6 +98,52 @@ Day-to-day engineering runbook for local development and verification.
    - Optional deterministic mode for CI/external-source instability: `SMOKE_FORCE_CALLBACK=true pnpm smoke:e2e`
    - Optional worker no-op accept mode (useful in CI): `WORKER_SMOKE_ACCEPT_ONLY=true`
 
+## Local Git Gates
+
+1. `pre-commit`
+   - Runs `pnpm verify:precommit`
+   - Current behavior: `pnpm exec lint-staged --no-stash`
+   - Purpose:
+     - only staged-file ESLint/Prettier cleanup
+     - avoid broad workspace validation on every small commit
+2. `pre-push`
+   - Runs `pnpm verify:prepush`
+   - Current behavior:
+     - `pnpm lint:fix:check`
+     - `pnpm --filter @repo/db build`
+     - `pnpm check-types`
+     - targeted API auth/env tests
+     - worker tests
+     - API + worker builds
+     - web unit tests
+     - web Playwright e2e
+     - web UX gate
+   - Purpose:
+     - catch the same class of failures that previously slipped to CI:
+       - autofix-required lint drift
+       - DB DTS/build regressions
+       - workspace-summary mock drift in e2e
+       - frontend route/integration regressions
+
+## Why CI Caught Issues After Push
+
+1. We previously bypassed hooks with `--no-verify` when local `lint-staged` was failing.
+2. The old `pre-push` command was too narrow:
+   - no lint autofix verification
+   - no DB package build
+   - no web unit tests
+   - no Playwright e2e
+   - no UX gate
+3. CI ran broader validation than local push checks, so regressions surfaced only after push.
+
+## Hook Bypass Policy
+
+1. Do not use `--no-verify` for routine commits or pushes.
+2. If a hook itself is broken and bypass is unavoidable:
+   - fix the hook in the same branch before merge
+   - run `pnpm verify:prepush` manually before pushing again
+3. For cross-service workflow changes, still run `pnpm smoke:e2e` before merge even if `pre-push` passes.
+
 ## CI Branch Protection
 
 1. Require passing checks before merge:
