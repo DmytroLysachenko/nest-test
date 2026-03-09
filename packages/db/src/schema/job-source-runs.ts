@@ -21,7 +21,6 @@ export const jobSourceRunsTable = pgTable(
     finalizedAt: timestamp('finalized_at', { withTimezone: true }),
     lastHeartbeatAt: timestamp('last_heartbeat_at', { withTimezone: true }),
     progress: jsonb('progress'),
-    // @ts-expect-error - Circular reference in Drizzle schema requires type break for declaration generation
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     retryOfRunId: uuid('retry_of_run_id').references((): any => jobSourceRunsTable.id, { onDelete: 'set null' }),
     retryCount: integer('retry_count').default(0).notNull(),
