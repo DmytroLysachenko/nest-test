@@ -1,4 +1,4 @@
-import { apiRequest } from '@/shared/lib/http/api-client';
+import { apiRequest, apiTextRequest } from '@/shared/lib/http/api-client';
 
 import type { CallbackEventsListDto } from '@/shared/types/api';
 
@@ -26,3 +26,9 @@ export const listCallbackEvents = (
     token,
   });
 };
+
+export const exportCallbackEventsCsv = (token: string) =>
+  apiTextRequest('/ops/scrape/callback-events/export.csv', {
+    method: 'GET',
+    token,
+  });

@@ -41,7 +41,16 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
       hasScore: filters.hasScore === 'all' ? undefined : filters.hasScore === 'yes',
       followUp: filters.followUp === 'all' ? undefined : filters.followUp,
     }),
-    [filters.followUp, filters.hasScore, filters.mode, filters.search, filters.status, filters.tag, pagination.limit, pagination.offset],
+    [
+      filters.followUp,
+      filters.hasScore,
+      filters.mode,
+      filters.search,
+      filters.status,
+      filters.tag,
+      pagination.limit,
+      pagination.offset,
+    ],
   );
 
   const { listQuery, selectedOffer, historyQuery, preferencesQuery, summaryQuery } = useNotebookQueries({
@@ -165,7 +174,9 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
   const isAllVisibleSelected =
     selectedVisibleIds.length > 0 && selectedVisibleIds.every((id) => selectedOfferIds.includes(id));
 
-  const applyQuickAction = (action: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'followUpDue' | 'followUpUpcoming') => {
+  const applyQuickAction = (
+    action: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'followUpDue' | 'followUpUpcoming',
+  ) => {
     setNotebookSelectedOffer(null);
     clearNotebookSelectedOfferIds();
     setNotebookFilter('search', '');

@@ -2,7 +2,17 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
-const STATUS_VALUES = ['NEW', 'SEEN', 'SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER', 'REJECTED', 'ARCHIVED', 'DISMISSED'] as const;
+const STATUS_VALUES = [
+  'NEW',
+  'SEEN',
+  'SAVED',
+  'APPLIED',
+  'INTERVIEWING',
+  'OFFER',
+  'REJECTED',
+  'ARCHIVED',
+  'DISMISSED',
+] as const;
 const SOURCE_VALUES = ['PRACUJ_PL'] as const;
 const RANKING_MODE_VALUES = ['strict', 'approx', 'explore'] as const;
 const FOLLOW_UP_VALUES = ['due', 'upcoming', 'none'] as const;
@@ -62,7 +72,10 @@ export class ListJobOffersQuery {
   @IsIn(['true', 'false'])
   hasScore?: string;
 
-  @ApiPropertyOptional({ enum: FOLLOW_UP_VALUES, description: 'Filter by follow-up state derived from pipeline metadata' })
+  @ApiPropertyOptional({
+    enum: FOLLOW_UP_VALUES,
+    description: 'Filter by follow-up state derived from pipeline metadata',
+  })
   @IsOptional()
   @IsIn(FOLLOW_UP_VALUES)
   followUp?: (typeof FOLLOW_UP_VALUES)[number];

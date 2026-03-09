@@ -2,11 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import {
-  enqueueScrape,
-  triggerScheduleNow,
-  updateScrapeSchedule,
-} from '@/features/job-sources/api/job-sources-api';
+import { enqueueScrape, triggerScheduleNow, updateScrapeSchedule } from '@/features/job-sources/api/job-sources-api';
 import { setRootServerError } from '@/shared/lib/forms/set-root-server-error';
 import { useDataSync } from '@/shared/lib/query/use-data-sync';
 import { toastSuccess } from '@/shared/lib/ui/toast';

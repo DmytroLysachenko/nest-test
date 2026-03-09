@@ -18,8 +18,7 @@ import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { useDataSync } from '@/shared/lib/query/use-data-sync';
 import { toastError, toastInfo, toastSuccess, toastSuccessWithAction } from '@/shared/lib/ui/toast';
 
-import type { JobOfferStatus, JobOffersListDto } from '@/shared/types/api';
-import type { NotebookFiltersDto } from '@/shared/types/api';
+import type { JobOfferStatus, JobOffersListDto, NotebookFiltersDto } from '@/shared/types/api';
 
 type UseNotebookMutationsArgs = {
   token: string;

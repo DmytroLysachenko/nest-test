@@ -206,7 +206,9 @@ export class JobOffersService {
     const scored = items.filter((item) => item.matchScore != null).length;
     const unscored = total - scored;
     const followUpDue = items.filter((item) => resolveFollowUpState(item.status, item.pipelineMeta) === 'due').length;
-    const followUpUpcoming = items.filter((item) => resolveFollowUpState(item.status, item.pipelineMeta) === 'upcoming').length;
+    const followUpUpcoming = items.filter(
+      (item) => resolveFollowUpState(item.status, item.pipelineMeta) === 'upcoming',
+    ).length;
     const rankedStrictItems = items.map((item) => ({
       ...item,
       ranking: computeNotebookOfferRanking(

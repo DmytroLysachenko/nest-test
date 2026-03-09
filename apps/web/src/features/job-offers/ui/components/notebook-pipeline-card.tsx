@@ -59,7 +59,9 @@ const PipelineColumn = ({
                 {offer.followUpState && offer.followUpState !== 'none' ? (
                   <span
                     className={`rounded px-1 text-[9px] font-semibold ${
-                      offer.followUpState === 'due' ? 'bg-app-warning/15 text-app-warning' : 'bg-primary/10 text-primary/80'
+                      offer.followUpState === 'due'
+                        ? 'bg-app-warning/15 text-app-warning'
+                        : 'bg-primary/10 text-primary/80'
                     }`}
                   >
                     {offer.followUpState === 'due' ? 'Due' : 'Upcoming'}

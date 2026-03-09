@@ -37,7 +37,9 @@ export const DocumentsPanel = ({
     retryAllFailedMutation,
     removeDocumentMutation,
   } = useDocumentsPanel({ token, overrideDocumentsQuery });
-  const failedDocuments = (documentsQuery.data ?? []).filter((document: { extractionStatus?: string }) => document.extractionStatus === 'FAILED');
+  const failedDocuments = (documentsQuery.data ?? []).filter(
+    (document: { extractionStatus?: string }) => document.extractionStatus === 'FAILED',
+  );
 
   return (
     <Card title="Documents" description="Upload PDF documents, confirm upload, and extract text.">
@@ -149,8 +151,10 @@ export const DocumentsPanel = ({
                 {removeDocumentMutation.isPending ? (
                   <p className="text-text-soft mt-2 text-xs">Removing document...</p>
                 ) : null}
-                  {document.extractionStatus === 'FAILED' ? (
-                  <p className="text-app-warning mt-2 text-xs">Extraction failed. Retry here or replace the document before profile generation.</p>
+                {document.extractionStatus === 'FAILED' ? (
+                  <p className="text-app-warning mt-2 text-xs">
+                    Extraction failed. Retry here or replace the document before profile generation.
+                  </p>
                 ) : null}
               </div>
               {document.extractionError ? <p className="text-app-danger">{document.extractionError}</p> : null}

@@ -1,4 +1,4 @@
-import { apiRequest } from '@/shared/lib/http/api-client';
+import { apiRequest, apiTextRequest } from '@/shared/lib/http/api-client';
 
 import type {
   EnqueueScrapeResponseDto,
@@ -103,6 +103,12 @@ export const getJobSourceRunDiagnosticsSummary = (
 
 export const getJobSourceHealth = (token: string, windowHours = 72) =>
   apiRequest<JobSourceHealthDto>(`/job-sources/sources/health?windowHours=${windowHours}`, {
+    method: 'GET',
+    token,
+  });
+
+export const exportJobSourceRunsCsv = (token: string) =>
+  apiTextRequest('/job-sources/runs/export.csv', {
     method: 'GET',
     token,
   });

@@ -26,14 +26,15 @@ export const useDocumentsPanel = ({ token, overrideDocumentsQuery }: UseDocument
 
   const documentsQuery = overrideDocumentsQuery ?? internalDocumentsQuery;
 
-  const { uploadMutation, retryExtractMutation, retryAllFailedMutation, removeDocumentMutation } = useDocumentsPanelMutations({
-    token,
-    selectedFile,
-    setSelectedDocumentId,
-    setActiveStage,
-    setStatus,
-    setError,
-  });
+  const { uploadMutation, retryExtractMutation, retryAllFailedMutation, removeDocumentMutation } =
+    useDocumentsPanelMutations({
+      token,
+      selectedFile,
+      setSelectedDocumentId,
+      setActiveStage,
+      setStatus,
+      setError,
+    });
 
   return {
     selectedFile,

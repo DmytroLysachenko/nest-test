@@ -16,7 +16,11 @@ import { ScrapeRunDiagnosticsResponse } from './dto/run-diagnostics.response';
 import { ListRunDiagnosticsSummaryQuery } from './dto/list-run-diagnostics-summary.query';
 import { ScrapeRunDiagnosticsSummaryResponse } from './dto/run-diagnostics-summary.response';
 import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';
-import { ScrapePreflightResponseDto, ScrapeScheduleResponseDto, UpdateScrapeScheduleDto } from './dto/scrape-schedule.dto';
+import {
+  ScrapePreflightResponseDto,
+  ScrapeScheduleResponseDto,
+  UpdateScrapeScheduleDto,
+} from './dto/scrape-schedule.dto';
 import { JobSourceHealthResponse } from './dto/source-health.response';
 
 @ApiTags('job-sources')
@@ -97,10 +101,7 @@ export class JobSourcesController {
   @Get('sources/health')
   @ApiOperation({ summary: 'Get source health summary for current user' })
   @ApiOkResponse({ type: JobSourceHealthResponse })
-  async getSourceHealth(
-    @CurrentUser() user: JwtValidateUser,
-    @Query('windowHours') windowHours?: number,
-  ) {
+  async getSourceHealth(@CurrentUser() user: JwtValidateUser, @Query('windowHours') windowHours?: number) {
     return this.jobSourcesService.getSourceHealth(user.userId, windowHours);
   }
 

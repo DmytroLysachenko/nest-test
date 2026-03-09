@@ -78,7 +78,10 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           ) : (
             <span />
           )}
-          <Button type="submit" disabled={disabled || jobSourcesPanel.isSubmitting || Boolean(preflight && !preflight.ready)}>
+          <Button
+            type="submit"
+            disabled={disabled || jobSourcesPanel.isSubmitting || Boolean(preflight && !preflight.ready)}
+          >
             {jobSourcesPanel.isSubmitting ? 'Enqueuing...' : 'Enqueue scrape run'}
           </Button>
         </div>
@@ -102,7 +105,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           {preflight.blockers.length ? (
             <div>
               <p className="text-text-strong font-medium">Blockers</p>
-              <ul className="mt-2 space-y-1 text-app-warning">
+              <ul className="text-app-warning mt-2 space-y-1">
                 {preflight.blockers.map((blocker) => (
                   <li key={blocker}>{blocker}</li>
                 ))}
@@ -112,7 +115,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           {preflight.warnings.length ? (
             <div>
               <p className="text-text-strong font-medium">Warnings</p>
-              <ul className="mt-2 space-y-1 text-text-soft">
+              <ul className="text-text-soft mt-2 space-y-1">
                 {preflight.warnings.map((warning) => (
                   <li key={warning}>{warning}</li>
                 ))}
@@ -147,7 +150,9 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-text-strong text-sm font-semibold">Automation schedule</p>
-            <p className="text-text-soft text-xs">Control cadence, next run visibility, and recovery-triggered manual sync.</p>
+            <p className="text-text-soft text-xs">
+              Control cadence, next run visibility, and recovery-triggered manual sync.
+            </p>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" {...registerSchedule('enabled')} />
@@ -161,7 +166,9 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               Cron
             </Label>
             <Input id="schedule-cron" placeholder="0 9 * * *" {...registerSchedule('cron')} />
-            {scheduleErrors.cron?.message ? <p className="text-app-danger text-sm">{scheduleErrors.cron.message}</p> : null}
+            {scheduleErrors.cron?.message ? (
+              <p className="text-app-danger text-sm">{scheduleErrors.cron.message}</p>
+            ) : null}
           </div>
 
           <div className="app-field-group">
@@ -187,18 +194,25 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               Limit
             </Label>
             <Input id="schedule-limit" type="number" min={1} max={100} {...registerSchedule('limit')} />
-            {scheduleErrors.limit?.message ? <p className="text-app-danger text-sm">{scheduleErrors.limit.message}</p> : null}
+            {scheduleErrors.limit?.message ? (
+              <p className="text-app-danger text-sm">{scheduleErrors.limit.message}</p>
+            ) : null}
           </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
           <InspectorRow label="Last result" value={jobSourcesPanel.scheduleResult?.lastRunStatus ?? 'n/a'} />
-          <InspectorRow label="Last triggered" value={formatTimestamp(jobSourcesPanel.scheduleResult?.lastTriggeredAt)} />
+          <InspectorRow
+            label="Last triggered"
+            value={formatTimestamp(jobSourcesPanel.scheduleResult?.lastTriggeredAt)}
+          />
           <InspectorRow label="Next run" value={formatTimestamp(jobSourcesPanel.scheduleResult?.nextRunAt)} />
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-text-soft text-xs">Daily cron uses UTC on the backend. Use a timezone label for operator context.</p>
+          <p className="text-text-soft text-xs">
+            Daily cron uses UTC on the backend. Use a timezone label for operator context.
+          </p>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" variant="secondary" disabled={jobSourcesPanel.isSavingSchedule}>
               {jobSourcesPanel.isSavingSchedule ? 'Saving...' : 'Save schedule'}

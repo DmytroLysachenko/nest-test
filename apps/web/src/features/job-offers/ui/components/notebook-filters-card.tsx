@@ -9,8 +9,7 @@ import { Button } from '@/shared/ui/button';
 import { DataFreshnessBadge } from '@/shared/ui/data-freshness-badge';
 import { FilterChipBar } from '@/shared/ui/filter-chip-bar';
 
-import type { JobOfferStatus } from '@/shared/types/api';
-import type { JobOfferSummaryDto } from '@/shared/types/api';
+import type { JobOfferStatus, JobOfferSummaryDto } from '@/shared/types/api';
 
 const STATUSES: JobOfferStatus[] = [
   'NEW',

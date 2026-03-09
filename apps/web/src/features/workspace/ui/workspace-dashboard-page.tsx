@@ -274,7 +274,16 @@ export const WorkspaceDashboardPage = () => {
       <Card title="Next Best Action" description="Recommended move based on current workspace state.">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
-            <StatusPill value={nextAction.priority} tone={nextAction.priority === 'critical' ? 'danger' : nextAction.priority === 'recommended' ? 'warning' : 'info'} />
+            <StatusPill
+              value={nextAction.priority}
+              tone={
+                nextAction.priority === 'critical'
+                  ? 'danger'
+                  : nextAction.priority === 'recommended'
+                    ? 'warning'
+                    : 'info'
+              }
+            />
             <p className="text-text-strong text-lg font-semibold">{nextAction.title}</p>
             <p className="text-text-soft text-sm">{nextAction.description}</p>
           </div>
@@ -289,7 +298,9 @@ export const WorkspaceDashboardPage = () => {
               <div key={blocker.key} className="app-muted-panel space-y-2">
                 <StatusPill
                   value={blocker.severity}
-                  tone={blocker.severity === 'critical' ? 'danger' : blocker.severity === 'warning' ? 'warning' : 'info'}
+                  tone={
+                    blocker.severity === 'critical' ? 'danger' : blocker.severity === 'warning' ? 'warning' : 'info'
+                  }
                 />
                 <p className="text-text-strong font-semibold">{blocker.title}</p>
                 <p className="text-text-soft text-sm">{blocker.description}</p>
@@ -527,10 +538,26 @@ export const WorkspaceDashboardPage = () => {
           {notebookSummary ? (
             <Card title="Notebook Focus" description="Suggested buckets for the next triage session.">
               <div className="space-y-3">
-                <StatRow label="Unscored offers" value={String(notebookSummary.unscored)} tone={notebookSummary.unscored > 0 ? 'warning' : 'success'} />
-                <StatRow label="High confidence strict" value={String(notebookSummary.highConfidenceStrict)} tone="success" />
-                <StatRow label="Stale untriaged" value={String(notebookSummary.staleUntriaged)} tone={notebookSummary.staleUntriaged > 0 ? 'warning' : 'neutral'} />
-                <StatRow label="Follow-up due" value={String(notebookSummary.followUpDue)} tone={notebookSummary.followUpDue > 0 ? 'warning' : 'success'} />
+                <StatRow
+                  label="Unscored offers"
+                  value={String(notebookSummary.unscored)}
+                  tone={notebookSummary.unscored > 0 ? 'warning' : 'success'}
+                />
+                <StatRow
+                  label="High confidence strict"
+                  value={String(notebookSummary.highConfidenceStrict)}
+                  tone="success"
+                />
+                <StatRow
+                  label="Stale untriaged"
+                  value={String(notebookSummary.staleUntriaged)}
+                  tone={notebookSummary.staleUntriaged > 0 ? 'warning' : 'neutral'}
+                />
+                <StatRow
+                  label="Follow-up due"
+                  value={String(notebookSummary.followUpDue)}
+                  tone={notebookSummary.followUpDue > 0 ? 'warning' : 'success'}
+                />
               </div>
             </Card>
           ) : null}
@@ -546,9 +573,14 @@ export const WorkspaceDashboardPage = () => {
                     </div>
                     {group.items.length ? (
                       group.items.map((item) => (
-                        <div key={item.id} className="border-border/40 border-t pt-2 text-sm first:border-t-0 first:pt-0">
+                        <div
+                          key={item.id}
+                          className="border-border/40 border-t pt-2 text-sm first:border-t-0 first:pt-0"
+                        >
                           <p className="text-text-strong font-medium">{item.title}</p>
-                          <p className="text-text-soft text-xs">{item.company ?? 'Unknown company'} · {item.location ?? 'Unknown location'}</p>
+                          <p className="text-text-soft text-xs">
+                            {item.company ?? 'Unknown company'} · {item.location ?? 'Unknown location'}
+                          </p>
                         </div>
                       ))
                     ) : (

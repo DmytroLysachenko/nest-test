@@ -3,9 +3,12 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
-import { listCallbackEvents } from '@/features/ops/api/ops-api';
-import { getJobSourceHealth, listJobSourceRuns } from '@/features/job-sources/api/job-sources-api';
-import { env } from '@/shared/config/env';
+import { exportCallbackEventsCsv, listCallbackEvents } from '@/features/ops/api/ops-api';
+import {
+  exportJobSourceRunsCsv,
+  getJobSourceHealth,
+  listJobSourceRuns,
+} from '@/features/job-sources/api/job-sources-api';
 import { PageErrorState, PageLoadingState } from '@/shared/ui/async-states';
 import { Card } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
@@ -15,16 +18,11 @@ import { HeroHeader, StatusPill } from '@/shared/ui/dashboard-primitives';
 
 export const OpsPage = () => {
   const auth = useRequireAuth();
-  const downloadCsv = async (path: string, fileName: string) => {
+  const downloadCsv = async (request: (token: string) => Promise<string>, fileName: string) => {
     if (!auth.token) {
       return;
     }
-    const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
-      headers: {
-        Authorization: `Bearer ${auth.token}`,
-      },
-    });
-    const text = await response.text();
+    const text = await request(auth.token);
     const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -102,7 +100,11 @@ export const OpsPage = () => {
 
       <div className="grid gap-4 xl:grid-cols-3">
         {sourceHealth.map((item) => (
-          <Card key={item.source} title={item.source} description={`Last ${sourceHealthQuery.data?.windowHours ?? 72}h`}>
+          <Card
+            key={item.source}
+            title={item.source}
+            description={`Last ${sourceHealthQuery.data?.windowHours ?? 72}h`}
+          >
             <div className="space-y-2 text-sm">
               <p>Total runs: {item.totalRuns}</p>
               <p>Completed: {item.completedRuns}</p>
@@ -113,7 +115,13 @@ export const OpsPage = () => {
               <p>Stale heartbeat: {item.staleHeartbeatRuns}</p>
               <StatusPill
                 value={item.latestRunStatus ?? 'UNKNOWN'}
-                tone={item.latestRunStatus === 'COMPLETED' ? 'success' : item.latestRunStatus === 'FAILED' ? 'danger' : 'info'}
+                tone={
+                  item.latestRunStatus === 'COMPLETED'
+                    ? 'success'
+                    : item.latestRunStatus === 'FAILED'
+                      ? 'danger'
+                      : 'info'
+                }
               />
             </div>
           </Card>
@@ -142,7 +150,7 @@ export const OpsPage = () => {
             <Button
               variant="secondary"
               onClick={() => {
-                void downloadCsv('/job-sources/runs/export.csv', 'scrape-runs.csv');
+                void downloadCsv(exportJobSourceRunsCsv, 'scrape-runs.csv');
               }}
             >
               Export runs CSV
@@ -170,7 +178,7 @@ export const OpsPage = () => {
             <Button
               variant="secondary"
               onClick={() => {
-                void downloadCsv('/ops/scrape/callback-events/export.csv', 'scrape-callback-events.csv');
+                void downloadCsv(exportCallbackEventsCsv, 'scrape-callback-events.csv');
               }}
             >
               Export callback CSV

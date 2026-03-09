@@ -15,8 +15,15 @@ type UseWorkspaceDashboardDataArgs = {
 export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceDashboardDataArgs) => {
   const router = useRouter();
 
-  const { summaryQuery, offersQuery, diagnosticsSummaryQuery, documentDiagnosticsSummaryQuery, notebookSummaryQuery, focusQuery, scheduleQuery } =
-    useWorkspaceDashboardQueries(token);
+  const {
+    summaryQuery,
+    offersQuery,
+    diagnosticsSummaryQuery,
+    documentDiagnosticsSummaryQuery,
+    notebookSummaryQuery,
+    focusQuery,
+    scheduleQuery,
+  } = useWorkspaceDashboardQueries(token);
   const { logoutMutation } = useWorkspaceDashboardMutations({ token, clearSession });
 
   useEffect(() => {

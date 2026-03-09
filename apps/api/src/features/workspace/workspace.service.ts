@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, count, desc, eq, isNotNull } from 'drizzle-orm';
-import { careerProfilesTable, documentsTable, jobSourceRunsTable, profileInputsTable, userJobOffersTable } from '@repo/db';
+import {
+  careerProfilesTable,
+  documentsTable,
+  jobSourceRunsTable,
+  profileInputsTable,
+  userJobOffersTable,
+} from '@repo/db';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { Drizzle } from '@/common/decorators';
@@ -111,7 +117,9 @@ export class WorkspaceService {
       .limit(1);
 
     const needsOnboarding = !profileInput || !profile || profile.status !== 'READY';
-    const followUpDue = followUpOffers.filter((offer) => resolveFollowUpState(offer.status, offer.pipelineMeta) === 'due').length;
+    const followUpDue = followUpOffers.filter(
+      (offer) => resolveFollowUpState(offer.status, offer.pipelineMeta) === 'due',
+    ).length;
     const failedDocuments = Number(documentStatusCounts.find((item) => item.status === 'FAILED')?.count ?? 0);
 
     const getCount = (status: string) => {
@@ -153,45 +161,45 @@ export class WorkspaceService {
             href: '/profile',
             priority: 'critical' as const,
           }
-      : !profile || profile.status !== 'READY'
-        ? {
-            key: 'generate-career-profile',
-            title: 'Generate a ready career profile',
-            description: 'Refresh the active profile so matching and sourcing can use current data.',
-            href: '/profile',
-            priority: 'critical' as const,
-          }
-        : Number(runTotal?.value ?? 0) === 0
+        : !profile || profile.status !== 'READY'
           ? {
-              key: 'start-first-scrape',
-              title: 'Run your first sourcing pass',
-              description: 'Enqueue a scrape to populate the notebook with current opportunities.',
-              href: '/notebook',
-              priority: 'recommended' as const,
+              key: 'generate-career-profile',
+              title: 'Generate a ready career profile',
+              description: 'Refresh the active profile so matching and sourcing can use current data.',
+              href: '/profile',
+              priority: 'critical' as const,
             }
-          : latestRun?.status === 'FAILED'
+          : Number(runTotal?.value ?? 0) === 0
             ? {
-                key: 'review-run-failure',
-                title: 'Review the latest scrape failure',
-                description: 'Inspect diagnostics and retry once the failure cause is clear.',
-                href: '/ops',
+                key: 'start-first-scrape',
+                title: 'Run your first sourcing pass',
+                description: 'Enqueue a scrape to populate the notebook with current opportunities.',
+                href: '/notebook',
                 priority: 'recommended' as const,
               }
-            : followUpDue > 0
+            : latestRun?.status === 'FAILED'
               ? {
-                  key: 'complete-follow-ups',
-                  title: 'Complete due follow-ups',
-                  description: 'Review saved and applied offers that have scheduled follow-up actions due now.',
-                  href: '/notebook',
+                  key: 'review-run-failure',
+                  title: 'Review the latest scrape failure',
+                  description: 'Inspect diagnostics and retry once the failure cause is clear.',
+                  href: '/ops',
                   priority: 'recommended' as const,
                 }
-              : {
-                  key: 'triage-notebook',
-                title: 'Triage top notebook offers',
-                description: 'Work strict-mode results first, then save or advance promising leads.',
-                href: '/notebook',
-                priority: 'info' as const,
-              };
+              : followUpDue > 0
+                ? {
+                    key: 'complete-follow-ups',
+                    title: 'Complete due follow-ups',
+                    description: 'Review saved and applied offers that have scheduled follow-up actions due now.',
+                    href: '/notebook',
+                    priority: 'recommended' as const,
+                  }
+                : {
+                    key: 'triage-notebook',
+                    title: 'Triage top notebook offers',
+                    description: 'Work strict-mode results first, then save or advance promising leads.',
+                    href: '/notebook',
+                    priority: 'info' as const,
+                  };
 
     const readinessBreakdown = [
       {
@@ -249,7 +257,8 @@ export class WorkspaceService {
               key: 'profile-input-missing',
               severity: 'critical' as const,
               title: 'Profile targeting is missing',
-              description: 'Define desired roles and preferences so profile generation and scraping can use explicit intent.',
+              description:
+                'Define desired roles and preferences so profile generation and scraping can use explicit intent.',
               href: '/onboarding',
               ctaLabel: 'Complete onboarding',
             },

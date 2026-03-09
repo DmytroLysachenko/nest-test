@@ -365,7 +365,9 @@ async function seedE2EFixtures() {
 
   for (const fixture of fixtures) {
     const user = await withRetry(`ensureUser(${fixture.email})`, () => ensureUser(fixture));
-    const profileInput = await withRetry(`ensureProfileInput(${fixture.email})`, () => ensureProfileInput(user.id, fixture));
+    const profileInput = await withRetry(`ensureProfileInput(${fixture.email})`, () =>
+      ensureProfileInput(user.id, fixture),
+    );
     const careerProfile = await withRetry(`ensureActiveCareerProfile(${fixture.email})`, () =>
       ensureActiveCareerProfile(user.id, profileInput.id, fixture),
     );

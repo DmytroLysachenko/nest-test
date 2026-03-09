@@ -91,9 +91,9 @@ export const NotebookOfferDetailsCard = ({
     offer.pipelineMeta && typeof offer.pipelineMeta === 'object' && !Array.isArray(offer.pipelineMeta)
       ? (offer.pipelineMeta as Record<string, unknown>)
       : {};
-  const hasPipelineDraftChanges = pipelineMetaStr !== (offer.pipelineMeta ? JSON.stringify(offer.pipelineMeta, null, 2) : '');
-  const followUpAt =
-    pipelineMeta && typeof pipelineMeta.followUpAt === 'string' ? pipelineMeta.followUpAt : '';
+  const hasPipelineDraftChanges =
+    pipelineMetaStr !== (offer.pipelineMeta ? JSON.stringify(offer.pipelineMeta, null, 2) : '');
+  const followUpAt = pipelineMeta && typeof pipelineMeta.followUpAt === 'string' ? pipelineMeta.followUpAt : '';
   const applicationUrl =
     pipelineMeta && typeof pipelineMeta.applicationUrl === 'string' ? pipelineMeta.applicationUrl : '';
   const nextStep = pipelineMeta && typeof pipelineMeta.nextStep === 'string' ? pipelineMeta.nextStep : '';
@@ -238,13 +238,26 @@ export const NotebookOfferDetailsCard = ({
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" disabled={isBusy || !hasPipelineDraftChanges} onClick={handleSavePipeline}>
+              <Button
+                type="button"
+                size="sm"
+                disabled={isBusy || !hasPipelineDraftChanges}
+                onClick={handleSavePipeline}
+              >
                 Save follow-up plan
               </Button>
-              <Button type="button" size="sm" variant="secondary" disabled={isBusy || !hasPipelineDraftChanges} onClick={handleSavePipeline}>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={isBusy || !hasPipelineDraftChanges}
+                onClick={handleSavePipeline}
+              >
                 Save pipeline metadata
               </Button>
-              <p className="text-text-soft self-center text-xs">Use this for interview dates, recruiter notes, follow-up dates, and links.</p>
+              <p className="text-text-soft self-center text-xs">
+                Use this for interview dates, recruiter notes, follow-up dates, and links.
+              </p>
             </div>
           </div>
         )}
