@@ -19,6 +19,7 @@ export type ListJobOffersParams = {
   search?: string;
   tag?: string;
   hasScore?: boolean;
+  followUp?: 'due' | 'upcoming' | 'none';
 };
 
 const toQuery = (params: ListJobOffersParams) => {
@@ -46,6 +47,9 @@ const toQuery = (params: ListJobOffersParams) => {
   }
   if (params.hasScore !== undefined) {
     query.set('hasScore', params.hasScore ? 'true' : 'false');
+  }
+  if (params.followUp) {
+    query.set('followUp', params.followUp);
   }
 
   const value = query.toString();

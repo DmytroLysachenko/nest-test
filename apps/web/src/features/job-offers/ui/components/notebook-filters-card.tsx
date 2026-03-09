@@ -28,11 +28,13 @@ type NotebookFiltersCardProps = {
   status: 'ALL' | JobOfferStatus;
   mode: 'strict' | 'approx' | 'explore';
   hasScore: 'all' | 'yes' | 'no';
+  followUp: 'all' | 'due' | 'upcoming' | 'none';
   tag: string;
   search: string;
   onStatusChange: (value: 'ALL' | JobOfferStatus) => void;
   onModeChange: (value: 'strict' | 'approx' | 'explore') => void;
   onHasScoreChange: (value: 'all' | 'yes' | 'no') => void;
+  onFollowUpChange: (value: 'all' | 'due' | 'upcoming' | 'none') => void;
   onTagChange: (value: string) => void;
   onSearchChange: (value: string) => void;
   onResetFilters: () => void;
@@ -48,18 +50,20 @@ type NotebookFiltersCardProps = {
   onAutoArchive?: () => void;
   isBusy?: boolean;
   summary?: JobOfferSummaryDto | null;
-  onQuickAction?: (action: 'unscored' | 'strictTop' | 'saved' | 'applied') => void;
+  onQuickAction?: (action: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'followUpDue' | 'followUpUpcoming') => void;
 };
 
 export const NotebookFiltersCard = ({
   status,
   mode,
   hasScore,
+  followUp,
   tag,
   search,
   onStatusChange,
   onModeChange,
   onHasScoreChange,
+  onFollowUpChange,
   onTagChange,
   onSearchChange,
   onResetFilters,
@@ -143,6 +147,23 @@ export const NotebookFiltersCard = ({
         />
       </div>
 
+      <div className="app-field-group">
+        <Label className="app-inline-label" htmlFor="filter-follow-up">
+          Follow-up
+        </Label>
+        <select
+          id="filter-follow-up"
+          className="app-select"
+          value={followUp}
+          onChange={(e) => onFollowUpChange(e.target.value as 'all' | 'due' | 'upcoming' | 'none')}
+        >
+          <option value="all">All offers</option>
+          <option value="due">Follow-up due</option>
+          <option value="upcoming">Follow-up upcoming</option>
+          <option value="none">No follow-up scheduled</option>
+        </select>
+      </div>
+
       <div className="app-field-group lg:col-span-2">
         <Label className="app-inline-label" htmlFor="filter-search">
           Search in notes/tags
@@ -204,10 +225,8 @@ export const NotebookFiltersCard = ({
             </p>
           </div>
           <div className="app-muted-panel">
-            <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Applied pipeline</p>
-            <p className="text-text-strong mt-1 text-2xl font-semibold">
-              {summary.buckets.find((bucket) => bucket.key === 'applied')?.count ?? 0}
-            </p>
+            <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Follow-up due</p>
+            <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.followUpDue}</p>
           </div>
         </div>
 
@@ -224,6 +243,17 @@ export const NotebookFiltersCard = ({
             </Button>
             <Button type="button" variant="secondary" className="h-8 px-3" onClick={() => onQuickAction('applied')}>
               Applied funnel
+            </Button>
+            <Button type="button" variant="secondary" className="h-8 px-3" onClick={() => onQuickAction('followUpDue')}>
+              Follow-up due
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-8 px-3"
+              onClick={() => onQuickAction('followUpUpcoming')}
+            >
+              Follow-up upcoming
             </Button>
           </div>
         ) : null}

@@ -39,8 +39,9 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
       search: filters.search || undefined,
       tag: filters.tag || undefined,
       hasScore: filters.hasScore === 'all' ? undefined : filters.hasScore === 'yes',
+      followUp: filters.followUp === 'all' ? undefined : filters.followUp,
     }),
-    [filters.hasScore, filters.mode, filters.search, filters.status, filters.tag, pagination.limit, pagination.offset],
+    [filters.followUp, filters.hasScore, filters.mode, filters.search, filters.status, filters.tag, pagination.limit, pagination.offset],
   );
 
   const { listQuery, selectedOffer, historyQuery, preferencesQuery, summaryQuery } = useNotebookQueries({
@@ -143,8 +144,17 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
             },
           ]
         : []),
+      ...(filters.followUp !== 'all'
+        ? [
+            {
+              key: 'followUp',
+              label: `Follow-up: ${filters.followUp}`,
+              onClear: () => setNotebookFilter('followUp', 'all'),
+            },
+          ]
+        : []),
     ],
-    [filters.hasScore, filters.mode, filters.search, filters.status, filters.tag, setNotebookFilter],
+    [filters.followUp, filters.hasScore, filters.mode, filters.search, filters.status, filters.tag, setNotebookFilter],
   );
 
   const listError = listQuery.isError ? toUserErrorMessage(listQuery.error, 'Failed to load notebook offers.') : null;
@@ -155,11 +165,12 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
   const isAllVisibleSelected =
     selectedVisibleIds.length > 0 && selectedVisibleIds.every((id) => selectedOfferIds.includes(id));
 
-  const applyQuickAction = (action: 'unscored' | 'strictTop' | 'saved' | 'applied') => {
+  const applyQuickAction = (action: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'followUpDue' | 'followUpUpcoming') => {
     setNotebookSelectedOffer(null);
     clearNotebookSelectedOfferIds();
     setNotebookFilter('search', '');
     setNotebookFilter('tag', '');
+    setNotebookFilter('followUp', 'all');
 
     if (action === 'unscored') {
       setNotebookFilter('status', 'ALL');
@@ -179,6 +190,22 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
       setNotebookFilter('status', 'SAVED');
       setNotebookFilter('mode', 'strict');
       setNotebookFilter('hasScore', 'all');
+      return;
+    }
+
+    if (action === 'followUpDue') {
+      setNotebookFilter('status', 'ALL');
+      setNotebookFilter('mode', 'strict');
+      setNotebookFilter('hasScore', 'all');
+      setNotebookFilter('followUp', 'due');
+      return;
+    }
+
+    if (action === 'followUpUpcoming') {
+      setNotebookFilter('status', 'ALL');
+      setNotebookFilter('mode', 'strict');
+      setNotebookFilter('hasScore', 'all');
+      setNotebookFilter('followUp', 'upcoming');
       return;
     }
 

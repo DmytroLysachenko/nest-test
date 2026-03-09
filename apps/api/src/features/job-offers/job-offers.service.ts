@@ -30,6 +30,7 @@ const defaultNotebookFilters = {
   search: '',
   tag: '',
   hasScore: 'all',
+  followUp: 'all',
 } as const;
 
 @Injectable()

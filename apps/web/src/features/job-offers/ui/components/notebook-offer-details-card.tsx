@@ -87,7 +87,36 @@ export const NotebookOfferDetailsCard = ({
   }
 
   const matchMeta = offer.matchMeta ?? {};
+  const pipelineMeta =
+    offer.pipelineMeta && typeof offer.pipelineMeta === 'object' && !Array.isArray(offer.pipelineMeta)
+      ? (offer.pipelineMeta as Record<string, unknown>)
+      : {};
   const hasPipelineDraftChanges = pipelineMetaStr !== (offer.pipelineMeta ? JSON.stringify(offer.pipelineMeta, null, 2) : '');
+  const followUpAt =
+    pipelineMeta && typeof pipelineMeta.followUpAt === 'string' ? pipelineMeta.followUpAt : '';
+  const applicationUrl =
+    pipelineMeta && typeof pipelineMeta.applicationUrl === 'string' ? pipelineMeta.applicationUrl : '';
+  const nextStep = pipelineMeta && typeof pipelineMeta.nextStep === 'string' ? pipelineMeta.nextStep : '';
+  const contactName = pipelineMeta && typeof pipelineMeta.contactName === 'string' ? pipelineMeta.contactName : '';
+
+  const setStructuredPipelineField = (field: string, value: string | null) => {
+    const current =
+      pipelineMetaStr.trim() && hasPipelineDraftChanges
+        ? (() => {
+            try {
+              const parsed = JSON.parse(pipelineMetaStr);
+              return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+                ? (parsed as Record<string, unknown>)
+                : { ...pipelineMeta };
+            } catch {
+              return { ...pipelineMeta };
+            }
+          })()
+        : { ...pipelineMeta };
+
+    current[field] = value;
+    setPipelineMetaStr(JSON.stringify(current, null, 2));
+  };
 
   const handleSavePipeline = () => {
     try {
@@ -108,6 +137,9 @@ export const NotebookOfferDetailsCard = ({
           <div className="flex flex-wrap items-center gap-2">
             <span className="app-badge border-primary/20 bg-primary/5 text-primary">{offer.status}</span>
             <span className="app-badge">Score {offer.matchScore ?? 'n/a'}</span>
+            {offer.followUpState && offer.followUpState !== 'none' ? (
+              <span className="app-badge">Follow-up {offer.followUpState}</span>
+            ) : null}
             <DataFreshnessBadge updatedAt={updatedAt} label="Offer data" />
           </div>
           <p className="text-secondary-foreground font-medium">
@@ -138,6 +170,60 @@ export const NotebookOfferDetailsCard = ({
 
         {['APPLIED', 'INTERVIEWING', 'OFFER', 'REJECTED'].includes(offer.status) && (
           <div className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="app-field-group">
+                <Label htmlFor="follow-up-at" className="app-inline-label">
+                  Follow-up at
+                </Label>
+                <Input
+                  id="follow-up-at"
+                  type="datetime-local"
+                  value={followUpAt ? followUpAt.slice(0, 16) : ''}
+                  onChange={(event) =>
+                    setStructuredPipelineField(
+                      'followUpAt',
+                      event.target.value ? new Date(event.target.value).toISOString() : null,
+                    )
+                  }
+                />
+              </div>
+
+              <div className="app-field-group">
+                <Label htmlFor="application-url" className="app-inline-label">
+                  Application URL
+                </Label>
+                <Input
+                  id="application-url"
+                  value={applicationUrl}
+                  placeholder="https://company.jobs/applications/123"
+                  onChange={(event) => setStructuredPipelineField('applicationUrl', event.target.value || null)}
+                />
+              </div>
+
+              <div className="app-field-group">
+                <Label htmlFor="contact-name" className="app-inline-label">
+                  Contact Name
+                </Label>
+                <Input
+                  id="contact-name"
+                  value={contactName}
+                  placeholder="Recruiter or hiring manager"
+                  onChange={(event) => setStructuredPipelineField('contactName', event.target.value || null)}
+                />
+              </div>
+
+              <div className="app-field-group">
+                <Label htmlFor="next-step" className="app-inline-label">
+                  Next Step
+                </Label>
+                <Input
+                  id="next-step"
+                  value={nextStep}
+                  placeholder="Send follow-up email"
+                  onChange={(event) => setStructuredPipelineField('nextStep', event.target.value || null)}
+                />
+              </div>
+            </div>
             <div className="app-field-group">
               <Label htmlFor="pipeline-meta" className="app-inline-label">
                 Pipeline Metadata (JSON)
@@ -152,6 +238,9 @@ export const NotebookOfferDetailsCard = ({
               />
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" disabled={isBusy || !hasPipelineDraftChanges} onClick={handleSavePipeline}>
+                Save follow-up plan
+              </Button>
               <Button type="button" size="sm" variant="secondary" disabled={isBusy || !hasPipelineDraftChanges} onClick={handleSavePipeline}>
                 Save pipeline metadata
               </Button>

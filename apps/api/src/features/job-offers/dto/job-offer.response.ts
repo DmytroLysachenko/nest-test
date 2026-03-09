@@ -36,6 +36,9 @@ export class JobOfferItem {
   @ApiProperty({ required: false, type: [String] })
   explanationTags?: string[];
 
+  @ApiProperty({ required: false, enum: ['due', 'upcoming', 'none'] })
+  followUpState?: 'due' | 'upcoming' | 'none';
+
   @ApiProperty({ required: false })
   matchMeta!: unknown | null;
 

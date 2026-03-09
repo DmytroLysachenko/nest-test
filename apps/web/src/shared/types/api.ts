@@ -494,6 +494,7 @@ export type JobOfferListItemDto = {
   matchScore: number | null;
   rankingScore?: number | null;
   explanationTags?: string[];
+  followUpState?: 'due' | 'upcoming' | 'none';
   matchMeta: Record<string, unknown> | null;
   aiFeedbackScore: number | null;
   aiFeedbackNotes: string | null;
@@ -538,6 +539,8 @@ export type JobOfferSummaryDto = {
   unscored: number;
   highConfidenceStrict: number;
   staleUntriaged: number;
+  followUpDue: number;
+  followUpUpcoming: number;
   buckets: Array<{
     key: string;
     label: string;
@@ -556,6 +559,7 @@ export type NotebookFiltersDto = {
   search: string;
   tag: string;
   hasScore: 'all' | 'yes' | 'no';
+  followUp: 'all' | 'due' | 'upcoming' | 'none';
 };
 
 export type NotebookPreferencesDto = {

@@ -52,11 +52,13 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
         status={notebook.filters.status}
         mode={notebook.filters.mode}
         hasScore={notebook.filters.hasScore}
+        followUp={notebook.filters.followUp}
         tag={notebook.filters.tag}
         search={notebook.filters.search}
         onStatusChange={(value) => notebook.setNotebookFilter('status', value)}
         onModeChange={(value) => notebook.setNotebookFilter('mode', value)}
         onHasScoreChange={(value) => notebook.setNotebookFilter('hasScore', value)}
+        onFollowUpChange={(value) => notebook.setNotebookFilter('followUp', value)}
         onTagChange={(value) => notebook.setNotebookFilter('tag', value)}
         onSearchChange={(value) => notebook.setNotebookFilter('search', value)}
         onResetFilters={notebook.resetNotebookFilters}
