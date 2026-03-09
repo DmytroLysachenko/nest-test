@@ -25,6 +25,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Autofix Verification
+        run: pnpm lint:fix:check
       - name: Turbo Verify (Cached)
         run: pnpm turbo run lint check-types test
       - name: UX Gate

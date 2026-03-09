@@ -55,6 +55,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
+    "lint:fix:check": "pnpm lint:fix && git diff --exit-code -- .",
     "prepare": "husky",
     "test": "turbo run test",
     "test-build": "pnpm --filter web build && pnpm --filter api build && pnpm --filter worker build",
