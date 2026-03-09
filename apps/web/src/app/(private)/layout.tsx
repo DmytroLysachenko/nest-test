@@ -22,6 +22,7 @@ export default function PrivateLayout({
   return (
     <AppShell
       userEmail={auth.user?.email}
+      userRole={auth.user?.role}
       token={auth.token}
       onSignOut={() => {
         auth.clearSession();

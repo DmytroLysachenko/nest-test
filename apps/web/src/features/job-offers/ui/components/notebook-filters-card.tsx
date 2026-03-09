@@ -9,7 +9,7 @@ import { Button } from '@/shared/ui/button';
 import { DataFreshnessBadge } from '@/shared/ui/data-freshness-badge';
 import { FilterChipBar } from '@/shared/ui/filter-chip-bar';
 
-import type { JobOfferStatus } from '@/shared/types/api';
+import type { JobOfferStatus, JobOfferSummaryDto } from '@/shared/types/api';
 
 const STATUSES: JobOfferStatus[] = [
   'NEW',
@@ -27,11 +27,13 @@ type NotebookFiltersCardProps = {
   status: 'ALL' | JobOfferStatus;
   mode: 'strict' | 'approx' | 'explore';
   hasScore: 'all' | 'yes' | 'no';
+  followUp: 'all' | 'due' | 'upcoming' | 'none';
   tag: string;
   search: string;
   onStatusChange: (value: 'ALL' | JobOfferStatus) => void;
   onModeChange: (value: 'strict' | 'approx' | 'explore') => void;
   onHasScoreChange: (value: 'all' | 'yes' | 'no') => void;
+  onFollowUpChange: (value: 'all' | 'due' | 'upcoming' | 'none') => void;
   onTagChange: (value: string) => void;
   onSearchChange: (value: string) => void;
   onResetFilters: () => void;
@@ -46,17 +48,21 @@ type NotebookFiltersCardProps = {
   onDismissAllSeen?: () => void;
   onAutoArchive?: () => void;
   isBusy?: boolean;
+  summary?: JobOfferSummaryDto | null;
+  onQuickAction?: (action: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'followUpDue' | 'followUpUpcoming') => void;
 };
 
 export const NotebookFiltersCard = ({
   status,
   mode,
   hasScore,
+  followUp,
   tag,
   search,
   onStatusChange,
   onModeChange,
   onHasScoreChange,
+  onFollowUpChange,
   onTagChange,
   onSearchChange,
   onResetFilters,
@@ -71,6 +77,8 @@ export const NotebookFiltersCard = ({
   onDismissAllSeen,
   onAutoArchive,
   isBusy,
+  summary,
+  onQuickAction,
 }: NotebookFiltersCardProps) => (
   <Card title="Filters & Tools" description="Refine offer list or trigger background maintenance.">
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -138,6 +146,23 @@ export const NotebookFiltersCard = ({
         />
       </div>
 
+      <div className="app-field-group">
+        <Label className="app-inline-label" htmlFor="filter-follow-up">
+          Follow-up
+        </Label>
+        <select
+          id="filter-follow-up"
+          className="app-select"
+          value={followUp}
+          onChange={(e) => onFollowUpChange(e.target.value as 'all' | 'due' | 'upcoming' | 'none')}
+        >
+          <option value="all">All offers</option>
+          <option value="due">Follow-up due</option>
+          <option value="upcoming">Follow-up upcoming</option>
+          <option value="none">No follow-up scheduled</option>
+        </select>
+      </div>
+
       <div className="app-field-group lg:col-span-2">
         <Label className="app-inline-label" htmlFor="filter-search">
           Search in notes/tags
@@ -178,6 +203,69 @@ export const NotebookFiltersCard = ({
     {activeFilters.length > 0 ? (
       <div className="border-border/40 mt-4 border-t pt-4">
         <FilterChipBar items={activeFilters} />
+      </div>
+    ) : null}
+
+    {summary ? (
+      <div className="border-border/40 mt-4 space-y-3 border-t pt-4">
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="app-muted-panel">
+            <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Unscored</p>
+            <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.unscored}</p>
+          </div>
+          <div className="app-muted-panel">
+            <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Strict top matches</p>
+            <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.highConfidenceStrict}</p>
+          </div>
+          <div className="app-muted-panel">
+            <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Saved follow-ups</p>
+            <p className="text-text-strong mt-1 text-2xl font-semibold">
+              {summary.buckets.find((bucket) => bucket.key === 'saved')?.count ?? 0}
+            </p>
+          </div>
+          <div className="app-muted-panel">
+            <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Follow-up due</p>
+            <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.followUpDue}</p>
+          </div>
+        </div>
+
+        {onQuickAction ? (
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" className="h-8 px-3" onClick={() => onQuickAction('unscored')}>
+              Review unscored
+            </Button>
+            <Button type="button" variant="secondary" className="h-8 px-3" onClick={() => onQuickAction('strictTop')}>
+              Strict top matches
+            </Button>
+            <Button type="button" variant="secondary" className="h-8 px-3" onClick={() => onQuickAction('saved')}>
+              Saved follow-ups
+            </Button>
+            <Button type="button" variant="secondary" className="h-8 px-3" onClick={() => onQuickAction('applied')}>
+              Applied funnel
+            </Button>
+            <Button type="button" variant="secondary" className="h-8 px-3" onClick={() => onQuickAction('followUpDue')}>
+              Follow-up due
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-8 px-3"
+              onClick={() => onQuickAction('followUpUpcoming')}
+            >
+              Follow-up upcoming
+            </Button>
+          </div>
+        ) : null}
+
+        {summary.topExplanationTags.length ? (
+          <div className="flex flex-wrap gap-2">
+            {summary.topExplanationTags.map((tag) => (
+              <span key={tag.tag} className="bg-surface-muted text-text-soft rounded-full px-3 py-1 text-xs">
+                {tag.tag} ({tag.count})
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
     ) : null}
 

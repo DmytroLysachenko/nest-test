@@ -291,6 +291,55 @@ export class DocumentsService {
     return updated;
   }
 
+  async retryExtraction(userId: string, documentId: string, traceId?: string) {
+    const document = await this.getById(userId, documentId);
+    await this.recordEvent({
+      documentId: document.id,
+      userId,
+      stage: 'EXTRACTION_RETRY_REQUESTED',
+      status: 'INFO',
+      message: 'Document extraction retry requested',
+      traceId,
+      meta: {
+        previousStatus: document.extractionStatus,
+        previousError: document.extractionError,
+      },
+    });
+
+    return this.extractText(userId, { documentId }, traceId);
+  }
+
+  async retryFailedExtractions(userId: string, traceId?: string) {
+    const failedDocuments = await this.db
+      .select({
+        id: documentsTable.id,
+      })
+      .from(documentsTable)
+      .where(and(eq(documentsTable.userId, userId), eq(documentsTable.extractionStatus, 'FAILED')))
+      .orderBy(desc(documentsTable.createdAt));
+
+    let retried = 0;
+    const failed: Array<{ documentId: string; error: string }> = [];
+
+    for (const document of failedDocuments) {
+      try {
+        await this.retryExtraction(userId, document.id, traceId);
+        retried += 1;
+      } catch (error) {
+        failed.push({
+          documentId: document.id,
+          error: error instanceof Error ? error.message : 'Unknown retry error',
+        });
+      }
+    }
+
+    return {
+      retried,
+      failed,
+      totalFailed: failedDocuments.length,
+    };
+  }
+
   async listEvents(userId: string, documentId: string) {
     await this.getById(userId, documentId);
     return this.db

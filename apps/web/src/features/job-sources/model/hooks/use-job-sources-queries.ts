@@ -2,12 +2,27 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { getJobSourceRunDiagnostics, listJobSourceRuns } from '@/features/job-sources/api/job-sources-api';
+import {
+  getJobSourceRunDiagnostics,
+  getScrapePreflight,
+  getScrapeSchedule,
+  listJobSourceRuns,
+} from '@/features/job-sources/api/job-sources-api';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
 import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
-export const useJobSourcesQueries = (token: string, selectedRunId: string | null) => {
+type ScrapePreflightParams = {
+  source?: 'pracuj-pl' | 'pracuj-pl-it' | 'pracuj-pl-general';
+  listingUrl?: string;
+  limit?: number;
+};
+
+export const useJobSourcesQueries = (
+  token: string,
+  selectedRunId: string | null,
+  preflightParams?: ScrapePreflightParams,
+) => {
   const runsQuery = useQuery(
     buildAuthedQueryOptions({
       token,
@@ -32,8 +47,28 @@ export const useJobSourcesQueries = (token: string, selectedRunId: string | null
     }),
   );
 
+  const scheduleQuery = useQuery(
+    buildAuthedQueryOptions({
+      token,
+      queryKey: queryKeys.jobSources.schedule(token),
+      queryFn: getScrapeSchedule,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+    }),
+  );
+
+  const preflightQuery = useQuery(
+    buildAuthedQueryOptions({
+      token,
+      queryKey: queryKeys.jobSources.preflight(token, preflightParams),
+      queryFn: (authToken) => getScrapePreflight(authToken, preflightParams),
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+    }),
+  );
+
   return {
     runsQuery,
     diagnosticsQuery,
+    scheduleQuery,
+    preflightQuery,
   };
 };

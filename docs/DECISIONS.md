@@ -391,3 +391,89 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Reduce auth friction and support social sign-in onboarding.
   - Enable controlled scrape automation without exposing unauthenticated trigger surfaces.
+
+## 2026-03-09: Persisted Notebook Preferences
+
+- Decision:
+  - Persist notebook filters/view mode and saved preset per user in a dedicated `notebook_preferences` table.
+  - Hydrate the notebook UI from the server copy and keep the frontend store synchronized after changes.
+- Why:
+  - Preserve triage context across devices and sessions.
+  - Avoid keeping product workflow state only in ephemeral browser memory.
+
+## 2026-03-09: Workspace Summary Drives Product Next Actions
+
+- Decision:
+  - Extend `GET /workspace/summary` with `nextAction`, `activity`, and `health` sections.
+- Why:
+  - Keep dashboard UX driven by one deterministic read model instead of frontend heuristics.
+  - Make readiness and operating guidance explicit and testable.
+
+## 2026-03-09: First-Class Scrape History and Export Surfaces
+
+- Decision:
+  - Extend scrape run listing with richer filters/windowing.
+  - Add CSV export for user run history and admin callback event history.
+  - Add `GET /job-sources/sources/health` for source-level reliability summary.
+- Why:
+  - Support debugging and ops workflows without direct DB access or raw log inspection.
+  - Make operational visibility consumable from product/admin UI.
+
+## 2026-03-09: Worker Diagnostics Outcome Classification
+
+- Decision:
+  - Extend worker callback diagnostics with `resultKind`, `emptyReason`, and `sourceQuality`.
+- Why:
+  - Separate “source degraded/blocked/empty” outcomes from generic failures.
+  - Reduce support dependence on string-parsing worker logs.
+
+## 2026-03-09: Server-Driven Workflow Recovery Guidance
+
+- Decision:
+  - Extend `GET /workspace/summary` with:
+    - `readinessBreakdown`
+    - `blockerDetails`
+    - `recommendedSequence`
+  - Use the same payload to drive dashboard and notebook blocked states.
+- Why:
+  - Keep workflow guidance deterministic and API-owned.
+  - Remove duplicate blocker heuristics from the frontend.
+
+## 2026-03-09: Document Extraction Retry as First-Class Recovery Flow
+
+- Decision:
+  - Add authenticated recovery endpoints:
+    - `POST /documents/:id/retry-extraction`
+    - `POST /documents/retry-failed`
+  - Persist a document event when extraction retry is requested.
+- Why:
+  - Let users recover from failed document extraction without support intervention.
+  - Keep retry actions auditable in the existing diagnostics timeline.
+
+## 2026-03-09: User-Facing Scrape Preflight and Manual Schedule Trigger
+
+- Decision:
+  - Add `GET /job-sources/preflight` to resolve blockers, warnings, and accepted filters before enqueue.
+  - Add authenticated `POST /job-sources/schedule/trigger-now` for immediate run of an enabled personal schedule.
+- Why:
+  - Make scrape readiness explicit before the user starts a run.
+  - Expose automation controls in-product without relying on internal-only scheduler endpoints.
+
+## 2026-03-09: Notebook Triage Summary Read Model
+
+- Decision:
+  - Add `GET /job-offers/summary` with counts for unscored, high-confidence, stale buckets, and top explanation tags.
+  - Derive summary tags from the same strict ranking logic used by the notebook list.
+- Why:
+  - Speed up notebook triage with deterministic quick-action entry points.
+  - Avoid divergence between list ranking behavior and summary cards.
+
+## 2026-03-09: Smoke Harness Readiness-First Behavior
+
+- Decision:
+  - Add retry/backoff to `seed:e2e`.
+  - Make `scripts/smoke-e2e.ps1` wait for API, worker, and web health before running workflow assertions.
+  - Extend smoke assertions to cover recovery guidance, document retry, schedule/preflight, notebook summary, and schedule trigger-now.
+- Why:
+  - Reduce false negatives caused by startup races.
+  - Keep smoke aligned with the current user workflow instead of only legacy endpoints.

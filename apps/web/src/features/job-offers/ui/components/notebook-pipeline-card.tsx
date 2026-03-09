@@ -56,6 +56,17 @@ const PipelineColumn = ({
                 <span className="bg-surface-elevated border-border/40 rounded border px-1.5 py-0.5 text-[10px] font-medium">
                   {offer.matchScore ?? '??'}%
                 </span>
+                {offer.followUpState && offer.followUpState !== 'none' ? (
+                  <span
+                    className={`rounded px-1 text-[9px] font-semibold ${
+                      offer.followUpState === 'due'
+                        ? 'bg-app-warning/15 text-app-warning'
+                        : 'bg-primary/10 text-primary/80'
+                    }`}
+                  >
+                    {offer.followUpState === 'due' ? 'Due' : 'Upcoming'}
+                  </span>
+                ) : null}
                 {offer.pipelineMeta && Object.keys(offer.pipelineMeta).length > 0 ? (
                   <span className="text-primary/80 bg-primary/10 rounded px-1 text-[9px] font-semibold">Has Meta</span>
                 ) : null}

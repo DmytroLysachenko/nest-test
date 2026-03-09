@@ -37,6 +37,49 @@ function Get-EnvOrDefault {
   return $value
 }
 
+function Invoke-WithRetry {
+  param(
+    [Parameter(Mandatory = $true)][scriptblock]$Action,
+    [Parameter(Mandatory = $true)][string]$Context,
+    [int]$Attempts = 3,
+    [int]$DelaySeconds = 3
+  )
+
+  for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+    try {
+      return & $Action
+    } catch {
+      if ($attempt -ge $Attempts) {
+        throw
+      }
+
+      Write-Host "$Context failed on attempt $attempt/$Attempts. Retrying in $DelaySeconds seconds..."
+      Start-Sleep -Seconds $DelaySeconds
+    }
+  }
+}
+
+function Wait-ForHealthyEndpoint {
+  param(
+    [Parameter(Mandatory = $true)][string]$Uri,
+    [Parameter(Mandatory = $true)][string]$Context,
+    [int]$TimeoutSeconds = 90
+  )
+
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  while ((Get-Date) -lt $deadline) {
+    try {
+      $response = Invoke-WebRequest -Uri $Uri -UseBasicParsing -TimeoutSec 15
+      Assert-StatusCode -Actual $response.StatusCode -Allowed @(200) -Context $Context
+      return $response
+    } catch {
+      Start-Sleep -Seconds 3
+    }
+  }
+
+  throw "$Context did not become healthy within $TimeoutSeconds seconds. uri=$Uri"
+}
+
 try {
 Write-Host '== E2E Smoke =='
 
@@ -54,21 +97,18 @@ $workerCallbackToken = Get-EnvOrDefault -Name 'WORKER_CALLBACK_TOKEN' -Default '
 if (-not $skipSeed) {
   Write-Host '1) Seeding minimal fixture data...'
   $stage = 'seed-fixtures'
-  pnpm --filter @repo/db seed:e2e | Out-Host
+  Invoke-WithRetry -Context 'Fixture seed' -Attempts 3 -DelaySeconds 4 -Action {
+    pnpm --filter @repo/db seed:e2e | Out-Host
+  }
 } else {
   Write-Host '1) Skipping fixture seeding (SMOKE_SKIP_SEED=true)...'
 }
 
 Write-Host '2) Checking service health endpoints...'
 $stage = 'health-checks'
-$apiHealth = Invoke-WebRequest -Uri "$apiBaseUrl/health" -UseBasicParsing -TimeoutSec 15
-Assert-StatusCode -Actual $apiHealth.StatusCode -Allowed @(200) -Context 'API health'
-
-$workerHealth = Invoke-WebRequest -Uri "$workerBaseUrl/health" -UseBasicParsing -TimeoutSec 15
-Assert-StatusCode -Actual $workerHealth.StatusCode -Allowed @(200) -Context 'Worker health'
-
-$webHome = Invoke-WebRequest -Uri "$webBaseUrl/health" -UseBasicParsing -TimeoutSec 15
-Assert-StatusCode -Actual $webHome.StatusCode -Allowed @(200) -Context 'Web health'
+$apiHealth = Wait-ForHealthyEndpoint -Uri "$apiBaseUrl/health" -Context 'API health'
+$workerHealth = Wait-ForHealthyEndpoint -Uri "$workerBaseUrl/health" -Context 'Worker health'
+$webHome = Wait-ForHealthyEndpoint -Uri "$webBaseUrl/health" -Context 'Web health'
 
 Write-Host '3) Authenticating fixture user...'
 $stage = 'auth-login'
@@ -205,6 +245,24 @@ $workspaceSummaryPayload = $workspaceSummary.Content | ConvertFrom-Json
 if ($null -eq $workspaceSummaryPayload.data.workflow.needsOnboarding) {
   throw 'Workspace summary missing workflow.needsOnboarding.'
 }
+if (-not $workspaceSummaryPayload.data.readinessBreakdown) {
+  throw 'Workspace summary missing readinessBreakdown.'
+}
+if ($null -eq $workspaceSummaryPayload.data.blockerDetails) {
+  throw 'Workspace summary missing blockerDetails.'
+}
+if (-not $workspaceSummaryPayload.data.recommendedSequence) {
+  throw 'Workspace summary missing recommendedSequence.'
+}
+
+Write-Host '6.15) Verifying document retry recovery endpoint...'
+$stage = 'documents-retry-failed'
+$retryFailedDocs = Invoke-WebRequest -Uri "$apiBaseUrl/api/documents/retry-failed" -Method Post -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $retryFailedDocs.StatusCode -Allowed @(200, 201) -Context 'Retry failed document extractions'
+$retryFailedDocsPayload = $retryFailedDocs.Content | ConvertFrom-Json
+if ($null -eq $retryFailedDocsPayload.data.totalFailed) {
+  throw 'Retry failed documents payload missing totalFailed.'
+}
 
 Write-Host '6.2) Verifying ops metrics endpoint...'
 $stage = 'ops-metrics'
@@ -340,6 +398,37 @@ $stage = 'job-source-runs'
 $runs = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $runs.StatusCode -Allowed @(200) -Context 'List job source runs'
 
+Write-Host '9.1) Verifying scrape schedule and preflight endpoints...'
+$stage = 'schedule-preflight'
+$schedule = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/schedule" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $schedule.StatusCode -Allowed @(200) -Context 'Get scrape schedule'
+$schedulePayload = $schedule.Content | ConvertFrom-Json
+if ($null -eq $schedulePayload.data.enabled) {
+  throw 'Scrape schedule missing enabled flag.'
+}
+
+$scheduleUpdateBody = @{
+  enabled  = $true
+  cron     = '0 9 * * *'
+  timezone = 'Europe/Warsaw'
+  source   = 'pracuj-pl-it'
+  limit    = 5
+} | ConvertTo-Json
+
+$scheduleUpdate = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/schedule" -Method Put -Headers $authHeaders -ContentType 'application/json' -Body $scheduleUpdateBody -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $scheduleUpdate.StatusCode -Allowed @(200, 201) -Context 'Update scrape schedule'
+$scheduleUpdatePayload = $scheduleUpdate.Content | ConvertFrom-Json
+if ($scheduleUpdatePayload.data.enabled -ne $true) {
+  throw 'Updated scrape schedule should be enabled.'
+}
+
+$preflight = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/preflight?limit=5" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $preflight.StatusCode -Allowed @(200) -Context 'Get scrape preflight'
+$preflightPayload = $preflight.Content | ConvertFrom-Json
+if ($null -eq $preflightPayload.data.ready -or $null -eq $preflightPayload.data.blockers) {
+  throw 'Scrape preflight payload missing ready or blockers.'
+}
+
 Write-Host '10) Enqueueing scrape task through API...'
 $stage = 'enqueue-scrape'
 $scrapeBody = @{
@@ -454,6 +543,15 @@ if ($matched.Count -lt 1) {
   throw "No persisted user job offers found for sourceRunId=$sourceRunId"
 }
 
+Write-Host '12.05) Verifying notebook summary endpoint...'
+$stage = 'notebook-summary'
+$notebookSummary = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/summary" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $notebookSummary.StatusCode -Allowed @(200) -Context 'Get notebook summary'
+$notebookSummaryPayload = $notebookSummary.Content | ConvertFrom-Json
+if ($null -eq $notebookSummaryPayload.data.unscored -or $null -eq $notebookSummaryPayload.data.buckets) {
+  throw 'Notebook summary payload missing unscored or buckets.'
+}
+
 Write-Host '12.1) Verifying scrape diagnostics endpoint...'
 $stage = 'verify-scrape-diagnostics'
 $diagnostics = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$sourceRunId/diagnostics" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
@@ -535,6 +633,17 @@ if ($scorePayload.data.matchMeta.profileSchemaVersion -ne '1.0.0') {
 }
 if ($null -eq $scorePayload.data.matchMeta.breakdown -or $null -eq $scorePayload.data.matchMeta.hardConstraintViolations) {
   throw 'Job offer score matchMeta missing breakdown or hardConstraintViolations.'
+}
+
+Write-Host '13.1) Verifying schedule trigger-now path...'
+$stage = 'schedule-trigger-now'
+$scheduledTrigger = Invoke-WithRetry -Context 'Trigger scrape schedule now' -Attempts 2 -DelaySeconds 2 -Action {
+  Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/schedule/trigger-now" -Method Post -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+}
+Assert-StatusCode -Actual $scheduledTrigger.StatusCode -Allowed @(200, 201, 202) -Context 'Trigger scrape schedule now'
+$scheduledTriggerPayload = $scheduledTrigger.Content | ConvertFrom-Json
+if ([string]::IsNullOrWhiteSpace($scheduledTriggerPayload.data.sourceRunId)) {
+  throw 'Trigger-now response missing sourceRunId.'
 }
 
 Write-Host "Smoke test passed. sourceRunId=$sourceRunId offers=$($matched.Count) matchId=$matchId"

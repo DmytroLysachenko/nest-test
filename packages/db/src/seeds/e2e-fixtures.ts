@@ -10,6 +10,9 @@ config();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  max: 1,
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 10000,
 });
 
 const db = drizzle(pool);
@@ -38,6 +41,40 @@ const fixtures: FixtureUser[] = [
     notes: 'E2E fixture profile for standard user.',
   },
 ];
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isTransientDbError = (error: unknown) => {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return (
+    message.includes('connection terminated unexpectedly') ||
+    message.includes('connection ended unexpectedly') ||
+    message.includes('timeout expired') ||
+    message.includes('econnreset') ||
+    message.includes('could not connect')
+  );
+};
+
+const withRetry = async <T>(label: string, task: () => Promise<T>, attempts = 3): Promise<T> => {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts || !isTransientDbError(error)) {
+        throw error;
+      }
+
+      const delayMs = attempt * 1500;
+      console.warn(`${label} failed on attempt ${attempt}/${attempts}. Retrying in ${delayMs}ms...`);
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError;
+};
 
 const ensureUser = async (fixture: FixtureUser) => {
   const existing = await db
@@ -327,9 +364,13 @@ async function seedE2EFixtures() {
   console.log('Seeding e2e fixtures...');
 
   for (const fixture of fixtures) {
-    const user = await ensureUser(fixture);
-    const profileInput = await ensureProfileInput(user.id, fixture);
-    const careerProfile = await ensureActiveCareerProfile(user.id, profileInput.id, fixture);
+    const user = await withRetry(`ensureUser(${fixture.email})`, () => ensureUser(fixture));
+    const profileInput = await withRetry(`ensureProfileInput(${fixture.email})`, () =>
+      ensureProfileInput(user.id, fixture),
+    );
+    const careerProfile = await withRetry(`ensureActiveCareerProfile(${fixture.email})`, () =>
+      ensureActiveCareerProfile(user.id, profileInput.id, fixture),
+    );
 
     console.log(
       `Prepared fixture: ${fixture.email} | active career profile: ${careerProfile.id} | version: ${careerProfile.version}`,

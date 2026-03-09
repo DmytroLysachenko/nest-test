@@ -6,6 +6,7 @@ import { enqueueScrape } from '@/features/job-sources/api/job-sources-api';
 import {
   scoreJobOffer,
   generateJobOfferPrep,
+  updateNotebookPreferences,
   updateJobOfferFeedback,
   updateJobOfferMeta,
   updateJobOfferPipeline,
@@ -17,7 +18,7 @@ import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { useDataSync } from '@/shared/lib/query/use-data-sync';
 import { toastError, toastInfo, toastSuccess, toastSuccessWithAction } from '@/shared/lib/ui/toast';
 
-import type { JobOfferStatus, JobOffersListDto } from '@/shared/types/api';
+import type { JobOfferStatus, JobOffersListDto, NotebookFiltersDto } from '@/shared/types/api';
 
 type UseNotebookMutationsArgs = {
   token: string;
@@ -239,6 +240,16 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     },
   });
 
+  const preferencesMutation = useMutation({
+    mutationFn: ({ filters, savedPreset }: { filters: NotebookFiltersDto; savedPreset: NotebookFiltersDto | null }) =>
+      updateNotebookPreferences(token, { filters, savedPreset }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['job-offers', 'preferences', token],
+      });
+    },
+  });
+
   return {
     statusMutation,
     bulkStatusMutation,
@@ -250,5 +261,6 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     scoreMutation,
     generatePrepMutation,
     enqueueProfileScrapeMutation,
+    preferencesMutation,
   };
 };

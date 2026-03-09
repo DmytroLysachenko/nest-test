@@ -46,6 +46,32 @@ export const apiRequest = async <T>(path: string, init?: RequestInitWithAuth): P
   return payload.data;
 };
 
+export const apiTextRequest = async (path: string, init?: RequestInitWithAuth): Promise<string> => {
+  const request = async (tokenOverride?: string | null) =>
+    fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
+      ...init,
+      headers: buildHeaders({
+        ...init,
+        token: tokenOverride ?? init?.token ?? null,
+      }),
+    });
+
+  let response = await request(init?.token ?? null);
+
+  if (response.status === 401 && !init?.disableAutoRefresh && Boolean(init?.token)) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed?.accessToken) {
+      response = await request(refreshed.accessToken);
+    }
+  }
+
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+
+  return response.text();
+};
+
 let refreshPromise: Promise<{ accessToken: string; refreshToken: string } | null> | null = null;
 
 const toApiError = async (response: Response) => {

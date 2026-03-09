@@ -1,12 +1,16 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "ui": "tui",
+  "globalEnv": ["CI", "DATABASE_URL", "PORT", "SystemDrive"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "env": [
         "NODE_ENV",
+        "DATABASE_URL",
+        "PORT",
+        "SystemDrive",
         "AUTH_LOGIN_THROTTLE_TTL_MS",
         "AUTH_LOGIN_THROTTLE_LIMIT",
         "AUTH_REFRESH_THROTTLE_TTL_MS",

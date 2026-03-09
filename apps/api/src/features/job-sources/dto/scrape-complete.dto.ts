@@ -161,6 +161,21 @@ class ScrapeRunDiagnosticsDto {
   @IsString()
   @MaxLength(128)
   finalPolicy?: string;
+
+  @ApiPropertyOptional({ enum: ['healthy', 'empty', 'blocked', 'failed'] })
+  @IsOptional()
+  @IsIn(['healthy', 'empty', 'blocked', 'failed'])
+  resultKind?: 'healthy' | 'empty' | 'blocked' | 'failed';
+
+  @ApiPropertyOptional({ enum: ['filters_exhausted', 'no_listings', 'detail_parse_gap'], nullable: true })
+  @IsOptional()
+  @IsIn(['filters_exhausted', 'no_listings', 'detail_parse_gap'])
+  emptyReason?: 'filters_exhausted' | 'no_listings' | 'detail_parse_gap';
+
+  @ApiPropertyOptional({ enum: ['healthy', 'degraded', 'empty', 'failed'] })
+  @IsOptional()
+  @IsIn(['healthy', 'degraded', 'empty', 'failed'])
+  sourceQuality?: 'healthy' | 'degraded' | 'empty' | 'failed';
 }
 
 export class ScrapeCompleteDto {

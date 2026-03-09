@@ -34,8 +34,12 @@ export const DocumentsPanel = ({
     documentEventsQuery,
     uploadMutation,
     retryExtractMutation,
+    retryAllFailedMutation,
     removeDocumentMutation,
   } = useDocumentsPanel({ token, overrideDocumentsQuery });
+  const failedDocuments = (documentsQuery.data ?? []).filter(
+    (document: { extractionStatus?: string }) => document.extractionStatus === 'FAILED',
+  );
 
   return (
     <Card title="Documents" description="Upload PDF documents, confirm upload, and extract text.">
@@ -73,6 +77,21 @@ export const DocumentsPanel = ({
                 : `error (${uploadHealthQuery.data.signedUrl.reason ?? 'unknown'})`}
             </p>
             <p>TraceId: {uploadHealthQuery.data.traceId}</p>
+          </div>
+        ) : null}
+        {failedDocuments.length > 0 ? (
+          <div className="border-app-warning-border bg-app-warning-soft rounded-2xl border p-3 text-xs">
+            <p className="font-semibold">Recovery actions available</p>
+            <p className="mt-1">{failedDocuments.length} document(s) failed extraction and can be retried in batch.</p>
+            <Button
+              type="button"
+              variant="secondary"
+              className="mt-3 h-8"
+              onClick={() => retryAllFailedMutation.mutate()}
+              disabled={retryAllFailedMutation.isPending}
+            >
+              {retryAllFailedMutation.isPending ? 'Retrying failed documents...' : 'Retry all failed extractions'}
+            </Button>
           </div>
         ) : null}
       </div>
@@ -133,7 +152,9 @@ export const DocumentsPanel = ({
                   <p className="text-text-soft mt-2 text-xs">Removing document...</p>
                 ) : null}
                 {document.extractionStatus === 'FAILED' ? (
-                  <p className="text-app-warning mt-2 text-xs">Extraction failed. Use retry or replace document.</p>
+                  <p className="text-app-warning mt-2 text-xs">
+                    Extraction failed. Retry here or replace the document before profile generation.
+                  </p>
                 ) : null}
               </div>
               {document.extractionError ? <p className="text-app-danger">{document.extractionError}</p> : null}

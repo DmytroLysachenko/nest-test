@@ -75,3 +75,32 @@ export class ScrapeScheduleResponseDto {
   @ApiPropertyOptional()
   lastRunStatus!: string | null;
 }
+
+export class ScrapePreflightResponseDto {
+  @ApiProperty()
+  ready!: boolean;
+
+  @ApiProperty({ type: [String] })
+  blockers!: string[];
+
+  @ApiProperty({ type: [String] })
+  warnings!: string[];
+
+  @ApiPropertyOptional()
+  source!: string | null;
+
+  @ApiPropertyOptional()
+  listingUrl!: string | null;
+
+  @ApiPropertyOptional()
+  acceptedFilters!: Record<string, unknown> | null;
+
+  @ApiProperty()
+  resolvedFromProfile!: boolean;
+
+  @ApiProperty()
+  activeRunCount!: number;
+
+  @ApiPropertyOptional()
+  dailyRemaining!: number | null;
+}

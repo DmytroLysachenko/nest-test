@@ -2,6 +2,8 @@
 
 import { create } from 'zustand';
 
+import type { NotebookFiltersDto } from '@/shared/types/api';
+
 type AppUiState = {
   dashboard: {
     lastVisitedSection: 'workflow' | 'profile' | 'notebook' | 'scraping';
@@ -9,43 +11,10 @@ type AppUiState = {
   notebook: {
     selectedOfferId: string | null;
     selectedOfferIds: string[];
-    filters: {
-      status:
-        | 'ALL'
-        | 'NEW'
-        | 'SEEN'
-        | 'SAVED'
-        | 'APPLIED'
-        | 'INTERVIEWING'
-        | 'OFFER'
-        | 'REJECTED'
-        | 'ARCHIVED'
-        | 'DISMISSED';
-      mode: 'strict' | 'approx' | 'explore';
-      view: 'LIST' | 'PIPELINE';
-      search: string;
-      tag: string;
-      hasScore: 'all' | 'yes' | 'no';
-    };
-    savedPreset: {
-      status:
-        | 'ALL'
-        | 'NEW'
-        | 'SEEN'
-        | 'SAVED'
-        | 'APPLIED'
-        | 'INTERVIEWING'
-        | 'OFFER'
-        | 'REJECTED'
-        | 'ARCHIVED'
-        | 'DISMISSED';
-      mode: 'strict' | 'approx' | 'explore';
-      view: 'LIST' | 'PIPELINE';
-      search: string;
-      tag: string;
-      hasScore: 'all' | 'yes' | 'no';
-    } | null;
+    filters: NotebookFiltersDto;
+    savedPreset: NotebookFiltersDto | null;
     lastInteractionAt: number | null;
+    hydratedFromServer: boolean;
     pagination: {
       offset: number;
       limit: number;
@@ -63,19 +32,21 @@ type AppUiActions = {
     key: K,
     value: AppUiState['notebook']['filters'][K],
   ) => void;
+  hydrateNotebookPreferences: (filters: NotebookFiltersDto, savedPreset: NotebookFiltersDto | null) => void;
   resetNotebookFilters: () => void;
   saveNotebookFilterPreset: () => void;
   applyNotebookFilterPreset: () => void;
   setNotebookOffset: (offset: number) => void;
 };
 
-const initialNotebookFilters: AppUiState['notebook']['filters'] = {
+export const initialNotebookFilters: NotebookFiltersDto = {
   status: 'ALL',
   mode: 'strict',
   view: 'LIST',
   search: '',
   tag: '',
   hasScore: 'all',
+  followUp: 'all',
 };
 
 export const useAppUiStore = create<AppUiState & AppUiActions>((set) => ({
@@ -88,6 +59,7 @@ export const useAppUiStore = create<AppUiState & AppUiActions>((set) => ({
     filters: initialNotebookFilters,
     savedPreset: null,
     lastInteractionAt: null,
+    hydratedFromServer: false,
     pagination: {
       offset: 0,
       limit: 20,
@@ -152,6 +124,17 @@ export const useAppUiStore = create<AppUiState & AppUiActions>((set) => ({
         pagination: { ...state.notebook.pagination, offset: 0 },
       },
     })),
+  hydrateNotebookPreferences: (filters, savedPreset) =>
+    set((state) => ({
+      ...state,
+      notebook: {
+        ...state.notebook,
+        filters,
+        savedPreset,
+        hydratedFromServer: true,
+        pagination: { ...state.notebook.pagination, offset: 0 },
+      },
+    })),
   resetNotebookFilters: () =>
     set((state) => ({
       ...state,
@@ -159,6 +142,7 @@ export const useAppUiStore = create<AppUiState & AppUiActions>((set) => ({
         ...state.notebook,
         filters: initialNotebookFilters,
         lastInteractionAt: Date.now(),
+        hydratedFromServer: true,
         pagination: { ...state.notebook.pagination, offset: 0 },
       },
     })),
@@ -168,6 +152,7 @@ export const useAppUiStore = create<AppUiState & AppUiActions>((set) => ({
       notebook: {
         ...state.notebook,
         savedPreset: { ...state.notebook.filters },
+        hydratedFromServer: true,
       },
     })),
   applyNotebookFilterPreset: () =>

@@ -38,6 +38,26 @@ test('buildScrapeCallbackPayload emits completed callback fields', () => {
   assert.equal(payload.diagnostics?.adaptiveDelayApplied, 500);
 });
 
+test('buildScrapeCallbackPayload emits source quality diagnostics', () => {
+  const payload = buildScrapeCallbackPayload({
+    eventId: 'event-3',
+    source: 'pracuj-pl',
+    runId: 'run-3',
+    sourceRunId: 'run-source-3',
+    listingUrl: 'https://it.pracuj.pl/praca?wm=home-office',
+    status: 'COMPLETED',
+    diagnostics: {
+      resultKind: 'empty',
+      emptyReason: 'filters_exhausted',
+      sourceQuality: 'empty',
+    },
+  });
+
+  assert.equal(payload.diagnostics?.resultKind, 'empty');
+  assert.equal(payload.diagnostics?.emptyReason, 'filters_exhausted');
+  assert.equal(payload.diagnostics?.sourceQuality, 'empty');
+});
+
 test('computeCallbackPayloadHash is deterministic for canonical payload shape', () => {
   const payload = buildScrapeCallbackPayload({
     eventId: 'event-1',

@@ -1,7 +1,10 @@
-import { apiRequest } from '@/shared/lib/http/api-client';
+import { apiRequest, apiTextRequest } from '@/shared/lib/http/api-client';
 
 import type {
   EnqueueScrapeResponseDto,
+  ScrapePreflightDto,
+  ScrapeScheduleDto,
+  JobSourceHealthDto,
   JobSourceRunDiagnosticsDto,
   JobSourceRunDiagnosticsSummaryDto,
   JobSourceRunsListDto,
@@ -23,17 +26,43 @@ export const enqueueScrape = (token: string, payload: EnqueueScrapePayload) =>
 
 export const listJobSourceRuns = (
   token: string,
-  status?: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED',
-  retriedFrom?: string,
+  params?: {
+    status?: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+    failureType?: 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown';
+    source?: 'PRACUJ_PL';
+    retriedFrom?: string;
+    limit?: number;
+    offset?: number;
+    windowHours?: number;
+    includeRetried?: boolean;
+  },
 ) => {
-  const params = new URLSearchParams();
-  if (status) {
-    params.set('status', status);
+  const queryParams = new URLSearchParams();
+  if (params?.status) {
+    queryParams.set('status', params.status);
   }
-  if (retriedFrom) {
-    params.set('retriedFrom', retriedFrom);
+  if (params?.retriedFrom) {
+    queryParams.set('retriedFrom', params.retriedFrom);
   }
-  const query = params.size ? `?${params.toString()}` : '';
+  if (params?.failureType) {
+    queryParams.set('failureType', params.failureType);
+  }
+  if (params?.source) {
+    queryParams.set('source', params.source);
+  }
+  if (params?.limit !== undefined) {
+    queryParams.set('limit', String(params.limit));
+  }
+  if (params?.offset !== undefined) {
+    queryParams.set('offset', String(params.offset));
+  }
+  if (params?.windowHours !== undefined) {
+    queryParams.set('windowHours', String(params.windowHours));
+  }
+  if (params?.includeRetried !== undefined) {
+    queryParams.set('includeRetried', String(params.includeRetried));
+  }
+  const query = queryParams.size ? `?${queryParams.toString()}` : '';
   return apiRequest<JobSourceRunsListDto>(`/job-sources/runs${query}`, {
     method: 'GET',
     token,
@@ -67,6 +96,65 @@ export const getJobSourceRunDiagnosticsSummary = (
   }
 
   return apiRequest<JobSourceRunDiagnosticsSummaryDto>(`/job-sources/runs/diagnostics/summary?${query.toString()}`, {
+    method: 'GET',
+    token,
+  });
+};
+
+export const getJobSourceHealth = (token: string, windowHours = 72) =>
+  apiRequest<JobSourceHealthDto>(`/job-sources/sources/health?windowHours=${windowHours}`, {
+    method: 'GET',
+    token,
+  });
+
+export const exportJobSourceRunsCsv = (token: string) =>
+  apiTextRequest('/job-sources/runs/export.csv', {
+    method: 'GET',
+    token,
+  });
+
+export const getScrapeSchedule = (token: string) =>
+  apiRequest<ScrapeScheduleDto>('/job-sources/schedule', {
+    method: 'GET',
+    token,
+  });
+
+export const updateScrapeSchedule = (
+  token: string,
+  payload: { enabled: boolean; cron?: string; timezone?: string; source?: string; limit?: number },
+) =>
+  apiRequest<ScrapeScheduleDto>('/job-sources/schedule', {
+    method: 'PUT',
+    token,
+    body: JSON.stringify(payload),
+  });
+
+export const triggerScheduleNow = (token: string) =>
+  apiRequest<EnqueueScrapeResponseDto>('/job-sources/schedule/trigger-now', {
+    method: 'POST',
+    token,
+  });
+
+export const getScrapePreflight = (
+  token: string,
+  params?: {
+    source?: 'pracuj-pl' | 'pracuj-pl-it' | 'pracuj-pl-general';
+    listingUrl?: string;
+    limit?: number;
+  },
+) => {
+  const query = new URLSearchParams();
+  if (params?.source) {
+    query.set('source', params.source);
+  }
+  if (params?.listingUrl) {
+    query.set('listingUrl', params.listingUrl);
+  }
+  if (params?.limit !== undefined) {
+    query.set('limit', String(params.limit));
+  }
+  const suffix = query.size ? `?${query.toString()}` : '';
+  return apiRequest<ScrapePreflightDto>(`/job-sources/preflight${suffix}`, {
     method: 'GET',
     token,
   });

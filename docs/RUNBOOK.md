@@ -98,6 +98,52 @@ Day-to-day engineering runbook for local development and verification.
    - Optional deterministic mode for CI/external-source instability: `SMOKE_FORCE_CALLBACK=true pnpm smoke:e2e`
    - Optional worker no-op accept mode (useful in CI): `WORKER_SMOKE_ACCEPT_ONLY=true`
 
+## Local Git Gates
+
+1. `pre-commit`
+   - Runs `pnpm verify:precommit`
+   - Current behavior: `pnpm exec lint-staged --no-stash`
+   - Purpose:
+     - only staged-file ESLint/Prettier cleanup
+     - avoid broad workspace validation on every small commit
+2. `pre-push`
+   - Runs `pnpm verify:prepush`
+   - Current behavior:
+     - `pnpm lint:fix:check`
+     - `pnpm --filter @repo/db build`
+     - `pnpm check-types`
+     - targeted API auth/env tests
+     - worker tests
+     - API + worker builds
+     - web unit tests
+     - web Playwright e2e
+     - web UX gate
+   - Purpose:
+     - catch the same class of failures that previously slipped to CI:
+       - autofix-required lint drift
+       - DB DTS/build regressions
+       - workspace-summary mock drift in e2e
+       - frontend route/integration regressions
+
+## Why CI Caught Issues After Push
+
+1. We previously bypassed hooks with `--no-verify` when local `lint-staged` was failing.
+2. The old `pre-push` command was too narrow:
+   - no lint autofix verification
+   - no DB package build
+   - no web unit tests
+   - no Playwright e2e
+   - no UX gate
+3. CI ran broader validation than local push checks, so regressions surfaced only after push.
+
+## Hook Bypass Policy
+
+1. Do not use `--no-verify` for routine commits or pushes.
+2. If a hook itself is broken and bypass is unavoidable:
+   - fix the hook in the same branch before merge
+   - run `pnpm verify:prepush` manually before pushing again
+3. For cross-service workflow changes, still run `pnpm smoke:e2e` before merge even if `pre-push` passes.
+
 ## CI Branch Protection
 
 1. Require passing checks before merge:
@@ -175,15 +221,24 @@ For exact variable-level mapping and secret sources, use:
 1. Main dashboard: `/`
 2. Guided profile onboarding: `/onboarding`
 3. Internal endpoint tester (dev flag): `/tester`
-4. Admin ops metrics: `GET /api/ops/metrics` (supports optional `windowHours` query)
-5. Admin callback events listing: `GET /api/ops/scrape/callback-events`
-6. Admin dead-letter replay trigger: `POST /api/ops/scrape/callbacks/replay`
-7. Admin stale-run reconcile: `POST /api/ops/scrape/runs/:id/reconcile`
-8. Internal bulk stale-run reconcile: `POST /api/ops/reconcile-stale-runs`
-5. Job match audit export: `GET /api/job-matching/audit/export.csv`
-6. Document diagnostics summary: `GET /api/documents/diagnostics/summary`
-7. Retry failed scrape run: `POST /api/job-sources/runs/:id/retry`
-8. Worker heartbeat callback (internal): `POST /api/job-sources/runs/:id/heartbeat`
+4. Admin ops console: `/ops`
+5. Admin ops metrics: `GET /api/ops/metrics` (supports optional `windowHours` query)
+6. Admin callback events listing: `GET /api/ops/scrape/callback-events`
+7. Admin callback events export: `GET /api/ops/scrape/callback-events/export.csv`
+8. Admin dead-letter replay trigger: `POST /api/ops/scrape/callbacks/replay`
+9. Admin stale-run reconcile: `POST /api/ops/scrape/runs/:id/reconcile`
+10. Internal bulk stale-run reconcile: `POST /api/ops/reconcile-stale-runs`
+11. Job source health summary: `GET /api/job-sources/sources/health`
+12. Job source run export: `GET /api/job-sources/runs/export.csv`
+13. Job match audit export: `GET /api/job-matching/audit/export.csv`
+14. Document diagnostics summary: `GET /api/documents/diagnostics/summary`
+15. Retry failed scrape run: `POST /api/job-sources/runs/:id/retry`
+16. Worker heartbeat callback (internal): `POST /api/job-sources/runs/:id/heartbeat`
+17. Document extraction retry: `POST /api/documents/:id/retry-extraction`
+18. Retry all failed document extractions: `POST /api/documents/retry-failed`
+19. Scrape preflight: `GET /api/job-sources/preflight`
+20. User schedule trigger-now: `POST /api/job-sources/schedule/trigger-now`
+21. Notebook summary: `GET /api/job-offers/summary`
 
 ## Smoke Coverage (Current)
 
@@ -196,26 +251,31 @@ For exact variable-level mapping and secret sources, use:
 5. onboarding draft CRUD endpoints
 6. career-profile endpoints
 7. workspace summary endpoint
-8. denormalized `career-profiles/search-view`
-9. deterministic job matching
-10. scrape enqueue + completion
-11. notebook status/meta/history/score actions
-12. worker + callback flow with retry-safe completion path
-13. notebook ranking mode contract (`strict` + `approx`)
-14. scrape diagnostics endpoint for completed run
-15. document upload-health endpoint
-16. document diagnostics summary endpoint
-17. scrape diagnostics summary endpoint (with timeline option)
-18. job-matching audit json/csv endpoints
-19. scrape retry endpoint guard (`completed` run retry rejection)
-20. scrape heartbeat callback + run progress persistence
-21. transition guard for invalid run lifecycle state changes
+8. workspace recovery guidance fields (`readinessBreakdown`, `blockerDetails`, `recommendedSequence`)
+9. document retry-failed recovery endpoint
+10. denormalized `career-profiles/search-view`
+11. deterministic job matching
+12. schedule read/update + scrape preflight
+13. scrape enqueue + completion
+14. notebook summary read model
+15. notebook status/meta/history/score actions
+16. worker + callback flow with retry-safe completion path
+17. notebook ranking mode contract (`strict` + `approx`)
+18. scrape diagnostics endpoint for completed run
+19. document upload-health endpoint
+20. document diagnostics summary endpoint
+21. scrape diagnostics summary endpoint (with timeline option)
+22. job-matching audit json/csv endpoints
+23. scrape retry endpoint guard (`completed` run retry rejection)
+24. scrape heartbeat callback + run progress persistence
+25. schedule trigger-now path
+26. transition guard for invalid run lifecycle state changes
 
 ## Recovery Tips
 
 1. If scrape callbacks fail, replay worker dead letters:
    - `pnpm --filter worker callbacks:replay`
-2. If smoke fails from startup race, re-run `pnpm smoke:e2e` after services are healthy.
+2. `pnpm smoke:e2e` now waits for `/health` endpoints, but local API/worker/web processes still need to be started before the readiness probes can succeed.
 3. If local tests hit throttling, reduce request rate or wait for throttle window reset.
 4. If document uploads fail in FE:
    - check `GET /api/documents/upload-health`
@@ -230,4 +290,5 @@ For exact variable-level mapping and secret sources, use:
 4. Update:
    - `docs/PROJECT_STATE.md`
    - `docs/ROADMAP.md`
+   - `docs/SPRINT_PLAN.md` when future sprint sequencing changes materially
    - `docs/DECISIONS.md` (if architecture/contracts changed)

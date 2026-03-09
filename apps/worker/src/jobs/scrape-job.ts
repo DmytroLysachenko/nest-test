@@ -45,6 +45,9 @@ type CallbackPayload = {
     adaptiveDelayApplied?: number;
     blockedRate?: number;
     finalPolicy?: string;
+    resultKind?: 'healthy' | 'empty' | 'blocked' | 'failed';
+    emptyReason?: 'filters_exhausted' | 'no_listings' | 'detail_parse_gap' | null;
+    sourceQuality?: 'healthy' | 'degraded' | 'empty' | 'failed';
   };
 };
 
@@ -627,6 +630,30 @@ export const runScrapeJob = async (
         aggregatedJobLinks.size > 0 ? Number((aggregatedBlockedUrls.length / aggregatedJobLinks.size).toFixed(4)) : 0;
       const finalPolicy =
         adaptiveDelayApplied > 0 ? `adaptive-delay:${adaptiveDetailDelayMs ?? options.detailDelayMs ?? 0}` : 'default';
+      const resultKind =
+        sanitizedJobs.length > 0
+          ? blockedRate >= 0.3
+            ? 'blocked'
+            : 'healthy'
+          : aggregatedJobLinks.size === 0
+            ? 'empty'
+            : 'blocked';
+      const emptyReason =
+        sanitizedJobs.length > 0
+          ? null
+          : hadZeroOffersStep
+            ? 'filters_exhausted'
+            : aggregatedJobLinks.size === 0
+              ? 'no_listings'
+              : 'detail_parse_gap';
+      const sourceQuality =
+        sanitizedJobs.length > 0
+          ? blockedRate >= 0.3
+            ? 'degraded'
+            : 'healthy'
+          : aggregatedJobLinks.size === 0
+            ? 'empty'
+            : 'degraded';
       const emittedAt = new Date().toISOString();
       const callbackBasePayload = buildScrapeCallbackPayload({
         eventId: callbackEventId,
@@ -660,6 +687,9 @@ export const runScrapeJob = async (
           adaptiveDelayApplied,
           blockedRate,
           finalPolicy,
+          resultKind,
+          emptyReason,
+          sourceQuality,
         },
       });
       const callbackPayload = {
@@ -753,6 +783,9 @@ export const runScrapeJob = async (
           adaptiveDelayApplied: 0,
           blockedRate: 0,
           finalPolicy: 'failed',
+          resultKind: 'failed',
+          emptyReason: null,
+          sourceQuality: 'failed',
         },
       });
       await notifyCallback(
