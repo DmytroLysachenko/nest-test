@@ -9,6 +9,7 @@ export const queryKeys = {
     list: (token: string | null) => ['documents', token] as const,
     diagnosticsSummary: (token: string | null, windowHours: number) =>
       ['documents', 'diagnostics-summary', token, windowHours] as const,
+    events: (token: string | null, documentId: string | null) => ['documents', 'events', token, documentId] as const,
   },
   careerProfiles: {
     latest: (token: string | null) => ['career-profiles', 'latest', token] as const,
@@ -36,9 +37,24 @@ export const queryKeys = {
     draft: (token: string | null) => ['onboarding', 'draft', token] as const,
   },
   jobSources: {
-    runs: (token: string | null) => ['job-sources', 'runs', token] as const,
+    runs: (
+      token: string | null,
+      params?: {
+        status?: string;
+        failureType?: string;
+        source?: string;
+        retriedFrom?: string;
+        limit?: number;
+        offset?: number;
+        windowHours?: number;
+        includeRetried?: boolean;
+      },
+    ) => ['job-sources', 'runs', token, params] as const,
     diagnosticsSummary: (token: string | null, windowHours: number) =>
       ['job-sources', 'diagnostics-summary', token, windowHours] as const,
+    sourceHealth: (token: string | null, windowHours: number) => ['job-sources', 'source-health', token, windowHours] as const,
+    schedule: (token: string | null) => ['job-sources', 'schedule', token] as const,
+    preflight: (token: string | null, params?: Record<string, unknown>) => ['job-sources', 'preflight', token, params] as const,
   },
   jobOffers: {
     list: (
@@ -55,6 +71,14 @@ export const queryKeys = {
       },
     ) => ['job-offers', token, params] as const,
     history: (token: string | null, offerId: string | null) => ['job-offers', 'history', token, offerId] as const,
+    preferences: (token: string | null) => ['job-offers', 'preferences', token] as const,
+    summary: (token: string | null) => ['job-offers', 'summary', token] as const,
+  },
+  ops: {
+    callbackEvents: (
+      token: string | null,
+      params: { status?: string; sourceRunId?: string; limit?: number; offset?: number },
+    ) => ['ops', 'callback-events', token, params] as const,
   },
   jobMatching: {
     list: (token: string | null) => ['job-matching', token] as const,

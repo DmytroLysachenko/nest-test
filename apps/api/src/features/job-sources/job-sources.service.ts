@@ -314,6 +314,84 @@ export class JobSourcesService {
     };
   }
 
+  async getPreflight(userId: string, dto: EnqueueScrapeDto) {
+    await this.reconcileStaleRuns(userId);
+    const profileContext = await this.getCareerProfileContext(userId, dto.careerProfileId);
+    const blockers: string[] = [];
+    const warnings: string[] = [];
+
+    if (!profileContext?.careerProfileId) {
+      blockers.push('career-profile-not-ready');
+    }
+
+    const inferredSource = profileContext.profile ? inferPracujSource(profileContext.profile) : 'pracuj-pl-it';
+    const source = (dto.source ?? inferredSource) as PracujSourceKind;
+    const profileDerivedFilters = dto.filters
+      ? undefined
+      : profileContext.profile
+        ? buildFiltersFromProfile(profileContext.profile)
+        : undefined;
+    const rawFilters = (dto.filters as ScrapeFiltersDto | undefined) ?? profileDerivedFilters;
+    const normalizedFiltersResult = normalizePracujFilters(source, rawFilters);
+    const normalizedFilters = Object.keys(normalizedFiltersResult.filters).length
+      ? normalizedFiltersResult.filters
+      : undefined;
+    const listingUrl =
+      dto.listingUrl ?? (normalizedFilters ? buildPracujListingUrl(source, normalizedFilters) : undefined) ?? null;
+
+    if (!listingUrl) {
+      blockers.push('listing-url-unresolved');
+    } else {
+      this.assertListingUrlAllowed(source, listingUrl);
+    }
+
+    const activeRunsResult = await this.db
+      .select({ value: count() })
+      .from(jobSourceRunsTable)
+      .where(and(eq(jobSourceRunsTable.userId, userId), inArray(jobSourceRunsTable.status, ['PENDING', 'RUNNING'])));
+    const activeRunCount = Number(activeRunsResult[0]?.value ?? 0);
+    const maxActiveRuns = this.configService.get('SCRAPE_MAX_ACTIVE_RUNS_PER_USER', { infer: true });
+    if (typeof maxActiveRuns === 'number' && activeRunCount >= maxActiveRuns) {
+      blockers.push('active-run-limit');
+    }
+
+    let dailyRemaining: number | null = null;
+    const dailyEnqueueLimit = this.configService.get('SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER', { infer: true });
+    if (typeof dailyEnqueueLimit === 'number' && dailyEnqueueLimit > 0) {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const dailyRunsResult = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(and(eq(jobSourceRunsTable.userId, userId), gte(jobSourceRunsTable.createdAt, since)));
+      const dailyRunCount = Number(dailyRunsResult[0]?.value ?? 0);
+      dailyRemaining = Math.max(0, dailyEnqueueLimit - dailyRunCount);
+      if (dailyRunCount >= dailyEnqueueLimit) {
+        blockers.push('daily-budget-exhausted');
+      } else if (dailyRunCount >= dailyEnqueueLimit - 1) {
+        warnings.push('daily-budget-nearly-exhausted');
+      }
+    }
+
+    if (normalizedFiltersResult.dropped && Object.keys(normalizedFiltersResult.dropped).length > 0) {
+      warnings.push('filters-relaxed-during-normalization');
+    }
+    if (!dto.filters && !dto.listingUrl) {
+      warnings.push('using-profile-derived-filters');
+    }
+
+    return {
+      ready: blockers.length === 0,
+      blockers,
+      warnings,
+      source,
+      listingUrl,
+      acceptedFilters: normalizedFilters ?? null,
+      resolvedFromProfile: !dto.filters && !dto.source && Boolean(profileContext.profile),
+      activeRunCount,
+      dailyRemaining,
+    };
+  }
+
   async updateSchedule(userId: string, dto: UpdateScrapeScheduleDto) {
     const now = new Date();
     const cron = dto.cron ?? '0 9 * * *';
@@ -348,6 +426,41 @@ export class JobSourcesService {
     }
 
     return this.getSchedule(userId);
+  }
+
+  async triggerScheduleNow(userId: string, requestId?: string) {
+    const schedule = await this.db
+      .select()
+      .from(scrapeSchedulesTable)
+      .where(eq(scrapeSchedulesTable.userId, userId))
+      .limit(1)
+      .then((rows) => rows[0]);
+
+    if (!schedule || schedule.enabled !== 1) {
+      throw new BadRequestException('Scrape schedule is not enabled');
+    }
+
+    const response = await this.enqueueScrape(
+      userId,
+      {
+        source: schedule.source,
+        limit: schedule.limit,
+        careerProfileId: schedule.careerProfileId ?? undefined,
+        filters: (schedule.filters as ScrapeFiltersDto | null) ?? undefined,
+      },
+      requestId,
+    );
+
+    await this.db
+      .update(scrapeSchedulesTable)
+      .set({
+        lastTriggeredAt: new Date(),
+        lastRunStatus: 'ENQUEUED_MANUAL',
+        updatedAt: new Date(),
+      })
+      .where(eq(scrapeSchedulesTable.id, schedule.id));
+
+    return response;
   }
 
   async triggerSchedules(authorization: string | undefined, requestId?: string) {
@@ -1277,11 +1390,23 @@ export class JobSourcesService {
   async listRuns(userId: string, query: ListJobSourceRunsQuery) {
     await this.reconcileStaleRuns(userId);
     const conditions = [eq(jobSourceRunsTable.userId, userId)];
+    const windowHours = Math.min(Math.max(query.windowHours ?? 168, 1), 720);
+    const cutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    conditions.push(gte(jobSourceRunsTable.createdAt, cutoff));
     if (query.status) {
       conditions.push(eq(jobSourceRunsTable.status, query.status as JobSourceRunStatus));
     }
     if (query.retriedFrom) {
       conditions.push(eq(jobSourceRunsTable.retryOfRunId, query.retriedFrom));
+    }
+    if (query.failureType) {
+      conditions.push(eq(jobSourceRunsTable.failureType, query.failureType));
+    }
+    if (query.source) {
+      conditions.push(eq(jobSourceRunsTable.source, query.source));
+    }
+    if (query.includeRetried === false) {
+      conditions.push(isNull(jobSourceRunsTable.retryOfRunId));
     }
 
     const limit = query.limit ? Number(query.limit) : 20;
@@ -1307,6 +1432,119 @@ export class JobSourcesService {
         failureType: toRunFailureType(item.failureType) ?? deriveFailureType(item.error),
       })),
       total: Number(total ?? 0),
+    };
+  }
+
+  async exportRunsCsv(userId: string, query: ListJobSourceRunsQuery) {
+    const data = await this.listRuns(userId, {
+      ...query,
+      limit: Math.min(query.limit ?? 200, 500),
+      offset: query.offset ?? 0,
+    });
+
+    const header = [
+      'id',
+      'source',
+      'status',
+      'failureType',
+      'retryCount',
+      'retryOfRunId',
+      'totalFound',
+      'scrapedCount',
+      'createdAt',
+      'finalizedAt',
+      'lastHeartbeatAt',
+      'listingUrl',
+      'error',
+    ];
+
+    const rows = data.items.map((item) =>
+      [
+        item.id,
+        item.source,
+        item.status,
+        item.failureType ?? '',
+        item.retryCount ?? 0,
+        item.retryOfRunId ?? '',
+        item.totalFound ?? '',
+        item.scrapedCount ?? '',
+        item.createdAt?.toISOString?.() ?? item.createdAt,
+        item.finalizedAt?.toISOString?.() ?? item.finalizedAt ?? '',
+        item.lastHeartbeatAt?.toISOString?.() ?? item.lastHeartbeatAt ?? '',
+        item.listingUrl,
+        item.error ?? '',
+      ]
+        .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
+        .join(','),
+    );
+
+    return [header.join(','), ...rows].join('\n');
+  }
+
+  async getSourceHealth(userId: string, windowHoursInput?: number) {
+    await this.reconcileStaleRuns(userId);
+    const windowHours = Math.min(Math.max(Number(windowHoursInput ?? 72), 1), 168);
+    const cutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const staleHeartbeatCutoff = new Date(Date.now() - 2 * 60 * 1000);
+    const runs = await this.db
+      .select({
+        source: jobSourceRunsTable.source,
+        status: jobSourceRunsTable.status,
+        failureType: jobSourceRunsTable.failureType,
+        createdAt: jobSourceRunsTable.createdAt,
+        lastHeartbeatAt: jobSourceRunsTable.lastHeartbeatAt,
+      })
+      .from(jobSourceRunsTable)
+      .where(and(eq(jobSourceRunsTable.userId, userId), gte(jobSourceRunsTable.createdAt, cutoff)));
+
+    const grouped = new Map<
+      string,
+      {
+        source: string;
+        totalRuns: number;
+        completedRuns: number;
+        failedRuns: number;
+        timeoutFailures: number;
+        callbackFailures: number;
+        staleHeartbeatRuns: number;
+        latestRunAt: Date | null;
+        latestRunStatus: string | null;
+      }
+    >();
+
+    for (const run of runs) {
+      const source = run.source;
+      const current = grouped.get(source) ?? {
+        source,
+        totalRuns: 0,
+        completedRuns: 0,
+        failedRuns: 0,
+        timeoutFailures: 0,
+        callbackFailures: 0,
+        staleHeartbeatRuns: 0,
+        latestRunAt: null,
+        latestRunStatus: null,
+      };
+      current.totalRuns += 1;
+      current.completedRuns += run.status === 'COMPLETED' ? 1 : 0;
+      current.failedRuns += run.status === 'FAILED' ? 1 : 0;
+      current.timeoutFailures += run.failureType === 'timeout' ? 1 : 0;
+      current.callbackFailures += run.failureType === 'callback' ? 1 : 0;
+      current.staleHeartbeatRuns +=
+        run.status === 'RUNNING' && run.lastHeartbeatAt != null && run.lastHeartbeatAt < staleHeartbeatCutoff ? 1 : 0;
+      if (!current.latestRunAt || run.createdAt > current.latestRunAt) {
+        current.latestRunAt = run.createdAt;
+        current.latestRunStatus = run.status;
+      }
+      grouped.set(source, current);
+    }
+
+    return {
+      windowHours,
+      items: Array.from(grouped.values()).map((item) => ({
+        ...item,
+        successRate: item.totalRuns ? Number((item.completedRuns / item.totalRuns).toFixed(4)) : 0,
+      })),
     };
   }
 
@@ -1440,6 +1678,9 @@ export class JobSourcesService {
         adaptiveDelayApplied: Number(diagnostics.adaptiveDelayApplied ?? 0),
         blockedRate: Number(diagnostics.blockedRate ?? 0),
         finalPolicy: normalizeString(String(diagnostics.finalPolicy ?? '')) ?? null,
+        resultKind: normalizeString(String(diagnostics.resultKind ?? '')) ?? null,
+        emptyReason: normalizeString(String(diagnostics.emptyReason ?? '')) ?? null,
+        sourceQuality: normalizeString(String(diagnostics.sourceQuality ?? '')) ?? null,
         stats: {
           totalFound: run.totalFound ?? null,
           scrapedCount: run.scrapedCount ?? null,

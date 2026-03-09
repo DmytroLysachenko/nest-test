@@ -251,6 +251,27 @@ export class OpsService {
     };
   }
 
+  async exportCallbackEventsCsv(input: { status?: string; sourceRunId?: string; limit?: number; offset?: number }) {
+    const data = await this.listCallbackEvents(input);
+    const header = ['id', 'sourceRunId', 'eventId', 'attemptNo', 'status', 'payloadHash', 'emittedAt', 'receivedAt'];
+    const rows = data.items.map((item) =>
+      [
+        item.id,
+        item.sourceRunId,
+        item.eventId,
+        item.attemptNo ?? '',
+        item.status,
+        item.payloadHash ?? '',
+        item.emittedAt?.toISOString?.() ?? item.emittedAt ?? '',
+        item.receivedAt?.toISOString?.() ?? item.receivedAt ?? '',
+      ]
+        .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
+        .join(','),
+    );
+
+    return [header.join(','), ...rows].join('\n');
+  }
+
   async replayDeadLetters(requestId?: string) {
     const workerTaskUrl = this.configService.get('WORKER_TASK_URL', { infer: true });
     const workerAuthToken = this.configService.get('WORKER_AUTH_TOKEN', { infer: true });

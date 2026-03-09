@@ -1,7 +1,10 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
 const RUN_STATUS = ['PENDING', 'RUNNING', 'COMPLETED', 'FAILED'] as const;
+const RUN_FAILURE_TYPE = ['timeout', 'network', 'validation', 'parse', 'callback', 'unknown'] as const;
+const RUN_SOURCE = ['PRACUJ_PL'] as const;
 
 export class ListJobSourceRunsQuery {
   @ApiPropertyOptional({ enum: RUN_STATUS })
@@ -26,4 +29,28 @@ export class ListJobSourceRunsQuery {
   @IsOptional()
   @IsUUID('4')
   retriedFrom?: string;
+
+  @ApiPropertyOptional({ enum: RUN_FAILURE_TYPE })
+  @IsOptional()
+  @IsIn(RUN_FAILURE_TYPE)
+  failureType?: (typeof RUN_FAILURE_TYPE)[number];
+
+  @ApiPropertyOptional({ enum: RUN_SOURCE })
+  @IsOptional()
+  @IsIn(RUN_SOURCE)
+  source?: (typeof RUN_SOURCE)[number];
+
+  @ApiPropertyOptional({ default: 72, minimum: 1, maximum: 720 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(720)
+  windowHours?: number;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  includeRetried?: boolean;
 }

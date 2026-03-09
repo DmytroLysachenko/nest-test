@@ -8,10 +8,11 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -62,6 +63,23 @@ export class OpsController {
   ) {
     this.assertAdmin(user);
     return this.opsService.listCallbackEvents({ status, sourceRunId, limit, offset });
+  }
+
+  @Get('scrape/callback-events/export.csv')
+  @ApiOperation({ summary: 'Export scrape callback events as CSV (admin only)' })
+  async exportCallbackEventsCsv(
+    @CurrentUser() user: JwtValidateUser,
+    @Query('status') status?: string,
+    @Query('sourceRunId') sourceRunId?: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
+    @Res() res: Response,
+  ) {
+    this.assertAdmin(user);
+    const csv = await this.opsService.exportCallbackEventsCsv({ status, sourceRunId, limit, offset });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=\"scrape-callback-events.csv\"');
+    res.send(csv);
   }
 
   @Post('scrape/callbacks/replay')

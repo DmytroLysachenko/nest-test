@@ -25,6 +25,7 @@ export type ApiErrorPayload = {
 export type UserDto = {
   id: string;
   email: string;
+  role?: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -117,6 +118,39 @@ export type WorkspaceSummaryDto = {
   workflow: {
     needsOnboarding: boolean;
   };
+  nextAction: {
+    key: string;
+    title: string;
+    description: string;
+    href: string;
+    priority: 'critical' | 'recommended' | 'info';
+  };
+  activity: Array<{
+    key: string;
+    label: string;
+    timestamp: string | null;
+    tone: 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+  }>;
+  health: {
+    readinessScore: number;
+    blockers: string[];
+    scrapeReliability: 'stable' | 'watch' | 'needs-attention';
+  };
+  readinessBreakdown: Array<{
+    key: string;
+    label: string;
+    ready: boolean;
+    detail: string;
+  }>;
+  blockerDetails: Array<{
+    key: string;
+    severity: 'critical' | 'warning' | 'info';
+    title: string;
+    description: string;
+    href: string;
+    ctaLabel: string;
+  }>;
+  recommendedSequence: string[];
 };
 
 export type DocumentDto = {
@@ -313,6 +347,22 @@ export type JobSourceRunDto = {
   createdAt: string;
 };
 
+export type JobSourceHealthDto = {
+  windowHours: number;
+  items: Array<{
+    source: string;
+    totalRuns: number;
+    completedRuns: number;
+    failedRuns: number;
+    successRate: number;
+    timeoutFailures: number;
+    callbackFailures: number;
+    staleHeartbeatRuns: number;
+    latestRunAt: string | null;
+    latestRunStatus: string | null;
+  }>;
+};
+
 export type JobSourceRunDiagnosticsDto = {
   runId: string;
   source: string;
@@ -323,6 +373,9 @@ export type JobSourceRunDiagnosticsDto = {
     relaxationTrail: string[];
     blockedUrls: string[];
     hadZeroOffersStep: boolean;
+    resultKind?: string | null;
+    emptyReason?: string | null;
+    sourceQuality?: string | null;
     stats: {
       totalFound: number | null;
       scrapedCount: number | null;
@@ -397,6 +450,31 @@ export type EnqueueScrapeResponseDto = {
   retryCount?: number;
 };
 
+export type ScrapePreflightDto = {
+  ready: boolean;
+  blockers: string[];
+  warnings: string[];
+  source: string | null;
+  listingUrl: string | null;
+  acceptedFilters: Record<string, unknown> | null;
+  resolvedFromProfile: boolean;
+  activeRunCount: number;
+  dailyRemaining: number | null;
+};
+
+export type ScrapeScheduleDto = {
+  enabled: boolean;
+  cron: string;
+  timezone: string;
+  source: string;
+  limit: number;
+  careerProfileId: string | null;
+  filters: Record<string, unknown> | null;
+  lastTriggeredAt: string | null;
+  nextRunAt: string | null;
+  lastRunStatus: string | null;
+};
+
 export type JobOfferStatus =
   | 'NEW'
   | 'SEEN'
@@ -452,6 +530,57 @@ export type JobOffersListDto = {
       exploreRecencyWeight: number;
     };
   };
+};
+
+export type JobOfferSummaryDto = {
+  total: number;
+  scored: number;
+  unscored: number;
+  highConfidenceStrict: number;
+  staleUntriaged: number;
+  buckets: Array<{
+    key: string;
+    label: string;
+    count: number;
+  }>;
+  topExplanationTags: Array<{
+    tag: string;
+    count: number;
+  }>;
+};
+
+export type NotebookFiltersDto = {
+  status: 'ALL' | JobOfferStatus;
+  mode: 'strict' | 'approx' | 'explore';
+  view: 'LIST' | 'PIPELINE';
+  search: string;
+  tag: string;
+  hasScore: 'all' | 'yes' | 'no';
+};
+
+export type NotebookPreferencesDto = {
+  id: string;
+  userId: string;
+  filters: NotebookFiltersDto;
+  savedPreset: NotebookFiltersDto | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CallbackEventsListDto = {
+  items: Array<{
+    id: string;
+    sourceRunId: string;
+    eventId: string;
+    attemptNo: number | null;
+    payloadHash: string | null;
+    status: string;
+    emittedAt: string | null;
+    receivedAt: string | null;
+    requestId?: string | null;
+  }>;
+  limit: number;
+  offset: number;
 };
 
 export type JobOfferHistoryDto = {

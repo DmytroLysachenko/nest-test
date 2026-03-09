@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '@/common/guards';
@@ -15,7 +16,8 @@ import { ScrapeRunDiagnosticsResponse } from './dto/run-diagnostics.response';
 import { ListRunDiagnosticsSummaryQuery } from './dto/list-run-diagnostics-summary.query';
 import { ScrapeRunDiagnosticsSummaryResponse } from './dto/run-diagnostics-summary.response';
 import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';
-import { ScrapeScheduleResponseDto, UpdateScrapeScheduleDto } from './dto/scrape-schedule.dto';
+import { ScrapePreflightResponseDto, ScrapeScheduleResponseDto, UpdateScrapeScheduleDto } from './dto/scrape-schedule.dto';
+import { JobSourceHealthResponse } from './dto/source-health.response';
 
 @ApiTags('job-sources')
 @ApiBearerAuth()
@@ -39,6 +41,19 @@ export class JobSourcesController {
   @ApiOperation({ summary: 'List scrape runs for current user' })
   async listRuns(@CurrentUser() user: JwtValidateUser, @Query() query: ListJobSourceRunsQuery) {
     return this.jobSourcesService.listRuns(user.userId, query);
+  }
+
+  @Get('runs/export.csv')
+  @ApiOperation({ summary: 'Export scrape runs as CSV for current user' })
+  async exportRunsCsv(
+    @CurrentUser() user: JwtValidateUser,
+    @Query() query: ListJobSourceRunsQuery,
+    @Res() res: Response,
+  ) {
+    const csv = await this.jobSourcesService.exportRunsCsv(user.userId, query);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=\"scrape-runs.csv\"');
+    res.send(csv);
   }
 
   @Get('runs/:id')
@@ -79,6 +94,16 @@ export class JobSourcesController {
     );
   }
 
+  @Get('sources/health')
+  @ApiOperation({ summary: 'Get source health summary for current user' })
+  @ApiOkResponse({ type: JobSourceHealthResponse })
+  async getSourceHealth(
+    @CurrentUser() user: JwtValidateUser,
+    @Query('windowHours') windowHours?: number,
+  ) {
+    return this.jobSourcesService.getSourceHealth(user.userId, windowHours);
+  }
+
   @Post('complete')
   @Public()
   @ApiOperation({ summary: 'Worker callback for completed scrape runs' })
@@ -104,6 +129,22 @@ export class JobSourcesController {
   @ApiOkResponse({ type: ScrapeScheduleResponseDto })
   async updateSchedule(@CurrentUser() user: JwtValidateUser, @Body() dto: UpdateScrapeScheduleDto) {
     return this.jobSourcesService.updateSchedule(user.userId, dto);
+  }
+
+  @Get('preflight')
+  @ApiOperation({ summary: 'Resolve scrape readiness and accepted filters for current user' })
+  @ApiOkResponse({ type: ScrapePreflightResponseDto })
+  async getPreflight(@CurrentUser() user: JwtValidateUser, @Query() dto: EnqueueScrapeDto) {
+    return this.jobSourcesService.getPreflight(user.userId, dto);
+  }
+
+  @Post('schedule/trigger-now')
+  @ApiOperation({ summary: 'Trigger the current user scrape schedule immediately' })
+  async triggerScheduleNow(
+    @CurrentUser() user: JwtValidateUser,
+    @Headers('x-request-id') requestId: string | undefined,
+  ) {
+    return this.jobSourcesService.triggerScheduleNow(user.userId, requestId);
   }
 
   @Post('runs/:id/heartbeat')

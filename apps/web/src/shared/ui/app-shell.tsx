@@ -12,6 +12,7 @@ import { Input } from '@/shared/ui/input';
 type AppShellProps = {
   children: React.ReactNode;
   userEmail: string | null | undefined;
+  userRole?: string | null;
   token: string | null;
   onSignOut: () => void;
   hideSidebar?: boolean;
@@ -99,7 +100,7 @@ const AppShellSidebar = ({
   </>
 );
 
-export const AppShell = ({ children, userEmail, token, onSignOut, hideSidebar }: AppShellProps) => {
+export const AppShell = ({ children, userEmail, userRole, token, onSignOut, hideSidebar }: AppShellProps) => {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -120,9 +121,12 @@ export const AppShell = ({ children, userEmail, token, onSignOut, hideSidebar }:
     if (testerEnabled) {
       items.push({ href: '/tester', label: 'Tester', shortLabel: 'TS' });
     }
+    if (userRole === 'admin') {
+      items.push({ href: '/ops', label: 'Ops', shortLabel: 'OP' });
+    }
 
     return items.filter((item) => !item.hidden);
-  }, [workflow.allowNotebook]);
+  }, [userRole, workflow.allowNotebook]);
 
   const activePage = hideSidebar
     ? 'Setup Workspace'

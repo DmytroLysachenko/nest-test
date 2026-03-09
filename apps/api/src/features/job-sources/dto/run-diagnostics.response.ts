@@ -48,6 +48,15 @@ class ScrapeRunDiagnosticsPayloadResponse {
   @ApiProperty({ nullable: true })
   finalPolicy!: string | null;
 
+  @ApiProperty({ nullable: true })
+  resultKind!: string | null;
+
+  @ApiProperty({ nullable: true })
+  emptyReason!: string | null;
+
+  @ApiProperty({ nullable: true })
+  sourceQuality!: string | null;
+
   @ApiProperty({ type: ScrapeRunDiagnosticsStatsResponse })
   stats!: ScrapeRunDiagnosticsStatsResponse;
 }

@@ -44,6 +44,7 @@ export const useDataSync = (token: string | null) => {
    */
   const syncDocuments = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: queryKeys.documents.list(token) });
+    queryClient.invalidateQueries({ queryKey: ['documents', 'events', token] });
     // Document changes affect summary
     syncWorkspace();
   }, [queryClient, token, syncWorkspace]);
@@ -54,6 +55,7 @@ export const useDataSync = (token: string | null) => {
   const syncJobOffers = useCallback(() => {
     // We invalidate all list variants
     queryClient.invalidateQueries({ queryKey: ['job-offers', token] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.summary(token) });
     syncWorkspace();
   }, [queryClient, token, syncWorkspace]);
 
@@ -85,6 +87,8 @@ export const useDataSync = (token: string | null) => {
    */
   const syncJobSources = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: queryKeys.jobSources.runs(token) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobSources.schedule(token) });
+    queryClient.invalidateQueries({ queryKey: ['job-sources', 'preflight', token] });
     // Invalidate summary too as runs affect stats
     syncWorkspace();
   }, [queryClient, token, syncWorkspace]);
