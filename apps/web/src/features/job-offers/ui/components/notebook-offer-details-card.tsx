@@ -38,6 +38,7 @@ type NotebookOfferDetailsCardProps = {
   isBusy: boolean;
   onStatusChange: (status: JobOfferStatus) => void;
   onSaveMeta: (notes: string, tags: string[]) => void;
+  onSavePipeline: (pipelineMeta: Record<string, unknown>) => void;
   onSaveFeedback: (score: number, notes: string) => void;
   onRescore: () => void;
   onGeneratePrep: (instructions?: string) => void;
@@ -52,6 +53,7 @@ export const NotebookOfferDetailsCard = ({
   isBusy,
   onStatusChange,
   onSaveMeta,
+  onSavePipeline,
   onSaveFeedback,
   onRescore,
   onGeneratePrep,
@@ -85,6 +87,19 @@ export const NotebookOfferDetailsCard = ({
   }
 
   const matchMeta = offer.matchMeta ?? {};
+  const hasPipelineDraftChanges = pipelineMetaStr !== (offer.pipelineMeta ? JSON.stringify(offer.pipelineMeta, null, 2) : '');
+
+  const handleSavePipeline = () => {
+    try {
+      const nextPipelineMeta = pipelineMetaStr.trim() ? JSON.parse(pipelineMetaStr) : {};
+      if (!nextPipelineMeta || typeof nextPipelineMeta !== 'object' || Array.isArray(nextPipelineMeta)) {
+        return;
+      }
+      onSavePipeline(nextPipelineMeta as Record<string, unknown>);
+    } catch {
+      return;
+    }
+  };
 
   return (
     <Card title="Offer details" description={offer.title}>
@@ -122,18 +137,26 @@ export const NotebookOfferDetailsCard = ({
         </div>
 
         {['APPLIED', 'INTERVIEWING', 'OFFER', 'REJECTED'].includes(offer.status) && (
-          <div className="app-field-group">
-            <Label htmlFor="pipeline-meta" className="app-inline-label">
-              Pipeline Metadata (JSON)
-            </Label>
-            <Textarea
-              id="pipeline-meta"
-              rows={3}
-              value={pipelineMetaStr}
-              onChange={(event) => setPipelineMetaStr(event.target.value)}
-              placeholder='{ "interviewDate": "2026-04-01" }'
-              className="font-mono text-xs"
-            />
+          <div className="space-y-3">
+            <div className="app-field-group">
+              <Label htmlFor="pipeline-meta" className="app-inline-label">
+                Pipeline Metadata (JSON)
+              </Label>
+              <Textarea
+                id="pipeline-meta"
+                rows={4}
+                value={pipelineMetaStr}
+                onChange={(event) => setPipelineMetaStr(event.target.value)}
+                placeholder='{ "interviewDate": "2026-04-01" }'
+                className="font-mono text-xs"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="secondary" disabled={isBusy || !hasPipelineDraftChanges} onClick={handleSavePipeline}>
+                Save pipeline metadata
+              </Button>
+              <p className="text-text-soft self-center text-xs">Use this for interview dates, recruiter notes, follow-up dates, and links.</p>
+            </div>
           </div>
         )}
 

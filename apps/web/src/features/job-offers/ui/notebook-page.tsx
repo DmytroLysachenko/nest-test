@@ -153,6 +153,12 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
               }
               notebook.updateMeta({ id: notebook.selectedOffer.id, notes, tags });
             }}
+            onSavePipeline={(pipelineMeta) => {
+              if (!notebook.selectedOffer) {
+                return;
+              }
+              notebook.updatePipeline({ id: notebook.selectedOffer.id, pipelineMeta });
+            }}
             onRescore={() => {
               if (!notebook.selectedOffer) {
                 return;
