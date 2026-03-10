@@ -10,6 +10,7 @@ import { EmptyState } from '@/shared/ui/empty-state';
 import { Button } from '@/shared/ui/button';
 import { DataTableShell, HeroHeader, MetricCard, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
 import { Card } from '@/shared/ui/card';
+import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
 
 const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
 
@@ -309,27 +310,7 @@ export const WorkspaceDashboardPage = () => {
         </div>
       </Card>
 
-      {summary.blockerDetails?.length ? (
-        <Card title="Recovery Center" description="Targeted fixes for current workflow blockers.">
-          <div className="grid gap-3 md:grid-cols-2">
-            {summary.blockerDetails.map((blocker) => (
-              <div key={blocker.key} className="app-muted-panel space-y-2">
-                <StatusPill
-                  value={blocker.severity}
-                  tone={
-                    blocker.severity === 'critical' ? 'danger' : blocker.severity === 'warning' ? 'warning' : 'info'
-                  }
-                />
-                <p className="text-text-strong font-semibold">{blocker.title}</p>
-                <p className="text-text-soft text-sm">{blocker.description}</p>
-                <Button size="sm" onClick={() => (window.location.href = blocker.href)}>
-                  {blocker.ctaLabel}
-                </Button>
-              </div>
-            ))}
-          </div>
-        </Card>
-      ) : null}
+      <WorkflowRecoveryPanel blockers={summary.blockerDetails ?? []} />
 
       <section className="app-section-grid">
         <div className="space-y-4">

@@ -148,6 +148,7 @@ Last updated: 2026-03-09
 - Workspace summary supports optional in-memory ttl cache (`WORKSPACE_SUMMARY_CACHE_TTL_SEC`).
 - Workspace summary now includes deterministic next-action, activity timeline, and readiness health signals for the product dashboard.
 - Workspace summary now also exposes server-driven recovery guidance (`readinessBreakdown`, `blockerDetails`, `recommendedSequence`) for dashboard and notebook blocked states.
+- Profile Studio now reuses the same recovery guidance so blocked document/profile-generation steps point to explicit next actions.
 - Global API throttling is now env-tunable (`API_THROTTLE_TTL_MS`, `API_THROTTLE_LIMIT`).
 - Frontend query freshness/polling defaults are env-tunable (`NEXT_PUBLIC_QUERY_*`).
 - Frontend runtime env guard now rejects localhost/non-https API/worker URLs in production.

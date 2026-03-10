@@ -1,11 +1,13 @@
 'use client';
 
 import { Card } from '@/shared/ui/card';
+import { EmptyState } from '@/shared/ui/empty-state';
 
 import type { CareerProfileQualityDto } from '@/shared/types/api';
 
 type ProfileQualityCardProps = {
   quality: CareerProfileQualityDto | undefined;
+  emptyDescription?: string;
 };
 
 const statusClass: Record<'ok' | 'weak' | 'missing', string> = {
@@ -14,7 +16,10 @@ const statusClass: Record<'ok' | 'weak' | 'missing', string> = {
   missing: 'bg-app-danger-soft text-app-danger',
 };
 
-export const ProfileQualityCard = ({ quality }: ProfileQualityCardProps) => (
+export const ProfileQualityCard = ({
+  quality,
+  emptyDescription = 'No quality diagnostics available yet.',
+}: ProfileQualityCardProps) => (
   <Card title="Profile quality" description="Deterministic diagnostics for search-readiness and matching consistency.">
     {quality ? (
       <div className="space-y-4">
@@ -54,7 +59,11 @@ export const ProfileQualityCard = ({ quality }: ProfileQualityCardProps) => (
         ) : null}
       </div>
     ) : (
-      <p className="text-text-soft text-sm">No quality diagnostics available yet.</p>
+      <EmptyState
+        title="Quality diagnostics unavailable"
+        description={emptyDescription}
+        className="border-0 bg-transparent p-0 text-left"
+      />
     )}
   </Card>
 );
