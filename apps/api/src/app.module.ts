@@ -24,6 +24,8 @@ import { OnboardingDraftsModule } from '@/features/onboarding-drafts/onboarding-
 import { WorkspaceModule } from '@/features/workspace/workspace.module';
 import { OpsModule } from '@/features/ops/ops.module';
 import { RolesGuard } from '@/common/guards';
+import { ApiRequestEventsService } from '@/common/observability/api-request-events.service';
+import { ApiWarningEventInterceptor } from '@/common/interceptor/api-warning-event.interceptor';
 
 import type { Env } from '@/config/env';
 
@@ -98,6 +100,8 @@ import type { Env } from '@/config/env';
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
     },
+    ApiRequestEventsService,
+    ApiWarningEventInterceptor,
   ],
 })
 export class AppModule {

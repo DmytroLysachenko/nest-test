@@ -152,6 +152,7 @@ Last updated: 2026-03-09
 - Frontend query freshness/polling defaults are env-tunable (`NEXT_PUBLIC_QUERY_*`).
 - Frontend runtime env guard now rejects localhost/non-https API/worker URLs in production.
 - API error responses now expose normalized top-level fields (`code`, `message`, `requestId`, `timestamp`) with backward-compatible payload.
+- API now persists structured endpoint warning/error diagnostics in `api_request_events` for DB-backed troubleshooting.
 - Auth endpoint throttles are env-tunable (`AUTH_*_THROTTLE_*`).
 - Google OAuth login endpoint is available (`POST /api/auth/oauth/google`) with verified-id-token account linking.
 - Scrape schedules are now persisted and available through:

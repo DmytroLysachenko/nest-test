@@ -8,6 +8,7 @@ import * as onboardingDrafts from './onboarding-drafts';
 import * as notebookPreferences from './notebook-preferences';
 import * as documents from './documents';
 import * as documentEvents from './document-events';
+import * as apiRequestEvents from './api-request-events';
 import * as documentStageMetrics from './document-stage-metrics';
 import * as careerProfiles from './career-profiles';
 import * as jobMatches from './job-matches';
@@ -29,6 +30,7 @@ export * from './onboarding-drafts';
 export * from './notebook-preferences';
 export * from './documents';
 export * from './document-events';
+export * from './api-request-events';
 export * from './document-stage-metrics';
 export * from './career-profiles';
 export * from './job-matches';
@@ -54,6 +56,7 @@ const schema = {
   ...notebookPreferences,
   ...documents,
   ...documentEvents,
+  ...apiRequestEvents,
   ...documentStageMetrics,
   ...careerProfiles,
   ...jobMatches,
