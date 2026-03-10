@@ -1,11 +1,15 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
-import { useWorkflowState } from '@/features/workflow/model/use-workflow-state';
+import { getWorkspaceSummary } from '@/features/workspace/api/workspace-api';
 import { env } from '@/shared/config/env';
+import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
+import { QUERY_GC_TIME, QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
+import { queryKeys } from '@/shared/lib/query/query-keys';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 
@@ -104,7 +108,20 @@ export const AppShell = ({ children, userEmail, userRole, token, onSignOut, hide
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const workflow = useWorkflowState(token);
+  const navSummaryQuery = useQuery(
+    buildAuthedQueryOptions({
+      token,
+      queryKey: queryKeys.workflow.summary(token),
+      queryFn: getWorkspaceSummary,
+      enabled: Boolean(token) && !hideSidebar,
+      staleTime: QUERY_STALE_TIME.CORE_DATA,
+      gcTime: QUERY_GC_TIME.LONG_LIVED,
+    }),
+  );
+  const allowNotebook =
+    navSummaryQuery.data?.workflow.needsOnboarding === undefined
+      ? true
+      : !navSummaryQuery.data.workflow.needsOnboarding;
 
   const navItems = useMemo(() => {
     const items: AppNavItem[] = [
@@ -112,7 +129,7 @@ export const AppShell = ({ children, userEmail, userRole, token, onSignOut, hide
         item.href === '/notebook'
           ? {
               ...item,
-              hidden: !workflow.allowNotebook,
+              hidden: !allowNotebook,
             }
           : item,
       ),
@@ -126,7 +143,7 @@ export const AppShell = ({ children, userEmail, userRole, token, onSignOut, hide
     }
 
     return items.filter((item) => !item.hidden);
-  }, [userRole, workflow.allowNotebook]);
+  }, [allowNotebook, userRole]);
 
   const activePage = hideSidebar
     ? 'Setup Workspace'

@@ -225,9 +225,10 @@ For exact variable-level mapping and secret sources, use:
 5. Admin ops metrics: `GET /api/ops/metrics` (supports optional `windowHours` query)
 6. Admin callback events listing: `GET /api/ops/scrape/callback-events`
 7. Admin callback events export: `GET /api/ops/scrape/callback-events/export.csv`
-8. Admin dead-letter replay trigger: `POST /api/ops/scrape/callbacks/replay`
-9. Admin stale-run reconcile: `POST /api/ops/scrape/runs/:id/reconcile`
-10. Internal bulk stale-run reconcile: `POST /api/ops/reconcile-stale-runs`
+8. Admin API request events listing: `GET /api/ops/api-request-events`
+9. Admin dead-letter replay trigger: `POST /api/ops/scrape/callbacks/replay`
+10. Admin stale-run reconcile: `POST /api/ops/scrape/runs/:id/reconcile`
+11. Internal bulk stale-run reconcile: `POST /api/ops/reconcile-stale-runs`
 11. Job source health summary: `GET /api/job-sources/sources/health`
 12. Job source run export: `GET /api/job-sources/runs/export.csv`
 13. Job match audit export: `GET /api/job-matching/audit/export.csv`
@@ -239,6 +240,7 @@ For exact variable-level mapping and secret sources, use:
 19. Scrape preflight: `GET /api/job-sources/preflight`
 20. User schedule trigger-now: `POST /api/job-sources/schedule/trigger-now`
 21. Notebook summary: `GET /api/job-offers/summary`
+22. Notebook bulk follow-up update: `POST /api/job-offers/pipeline/bulk-follow-up`
 
 ## Smoke Coverage (Current)
 

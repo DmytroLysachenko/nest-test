@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Inbox } from 'lucide-react';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
@@ -9,6 +10,9 @@ import { EmptyState } from '@/shared/ui/empty-state';
 import { Button } from '@/shared/ui/button';
 import { DataTableShell, HeroHeader, MetricCard, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
 import { Card } from '@/shared/ui/card';
+import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
+
+const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
 
 const formatDateTime = (value: string | null) => {
   if (!value) {
@@ -63,6 +67,57 @@ const getReliabilityLabel = (successRate: number | undefined) => {
     tone: 'danger' as const,
   };
 };
+
+const getFocusHref = (groupKey: string, offerId: string) => {
+  if (groupKey === 'follow-up-due') {
+    return `/notebook?focus=followUpDue&offerId=${offerId}`;
+  }
+  if (groupKey === 'strict-top') {
+    return `/notebook?focus=strictTop&offerId=${offerId}`;
+  }
+  if (groupKey === 'unscored-fresh') {
+    return `/notebook?focus=unscored&offerId=${offerId}`;
+  }
+  return `/notebook?offerId=${offerId}`;
+};
+
+const notebookQuickActionLinks = [
+  {
+    label: 'Unscored offers',
+    href: '/notebook?focus=unscored',
+    valueKey: 'unscored' as const,
+    toneWhenPositive: 'warning' as const,
+    zeroTone: 'success' as const,
+  },
+  {
+    label: 'High confidence strict',
+    href: '/notebook?focus=strictTop',
+    valueKey: 'highConfidenceStrict' as const,
+    toneWhenPositive: 'success' as const,
+    zeroTone: 'neutral' as const,
+  },
+  {
+    label: 'Stale untriaged',
+    href: '/notebook',
+    valueKey: 'staleUntriaged' as const,
+    toneWhenPositive: 'warning' as const,
+    zeroTone: 'neutral' as const,
+  },
+  {
+    label: 'Follow-up due',
+    href: '/notebook?focus=followUpDue',
+    valueKey: 'followUpDue' as const,
+    toneWhenPositive: 'warning' as const,
+    zeroTone: 'success' as const,
+  },
+  {
+    label: 'Follow-up upcoming',
+    href: '/notebook?focus=followUpUpcoming',
+    valueKey: 'followUpUpcoming' as const,
+    toneWhenPositive: 'info' as const,
+    zeroTone: 'neutral' as const,
+  },
+];
 
 export const WorkspaceDashboardPage = () => {
   const auth = useRequireAuth();
@@ -260,13 +315,15 @@ export const WorkspaceDashboardPage = () => {
               </div>
             )}
 
-            <Button
-              variant="secondary"
-              className="h-9 w-full text-xs"
-              onClick={() => (window.location.href = auth.user?.role === 'admin' ? '/ops' : '/tester')}
-            >
-              View Full Diagnostics
-            </Button>
+            {diagnosticsEnabled ? (
+              <Button
+                variant="secondary"
+                className="h-9 w-full text-xs"
+                onClick={() => (window.location.href = auth.user?.role === 'admin' ? '/ops' : '/tester')}
+              >
+                View Full Diagnostics
+              </Button>
+            ) : null}
           </div>
         </Card>
       </div>
@@ -291,27 +348,7 @@ export const WorkspaceDashboardPage = () => {
         </div>
       </Card>
 
-      {summary.blockerDetails?.length ? (
-        <Card title="Recovery Center" description="Targeted fixes for current workflow blockers.">
-          <div className="grid gap-3 md:grid-cols-2">
-            {summary.blockerDetails.map((blocker) => (
-              <div key={blocker.key} className="app-muted-panel space-y-2">
-                <StatusPill
-                  value={blocker.severity}
-                  tone={
-                    blocker.severity === 'critical' ? 'danger' : blocker.severity === 'warning' ? 'warning' : 'info'
-                  }
-                />
-                <p className="text-text-strong font-semibold">{blocker.title}</p>
-                <p className="text-text-soft text-sm">{blocker.description}</p>
-                <Button size="sm" onClick={() => (window.location.href = blocker.href)}>
-                  {blocker.ctaLabel}
-                </Button>
-              </div>
-            ))}
-          </div>
-        </Card>
-      ) : null}
+      <WorkflowRecoveryPanel blockers={summary.blockerDetails ?? []} />
 
       <section className="app-section-grid">
         <div className="space-y-4">
@@ -360,12 +397,12 @@ export const WorkspaceDashboardPage = () => {
             </Card>
           ) : null}
 
-          {dashboard.isDiagnosticsLoading ? (
+          {diagnosticsEnabled && dashboard.isDiagnosticsLoading ? (
             <SectionLoadingState
               title="Scrape Diagnostics (72h)"
               description="Reliability and throughput of ingestion runs."
             />
-          ) : dashboard.diagnosticsError ? (
+          ) : diagnosticsEnabled && dashboard.diagnosticsError ? (
             <SectionErrorState
               title="Scrape Diagnostics (72h)"
               message={dashboard.diagnosticsError}
@@ -373,7 +410,7 @@ export const WorkspaceDashboardPage = () => {
                 void dashboard.refetchDiagnostics();
               }}
             />
-          ) : diagnostics ? (
+          ) : diagnosticsEnabled && diagnostics ? (
             <Card title="Scrape Diagnostics (72h)" description="Reliability and throughput of ingestion runs.">
               <div className="grid gap-3 text-sm md:grid-cols-3">
                 <div className="app-muted-panel space-y-2">
@@ -408,12 +445,12 @@ export const WorkspaceDashboardPage = () => {
             </Card>
           ) : null}
 
-          {dashboard.isDocumentDiagnosticsLoading ? (
+          {diagnosticsEnabled && dashboard.isDocumentDiagnosticsLoading ? (
             <SectionLoadingState
               title="Document Diagnostics"
               description="Upload and extraction stage timings from persisted metrics."
             />
-          ) : dashboard.documentDiagnosticsError ? (
+          ) : diagnosticsEnabled && dashboard.documentDiagnosticsError ? (
             <SectionErrorState
               title="Document Diagnostics"
               message={dashboard.documentDiagnosticsError}
@@ -421,7 +458,7 @@ export const WorkspaceDashboardPage = () => {
                 void dashboard.refetchDocumentDiagnostics();
               }}
             />
-          ) : documentDiagnostics ? (
+          ) : diagnosticsEnabled && documentDiagnostics ? (
             <Card
               title={`Document Diagnostics (${documentDiagnostics.windowHours}h)`}
               description="Upload and extraction stage timings from persisted metrics."
@@ -462,7 +499,7 @@ export const WorkspaceDashboardPage = () => {
         </div>
 
         <aside className="space-y-4">
-          {diagnostics ? (
+          {diagnosticsEnabled && diagnostics ? (
             <Card title="Reliability Overview" description="Scheduler and scrape resilience signals.">
               <div className="space-y-3">
                 <StatRow
@@ -538,26 +575,15 @@ export const WorkspaceDashboardPage = () => {
           {notebookSummary ? (
             <Card title="Notebook Focus" description="Suggested buckets for the next triage session.">
               <div className="space-y-3">
-                <StatRow
-                  label="Unscored offers"
-                  value={String(notebookSummary.unscored)}
-                  tone={notebookSummary.unscored > 0 ? 'warning' : 'success'}
-                />
-                <StatRow
-                  label="High confidence strict"
-                  value={String(notebookSummary.highConfidenceStrict)}
-                  tone="success"
-                />
-                <StatRow
-                  label="Stale untriaged"
-                  value={String(notebookSummary.staleUntriaged)}
-                  tone={notebookSummary.staleUntriaged > 0 ? 'warning' : 'neutral'}
-                />
-                <StatRow
-                  label="Follow-up due"
-                  value={String(notebookSummary.followUpDue)}
-                  tone={notebookSummary.followUpDue > 0 ? 'warning' : 'success'}
-                />
+                {notebookQuickActionLinks.map((item) => {
+                  const value = notebookSummary[item.valueKey];
+                  const tone = value > 0 ? item.toneWhenPositive : item.zeroTone;
+                  return (
+                    <Link key={item.label} href={item.href} className="block">
+                      <StatRow label={item.label} value={String(value)} tone={tone} />
+                    </Link>
+                  );
+                })}
               </div>
             </Card>
           ) : null}
@@ -577,7 +603,12 @@ export const WorkspaceDashboardPage = () => {
                           key={item.id}
                           className="border-border/40 border-t pt-2 text-sm first:border-t-0 first:pt-0"
                         >
-                          <p className="text-text-strong font-medium">{item.title}</p>
+                          <Link
+                            href={getFocusHref(group.key, item.id)}
+                            className="text-text-strong font-medium hover:underline"
+                          >
+                            {item.title}
+                          </Link>
                           <p className="text-text-soft text-xs">
                             {item.company ?? 'Unknown company'} · {item.location ?? 'Unknown location'}
                           </p>

@@ -28,11 +28,11 @@ const createHost = () => {
 };
 
 describe('HttpExceptionFilter', () => {
-  it('returns friendly generic message for internal errors', () => {
-    const filter = new HttpExceptionFilter();
+  it('returns friendly generic message for internal errors', async () => {
+    const filter = new HttpExceptionFilter({ create: jest.fn().mockResolvedValue(undefined) } as any);
     const { host, status, json } = createHost();
 
-    filter.catch(new Error('Failed query: select * from users'), host);
+    await filter.catch(new Error('Failed query: select * from users'), host);
 
     expect(status).toHaveBeenCalledWith(500);
     expect(json).toHaveBeenCalledWith(
@@ -46,11 +46,11 @@ describe('HttpExceptionFilter', () => {
     );
   });
 
-  it('returns friendly unauthorized message', () => {
-    const filter = new HttpExceptionFilter();
+  it('returns friendly unauthorized message', async () => {
+    const filter = new HttpExceptionFilter({ create: jest.fn().mockResolvedValue(undefined) } as any);
     const { host, status, json } = createHost();
 
-    filter.catch(new UnauthorizedException('Invalid worker callback token'), host);
+    await filter.catch(new UnauthorizedException('Invalid worker callback token'), host);
 
     expect(status).toHaveBeenCalledWith(401);
     expect(json).toHaveBeenCalledWith(
@@ -63,11 +63,11 @@ describe('HttpExceptionFilter', () => {
     );
   });
 
-  it('keeps validation details while using friendly validation message', () => {
-    const filter = new HttpExceptionFilter();
+  it('keeps validation details while using friendly validation message', async () => {
+    const filter = new HttpExceptionFilter({ create: jest.fn().mockResolvedValue(undefined) } as any);
     const { host, status, json } = createHost();
 
-    filter.catch(new BadRequestException(['email must be an email', 'password is required']), host);
+    await filter.catch(new BadRequestException(['email must be an email', 'password is required']), host);
 
     expect(status).toHaveBeenCalledWith(400);
     expect(json).toHaveBeenCalledWith(
@@ -81,11 +81,11 @@ describe('HttpExceptionFilter', () => {
     );
   });
 
-  it('sanitizes internal server exception message', () => {
-    const filter = new HttpExceptionFilter();
+  it('sanitizes internal server exception message', async () => {
+    const filter = new HttpExceptionFilter({ create: jest.fn().mockResolvedValue(undefined) } as any);
     const { host, status, json } = createHost();
 
-    filter.catch(new InternalServerErrorException('database unavailable'), host);
+    await filter.catch(new InternalServerErrorException('database unavailable'), host);
 
     expect(status).toHaveBeenCalledWith(500);
     expect(json).toHaveBeenCalledWith(

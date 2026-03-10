@@ -148,6 +148,80 @@ describe('OpsService', () => {
     expect(result.items[0]?.eventId).toBe('evt-1');
   });
 
+  it('lists api request events with filters and summary', async () => {
+    const selectMock = jest
+      .fn()
+      .mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                offset: jest.fn().mockResolvedValue([
+                  {
+                    id: 'api-event-1',
+                    userId: 'user-1',
+                    requestId: 'req-1',
+                    level: 'ERROR',
+                    method: 'POST',
+                    path: '/career-profiles',
+                    statusCode: 500,
+                    message: 'Something went wrong',
+                    errorCode: 'INTERNAL_ERROR',
+                    details: ['detail'],
+                    meta: { retryable: true },
+                    createdAt: new Date('2026-03-03T10:00:00.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        }),
+      })
+      .mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([{ value: 12 }]),
+        }),
+      })
+      .mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            groupBy: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  { statusCode: 500, count: 7 },
+                  { statusCode: 400, count: 5 },
+                ]),
+              }),
+            }),
+          }),
+        }),
+      });
+
+    const db = {
+      select: selectMock,
+    } as any;
+
+    const service = new OpsService(db, createConfigService());
+    const result = await service.listApiRequestEvents({
+      level: 'error',
+      statusCode: 500,
+      path: '/career',
+      requestId: 'req-1',
+      limit: 25,
+      offset: 10,
+    });
+
+    expect(result.limit).toBe(25);
+    expect(result.offset).toBe(10);
+    expect(result.total).toBe(12);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.statusCode).toBe(500);
+    expect(result.statusSummary).toEqual([
+      { statusCode: 500, count: 7 },
+      { statusCode: 400, count: 5 },
+    ]);
+  });
+
   it('reconciles stale running run to failed timeout', async () => {
     const now = new Date('2026-03-03T12:00:00.000Z');
     jest.spyOn(Date, 'now').mockReturnValue(now.getTime());

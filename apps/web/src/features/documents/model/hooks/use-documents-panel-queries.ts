@@ -7,6 +7,8 @@ import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options
 import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
+const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
+
 export const useDocumentsPanelQueries = (token: string, selectedDocumentId: string | null) => {
   const documentsQuery = useQuery(
     buildAuthedQueryOptions({
@@ -26,6 +28,7 @@ export const useDocumentsPanelQueries = (token: string, selectedDocumentId: stri
       token,
       queryKey: ['documents', 'upload-health', token],
       queryFn: getDocumentUploadHealth,
+      enabled: diagnosticsEnabled,
       staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
     }),
   );
@@ -35,7 +38,7 @@ export const useDocumentsPanelQueries = (token: string, selectedDocumentId: stri
       token,
       queryKey: ['documents', 'events', token, selectedDocumentId],
       queryFn: (authToken) => listDocumentEvents(authToken, selectedDocumentId as string),
-      enabled: Boolean(selectedDocumentId),
+      enabled: diagnosticsEnabled && Boolean(selectedDocumentId),
       staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
     }),
   );

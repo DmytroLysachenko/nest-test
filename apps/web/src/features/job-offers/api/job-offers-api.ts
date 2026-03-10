@@ -98,6 +98,16 @@ export const updateJobOfferPipeline = (token: string, id: string, payload: { pip
     body: JSON.stringify(payload),
   });
 
+export const bulkUpdateJobOfferFollowUp = (
+  token: string,
+  payload: { ids: string[]; followUpAt: string | null; nextStep?: string | null },
+) =>
+  apiRequest<{ updated: number }>('/job-offers/pipeline/bulk-follow-up', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  });
+
 export const dismissAllSeenJobOffers = (token: string) =>
   apiRequest<{ count: number }>('/job-offers/dismiss-all-seen', {
     method: 'POST',

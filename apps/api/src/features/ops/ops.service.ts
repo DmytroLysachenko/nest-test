@@ -1,8 +1,14 @@
 import { NotFoundException, ServiceUnavailableException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, count, desc, eq, gte, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm';
+import { and, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { jobSourceCallbackEventsTable, jobSourceRunsTable, scrapeSchedulesTable, userJobOffersTable } from '@repo/db';
+import {
+  apiRequestEventsTable,
+  jobSourceCallbackEventsTable,
+  jobSourceRunsTable,
+  scrapeSchedulesTable,
+  userJobOffersTable,
+} from '@repo/db';
 
 import { Drizzle } from '@/common/decorators';
 
@@ -270,6 +276,76 @@ export class OpsService {
     );
 
     return [header.join(','), ...rows].join('\n');
+  }
+
+  async listApiRequestEvents(input: {
+    level?: string;
+    statusCode?: number;
+    path?: string;
+    requestId?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
+    const offset = Math.max(input.offset ?? 0, 0);
+    const conditions = [];
+
+    if (input.level) {
+      conditions.push(eq(apiRequestEventsTable.level, input.level.toUpperCase()));
+    }
+    if (input.statusCode !== undefined) {
+      conditions.push(eq(apiRequestEventsTable.statusCode, input.statusCode));
+    }
+    if (input.path) {
+      conditions.push(ilike(apiRequestEventsTable.path, `%${input.path}%`));
+    }
+    if (input.requestId) {
+      conditions.push(eq(apiRequestEventsTable.requestId, input.requestId));
+    }
+
+    const whereClause = conditions.length ? and(...conditions) : undefined;
+
+    const rows = await this.db
+      .select({
+        id: apiRequestEventsTable.id,
+        userId: apiRequestEventsTable.userId,
+        requestId: apiRequestEventsTable.requestId,
+        level: apiRequestEventsTable.level,
+        method: apiRequestEventsTable.method,
+        path: apiRequestEventsTable.path,
+        statusCode: apiRequestEventsTable.statusCode,
+        message: apiRequestEventsTable.message,
+        errorCode: apiRequestEventsTable.errorCode,
+        details: apiRequestEventsTable.details,
+        meta: apiRequestEventsTable.meta,
+        createdAt: apiRequestEventsTable.createdAt,
+      })
+      .from(apiRequestEventsTable)
+      .where(whereClause)
+      .orderBy(desc(apiRequestEventsTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const [totalRow] = await this.db.select({ value: count() }).from(apiRequestEventsTable).where(whereClause);
+
+    const statusSummary = await this.db
+      .select({
+        statusCode: apiRequestEventsTable.statusCode,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(apiRequestEventsTable)
+      .where(whereClause)
+      .groupBy(apiRequestEventsTable.statusCode)
+      .orderBy(desc(sql<number>`count(*)::int`), desc(apiRequestEventsTable.statusCode))
+      .limit(5);
+
+    return {
+      items: rows,
+      limit,
+      offset,
+      total: Number(totalRow?.value ?? 0),
+      statusSummary,
+    };
   }
 
   async replayDeadLetters(requestId?: string) {

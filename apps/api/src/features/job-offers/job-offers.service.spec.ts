@@ -34,6 +34,17 @@ const createFocusQueueQuery = (items: Array<Record<string, unknown>>) => ({
   }),
 });
 
+const createBulkFollowUpTransaction = (rows: Array<Record<string, unknown>>, setMock: jest.Mock) => ({
+  select: jest.fn().mockReturnValue({
+    from: jest.fn().mockReturnValue({
+      where: jest.fn().mockResolvedValue(rows),
+    }),
+  }),
+  update: jest.fn().mockReturnValue({
+    set: setMock,
+  }),
+});
+
 describe('JobOffersService', () => {
   const baseOffer = {
     id: 'ujo-1',
@@ -335,5 +346,60 @@ describe('JobOffersService', () => {
         items: [expect.objectContaining({ id: 'ujo-unscored', matchScore: null })],
       }),
     ]);
+  });
+
+  it('bulk updates follow-up metadata while preserving existing pipeline fields', async () => {
+    const updateWhere = jest.fn().mockResolvedValue(undefined);
+    const set = jest.fn().mockReturnValue({ where: updateWhere });
+    const db = {
+      transaction: async (callback: (tx: ReturnType<typeof createBulkFollowUpTransaction>) => Promise<unknown>) =>
+        callback(
+          createBulkFollowUpTransaction(
+            [
+              {
+                id: 'ujo-1',
+                pipelineMeta: {
+                  contactName: 'Alex Recruiter',
+                  followUpAt: '2026-03-08T10:00:00.000Z',
+                },
+              },
+            ],
+            set,
+          ),
+        ),
+    } as any;
+
+    const service = new JobOffersService(
+      db,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'NOTEBOOK_APPROX_VIOLATION_PENALTY') return 15;
+          if (key === 'NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY') return 45;
+          if (key === 'NOTEBOOK_APPROX_SCORED_BONUS') return 5;
+          if (key === 'NOTEBOOK_EXPLORE_UNSCORED_BASE') return 55;
+          if (key === 'NOTEBOOK_EXPLORE_RECENCY_WEIGHT') return 12;
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          return undefined;
+        }),
+      } as any,
+    );
+
+    const result = await service.bulkUpdateFollowUp('user-1', {
+      ids: ['ujo-1'],
+      followUpAt: '2026-03-20T09:00:00.000Z',
+      nextStep: 'Send follow-up email',
+    });
+
+    expect(result).toEqual({ updated: 1 });
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pipelineMeta: {
+          contactName: 'Alex Recruiter',
+          followUpAt: '2026-03-20T09:00:00.000Z',
+          nextStep: 'Send follow-up email',
+        },
+      }),
+    );
   });
 });

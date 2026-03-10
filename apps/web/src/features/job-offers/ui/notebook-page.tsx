@@ -13,10 +13,12 @@ import { Button } from '@/shared/ui/button';
 
 type NotebookPageProps = {
   token: string;
+  initialQuickAction?: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'followUpDue' | 'followUpUpcoming' | null;
+  initialOfferId?: string | null;
 };
 
-export const NotebookPage = ({ token }: NotebookPageProps) => {
-  const notebook = useNotebookPage({ token });
+export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId = null }: NotebookPageProps) => {
+  const notebook = useNotebookPage({ token, initialQuickAction, initialOfferId });
 
   return (
     <main className="app-page space-y-6">
@@ -122,6 +124,9 @@ export const NotebookPage = ({ token }: NotebookPageProps) => {
                   ids: notebook.selectedOfferIds,
                   status,
                 });
+              }}
+              onBulkFollowUpSave={(payload) => {
+                notebook.bulkUpdateFollowUp(payload);
               }}
               onPrev={() => notebook.setNotebookOffset(notebook.pagination.offset - notebook.pagination.limit)}
               onNext={() => notebook.setNotebookOffset(notebook.pagination.offset + notebook.pagination.limit)}

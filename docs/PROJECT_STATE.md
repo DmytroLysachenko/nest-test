@@ -148,10 +148,12 @@ Last updated: 2026-03-09
 - Workspace summary supports optional in-memory ttl cache (`WORKSPACE_SUMMARY_CACHE_TTL_SEC`).
 - Workspace summary now includes deterministic next-action, activity timeline, and readiness health signals for the product dashboard.
 - Workspace summary now also exposes server-driven recovery guidance (`readinessBreakdown`, `blockerDetails`, `recommendedSequence`) for dashboard and notebook blocked states.
+- Profile Studio now reuses the same recovery guidance so blocked document/profile-generation steps point to explicit next actions.
 - Global API throttling is now env-tunable (`API_THROTTLE_TTL_MS`, `API_THROTTLE_LIMIT`).
 - Frontend query freshness/polling defaults are env-tunable (`NEXT_PUBLIC_QUERY_*`).
 - Frontend runtime env guard now rejects localhost/non-https API/worker URLs in production.
 - API error responses now expose normalized top-level fields (`code`, `message`, `requestId`, `timestamp`) with backward-compatible payload.
+- API now persists structured endpoint warning/error diagnostics in `api_request_events` for DB-backed troubleshooting.
 - Auth endpoint throttles are env-tunable (`AUTH_*_THROTTLE_*`).
 - Google OAuth login endpoint is available (`POST /api/auth/oauth/google`) with verified-id-token account linking.
 - Scrape schedules are now persisted and available through:
@@ -166,9 +168,14 @@ Last updated: 2026-03-09
 - Notebook filter/view preferences are now persisted server-side and restored across sessions/devices.
 - Notebook now exposes a dedicated summary read model (`GET /api/job-offers/summary`) for triage counts, quick actions, and explanation-tag rollups.
 - Notebook now supports follow-up-aware filtering (`due` / `upcoming` / `none`) and exposes due/upcoming reminder counts in its summary payload.
+- Notebook route gating now uses workspace summary readiness directly instead of duplicating the broader workflow query burst.
+- Notebook now supports bulk follow-up metadata updates through `POST /api/job-offers/pipeline/bulk-follow-up`.
 - Dashboard now consumes a dedicated focus queue read model (`GET /api/job-offers/focus`) for follow-up due items, strict top matches, and fresh unscored leads.
+- Dashboard focus queue entries now deep-link into notebook quick-action views with selected-offer context.
+- Dashboard notebook focus stats now also deep-link into notebook quick-action views for unscored, strict-top, and follow-up queues.
 - Scrape runs now support richer filtered history, CSV export, and per-source health summary endpoints.
 - Admin ops now supports callback event CSV export and a private web ops console.
+- Admin ops console now also exposes persisted API warning/error request events for support triage without direct DB access.
 - Worker diagnostics now classify empty/degraded/blocked outcomes with explicit `resultKind`, `emptyReason`, and `sourceQuality` fields.
 - Documents now support authenticated extraction recovery endpoints (`POST /api/documents/:id/retry-extraction`, `POST /api/documents/retry-failed`) with audit events.
 - Job-source UX now exposes authenticated scrape preflight (`GET /api/job-sources/preflight`) and user-triggered schedule enqueue (`POST /api/job-sources/schedule/trigger-now`).

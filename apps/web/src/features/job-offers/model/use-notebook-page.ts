@@ -9,9 +9,11 @@ import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
 type UseNotebookPageArgs = {
   token: string;
+  initialQuickAction?: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'followUpDue' | 'followUpUpcoming' | null;
+  initialOfferId?: string | null;
 };
 
-export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
+export const useNotebookPage = ({ token, initialQuickAction = null, initialOfferId = null }: UseNotebookPageArgs) => {
   const selectedId = useAppUiStore((state) => state.notebook.selectedOfferId);
   const selectedOfferIds = useAppUiStore((state) => state.notebook.selectedOfferIds);
   const filters = useAppUiStore((state) => state.notebook.filters);
@@ -62,6 +64,7 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
   const {
     statusMutation,
     bulkStatusMutation,
+    bulkFollowUpMutation,
     dismissAllSeenMutation,
     autoArchiveMutation,
     metaMutation,
@@ -73,6 +76,7 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     preferencesMutation,
   } = useNotebookMutations({ token });
   const lastPersistedRef = useRef<string | null>(null);
+  const appliedRouteStateRef = useRef(false);
 
   useEffect(() => {
     if (!preferencesQuery.data || hydratedFromServer) {
@@ -225,6 +229,22 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     setNotebookFilter('hasScore', 'all');
   };
 
+  useEffect(() => {
+    if (!hydratedFromServer || appliedRouteStateRef.current) {
+      return;
+    }
+
+    appliedRouteStateRef.current = true;
+
+    if (initialQuickAction) {
+      applyQuickAction(initialQuickAction);
+    }
+
+    if (initialOfferId) {
+      setNotebookSelectedOffer(initialOfferId);
+    }
+  }, [applyQuickAction, hydratedFromServer, initialOfferId, initialQuickAction, setNotebookSelectedOffer]);
+
   return {
     listQuery,
     historyQuery,
@@ -248,6 +268,7 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     isBusy:
       statusMutation.isPending ||
       bulkStatusMutation.isPending ||
+      bulkFollowUpMutation.isPending ||
       dismissAllSeenMutation.isPending ||
       autoArchiveMutation.isPending ||
       metaMutation.isPending ||
@@ -270,6 +291,7 @@ export const useNotebookPage = ({ token }: UseNotebookPageArgs) => {
     updateStatus: statusMutation.mutate,
     updateStatusAsync: statusMutation.mutateAsync,
     bulkUpdateStatus: bulkStatusMutation.mutate,
+    bulkUpdateFollowUp: bulkFollowUpMutation.mutate,
     dismissAllSeen: dismissAllSeenMutation.mutate,
     autoArchive: autoArchiveMutation.mutate,
     updateMeta: metaMutation.mutate,

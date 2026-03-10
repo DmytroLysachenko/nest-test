@@ -11,7 +11,7 @@ import { swagger } from '@/config/swagger';
 import { Env } from '@/config/env';
 
 import { TransformInterceptor } from './common/interceptor/transform.interceptor';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { ApiWarningEventInterceptor } from './common/interceptor/api-warning-event.interceptor';
 
 export const bootstrap = async (app: NestExpressApplication) => {
   const configService = app.get(ConfigService<Env>);
@@ -137,8 +137,8 @@ export const bootstrap = async (app: NestExpressApplication) => {
   );
 
   app.useGlobalInterceptors(new LoggerErrorInterceptor());
+  app.useGlobalInterceptors(app.get(ApiWarningEventInterceptor));
   app.useGlobalInterceptors(new TransformInterceptor());
-  app.useGlobalFilters(new HttpExceptionFilter());
   await app.listen(configService.get('PORT'), () => {
     logger.log(
       [

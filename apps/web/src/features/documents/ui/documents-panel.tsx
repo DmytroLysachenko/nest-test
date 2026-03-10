@@ -7,6 +7,8 @@ import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
 
+const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
+
 type DocumentsPanelProps = {
   token: string;
   disabled?: boolean;
@@ -61,7 +63,7 @@ export const DocumentsPanel = ({
         {disabled && disabledReason ? <p className="text-app-warning text-sm">{disabledReason}</p> : null}
         {status ? <p className="text-app-success text-sm">{status}</p> : null}
         {error ? <p className="text-app-danger text-sm">{error}</p> : null}
-        {uploadHealthQuery.data ? (
+        {diagnosticsEnabled && uploadHealthQuery.data ? (
           <div
             className={`rounded-2xl border p-3 text-xs ${uploadHealthQuery.data.ok ? 'border-app-success-border bg-app-success-soft' : 'border-app-warning-border bg-app-warning-soft'}`}
           >
@@ -123,9 +125,11 @@ export const DocumentsPanel = ({
               </div>
               <div>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="secondary" onClick={() => setSelectedDocumentId(document.id)}>
-                    View diagnostics
-                  </Button>
+                  {diagnosticsEnabled ? (
+                    <Button type="button" variant="secondary" onClick={() => setSelectedDocumentId(document.id)}>
+                      View diagnostics
+                    </Button>
+                  ) : null}
                   {document.extractionStatus !== 'READY' ? (
                     <Button
                       type="button"
@@ -169,7 +173,7 @@ export const DocumentsPanel = ({
         )}
       </div>
 
-      {selectedDocumentId && documentEventsQuery.data?.length ? (
+      {diagnosticsEnabled && selectedDocumentId && documentEventsQuery.data?.length ? (
         <div className="mt-6 space-y-3">
           <p className="text-text-strong text-sm font-semibold">
             Diagnostics timeline ({selectedDocumentId.slice(0, 8)})

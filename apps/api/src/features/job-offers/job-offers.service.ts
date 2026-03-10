@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { and, desc, eq, isNull, lt, not, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, lt, not, sql } from 'drizzle-orm';
 import { careerProfilesTable, jobOffersTable, notebookPreferencesTable, userJobOffersTable } from '@repo/db';
 import { z } from 'zod';
 
@@ -498,6 +498,66 @@ export class JobOffersService {
     }
 
     return updated;
+  }
+
+  async bulkUpdateFollowUp(
+    userId: string,
+    input: { ids: string[]; followUpAt?: string | null; nextStep?: string | null },
+  ) {
+    const ids = Array.from(new Set(input.ids));
+    if (!ids.length) {
+      throw new BadRequestException('At least one job offer id is required');
+    }
+
+    const followUpAt = input.followUpAt ? new Date(input.followUpAt).toISOString() : null;
+    const nextStep = input.nextStep?.trim() ? input.nextStep.trim() : null;
+
+    return this.db.transaction(async (tx) => {
+      const rows = await tx
+        .select({
+          id: userJobOffersTable.id,
+          pipelineMeta: userJobOffersTable.pipelineMeta,
+        })
+        .from(userJobOffersTable)
+        .where(and(eq(userJobOffersTable.userId, userId), inArray(userJobOffersTable.id, ids)));
+
+      if (!rows.length) {
+        throw new NotFoundException('Job offers not found');
+      }
+
+      for (const row of rows) {
+        const currentPipelineMeta =
+          row.pipelineMeta && typeof row.pipelineMeta === 'object' && !Array.isArray(row.pipelineMeta)
+            ? { ...(row.pipelineMeta as Record<string, unknown>) }
+            : {};
+
+        if (input.followUpAt !== undefined) {
+          if (followUpAt) {
+            currentPipelineMeta.followUpAt = followUpAt;
+          } else {
+            delete currentPipelineMeta.followUpAt;
+          }
+        }
+
+        if (input.nextStep !== undefined) {
+          if (nextStep) {
+            currentPipelineMeta.nextStep = nextStep;
+          } else {
+            delete currentPipelineMeta.nextStep;
+          }
+        }
+
+        await tx
+          .update(userJobOffersTable)
+          .set({
+            pipelineMeta: currentPipelineMeta,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(userJobOffersTable.id, row.id), eq(userJobOffersTable.userId, userId)));
+      }
+
+      return { updated: rows.length };
+    });
   }
 
   async getHistory(userId: string, id: string) {

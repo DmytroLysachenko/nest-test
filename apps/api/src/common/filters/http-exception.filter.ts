@@ -2,12 +2,15 @@ import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logge
 import { Request, Response } from 'express';
 
 import { getErrorCatalogEntry } from '@/common/errors/error-catalog';
+import { ApiRequestEventsService } from '@/common/observability/api-request-events.service';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
-  catch(exception: unknown, host: ArgumentsHost) {
+  constructor(private readonly apiRequestEventsService: ApiRequestEventsService) {}
+
+  async catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
@@ -33,6 +36,26 @@ export class HttpExceptionFilter implements ExceptionFilter {
       error,
       message,
       details,
+    });
+
+    await this.apiRequestEventsService.create({
+      userId: request.user?.userId ?? null,
+      requestId: String(requestId),
+      level: 'error',
+      method: request.method,
+      path: request.originalUrl || request.url,
+      statusCode: status,
+      message,
+      errorCode: error,
+      details,
+      meta: {
+        category: catalog.category,
+        retryable: catalog.retryable,
+        query: request.query,
+        params: request.params,
+        exceptionName: exception instanceof Error ? exception.name : 'UnknownException',
+        rawMessage: this.extractRawMessage(exception),
+      },
     });
 
     response.status(status).json({
@@ -118,5 +141,25 @@ export class HttpExceptionFilter implements ExceptionFilter {
       error: getErrorCatalogEntry(HttpStatus.INTERNAL_SERVER_ERROR).code,
       message: getErrorCatalogEntry(HttpStatus.INTERNAL_SERVER_ERROR).safeMessage,
     };
+  }
+
+  private extractRawMessage(exception: unknown) {
+    if (exception instanceof HttpException) {
+      const response = exception.getResponse();
+      if (typeof response === 'string') {
+        return response;
+      }
+      if (typeof response === 'object' && response !== null) {
+        const candidate = response as Record<string, unknown>;
+        return candidate.message ?? candidate.error ?? null;
+      }
+      return exception.message;
+    }
+
+    if (exception instanceof Error) {
+      return exception.message;
+    }
+
+    return null;
   }
 }

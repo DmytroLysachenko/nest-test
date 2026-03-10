@@ -383,6 +383,15 @@ ADR-lite log for major architectural and contract decisions.
   - Make frontend error handling deterministic and less string-dependent.
   - Improve debugging with consistent request correlation id exposure.
 
+## 2026-03-10: DB-Backed API Request Diagnostics
+
+- Decision:
+  - Persist structured API warning/error events in `api_request_events`.
+  - Write rows centrally from the global exception filter and from a response interceptor when successful endpoints return `warning` or `warnings`.
+- Why:
+  - Keep per-endpoint troubleshooting durable across restarts and Cloud Run log rotation.
+  - Provide request-correlated diagnostics without mirroring every raw application log line into Postgres.
+
 ## 2026-03-05: Google OAuth + Schedule Trigger Auth
 
 - Decision:
@@ -435,6 +444,7 @@ ADR-lite log for major architectural and contract decisions.
     - `blockerDetails`
     - `recommendedSequence`
   - Use the same payload to drive dashboard and notebook blocked states.
+  - Reuse the same payload for private-shell notebook visibility so private routes do not mount the heavier workflow query bundle just to decide nav state.
 - Why:
   - Keep workflow guidance deterministic and API-owned.
   - Remove duplicate blocker heuristics from the frontend.

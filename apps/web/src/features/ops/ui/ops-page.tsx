@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
-import { exportCallbackEventsCsv, listCallbackEvents } from '@/features/ops/api/ops-api';
+import { exportCallbackEventsCsv, listApiRequestEvents, listCallbackEvents } from '@/features/ops/api/ops-api';
 import {
   exportJobSourceRunsCsv,
   getJobSourceHealth,
@@ -59,6 +59,15 @@ export const OpsPage = () => {
     }),
   );
 
+  const apiRequestEventsQuery = useQuery(
+    buildAuthedQueryOptions({
+      token: auth.token,
+      queryKey: queryKeys.ops.apiRequestEvents(auth.token, { limit: 20 }),
+      queryFn: (token) => listApiRequestEvents(token, { limit: 20 }),
+      enabled: Boolean(auth.token && auth.user?.role === 'admin'),
+    }),
+  );
+
   if (!auth.isHydrated || auth.isLoading) {
     return <PageLoadingState title="Loading ops workspace" subtitle="Checking admin session and operational data." />;
   }
@@ -67,11 +76,16 @@ export const OpsPage = () => {
     return <PageErrorState title="Admin access required" message="This area is limited to admin sessions." />;
   }
 
-  if (sourceHealthQuery.isLoading || runsQuery.isLoading || callbackEventsQuery.isLoading) {
+  if (
+    sourceHealthQuery.isLoading ||
+    runsQuery.isLoading ||
+    callbackEventsQuery.isLoading ||
+    apiRequestEventsQuery.isLoading
+  ) {
     return <PageLoadingState title="Loading ops workspace" subtitle="Fetching source health and callback telemetry." />;
   }
 
-  if (sourceHealthQuery.isError || runsQuery.isError || callbackEventsQuery.isError) {
+  if (sourceHealthQuery.isError || runsQuery.isError || callbackEventsQuery.isError || apiRequestEventsQuery.isError) {
     return (
       <PageErrorState
         title="Ops workspace unavailable"
@@ -80,6 +94,7 @@ export const OpsPage = () => {
           void sourceHealthQuery.refetch();
           void runsQuery.refetch();
           void callbackEventsQuery.refetch();
+          void apiRequestEventsQuery.refetch();
         }}
       />
     );
@@ -88,6 +103,7 @@ export const OpsPage = () => {
   const sourceHealth = sourceHealthQuery.data?.items ?? [];
   const runs = runsQuery.data?.items ?? [];
   const callbackEvents = callbackEventsQuery.data?.items ?? [];
+  const apiRequestEvents = apiRequestEventsQuery.data?.items ?? [];
 
   return (
     <main className="app-page">
@@ -186,6 +202,53 @@ export const OpsPage = () => {
           </div>
         </Card>
       </div>
+
+      <Card
+        title="API Request Events"
+        description="Recent warning/error events persisted from user-facing endpoints for support triage."
+      >
+        <div className="text-muted-foreground mb-4 flex flex-wrap gap-2 text-xs">
+          {(apiRequestEventsQuery.data?.statusSummary ?? []).map((item) => (
+            <span key={item.statusCode} className="app-badge">
+              {item.statusCode}: {item.count}
+            </span>
+          ))}
+          <span className="app-badge">Total: {apiRequestEventsQuery.data?.total ?? 0}</span>
+        </div>
+        <div className="space-y-3">
+          {apiRequestEvents.length ? (
+            apiRequestEvents.map((item) => (
+              <div key={item.id} className="app-muted-panel">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-text-strong font-medium">
+                      {item.method} {item.path}
+                    </p>
+                    <p className="text-text-soft text-xs">
+                      {new Date(item.createdAt).toLocaleString()}
+                      {item.requestId ? ` | ${item.requestId}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StatusPill
+                      value={item.level}
+                      tone={item.level === 'ERROR' ? 'danger' : item.level === 'WARNING' ? 'warning' : 'info'}
+                    />
+                    <span className="app-badge">{item.statusCode}</span>
+                  </div>
+                </div>
+                <p className="text-text-soft mt-2 text-sm">{item.message}</p>
+                {item.errorCode ? <p className="text-text-soft text-sm">Code: {item.errorCode}</p> : null}
+                {item.details?.length ? (
+                  <p className="text-text-soft text-sm">Details: {item.details.join(' | ')}</p>
+                ) : null}
+              </div>
+            ))
+          ) : (
+            <div className="app-muted-panel text-muted-foreground text-sm">No persisted API request events yet.</div>
+          )}
+        </div>
+      </Card>
     </main>
   );
 };
