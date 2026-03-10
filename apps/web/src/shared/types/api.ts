@@ -610,6 +610,32 @@ export type CallbackEventsListDto = {
   offset: number;
 };
 
+export type ApiRequestEventDto = {
+  id: string;
+  userId: string | null;
+  requestId: string | null;
+  level: string;
+  method: string;
+  path: string;
+  statusCode: number;
+  message: string;
+  errorCode: string | null;
+  details: string[] | null;
+  meta: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type ApiRequestEventsListDto = {
+  items: ApiRequestEventDto[];
+  limit: number;
+  offset: number;
+  total: number;
+  statusSummary: Array<{
+    statusCode: number;
+    count: number;
+  }>;
+};
+
 export type JobOfferHistoryDto = {
   id: string;
   status: JobOfferStatus;

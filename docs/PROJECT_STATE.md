@@ -173,6 +173,7 @@ Last updated: 2026-03-09
 - Dashboard focus queue entries now deep-link into notebook quick-action views with selected-offer context.
 - Scrape runs now support richer filtered history, CSV export, and per-source health summary endpoints.
 - Admin ops now supports callback event CSV export and a private web ops console.
+- Admin ops console now also exposes persisted API warning/error request events for support triage without direct DB access.
 - Worker diagnostics now classify empty/degraded/blocked outcomes with explicit `resultKind`, `emptyReason`, and `sourceQuality` fields.
 - Documents now support authenticated extraction recovery endpoints (`POST /api/documents/:id/retry-extraction`, `POST /api/documents/retry-failed`) with audit events.
 - Job-source UX now exposes authenticated scrape preflight (`GET /api/job-sources/preflight`) and user-triggered schedule enqueue (`POST /api/job-sources/schedule/trigger-now`).

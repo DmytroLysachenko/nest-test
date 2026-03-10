@@ -65,6 +65,21 @@ export class OpsController {
     return this.opsService.listCallbackEvents({ status, sourceRunId, limit, offset });
   }
 
+  @Get('api-request-events')
+  @ApiOperation({ summary: 'List API request warning/error events (admin only)' })
+  async listApiRequestEvents(
+    @CurrentUser() user: JwtValidateUser,
+    @Query('level') level?: string,
+    @Query('statusCode', new ParseIntPipe({ optional: true })) statusCode?: number,
+    @Query('path') path?: string,
+    @Query('requestId') requestId?: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
+  ) {
+    this.assertAdmin(user);
+    return this.opsService.listApiRequestEvents({ level, statusCode, path, requestId, limit, offset });
+  }
+
   @Get('scrape/callback-events/export.csv')
   @ApiOperation({ summary: 'Export scrape callback events as CSV (admin only)' })
   async exportCallbackEventsCsv(

@@ -83,6 +83,17 @@ export const queryKeys = {
       token: string | null,
       params: { status?: string; sourceRunId?: string; limit?: number; offset?: number },
     ) => ['ops', 'callback-events', token, params] as const,
+    apiRequestEvents: (
+      token: string | null,
+      params: {
+        level?: string;
+        statusCode?: number;
+        path?: string;
+        requestId?: string;
+        limit?: number;
+        offset?: number;
+      },
+    ) => ['ops', 'api-request-events', token, params] as const,
   },
   jobMatching: {
     list: (token: string | null) => ['job-matching', token] as const,
