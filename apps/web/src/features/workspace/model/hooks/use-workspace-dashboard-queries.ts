@@ -16,6 +16,8 @@ import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options
 import { QUERY_GC_TIME, QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
+const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
+
 export const useWorkspaceDashboardQueries = (token: string | null) => {
   const summaryQuery = useQuery(
     buildAuthedQueryOptions({
@@ -42,6 +44,7 @@ export const useWorkspaceDashboardQueries = (token: string | null) => {
       token,
       queryKey: queryKeys.jobSources.diagnosticsSummary(token, 72),
       queryFn: (authToken) => getJobSourceRunDiagnosticsSummary(authToken, 72),
+      enabled: diagnosticsEnabled,
       refetchInterval: env.NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS,
       staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
     }),
@@ -52,6 +55,7 @@ export const useWorkspaceDashboardQueries = (token: string | null) => {
       token,
       queryKey: queryKeys.documents.diagnosticsSummary(token, 168),
       queryFn: (authToken) => getDocumentDiagnosticsSummary(authToken, 168),
+      enabled: diagnosticsEnabled,
       refetchInterval: env.NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS,
       staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
     }),

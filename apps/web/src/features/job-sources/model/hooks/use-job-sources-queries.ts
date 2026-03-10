@@ -12,6 +12,8 @@ import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options
 import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
+const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
+
 type ScrapePreflightParams = {
   source?: 'pracuj-pl' | 'pracuj-pl-it' | 'pracuj-pl-general';
   listingUrl?: string;
@@ -42,7 +44,7 @@ export const useJobSourcesQueries = (
       token,
       queryKey: ['job-sources', 'run-diagnostics', token, selectedRunId],
       queryFn: (authToken) => getJobSourceRunDiagnostics(authToken, selectedRunId as string),
-      enabled: Boolean(selectedRunId),
+      enabled: diagnosticsEnabled && Boolean(selectedRunId),
       staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
     }),
   );

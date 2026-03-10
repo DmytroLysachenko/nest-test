@@ -11,6 +11,7 @@ import {
   updateJobOfferMeta,
   updateJobOfferPipeline,
   updateJobOfferStatus,
+  bulkUpdateJobOfferFollowUp,
   dismissAllSeenJobOffers,
   autoArchiveOldJobOffers,
 } from '@/features/job-offers/api/job-offers-api';
@@ -202,6 +203,18 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     },
   });
 
+  const bulkFollowUpMutation = useMutation({
+    mutationFn: (payload: { ids: string[]; followUpAt: string | null; nextStep?: string | null }) =>
+      bulkUpdateJobOfferFollowUp(token, payload),
+    onSuccess: (result) => {
+      syncJobOffers();
+      toastSuccess(`Updated follow-up plan for ${result.updated} offers`);
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to update follow-up plan'));
+    },
+  });
+
   const scoreMutation = useMutation({
     mutationFn: ({ id }: { id: string }) => scoreJobOffer(token, id, 0),
     onSuccess: () => {
@@ -253,6 +266,7 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   return {
     statusMutation,
     bulkStatusMutation,
+    bulkFollowUpMutation,
     dismissAllSeenMutation,
     autoArchiveMutation,
     metaMutation,

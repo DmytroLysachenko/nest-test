@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Inbox } from 'lucide-react';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
@@ -9,6 +10,8 @@ import { EmptyState } from '@/shared/ui/empty-state';
 import { Button } from '@/shared/ui/button';
 import { DataTableShell, HeroHeader, MetricCard, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
 import { Card } from '@/shared/ui/card';
+
+const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
 
 const formatDateTime = (value: string | null) => {
   if (!value) {
@@ -62,6 +65,19 @@ const getReliabilityLabel = (successRate: number | undefined) => {
     label: 'Needs attention',
     tone: 'danger' as const,
   };
+};
+
+const getFocusHref = (groupKey: string, offerId: string) => {
+  if (groupKey === 'follow-up-due') {
+    return `/notebook?focus=followUpDue&offerId=${offerId}`;
+  }
+  if (groupKey === 'strict-top') {
+    return `/notebook?focus=strictTop&offerId=${offerId}`;
+  }
+  if (groupKey === 'unscored-fresh') {
+    return `/notebook?focus=unscored&offerId=${offerId}`;
+  }
+  return `/notebook?offerId=${offerId}`;
 };
 
 export const WorkspaceDashboardPage = () => {
@@ -260,13 +276,15 @@ export const WorkspaceDashboardPage = () => {
               </div>
             )}
 
-            <Button
-              variant="secondary"
-              className="h-9 w-full text-xs"
-              onClick={() => (window.location.href = auth.user?.role === 'admin' ? '/ops' : '/tester')}
-            >
-              View Full Diagnostics
-            </Button>
+            {diagnosticsEnabled ? (
+              <Button
+                variant="secondary"
+                className="h-9 w-full text-xs"
+                onClick={() => (window.location.href = auth.user?.role === 'admin' ? '/ops' : '/tester')}
+              >
+                View Full Diagnostics
+              </Button>
+            ) : null}
           </div>
         </Card>
       </div>
@@ -360,12 +378,12 @@ export const WorkspaceDashboardPage = () => {
             </Card>
           ) : null}
 
-          {dashboard.isDiagnosticsLoading ? (
+          {diagnosticsEnabled && dashboard.isDiagnosticsLoading ? (
             <SectionLoadingState
               title="Scrape Diagnostics (72h)"
               description="Reliability and throughput of ingestion runs."
             />
-          ) : dashboard.diagnosticsError ? (
+          ) : diagnosticsEnabled && dashboard.diagnosticsError ? (
             <SectionErrorState
               title="Scrape Diagnostics (72h)"
               message={dashboard.diagnosticsError}
@@ -373,7 +391,7 @@ export const WorkspaceDashboardPage = () => {
                 void dashboard.refetchDiagnostics();
               }}
             />
-          ) : diagnostics ? (
+          ) : diagnosticsEnabled && diagnostics ? (
             <Card title="Scrape Diagnostics (72h)" description="Reliability and throughput of ingestion runs.">
               <div className="grid gap-3 text-sm md:grid-cols-3">
                 <div className="app-muted-panel space-y-2">
@@ -408,12 +426,12 @@ export const WorkspaceDashboardPage = () => {
             </Card>
           ) : null}
 
-          {dashboard.isDocumentDiagnosticsLoading ? (
+          {diagnosticsEnabled && dashboard.isDocumentDiagnosticsLoading ? (
             <SectionLoadingState
               title="Document Diagnostics"
               description="Upload and extraction stage timings from persisted metrics."
             />
-          ) : dashboard.documentDiagnosticsError ? (
+          ) : diagnosticsEnabled && dashboard.documentDiagnosticsError ? (
             <SectionErrorState
               title="Document Diagnostics"
               message={dashboard.documentDiagnosticsError}
@@ -421,7 +439,7 @@ export const WorkspaceDashboardPage = () => {
                 void dashboard.refetchDocumentDiagnostics();
               }}
             />
-          ) : documentDiagnostics ? (
+          ) : diagnosticsEnabled && documentDiagnostics ? (
             <Card
               title={`Document Diagnostics (${documentDiagnostics.windowHours}h)`}
               description="Upload and extraction stage timings from persisted metrics."
@@ -462,7 +480,7 @@ export const WorkspaceDashboardPage = () => {
         </div>
 
         <aside className="space-y-4">
-          {diagnostics ? (
+          {diagnosticsEnabled && diagnostics ? (
             <Card title="Reliability Overview" description="Scheduler and scrape resilience signals.">
               <div className="space-y-3">
                 <StatRow
@@ -577,7 +595,12 @@ export const WorkspaceDashboardPage = () => {
                           key={item.id}
                           className="border-border/40 border-t pt-2 text-sm first:border-t-0 first:pt-0"
                         >
-                          <p className="text-text-strong font-medium">{item.title}</p>
+                          <Link
+                            href={getFocusHref(group.key, item.id)}
+                            className="text-text-strong font-medium hover:underline"
+                          >
+                            {item.title}
+                          </Link>
                           <p className="text-text-soft text-xs">
                             {item.company ?? 'Unknown company'} · {item.location ?? 'Unknown location'}
                           </p>

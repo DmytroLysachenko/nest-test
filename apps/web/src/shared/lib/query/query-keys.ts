@@ -70,6 +70,7 @@ export const queryKeys = {
         search?: string;
         tag?: string;
         hasScore?: boolean;
+        followUp?: 'due' | 'upcoming' | 'none';
       },
     ) => ['job-offers', token, params] as const,
     history: (token: string | null, offerId: string | null) => ['job-offers', 'history', token, offerId] as const,

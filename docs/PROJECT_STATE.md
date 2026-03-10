@@ -166,7 +166,10 @@ Last updated: 2026-03-09
 - Notebook filter/view preferences are now persisted server-side and restored across sessions/devices.
 - Notebook now exposes a dedicated summary read model (`GET /api/job-offers/summary`) for triage counts, quick actions, and explanation-tag rollups.
 - Notebook now supports follow-up-aware filtering (`due` / `upcoming` / `none`) and exposes due/upcoming reminder counts in its summary payload.
+- Notebook route gating now uses workspace summary readiness directly instead of duplicating the broader workflow query burst.
+- Notebook now supports bulk follow-up metadata updates through `POST /api/job-offers/pipeline/bulk-follow-up`.
 - Dashboard now consumes a dedicated focus queue read model (`GET /api/job-offers/focus`) for follow-up due items, strict top matches, and fresh unscored leads.
+- Dashboard focus queue entries now deep-link into notebook quick-action views with selected-offer context.
 - Scrape runs now support richer filtered history, CSV export, and per-source health summary endpoints.
 - Admin ops now supports callback event CSV export and a private web ops console.
 - Worker diagnostics now classify empty/degraded/blocked outcomes with explicit `resultKind`, `emptyReason`, and `sourceQuality` fields.

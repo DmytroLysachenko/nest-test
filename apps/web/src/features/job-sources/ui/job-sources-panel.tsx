@@ -7,6 +7,8 @@ import { Input } from '@/shared/ui/input';
 import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
 
+const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
+
 type JobSourcesPanelProps = {
   token: string;
   disabled?: boolean;
@@ -237,9 +239,11 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               <InspectorRow label="Scraped" value={String(run.scrapedCount ?? 0)} />
               <InspectorRow label="Found" value={String(run.totalFound ?? 0)} />
               <div className="mt-2">
-                <Button type="button" variant="secondary" onClick={() => jobSourcesPanel.setSelectedRunId(run.id)}>
-                  Show diagnostics
-                </Button>
+                {diagnosticsEnabled ? (
+                  <Button type="button" variant="secondary" onClick={() => jobSourcesPanel.setSelectedRunId(run.id)}>
+                    Show diagnostics
+                  </Button>
+                ) : null}
               </div>
               {run.error ? <p className="text-app-danger">{run.error}</p> : null}
             </article>
@@ -249,7 +253,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         )}
       </div>
 
-      {jobSourcesPanel.diagnosticsQuery.data ? (
+      {diagnosticsEnabled && jobSourcesPanel.diagnosticsQuery.data ? (
         <div className="app-muted-panel mt-4 space-y-3 text-sm">
           <p className="text-text-strong font-semibold">Run diagnostics</p>
           <InspectorRow label="Run id" value={jobSourcesPanel.diagnosticsQuery.data.runId} />

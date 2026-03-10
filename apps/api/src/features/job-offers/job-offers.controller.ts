@@ -30,6 +30,7 @@ import { UpdateJobOfferFeedbackDto } from './dto/update-job-offer-feedback.dto';
 import { UpdateJobOfferPipelineDto } from './dto/update-job-offer-pipeline.dto';
 import { GeneratePrepDto } from './dto/generate-prep.dto';
 import { NotebookPreferencesResponse, UpdateNotebookPreferencesDto } from './dto/notebook-preferences.dto';
+import { BulkUpdateJobOfferFollowUpDto } from './dto/bulk-update-job-offer-follow-up.dto';
 
 @ApiTags('job-offers')
 @ApiBearerAuth()
@@ -139,6 +140,12 @@ export class JobOffersController {
     @Body() dto: UpdateJobOfferPipelineDto,
   ) {
     return this.jobOffersService.updatePipelineMeta(user.userId, id, dto);
+  }
+
+  @Post('pipeline/bulk-follow-up')
+  @ApiOperation({ summary: 'Bulk update follow-up metadata for selected offers' })
+  async bulkUpdateFollowUp(@CurrentUser() user: JwtValidateUser, @Body() dto: BulkUpdateJobOfferFollowUpDto) {
+    return this.jobOffersService.bulkUpdateFollowUp(user.userId, dto);
   }
 
   @Post(':id/generate-prep')
