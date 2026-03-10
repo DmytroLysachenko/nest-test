@@ -444,6 +444,7 @@ ADR-lite log for major architectural and contract decisions.
     - `blockerDetails`
     - `recommendedSequence`
   - Use the same payload to drive dashboard and notebook blocked states.
+  - Reuse the same payload for private-shell notebook visibility so private routes do not mount the heavier workflow query bundle just to decide nav state.
 - Why:
   - Keep workflow guidance deterministic and API-owned.
   - Remove duplicate blocker heuristics from the frontend.

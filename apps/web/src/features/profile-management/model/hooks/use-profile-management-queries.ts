@@ -57,12 +57,15 @@ export const useProfileManagementQueries = ({ token }: UseProfileManagementQueri
     }),
   );
 
+  const latestCareerProfileId = latestCareerProfileQuery.data?.id;
+  const latestCareerProfileStatus = latestCareerProfileQuery.data?.status;
+
   const careerProfileQualityQuery = useQuery(
     buildAuthedQueryOptions({
       token,
       queryKey: queryKeys.careerProfiles.quality(token),
       queryFn: getCareerProfileQuality,
-      enabled: hasToken,
+      enabled: hasToken && latestCareerProfileStatus === 'READY',
       staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
     }),
   );
@@ -80,9 +83,9 @@ export const useProfileManagementQueries = ({ token }: UseProfileManagementQueri
   const selectedProfileDocumentsQuery = useQuery(
     buildAuthedQueryOptions({
       token,
-      queryKey: ['career-profiles', 'documents', token, latestCareerProfileQuery.data?.id],
-      queryFn: (authToken) => listCareerProfileDocuments(authToken, latestCareerProfileQuery.data!.id),
-      enabled: hasToken && Boolean(latestCareerProfileQuery.data?.id),
+      queryKey: ['career-profiles', 'documents', token, latestCareerProfileId],
+      queryFn: (authToken) => listCareerProfileDocuments(authToken, latestCareerProfileId!),
+      enabled: hasToken && Boolean(latestCareerProfileId),
       staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
     }),
   );
