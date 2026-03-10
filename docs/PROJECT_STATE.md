@@ -172,6 +172,7 @@ Last updated: 2026-03-09
 - Notebook now supports bulk follow-up metadata updates through `POST /api/job-offers/pipeline/bulk-follow-up`.
 - Dashboard now consumes a dedicated focus queue read model (`GET /api/job-offers/focus`) for follow-up due items, strict top matches, and fresh unscored leads.
 - Dashboard focus queue entries now deep-link into notebook quick-action views with selected-offer context.
+- Dashboard notebook focus stats now also deep-link into notebook quick-action views for unscored, strict-top, and follow-up queues.
 - Scrape runs now support richer filtered history, CSV export, and per-source health summary endpoints.
 - Admin ops now supports callback event CSV export and a private web ops console.
 - Admin ops console now also exposes persisted API warning/error request events for support triage without direct DB access.

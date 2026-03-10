@@ -81,6 +81,44 @@ const getFocusHref = (groupKey: string, offerId: string) => {
   return `/notebook?offerId=${offerId}`;
 };
 
+const notebookQuickActionLinks = [
+  {
+    label: 'Unscored offers',
+    href: '/notebook?focus=unscored',
+    valueKey: 'unscored' as const,
+    toneWhenPositive: 'warning' as const,
+    zeroTone: 'success' as const,
+  },
+  {
+    label: 'High confidence strict',
+    href: '/notebook?focus=strictTop',
+    valueKey: 'highConfidenceStrict' as const,
+    toneWhenPositive: 'success' as const,
+    zeroTone: 'neutral' as const,
+  },
+  {
+    label: 'Stale untriaged',
+    href: '/notebook',
+    valueKey: 'staleUntriaged' as const,
+    toneWhenPositive: 'warning' as const,
+    zeroTone: 'neutral' as const,
+  },
+  {
+    label: 'Follow-up due',
+    href: '/notebook?focus=followUpDue',
+    valueKey: 'followUpDue' as const,
+    toneWhenPositive: 'warning' as const,
+    zeroTone: 'success' as const,
+  },
+  {
+    label: 'Follow-up upcoming',
+    href: '/notebook?focus=followUpUpcoming',
+    valueKey: 'followUpUpcoming' as const,
+    toneWhenPositive: 'info' as const,
+    zeroTone: 'neutral' as const,
+  },
+];
+
 export const WorkspaceDashboardPage = () => {
   const auth = useRequireAuth();
   const dashboard = useWorkspaceDashboardData({
@@ -537,26 +575,15 @@ export const WorkspaceDashboardPage = () => {
           {notebookSummary ? (
             <Card title="Notebook Focus" description="Suggested buckets for the next triage session.">
               <div className="space-y-3">
-                <StatRow
-                  label="Unscored offers"
-                  value={String(notebookSummary.unscored)}
-                  tone={notebookSummary.unscored > 0 ? 'warning' : 'success'}
-                />
-                <StatRow
-                  label="High confidence strict"
-                  value={String(notebookSummary.highConfidenceStrict)}
-                  tone="success"
-                />
-                <StatRow
-                  label="Stale untriaged"
-                  value={String(notebookSummary.staleUntriaged)}
-                  tone={notebookSummary.staleUntriaged > 0 ? 'warning' : 'neutral'}
-                />
-                <StatRow
-                  label="Follow-up due"
-                  value={String(notebookSummary.followUpDue)}
-                  tone={notebookSummary.followUpDue > 0 ? 'warning' : 'success'}
-                />
+                {notebookQuickActionLinks.map((item) => {
+                  const value = notebookSummary[item.valueKey];
+                  const tone = value > 0 ? item.toneWhenPositive : item.zeroTone;
+                  return (
+                    <Link key={item.label} href={item.href} className="block">
+                      <StatRow label={item.label} value={String(value)} tone={tone} />
+                    </Link>
+                  );
+                })}
               </div>
             </Card>
           ) : null}

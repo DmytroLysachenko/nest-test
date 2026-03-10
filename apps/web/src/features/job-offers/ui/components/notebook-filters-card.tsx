@@ -208,7 +208,7 @@ export const NotebookFiltersCard = ({
 
     {summary ? (
       <div className="border-border/40 mt-4 space-y-3 border-t pt-4">
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-5">
           <div className="app-muted-panel">
             <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Unscored</p>
             <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.unscored}</p>
@@ -224,8 +224,16 @@ export const NotebookFiltersCard = ({
             </p>
           </div>
           <div className="app-muted-panel">
+            <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Stale untriaged</p>
+            <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.staleUntriaged}</p>
+          </div>
+          <div className="app-muted-panel">
             <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Follow-up due</p>
             <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.followUpDue}</p>
+          </div>
+          <div className="app-muted-panel">
+            <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Follow-up upcoming</p>
+            <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.followUpUpcoming}</p>
           </div>
         </div>
 
