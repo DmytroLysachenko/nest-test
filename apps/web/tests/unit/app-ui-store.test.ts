@@ -15,6 +15,7 @@ describe('useAppUiStore', () => {
           tag: '',
           hasScore: 'all',
           followUp: 'all',
+          attention: 'all',
         },
         savedPreset: null,
         lastInteractionAt: null,
@@ -54,6 +55,7 @@ describe('useAppUiStore', () => {
     expect(filters.search).toBe('');
     expect(filters.hasScore).toBe('all');
     expect(filters.followUp).toBe('all');
+    expect(filters.attention).toBe('all');
     expect(filters.mode).toBe('strict');
   });
 

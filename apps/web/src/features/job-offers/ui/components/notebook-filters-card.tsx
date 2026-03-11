@@ -49,7 +49,9 @@ type NotebookFiltersCardProps = {
   onAutoArchive?: () => void;
   isBusy?: boolean;
   summary?: JobOfferSummaryDto | null;
-  onQuickAction?: (action: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'followUpDue' | 'followUpUpcoming') => void;
+  onQuickAction?: (
+    action: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'staleUntriaged' | 'followUpDue' | 'followUpUpcoming',
+  ) => void;
 };
 
 export const NotebookFiltersCard = ({
@@ -239,29 +241,17 @@ export const NotebookFiltersCard = ({
 
         {onQuickAction ? (
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" className="h-8 px-3" onClick={() => onQuickAction('unscored')}>
-              Review unscored
-            </Button>
-            <Button type="button" variant="secondary" className="h-8 px-3" onClick={() => onQuickAction('strictTop')}>
-              Strict top matches
-            </Button>
-            <Button type="button" variant="secondary" className="h-8 px-3" onClick={() => onQuickAction('saved')}>
-              Saved follow-ups
-            </Button>
-            <Button type="button" variant="secondary" className="h-8 px-3" onClick={() => onQuickAction('applied')}>
-              Applied funnel
-            </Button>
-            <Button type="button" variant="secondary" className="h-8 px-3" onClick={() => onQuickAction('followUpDue')}>
-              Follow-up due
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-8 px-3"
-              onClick={() => onQuickAction('followUpUpcoming')}
-            >
-              Follow-up upcoming
-            </Button>
+            {summary.quickActions.map((action) => (
+              <Button
+                key={action.key}
+                type="button"
+                variant="secondary"
+                className="h-8 px-3"
+                onClick={() => onQuickAction(action.key)}
+              >
+                {action.label}
+              </Button>
+            ))}
           </div>
         ) : null}
 

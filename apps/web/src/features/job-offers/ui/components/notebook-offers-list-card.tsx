@@ -26,7 +26,12 @@ type NotebookOffersListCardProps = {
   onSelectAllVisible: () => void;
   onClearSelected: () => void;
   onBulkStatusChange: (status: JobOfferStatus) => void;
-  onBulkFollowUpSave: (payload: { ids: string[]; followUpAt: string | null; nextStep?: string | null }) => void;
+  onBulkFollowUpSave: (payload: {
+    ids: string[];
+    followUpAt: string | null;
+    nextStep?: string | null;
+    note?: string | null;
+  }) => void;
   onPrev: () => void;
   onNext: () => void;
 };
@@ -52,9 +57,12 @@ export const NotebookOffersListCard = ({
 }: NotebookOffersListCardProps) => {
   const [bulkFollowUpAt, setBulkFollowUpAt] = useState('');
   const [bulkNextStep, setBulkNextStep] = useState('');
+  const [bulkNote, setBulkNote] = useState('');
   const canSaveBulkFollowUp = useMemo(
-    () => selectedOfferIds.length > 0 && (bulkFollowUpAt.trim().length > 0 || bulkNextStep.trim().length > 0),
-    [bulkFollowUpAt, bulkNextStep, selectedOfferIds.length],
+    () =>
+      selectedOfferIds.length > 0 &&
+      (bulkFollowUpAt.trim().length > 0 || bulkNextStep.trim().length > 0 || bulkNote.trim().length > 0),
+    [bulkFollowUpAt, bulkNextStep, bulkNote, selectedOfferIds.length],
   );
 
   return (
@@ -96,7 +104,7 @@ export const NotebookOffersListCard = ({
       </div>
 
       <div className="app-muted-panel mb-4 space-y-3">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)_auto] lg:items-end">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
           <div className="app-field-group">
             <Label htmlFor="bulk-follow-up-at" className="app-inline-label">
               Bulk follow-up date
@@ -119,6 +127,17 @@ export const NotebookOffersListCard = ({
               onChange={(event) => setBulkNextStep(event.target.value)}
             />
           </div>
+          <div className="app-field-group">
+            <Label htmlFor="bulk-follow-up-note" className="app-inline-label">
+              Bulk follow-up note
+            </Label>
+            <Input
+              id="bulk-follow-up-note"
+              value={bulkNote}
+              placeholder="Mention updated portfolio or interview availability"
+              onChange={(event) => setBulkNote(event.target.value)}
+            />
+          </div>
           <Button
             type="button"
             className="h-10"
@@ -128,16 +147,18 @@ export const NotebookOffersListCard = ({
                 ids: selectedOfferIds,
                 followUpAt: bulkFollowUpAt ? new Date(bulkFollowUpAt).toISOString() : null,
                 nextStep: bulkNextStep.trim() || null,
+                note: bulkNote.trim() || null,
               });
               setBulkFollowUpAt('');
               setBulkNextStep('');
+              setBulkNote('');
             }}
           >
             Save bulk follow-up
           </Button>
         </div>
         <p className="text-text-soft text-xs">
-          Apply one follow-up date or next step across the current selection without opening each offer.
+          Apply one follow-up date, next step, or note across the current selection without opening each offer.
         </p>
       </div>
 

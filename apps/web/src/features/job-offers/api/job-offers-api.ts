@@ -21,6 +21,7 @@ export type ListJobOffersParams = {
   tag?: string;
   hasScore?: boolean;
   followUp?: 'due' | 'upcoming' | 'none';
+  attention?: 'staleUntriaged';
 };
 
 const toQuery = (params: ListJobOffersParams) => {
@@ -51,6 +52,9 @@ const toQuery = (params: ListJobOffersParams) => {
   }
   if (params.followUp) {
     query.set('followUp', params.followUp);
+  }
+  if (params.attention) {
+    query.set('attention', params.attention);
   }
 
   const value = query.toString();
@@ -100,9 +104,18 @@ export const updateJobOfferPipeline = (token: string, id: string, payload: { pip
 
 export const bulkUpdateJobOfferFollowUp = (
   token: string,
-  payload: { ids: string[]; followUpAt: string | null; nextStep?: string | null },
+  payload: { ids: string[]; followUpAt: string | null; nextStep?: string | null; note?: string | null },
 ) =>
-  apiRequest<{ updated: number }>('/job-offers/pipeline/bulk-follow-up', {
+  apiRequest<{
+    updated: number;
+    summary: {
+      due: number;
+      upcoming: number;
+      none: number;
+      noteApplied: boolean;
+      nextStepApplied: boolean;
+    };
+  }>('/job-offers/pipeline/bulk-follow-up', {
     method: 'POST',
     token,
     body: JSON.stringify(payload),
