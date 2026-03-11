@@ -97,6 +97,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               {preflight.ready ? 'Ready to run' : 'Blocked'}
             </span>
           </div>
+          <p className="text-text-soft">{preflight.guidance}</p>
           <InspectorRow label="Source" value={preflight.source ?? 'n/a'} />
           <InspectorRow label="Listing URL" value={preflight.listingUrl ?? 'n/a'} />
           <InspectorRow label="Active runs" value={String(preflight.activeRunCount)} />
@@ -104,24 +105,49 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             label="Daily remaining"
             value={preflight.dailyRemaining == null ? 'n/a' : String(preflight.dailyRemaining)}
           />
-          {preflight.blockers.length ? (
+          <InspectorRow
+            label="Schedule"
+            value={
+              preflight.schedule.enabled
+                ? `${preflight.schedule.cron ?? 'n/a'} | next ${formatTimestamp(preflight.schedule.nextRunAt)}`
+                : 'Manual only'
+            }
+          />
+          {preflight.blockerDetails.length ? (
             <div>
               <p className="text-text-strong font-medium">Blockers</p>
-              <ul className="text-app-warning mt-2 space-y-1">
-                {preflight.blockers.map((blocker) => (
-                  <li key={blocker}>{blocker}</li>
+              <div className="mt-2 space-y-2">
+                {preflight.blockerDetails.map((blocker) => (
+                  <div
+                    key={blocker.code}
+                    className="border-app-warning-border bg-app-warning-soft rounded-2xl border p-3"
+                  >
+                    <p className="text-text-strong font-semibold">{blocker.title}</p>
+                    <p className="text-text-soft mt-1">{blocker.description}</p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="mt-3 h-8"
+                      onClick={() => (window.location.href = blocker.href)}
+                    >
+                      {blocker.ctaLabel}
+                    </Button>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           ) : null}
-          {preflight.warnings.length ? (
+          {preflight.warningDetails.length ? (
             <div>
               <p className="text-text-strong font-medium">Warnings</p>
-              <ul className="text-text-soft mt-2 space-y-1">
-                {preflight.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
+              <div className="mt-2 space-y-2">
+                {preflight.warningDetails.map((warning) => (
+                  <div key={warning.code} className="border-border/60 bg-surface/70 rounded-2xl border p-3">
+                    <p className="text-text-strong font-semibold">{warning.title}</p>
+                    <p className="text-text-soft mt-1">{warning.description}</p>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           ) : null}
         </div>
