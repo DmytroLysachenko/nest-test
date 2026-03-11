@@ -61,7 +61,7 @@
     "test": "turbo run test",
     "test-build": "pnpm --filter web build && pnpm --filter api build && pnpm --filter worker build",
     "verify:precommit": "pnpm exec lint-staged --no-stash",
-    "verify:prepush": "pnpm lint:fix:check && pnpm --filter @repo/db build && pnpm check-types && pnpm --filter api test -- --runInBand src/features/auth/auth.service.spec.ts src/config/env.spec.ts && pnpm --filter worker test && pnpm --filter api build && pnpm --filter worker build && pnpm --filter web test && pnpm --filter web test:e2e && pnpm --filter web ux:check",
+    "verify:prepush": "pnpm --filter @repo/db build && pnpm lint:fix:check && pnpm check-types && pnpm --filter api test -- --runInBand src/features/auth/auth.service.spec.ts src/config/env.spec.ts && pnpm --filter worker test && pnpm --filter api build && pnpm --filter worker build && pnpm --filter web test && pnpm --filter web test:e2e && pnpm --filter web ux:check",
     "smoke:e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-e2e.ps1",
     "start": "pnpm dev:stack",
     "start:all": "turbo run start"
