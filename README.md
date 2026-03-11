@@ -21,6 +21,7 @@ Read these instead of expanding this README:
 - Fresh Codex start: `docs/CODEX_HANDOFF.md`
 - Current implemented state: `docs/PROJECT_STATE.md`
 - Planned next work: `docs/ROADMAP.md`
+- 12-month delivery plan: `docs/YEAR_PLAN.md`
 - Detailed sprint plan: `docs/SPRINT_PLAN.md`
 - Key architecture decisions: `docs/DECISIONS.md`
 - Frontend architecture standards: `docs/FRONTEND_STANDARDS.md`

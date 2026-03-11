@@ -241,6 +241,7 @@ For exact variable-level mapping and secret sources, use:
 20. User schedule trigger-now: `POST /api/job-sources/schedule/trigger-now`
 21. Notebook summary: `GET /api/job-offers/summary`
 22. Notebook bulk follow-up update: `POST /api/job-offers/pipeline/bulk-follow-up`
+23. Year plan doc: `docs/YEAR_PLAN.md`
 
 ## Smoke Coverage (Current)
 
