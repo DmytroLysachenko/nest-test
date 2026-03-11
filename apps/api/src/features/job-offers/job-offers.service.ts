@@ -31,7 +31,19 @@ const defaultNotebookFilters = {
   tag: '',
   hasScore: 'all',
   followUp: 'all',
+  attention: 'all',
 } as const;
+
+const normalizeNotebookFilters = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...defaultNotebookFilters };
+  }
+
+  return {
+    ...defaultNotebookFilters,
+    ...(value as Record<string, unknown>),
+  };
+};
 
 @Injectable()
 export class JobOffersService {
@@ -148,6 +160,16 @@ export class JobOffersService {
         }
         return item.followUpState === query.followUp;
       })
+      .filter((item) => {
+        if (query.attention !== 'staleUntriaged') {
+          return true;
+        }
+        const staleCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        return (
+          (item.status === 'NEW' || item.status === 'SEEN') &&
+          new Date(item.lastStatusAt ?? item.createdAt) < staleCutoff
+        );
+      })
       .filter((item) => item.__include)
       .sort((a, b) => {
         if (mode === 'explore') {
@@ -233,6 +255,8 @@ export class JobOffersService {
         (item.status === 'NEW' || item.status === 'SEEN') &&
         new Date(item.lastStatusAt ?? item.createdAt) < staleCutoff,
     ).length;
+    const savedCount = items.filter((item) => item.status === 'SAVED').length;
+    const appliedCount = items.filter((item) => item.status === 'APPLIED').length;
 
     const bucketDefinitions = [
       { key: 'new', label: 'New', count: items.filter((item) => item.status === 'NEW').length },
@@ -267,6 +291,57 @@ export class JobOffersService {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 6)
         .map(([tag, count]) => ({ tag, count })),
+      quickActions: [
+        {
+          key: 'unscored',
+          label: 'Review unscored',
+          description: 'Score fresh notebook offers before moving them deeper into the funnel.',
+          href: '/notebook?focus=unscored',
+          count: unscored,
+        },
+        {
+          key: 'strictTop',
+          label: 'Strict top matches',
+          description: 'Work the highest-confidence strict matches first.',
+          href: '/notebook?focus=strictTop',
+          count: highConfidenceStrict,
+        },
+        {
+          key: 'saved',
+          label: 'Saved follow-ups',
+          description: 'Review saved offers that still need a decision or next step.',
+          href: '/notebook?focus=saved',
+          count: savedCount,
+        },
+        {
+          key: 'applied',
+          label: 'Applied funnel',
+          description: 'Manage active applications already in progress.',
+          href: '/notebook?focus=applied',
+          count: appliedCount,
+        },
+        {
+          key: 'staleUntriaged',
+          label: 'Stale untriaged',
+          description: 'Clear old NEW or SEEN offers that have been sitting too long.',
+          href: '/notebook?focus=staleUntriaged',
+          count: staleUntriaged,
+        },
+        {
+          key: 'followUpDue',
+          label: 'Follow-up due',
+          description: 'Handle overdue follow-ups before they slip further.',
+          href: '/notebook?focus=followUpDue',
+          count: followUpDue,
+        },
+        {
+          key: 'followUpUpcoming',
+          label: 'Follow-up upcoming',
+          description: 'Prepare upcoming follow-ups and interview checkpoints.',
+          href: '/notebook?focus=followUpUpcoming',
+          count: followUpUpcoming,
+        },
+      ],
     };
   }
 
@@ -355,7 +430,11 @@ export class JobOffersService {
       .then(([item]) => item);
 
     if (existing) {
-      return existing;
+      return {
+        ...existing,
+        filters: normalizeNotebookFilters(existing.filters),
+        savedPreset: existing.savedPreset ? normalizeNotebookFilters(existing.savedPreset) : null,
+      };
     }
 
     const now = new Date();
@@ -382,8 +461,8 @@ export class JobOffersService {
       const [updated] = await this.db
         .update(notebookPreferencesTable)
         .set({
-          filters: input.filters,
-          savedPreset: input.savedPreset ?? null,
+          filters: normalizeNotebookFilters(input.filters),
+          savedPreset: input.savedPreset ? normalizeNotebookFilters(input.savedPreset) : null,
           updatedAt: now,
         })
         .where(eq(notebookPreferencesTable.id, existing.id))
@@ -396,8 +475,8 @@ export class JobOffersService {
       .insert(notebookPreferencesTable)
       .values({
         userId,
-        filters: input.filters,
-        savedPreset: input.savedPreset ?? null,
+        filters: normalizeNotebookFilters(input.filters),
+        savedPreset: input.savedPreset ? normalizeNotebookFilters(input.savedPreset) : null,
         createdAt: now,
         updatedAt: now,
       })
@@ -502,7 +581,7 @@ export class JobOffersService {
 
   async bulkUpdateFollowUp(
     userId: string,
-    input: { ids: string[]; followUpAt?: string | null; nextStep?: string | null },
+    input: { ids: string[]; followUpAt?: string | null; nextStep?: string | null; note?: string | null },
   ) {
     const ids = Array.from(new Set(input.ids));
     if (!ids.length) {
@@ -511,11 +590,13 @@ export class JobOffersService {
 
     const followUpAt = input.followUpAt ? new Date(input.followUpAt).toISOString() : null;
     const nextStep = input.nextStep?.trim() ? input.nextStep.trim() : null;
+    const note = input.note?.trim() ? input.note.trim() : null;
 
     return this.db.transaction(async (tx) => {
       const rows = await tx
         .select({
           id: userJobOffersTable.id,
+          status: userJobOffersTable.status,
           pipelineMeta: userJobOffersTable.pipelineMeta,
         })
         .from(userJobOffersTable)
@@ -524,6 +605,10 @@ export class JobOffersService {
       if (!rows.length) {
         throw new NotFoundException('Job offers not found');
       }
+
+      let due = 0;
+      let upcoming = 0;
+      let none = 0;
 
       for (const row of rows) {
         const currentPipelineMeta =
@@ -547,6 +632,23 @@ export class JobOffersService {
           }
         }
 
+        if (input.note !== undefined) {
+          if (note) {
+            currentPipelineMeta.followUpNote = note;
+          } else {
+            delete currentPipelineMeta.followUpNote;
+          }
+        }
+
+        const followUpState = resolveFollowUpState(row.status, currentPipelineMeta, new Date());
+        if (followUpState === 'due') {
+          due += 1;
+        } else if (followUpState === 'upcoming') {
+          upcoming += 1;
+        } else {
+          none += 1;
+        }
+
         await tx
           .update(userJobOffersTable)
           .set({
@@ -556,7 +658,16 @@ export class JobOffersService {
           .where(and(eq(userJobOffersTable.id, row.id), eq(userJobOffersTable.userId, userId)));
       }
 
-      return { updated: rows.length };
+      return {
+        updated: rows.length,
+        summary: {
+          due,
+          upcoming,
+          none,
+          noteApplied: input.note !== undefined,
+          nextStepApplied: input.nextStep !== undefined,
+        },
+      };
     });
   }
 

@@ -19,6 +19,7 @@ const NOTEBOOK_MODE_VALUES = ['strict', 'approx', 'explore'] as const;
 const NOTEBOOK_VIEW_VALUES = ['LIST', 'PIPELINE'] as const;
 const NOTEBOOK_HAS_SCORE_VALUES = ['all', 'yes', 'no'] as const;
 const NOTEBOOK_FOLLOW_UP_VALUES = ['all', 'due', 'upcoming', 'none'] as const;
+const NOTEBOOK_ATTENTION_VALUES = ['all', 'staleUntriaged'] as const;
 
 export class NotebookFiltersDto {
   @ApiProperty({ enum: NOTEBOOK_STATUS_VALUES, default: 'ALL' })
@@ -48,6 +49,10 @@ export class NotebookFiltersDto {
   @ApiProperty({ enum: NOTEBOOK_FOLLOW_UP_VALUES, default: 'all' })
   @IsIn(NOTEBOOK_FOLLOW_UP_VALUES)
   followUp!: (typeof NOTEBOOK_FOLLOW_UP_VALUES)[number];
+
+  @ApiProperty({ enum: NOTEBOOK_ATTENTION_VALUES, default: 'all' })
+  @IsIn(NOTEBOOK_ATTENTION_VALUES)
+  attention!: (typeof NOTEBOOK_ATTENTION_VALUES)[number];
 }
 
 export class UpdateNotebookPreferencesDto {

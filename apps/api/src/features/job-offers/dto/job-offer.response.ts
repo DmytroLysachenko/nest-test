@@ -118,6 +118,23 @@ class JobOfferExplanationTag {
   count!: number;
 }
 
+class JobOfferQuickAction {
+  @ApiProperty()
+  key!: string;
+
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  description!: string;
+
+  @ApiProperty()
+  href!: string;
+
+  @ApiProperty()
+  count!: number;
+}
+
 class JobOfferFocusItem {
   @ApiProperty()
   id!: string;
@@ -179,6 +196,9 @@ export class JobOfferSummaryResponse {
 
   @ApiProperty({ type: [JobOfferExplanationTag] })
   topExplanationTags!: JobOfferExplanationTag[];
+
+  @ApiProperty({ type: [JobOfferQuickAction] })
+  quickActions!: JobOfferQuickAction[];
 }
 
 export class JobOfferFocusResponse {

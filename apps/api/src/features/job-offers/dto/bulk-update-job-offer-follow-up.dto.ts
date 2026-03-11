@@ -38,4 +38,16 @@ export class BulkUpdateJobOfferFollowUpDto {
   @IsString()
   @MaxLength(200)
   nextStep?: string | null;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    description:
+      'Optional follow-up note to apply to the selected offers. Use null or empty string to clear the field.',
+    example: 'Mention the portfolio update and availability for interview.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string | null;
 }
