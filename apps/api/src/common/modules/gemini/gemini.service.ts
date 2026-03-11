@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpStatus, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { VertexAI } from '@google-cloud/vertexai';
 
 import { Env } from '@/config/env';
+import { DEFAULT_GEMINI_MODEL } from '@/common/modules/gemini/gemini-config';
 
 import type { z } from 'zod';
 
@@ -29,7 +30,7 @@ export class GeminiService {
     }
 
     this.location = this.config.get<string>('GCP_LOCATION') ?? 'us-central1';
-    this.defaultModel = this.config.get<string>('GEMINI_MODEL') ?? 'gemini-1.5-flash';
+    this.defaultModel = this.config.get<string>('GEMINI_MODEL') ?? DEFAULT_GEMINI_MODEL;
 
     const clientEmail = this.config.get<string>('GCP_CLIENT_EMAIL');
     const privateKey = this.config.get<string>('GCP_PRIVATE_KEY');
@@ -63,14 +64,19 @@ export class GeminiService {
       },
     });
 
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: sanitizedPrompt }],
-        },
-      ],
-    });
+    let result;
+    try {
+      result = await model.generateContent({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: sanitizedPrompt }],
+          },
+        ],
+      });
+    } catch (error) {
+      throw this.mapProviderError(error, modelName);
+    }
 
     const candidate = result.response.candidates?.[0];
     const text = candidate?.content?.parts?.map((part) => part.text ?? '').join('') ?? '';
@@ -128,5 +134,52 @@ export class GeminiService {
         return null;
       }
     }
+  }
+
+  private mapProviderError(error: unknown, modelName: string) {
+    const message = error instanceof Error ? error.message : String(error ?? 'Unknown AI provider error');
+    const normalized = message.toLowerCase();
+
+    if (
+      normalized.includes('publisher model') ||
+      (normalized.includes('model') && normalized.includes('not found')) ||
+      normalized.includes('does not have access')
+    ) {
+      return new ServiceUnavailableException({
+        code: 'AI_CONFIGURATION_ERROR',
+        message:
+          `Career profile generation is temporarily unavailable because the configured AI model "${modelName}" ` +
+          'is not accessible in the active Vertex AI project or region.',
+        safe: true,
+        retryable: false,
+        category: 'internal',
+        providerStatus: HttpStatus.NOT_FOUND,
+      });
+    }
+
+    if (
+      normalized.includes('429') ||
+      normalized.includes('quota') ||
+      normalized.includes('resource exhausted') ||
+      normalized.includes('temporarily unavailable') ||
+      normalized.includes('deadline exceeded') ||
+      normalized.includes('timeout')
+    ) {
+      return new ServiceUnavailableException({
+        code: 'AI_PROVIDER_UNAVAILABLE',
+        message: 'Career profile generation is temporarily unavailable. Please retry in a few minutes.',
+        safe: true,
+        retryable: true,
+        category: 'internal',
+      });
+    }
+
+    return new ServiceUnavailableException({
+      code: 'AI_PROVIDER_ERROR',
+      message: 'Career profile generation failed while contacting the AI provider.',
+      safe: true,
+      retryable: true,
+      category: 'internal',
+    });
   }
 }

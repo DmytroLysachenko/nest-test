@@ -4,6 +4,14 @@ import { Request, Response } from 'express';
 import { getErrorCatalogEntry } from '@/common/errors/error-catalog';
 import { ApiRequestEventsService } from '@/common/observability/api-request-events.service';
 
+type NormalizedError = {
+  error: string;
+  message: string;
+  details?: string[];
+  retryable?: boolean;
+  category?: 'validation' | 'auth' | 'permissions' | 'rate_limit' | 'not_found' | 'conflict' | 'internal';
+};
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
@@ -17,8 +25,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const { error, message, details } = this.normalizeError(exception, status);
+    const normalized = this.normalizeError(exception, status);
     const catalog = getErrorCatalogEntry(status);
+    const error = normalized.error;
+    const message = normalized.message;
+    const details = normalized.details;
+    const retryable = normalized.retryable ?? catalog.retryable;
+    const category = normalized.category ?? catalog.category;
     const timestamp = new Date().toISOString();
 
     const requestId =
@@ -49,8 +62,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       errorCode: error,
       details,
       meta: {
-        category: catalog.category,
-        retryable: catalog.retryable,
+        category,
+        retryable,
         query: request.query,
         params: request.params,
         exceptionName: exception instanceof Error ? exception.name : 'UnknownException',
@@ -64,8 +77,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       requestId,
       timestamp,
       ...(details ? { details } : {}),
-      retryable: catalog.retryable,
-      category: catalog.category,
+      retryable,
+      category,
       error: {
         code: error,
         message,
@@ -78,16 +91,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     });
   }
 
-  private normalizeError(
-    exception: unknown,
-    status: number,
-  ): {
-    error: string;
-    message: string;
-    details?: string[];
-  } {
-    const sanitizeMessage = (message: string) => {
+  private normalizeError(exception: unknown, status: number): NormalizedError {
+    const sanitizeMessage = (message: string, safe?: boolean) => {
       const normalized = message.trim();
+      if (safe) {
+        return normalized || getErrorCatalogEntry(status).safeMessage || 'Request failed.';
+      }
       if (
         status === HttpStatus.UNAUTHORIZED ||
         status === HttpStatus.FORBIDDEN ||
@@ -126,14 +135,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
       if (typeof res === 'object' && res !== null) {
         const obj = res as any;
+        const safe = obj.safe === true;
         const rawMessage = obj.message || obj.msg || 'Unknown error';
         const details = Array.isArray(rawMessage) ? rawMessage : undefined;
         return {
           error: obj.code || getErrorCatalogEntry(status).code,
           message: Array.isArray(rawMessage)
             ? getErrorCatalogEntry(HttpStatus.BAD_REQUEST).safeMessage
-            : sanitizeMessage(String(rawMessage)),
+            : sanitizeMessage(String(rawMessage), safe),
           details,
+          retryable: typeof obj.retryable === 'boolean' ? obj.retryable : undefined,
+          category: obj.category,
         };
       }
     }

@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import { Drizzle } from '@/common/decorators';
 import { GeminiService } from '@/common/modules/gemini/gemini.service';
+import { DEFAULT_GEMINI_MODEL } from '@/common/modules/gemini/gemini-config';
 import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
 import { scoreCandidateAgainstJob } from '@/features/job-matching/candidate-matcher';
 import {
@@ -55,7 +56,7 @@ export class JobOffersService {
     private readonly geminiService: GeminiService,
     private readonly configService: ConfigService<Env, true>,
   ) {
-    this.scoringModel = this.configService.get('GEMINI_MODEL', { infer: true }) ?? 'gemini-1.5-flash';
+    this.scoringModel = this.configService.get('GEMINI_MODEL', { infer: true }) ?? DEFAULT_GEMINI_MODEL;
     this.rankingTuning = {
       approxViolationPenalty: this.configService.get('NOTEBOOK_APPROX_VIOLATION_PENALTY', { infer: true }),
       approxMaxViolationPenalty: this.configService.get('NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY', { infer: true }),
