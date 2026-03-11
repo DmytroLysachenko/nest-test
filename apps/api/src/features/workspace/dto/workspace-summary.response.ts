@@ -158,6 +158,9 @@ class WorkspaceSummaryBlockerDetail {
 
   @ApiProperty()
   ctaLabel!: string;
+
+  @ApiProperty({ type: [String] })
+  blockedRoutes!: string[];
 }
 
 export class WorkspaceSummaryResponse {

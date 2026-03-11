@@ -45,6 +45,12 @@ describe('WorkspaceService', () => {
 
     expect(summary.workflow.needsOnboarding).toBe(true);
     expect(summary.offers.total).toBe(0);
+    expect(summary.blockerDetails[0]).toEqual(
+      expect.objectContaining({
+        key: 'profile-input-missing',
+        blockedRoutes: expect.arrayContaining(['dashboard', 'notebook']),
+      }),
+    );
   });
 
   it('marks onboarding complete for ready profile', async () => {
