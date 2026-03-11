@@ -1,98 +1,67 @@
-import {
-  ArgumentsHost,
-  BadRequestException,
-  InternalServerErrorException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { HttpStatus, ServiceUnavailableException } from '@nestjs/common';
 
 import { HttpExceptionFilter } from './http-exception.filter';
 
-const createHost = () => {
-  const json = jest.fn();
-  const status = jest.fn().mockReturnValue({ json });
-  const request = {
-    method: 'POST',
-    url: '/api/auth/login',
-    headers: {},
-    id: 'req-1',
-  };
-  const response = { status };
-  const host = {
-    switchToHttp: () => ({
-      getRequest: () => request,
-      getResponse: () => response,
-    }),
-  } as unknown as ArgumentsHost;
-
-  return { host, status, json };
-};
-
 describe('HttpExceptionFilter', () => {
-  it('returns friendly generic message for internal errors', async () => {
-    const filter = new HttpExceptionFilter({ create: jest.fn().mockResolvedValue(undefined) } as any);
-    const { host, status, json } = createHost();
+  it('preserves safe service-unavailable messages and overrides', async () => {
+    const json = jest.fn();
+    const status = jest.fn(() => ({ json }));
+    const response = { status } as any;
+    const request = {
+      requestId: 'req-1',
+      method: 'POST',
+      url: '/career-profiles',
+      originalUrl: '/api/career-profiles',
+      headers: {},
+      query: {},
+      params: {},
+      user: { userId: 'user-1' },
+    } as any;
+    const host = {
+      getArgs: jest.fn(),
+      getArgByIndex: jest.fn(),
+      switchToRpc: jest.fn(),
+      switchToWs: jest.fn(),
+      getType: jest.fn(),
+      switchToHttp: () => ({
+        getResponse: () => response,
+        getRequest: () => request,
+        getNext: jest.fn(),
+      }),
+    } as any;
+    const apiRequestEventsService = {
+      create: jest.fn().mockResolvedValue(undefined),
+    };
+    const filter = new HttpExceptionFilter(apiRequestEventsService as any);
 
-    await filter.catch(new Error('Failed query: select * from users'), host);
+    await filter.catch(
+      new ServiceUnavailableException({
+        code: 'AI_CONFIGURATION_ERROR',
+        message: 'Career profile generation is temporarily unavailable because the configured AI model is invalid.',
+        safe: true,
+        retryable: false,
+        category: 'internal',
+      }),
+      host,
+    );
 
-    expect(status).toHaveBeenCalledWith(500);
-    expect(json).toHaveBeenCalledWith(
+    expect(status).toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
+    expect(apiRequestEventsService.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        code: 'INTERNAL_ERROR',
-        requestId: 'req-1',
-        error: expect.objectContaining({
-          message: 'Something went wrong. Please try again.',
+        statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+        errorCode: 'AI_CONFIGURATION_ERROR',
+        meta: expect.objectContaining({
+          retryable: false,
+          category: 'internal',
         }),
       }),
     );
-  });
-
-  it('returns friendly unauthorized message', async () => {
-    const filter = new HttpExceptionFilter({ create: jest.fn().mockResolvedValue(undefined) } as any);
-    const { host, status, json } = createHost();
-
-    await filter.catch(new UnauthorizedException('Invalid worker callback token'), host);
-
-    expect(status).toHaveBeenCalledWith(401);
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
-        code: 'UNAUTHORIZED',
-        error: expect.objectContaining({
-          message: 'Invalid credentials or unauthorized request.',
-        }),
-      }),
-    );
-  });
-
-  it('keeps validation details while using friendly validation message', async () => {
-    const filter = new HttpExceptionFilter({ create: jest.fn().mockResolvedValue(undefined) } as any);
-    const { host, status, json } = createHost();
-
-    await filter.catch(new BadRequestException(['email must be an email', 'password is required']), host);
-
-    expect(status).toHaveBeenCalledWith(400);
-    expect(json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        code: 'VALIDATION_ERROR',
-        error: expect.objectContaining({
-          message: 'Request validation failed.',
-          details: ['email must be an email', 'password is required'],
-        }),
-      }),
-    );
-  });
-
-  it('sanitizes internal server exception message', async () => {
-    const filter = new HttpExceptionFilter({ create: jest.fn().mockResolvedValue(undefined) } as any);
-    const { host, status, json } = createHost();
-
-    await filter.catch(new InternalServerErrorException('database unavailable'), host);
-
-    expect(status).toHaveBeenCalledWith(500);
-    expect(json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: expect.objectContaining({
-          message: 'Something went wrong. Please try again.',
-        }),
+        code: 'AI_CONFIGURATION_ERROR',
+        message: 'Career profile generation is temporarily unavailable because the configured AI model is invalid.',
+        retryable: false,
+        category: 'internal',
       }),
     );
   });

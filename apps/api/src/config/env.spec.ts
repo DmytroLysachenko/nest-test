@@ -88,6 +88,25 @@ describe('validateEnv', () => {
     ).toThrow('GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET must be configured together');
   });
 
+  it('rejects retired Gemini models', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        GEMINI_MODEL: 'gemini-1.5-flash',
+      }),
+    ).toThrow('GEMINI_MODEL=gemini-1.5-flash is retired');
+  });
+
+  it('rejects unsupported Gemini locations', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        GEMINI_MODEL: 'gemini-2.5-flash',
+        GCP_LOCATION: 'moon-base1',
+      }),
+    ).toThrow('GCP_LOCATION=moon-base1 is not in the supported Vertex AI Gemini allowlist');
+  });
+
   it('rejects invalid global API throttle config', () => {
     expect(() =>
       validateEnv({
