@@ -2,6 +2,10 @@
 
 Day-to-day engineering runbook for local development and verification.
 
+Canonical environment inventory:
+
+- `docs/ENV_MATRIX.md`
+
 ## Prerequisites
 
 1. Node and pnpm installed.
