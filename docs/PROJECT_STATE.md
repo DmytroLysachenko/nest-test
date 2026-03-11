@@ -155,6 +155,10 @@ Last updated: 2026-03-09
 - Frontend runtime env guard now rejects localhost/non-https API/worker URLs in production.
 - API error responses now expose normalized top-level fields (`code`, `message`, `requestId`, `timestamp`) with backward-compatible payload.
 - API now persists structured endpoint warning/error diagnostics in `api_request_events` for DB-backed troubleshooting.
+- API health now also verifies required operational tables such as `api_request_events` so migration drift is visible before support flows silently degrade.
+- Production startup now fails fast when required operational tables are missing from the active database.
+- API runtime now rejects retired Gemini 1.5 model defaults at boot and only accepts allowlisted Gemini model/location pairs.
+- Vertex provider access/configuration failures now surface as stable AI-specific service errors instead of raw provider payload leakage.
 - Auth endpoint throttles are env-tunable (`AUTH_*_THROTTLE_*`).
 - Google OAuth login endpoint is available (`POST /api/auth/oauth/google`) with verified-id-token account linking.
 - Scrape schedules are now persisted and available through:
@@ -242,6 +246,7 @@ Last updated: 2026-03-09
 - Canonical deployment/runtime env+secret contract is documented in `docs/GCP_DEPLOY_MATRIX.md`.
 - New table `job_source_run_attempts` captures per-run attempt outcomes for deterministic callback auditing.
 - Recovery and automation smoke still require local API/worker/web services to be started before the readiness probes can succeed.
+- Neon or branch-specific migration drift can still happen operationally, but it is now surfaced through `/health` and startup validation instead of remaining silent until support endpoints are queried.
 
 ## Highest-Value Remaining Gaps
 
