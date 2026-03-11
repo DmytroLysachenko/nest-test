@@ -64,6 +64,45 @@ test('dashboard redirects to onboarding when summary requires it', async ({ page
   });
 
   await page.route('**/api/job-offers**', async (route) => {
+    const url = new URL(route.request().url());
+
+    if (url.pathname.endsWith('/job-offers/summary')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            total: 0,
+            scored: 0,
+            unscored: 0,
+            highConfidenceStrict: 0,
+            staleUntriaged: 0,
+            followUpDue: 0,
+            followUpUpcoming: 0,
+            buckets: [],
+            topExplanationTags: [],
+            quickActions: [],
+          },
+        }),
+      });
+      return;
+    }
+
+    if (url.pathname.endsWith('/job-offers/focus')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            groups: [],
+          },
+        }),
+      });
+      return;
+    }
+
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -155,7 +194,37 @@ test('dashboard redirects to onboarding when summary requires it', async ({ page
       }),
     });
   });
+  await page.route('**/api/job-sources/schedule', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          enabled: false,
+          cron: '0 9 * * *',
+          timezone: 'Europe/Warsaw',
+          source: 'pracuj-pl-it',
+          limit: 20,
+          careerProfileId: null,
+          filters: null,
+          lastTriggeredAt: null,
+          nextRunAt: null,
+          lastRunStatus: null,
+        },
+      }),
+    });
+  });
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(/\/onboarding$/);
+  await expect
+    .poll(async () => page.locator('body').innerText(), {
+      timeout: 10_000,
+    })
+    .toContain('Guided Setup');
+  await expect
+    .poll(async () => page.locator('body').innerText(), {
+      timeout: 10_000,
+    })
+    .toContain('Step 1 of 3');
 });
