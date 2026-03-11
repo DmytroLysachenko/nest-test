@@ -103,4 +103,64 @@ export class ScrapePreflightResponseDto {
 
   @ApiPropertyOptional()
   dailyRemaining!: number | null;
+
+  @ApiProperty({
+    type: [
+      {
+        properties: {
+          code: { type: 'string' },
+          title: { type: 'string' },
+          description: { type: 'string' },
+          href: { type: 'string' },
+          ctaLabel: { type: 'string' },
+        },
+      },
+    ],
+  })
+  blockerDetails!: Array<{
+    code: string;
+    title: string;
+    description: string;
+    href: string;
+    ctaLabel: string;
+  }>;
+
+  @ApiProperty({
+    type: [
+      {
+        properties: {
+          code: { type: 'string' },
+          title: { type: 'string' },
+          description: { type: 'string' },
+        },
+      },
+    ],
+  })
+  warningDetails!: Array<{
+    code: string;
+    title: string;
+    description: string;
+  }>;
+
+  @ApiProperty()
+  guidance!: string;
+
+  @ApiProperty({
+    properties: {
+      enabled: { type: 'boolean' },
+      cron: { type: 'string', nullable: true },
+      source: { type: 'string', nullable: true },
+      limit: { type: 'number', nullable: true },
+      nextRunAt: { type: 'string', nullable: true },
+      lastRunStatus: { type: 'string', nullable: true },
+    },
+  })
+  schedule!: {
+    enabled: boolean;
+    cron: string | null;
+    source: string | null;
+    limit: number | null;
+    nextRunAt: string | null;
+    lastRunStatus: string | null;
+  };
 }

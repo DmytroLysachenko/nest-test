@@ -619,6 +619,95 @@ describe('JobSourcesService', () => {
     expect(result.intentFingerprint).toBeDefined();
   });
 
+  it('returns user-facing blocker and warning details in scrape preflight', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    careerProfileId: 'profile-id',
+                    contentJson: candidateProfileFixture,
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ value: 1 }]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ value: 2 }]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) =>
+                  Promise.resolve(
+                    cb([
+                      {
+                        enabled: 1,
+                        cron: '0 9 * * *',
+                        timezone: 'Europe/Warsaw',
+                        source: 'pracuj-pl-it',
+                        limit: 20,
+                        careerProfileId: null,
+                        filters: null,
+                        lastTriggeredAt: new Date('2026-03-08T09:00:00.000Z'),
+                        nextRunAt: new Date('2026-03-10T09:00:00.000Z'),
+                        lastRunStatus: 'COMPLETED',
+                      },
+                    ]),
+                  ),
+              }),
+            }),
+          }),
+        }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(
+      createConfigService({
+        SCRAPE_MAX_ACTIVE_RUNS_PER_USER: 2,
+        SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER: 3,
+      }),
+      createLogger(),
+      db,
+    );
+
+    const result = await service.getPreflight('user-1', { limit: 20 });
+
+    expect(result.ready).toBe(true);
+    expect(result.warningDetails).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'daily-budget-nearly-exhausted' }),
+        expect.objectContaining({ code: 'using-profile-derived-filters' }),
+      ]),
+    );
+    expect(result.guidance).toContain('Review the warnings below');
+    expect(result.schedule).toEqual(
+      expect.objectContaining({
+        enabled: true,
+        source: 'pracuj-pl-it',
+        lastRunStatus: 'COMPLETED',
+      }),
+    );
+  });
+
   it('reuses completed run offers from db before enqueueing worker scrape', async () => {
     const db = {
       select: jest

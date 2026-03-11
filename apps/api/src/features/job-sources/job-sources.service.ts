@@ -379,6 +379,18 @@ export class JobSourcesService {
       warnings.push('using-profile-derived-filters');
     }
 
+    const schedule = await this.getSchedule(userId);
+    const blockerDetails = blockers.map((code) => this.buildPreflightBlockerDetail(code));
+    const warningDetails = warnings.map((code) => this.buildPreflightWarningDetail(code));
+    const guidance =
+      blockerDetails.length > 0
+        ? 'Resolve the blocking items before enqueueing a run.'
+        : warningDetails.length > 0
+          ? 'Review the warnings below. You can still enqueue a run if they are acceptable.'
+          : schedule.enabled
+            ? 'Your filters are ready and automation is enabled. You can run now or wait for the next scheduled trigger.'
+            : 'Your filters are ready. Enqueue a manual run now or save a schedule for later automation.';
+
     return {
       ready: blockers.length === 0,
       blockers,
@@ -389,6 +401,17 @@ export class JobSourcesService {
       resolvedFromProfile: !dto.filters && !dto.source && Boolean(profileContext.profile),
       activeRunCount,
       dailyRemaining,
+      blockerDetails,
+      warningDetails,
+      guidance,
+      schedule: {
+        enabled: schedule.enabled,
+        cron: schedule.cron ?? null,
+        source: schedule.source ?? null,
+        limit: schedule.limit ?? null,
+        nextRunAt: schedule.nextRunAt ?? null,
+        lastRunStatus: schedule.lastRunStatus ?? null,
+      },
     };
   }
 
@@ -2050,6 +2073,85 @@ export class JobSourcesService {
       normalizedFilters,
     });
     return createHash('sha256').update(payload).digest('hex');
+  }
+
+  private buildPreflightBlockerDetail(code: string) {
+    if (code === 'career-profile-not-ready') {
+      return {
+        code,
+        title: 'Career profile is not ready',
+        description: 'Generate or restore a READY career profile before starting a scrape run.',
+        href: '/profile',
+        ctaLabel: 'Open profile studio',
+      };
+    }
+    if (code === 'listing-url-unresolved') {
+      return {
+        code,
+        title: 'Listing URL could not be resolved',
+        description:
+          'Provide a valid listing URL or restore a ready profile so the system can derive accepted filters.',
+        href: '/notebook',
+        ctaLabel: 'Review scrape settings',
+      };
+    }
+    if (code === 'active-run-limit') {
+      return {
+        code,
+        title: 'Too many active scrape runs',
+        description: 'Wait for current runs to finish or inspect recent failures before enqueueing another run.',
+        href: '/ops',
+        ctaLabel: 'Review active runs',
+      };
+    }
+    if (code === 'daily-budget-exhausted') {
+      return {
+        code,
+        title: 'Daily scrape budget exhausted',
+        description: 'You have used the current 24-hour run budget. Retry later or rely on the next scheduled run.',
+        href: '/notebook',
+        ctaLabel: 'Review notebook',
+      };
+    }
+
+    return {
+      code,
+      title: 'Scrape run is blocked',
+      description: 'Resolve the blocking condition before enqueueing a scrape run.',
+      href: '/notebook',
+      ctaLabel: 'Review notebook',
+    };
+  }
+
+  private buildPreflightWarningDetail(code: string) {
+    if (code === 'daily-budget-nearly-exhausted') {
+      return {
+        code,
+        title: 'Daily budget is nearly exhausted',
+        description: 'Only a small number of runs remain in the current 24-hour window.',
+      };
+    }
+    if (code === 'filters-relaxed-during-normalization') {
+      return {
+        code,
+        title: 'Some filters were relaxed',
+        description: 'The system dropped unsupported or overly strict filter values during normalization.',
+      };
+    }
+    if (code === 'using-profile-derived-filters') {
+      return {
+        code,
+        title: 'Using profile-derived filters',
+        description:
+          'This run will use filters resolved from the active career profile instead of a custom listing URL.',
+      };
+    }
+
+    return {
+      code,
+      title: 'Review this warning',
+      description: 'This warning does not block the run, but it may affect the outcome or cost.',
+    };
   }
 
   private assertListingUrlAllowed(source: PracujSourceKind, listingUrl: string) {
