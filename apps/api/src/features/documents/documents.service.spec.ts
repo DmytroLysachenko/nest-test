@@ -155,4 +155,32 @@ describe('DocumentsService', () => {
     expect(summary.stages.TOTAL_PIPELINE.count).toBe(0);
     expect(logger.warn).toHaveBeenCalledTimes(1);
   });
+
+  it('returns explicit retry metadata for a single document recovery', async () => {
+    const service = new DocumentsService({} as any, {} as any, createConfigService(), createLogger());
+    jest.spyOn(service, 'getById').mockResolvedValue({
+      id: 'doc-1',
+      extractionStatus: 'FAILED',
+      extractionError: 'Failed to parse PDF',
+    } as any);
+    jest.spyOn(service as any, 'recordEvent').mockResolvedValue(undefined);
+    jest.spyOn(service, 'extractText').mockResolvedValue({
+      id: 'doc-1',
+      extractionStatus: 'READY',
+      extractionError: null,
+    } as any);
+
+    const result = await service.retryExtraction('user-1', 'doc-1', 'trace-3');
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        ok: true,
+        document: expect.objectContaining({ id: 'doc-1', extractionStatus: 'READY' }),
+        retry: expect.objectContaining({
+          previousStatus: 'FAILED',
+          previousError: 'Failed to parse PDF',
+        }),
+      }),
+    );
+  });
 });
