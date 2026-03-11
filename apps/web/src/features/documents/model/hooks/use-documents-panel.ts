@@ -17,6 +17,7 @@ export const useDocumentsPanel = ({ token, overrideDocumentsQuery }: UseDocument
   const [activeStage, setActiveStage] = useState<'idle' | 'create-url' | 'upload' | 'confirm' | 'extract'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [recoverySummary, setRecoverySummary] = useState<string | null>(null);
 
   const {
     documentsQuery: internalDocumentsQuery,
@@ -34,6 +35,7 @@ export const useDocumentsPanel = ({ token, overrideDocumentsQuery }: UseDocument
       setActiveStage,
       setStatus,
       setError,
+      setRecoverySummary,
     });
 
   return {
@@ -44,6 +46,7 @@ export const useDocumentsPanel = ({ token, overrideDocumentsQuery }: UseDocument
     activeStage,
     error,
     status,
+    recoverySummary,
     documentsQuery,
     uploadHealthQuery,
     documentEventsQuery,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 
 import {
   confirmDocumentUpload,
@@ -23,6 +23,7 @@ type UseDocumentsPanelMutationsArgs = {
   setActiveStage: (value: 'idle' | 'create-url' | 'upload' | 'confirm' | 'extract') => void;
   setStatus: (value: string | null) => void;
   setError: (value: string | null) => void;
+  setRecoverySummary: (value: string | null) => void;
 };
 
 export const useDocumentsPanelMutations = ({
@@ -32,6 +33,7 @@ export const useDocumentsPanelMutations = ({
   setActiveStage,
   setStatus,
   setError,
+  setRecoverySummary,
 }: UseDocumentsPanelMutationsArgs) => {
   const { syncDocuments } = useDataSync(token);
   const resolveMimeType = (file: File) => {
@@ -57,6 +59,7 @@ export const useDocumentsPanelMutations = ({
       });
 
       setSelectedDocumentId(uploadData.document.id);
+      setRecoverySummary(null);
       setActiveStage('upload');
       await uploadFileToSignedUrl(uploadData.uploadUrl, selectedFile, mimeType);
       setActiveStage('confirm');
@@ -69,6 +72,7 @@ export const useDocumentsPanelMutations = ({
       setActiveStage('extract');
       await extractDocument(token, documentId);
       setStatus('Extraction completed.');
+      setRecoverySummary(null);
       setActiveStage('idle');
       syncDocuments();
       toastSuccess('Document uploaded and extracted');
@@ -78,14 +82,18 @@ export const useDocumentsPanelMutations = ({
       setError(message);
       setActiveStage('idle');
       setStatus(null);
+      setRecoverySummary(null);
       toastError(message);
     },
   });
 
   const retryExtractMutation = useMutation({
     mutationFn: (documentId: string) => retryDocumentExtraction(token, documentId),
-    onSuccess: () => {
+    onSuccess: (result) => {
       syncDocuments();
+      setStatus(result.retry.message);
+      setRecoverySummary(result.retry.message);
+      setSelectedDocumentId(result.document.id);
       toastSuccess('Extraction retried');
     },
     onError: (error) => {
@@ -97,7 +105,8 @@ export const useDocumentsPanelMutations = ({
     mutationFn: () => retryFailedDocumentExtractions(token),
     onSuccess: (result) => {
       syncDocuments();
-      toastSuccess(`Retried ${result.retried} failed document(s)`);
+      setRecoverySummary(result.message);
+      toastSuccess(result.message);
     },
     onError: (error) => {
       toastError(toUserErrorMessage(error, 'Failed to retry failed documents'));
