@@ -13,11 +13,12 @@ import { WorkflowBlockedState } from '@/shared/ui/workflow-blocked-state';
 
 const isNotebookQuickAction = (
   value: string | null,
-): value is 'unscored' | 'strictTop' | 'saved' | 'applied' | 'followUpDue' | 'followUpUpcoming' =>
+): value is 'unscored' | 'strictTop' | 'saved' | 'applied' | 'staleUntriaged' | 'followUpDue' | 'followUpUpcoming' =>
   value === 'unscored' ||
   value === 'strictTop' ||
   value === 'saved' ||
   value === 'applied' ||
+  value === 'staleUntriaged' ||
   value === 'followUpDue' ||
   value === 'followUpUpcoming';
 
@@ -45,7 +46,9 @@ export default function NotebookRoute() {
   }
 
   if (summaryQuery.data?.workflow.needsOnboarding) {
-    const primaryBlocker = summaryQuery.data.blockerDetails?.[0];
+    const primaryBlocker =
+      summaryQuery.data.blockerDetails?.find((blocker) => blocker.blockedRoutes.includes('notebook')) ??
+      summaryQuery.data.blockerDetails?.[0];
     return (
       <WorkflowBlockedState
         title="Notebook is locked"
