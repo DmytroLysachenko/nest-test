@@ -1,3 +1,7 @@
+import { ServiceUnavailableException } from '@nestjs/common';
+
+import { GeminiService } from './gemini.service';
+
 jest.mock('@google-cloud/vertexai', () => ({
   VertexAI: jest.fn().mockImplementation(() => ({
     preview: {
@@ -5,10 +9,6 @@ jest.mock('@google-cloud/vertexai', () => ({
     },
   })),
 }));
-
-import { ServiceUnavailableException } from '@nestjs/common';
-
-import { GeminiService } from './gemini.service';
 
 describe('GeminiService', () => {
   it('maps missing model access errors to stable configuration failures', () => {
