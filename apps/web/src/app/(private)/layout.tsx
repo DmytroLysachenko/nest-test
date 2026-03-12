@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
+import { PrivateDashboardDataProvider } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { AppShell } from '@/shared/ui/app-shell';
 
 export default function PrivateLayout({
@@ -20,16 +21,18 @@ export default function PrivateLayout({
   const isSetupFlow = pathname === '/onboarding';
 
   return (
-    <AppShell
-      userEmail={auth.user?.email}
-      userRole={auth.user?.role}
-      token={auth.token}
-      onSignOut={() => {
-        auth.clearSession();
-      }}
-      hideSidebar={isSetupFlow}
-    >
-      {children}
-    </AppShell>
+    <PrivateDashboardDataProvider token={auth.token}>
+      <AppShell
+        userEmail={auth.user?.email}
+        userRole={auth.user?.role}
+        token={auth.token}
+        onSignOut={() => {
+          auth.clearSession();
+        }}
+        hideSidebar={isSetupFlow}
+      >
+        {children}
+      </AppShell>
+    </PrivateDashboardDataProvider>
   );
 }
