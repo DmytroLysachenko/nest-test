@@ -14,6 +14,7 @@ import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboar
 import { useAppUiStore } from '@/shared/store/app-ui-store';
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
 import { GuidancePanel, JourneySteps } from '@/shared/ui/guidance-panels';
+import { WorkspaceSplashState } from '@/shared/ui/async-states';
 import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
 
 export const ProfileManagementPage = () => {
@@ -44,7 +45,12 @@ export const ProfileManagementPage = () => {
   });
 
   if (!auth.token) {
-    return <main className="app-page text-muted-foreground text-sm">Checking session...</main>;
+    return (
+      <WorkspaceSplashState
+        title="Opening Profile Studio"
+        subtitle="Restoring your profile inputs, ready documents, and active profile version..."
+      />
+    );
   }
 
   const documents = documentsQuery.data ?? [];

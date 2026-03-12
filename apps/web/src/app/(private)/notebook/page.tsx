@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { NotebookPage } from '@/features/job-offers';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
-import { PageLoadingState } from '@/shared/ui/async-states';
+import { WorkspaceSplashState } from '@/shared/ui/async-states';
 import { WorkflowBlockedState } from '@/shared/ui/workflow-blocked-state';
 
 const isNotebookQuickAction = (
@@ -26,12 +26,20 @@ export default function NotebookRoute() {
   const { summary, isBootstrapping } = usePrivateDashboardData();
 
   if (!auth.token) {
-    return <PageLoadingState title="Checking session" subtitle="Validating your JobSeeker access..." />;
+    return (
+      <WorkspaceSplashState
+        title="Checking your notebook access"
+        subtitle="Restoring your private session before the notebook opens."
+      />
+    );
   }
 
   if (isBootstrapping || !summary) {
     return (
-      <PageLoadingState title="Checking notebook readiness" subtitle="Validating profile and scrape prerequisites..." />
+      <WorkspaceSplashState
+        title="Preparing notebook"
+        subtitle="Validating profile readiness and notebook prerequisites before loading the triage view."
+      />
     );
   }
 

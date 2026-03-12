@@ -15,6 +15,7 @@ import { Label } from '@/shared/ui/label';
 import { StepProgress } from '@/shared/ui/step-progress';
 import { TagInput } from '@/shared/ui/tag-input';
 import { Textarea } from '@/shared/ui/textarea';
+import { WorkspaceSplashState } from '@/shared/ui/async-states';
 
 const seniorityValues = ['intern', 'junior', 'mid', 'senior', 'lead', 'manager'] as const;
 const workModes = ['remote', 'hybrid', 'onsite', 'mobile'] as const;
@@ -37,7 +38,12 @@ export const OnboardingPage = () => {
   }, [onboarding.latestCareerProfileQuery.data?.status, router]);
 
   if (!onboarding.auth.token) {
-    return <main className="app-page text-muted-foreground max-w-5xl text-sm">Checking session...</main>;
+    return (
+      <WorkspaceSplashState
+        title="Starting guided setup"
+        subtitle="Restoring your first-run setup state and the documents that ground your profile..."
+      />
+    );
   }
 
   const current = watch();
