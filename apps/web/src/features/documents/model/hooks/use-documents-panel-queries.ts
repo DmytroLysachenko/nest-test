@@ -4,18 +4,20 @@ import { useQuery } from '@tanstack/react-query';
 
 import { getDocumentUploadHealth, listDocumentEvents, listDocuments } from '@/features/documents/api/documents-api';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
-import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
+import { liveQueryPreset, mutableQueryPreset } from '@/shared/lib/query/query-option-presets';
 import { queryKeys } from '@/shared/lib/query/query-keys';
+
+import type { DocumentDto, DocumentEventDto, DocumentUploadHealthDto } from '@/shared/types/api';
 
 const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
 
 export const useDocumentsPanelQueries = (token: string, selectedDocumentId: string | null) => {
   const documentsQuery = useQuery(
-    buildAuthedQueryOptions({
+    buildAuthedQueryOptions<DocumentDto[]>({
       token,
       queryKey: queryKeys.documents.list(token),
       queryFn: listDocuments,
-      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      ...mutableQueryPreset(),
       refetchInterval: (query) => {
         const docs = (query.state.data as Array<{ extractionStatus?: string }> | undefined) ?? [];
         return docs.some((item) => item.extractionStatus === 'PENDING') ? 2500 : false;
@@ -24,22 +26,22 @@ export const useDocumentsPanelQueries = (token: string, selectedDocumentId: stri
   );
 
   const uploadHealthQuery = useQuery(
-    buildAuthedQueryOptions({
+    buildAuthedQueryOptions<DocumentUploadHealthDto>({
       token,
       queryKey: ['documents', 'upload-health', token],
       queryFn: getDocumentUploadHealth,
+      ...liveQueryPreset(),
       enabled: diagnosticsEnabled,
-      staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
     }),
   );
 
   const documentEventsQuery = useQuery(
-    buildAuthedQueryOptions({
+    buildAuthedQueryOptions<DocumentEventDto[]>({
       token,
-      queryKey: ['documents', 'events', token, selectedDocumentId],
+      queryKey: queryKeys.documents.events(token, selectedDocumentId),
       queryFn: (authToken) => listDocumentEvents(authToken, selectedDocumentId as string),
+      ...liveQueryPreset(),
       enabled: diagnosticsEnabled && Boolean(selectedDocumentId),
-      staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
     }),
   );
 

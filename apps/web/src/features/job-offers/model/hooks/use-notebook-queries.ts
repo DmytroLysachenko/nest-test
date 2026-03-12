@@ -14,14 +14,21 @@ import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
 import type { ListJobOffersParams } from '@/features/job-offers/api/job-offers-api';
+import type { JobOfferSummaryDto } from '@/shared/types/api';
 
 type UseNotebookQueriesArgs = {
   token: string;
   listParams: ListJobOffersParams;
   selectedId: string | null;
+  sharedNotebookSummary?: JobOfferSummaryDto | null;
 };
 
-export const useNotebookQueries = ({ token, listParams, selectedId }: UseNotebookQueriesArgs) => {
+export const useNotebookQueries = ({
+  token,
+  listParams,
+  selectedId,
+  sharedNotebookSummary,
+}: UseNotebookQueriesArgs) => {
   const listQuery = useQuery(
     buildAuthedQueryOptions({
       token,
@@ -60,6 +67,7 @@ export const useNotebookQueries = ({ token, listParams, selectedId }: UseNoteboo
       token,
       queryKey: queryKeys.jobOffers.summary(token),
       queryFn: getNotebookSummary,
+      enabled: sharedNotebookSummary === undefined,
       staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
     }),
   );
@@ -69,6 +77,9 @@ export const useNotebookQueries = ({ token, listParams, selectedId }: UseNoteboo
     selectedOffer,
     historyQuery,
     preferencesQuery,
-    summaryQuery,
+    summaryQuery: {
+      ...summaryQuery,
+      data: sharedNotebookSummary ?? summaryQuery.data,
+    },
   };
 };

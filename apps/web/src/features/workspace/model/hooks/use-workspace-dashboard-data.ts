@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 
 import { useWorkspaceDashboardMutations } from '@/features/workspace/model/hooks/use-workspace-dashboard-mutations';
 import { useWorkspaceDashboardQueries } from '@/features/workspace/model/hooks/use-workspace-dashboard-queries';
+import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
 type UseWorkspaceDashboardDataArgs = {
@@ -13,32 +13,31 @@ type UseWorkspaceDashboardDataArgs = {
 };
 
 export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceDashboardDataArgs) => {
-  const router = useRouter();
-
   const {
-    summaryQuery,
-    offersQuery,
-    diagnosticsSummaryQuery,
-    documentDiagnosticsSummaryQuery,
-    notebookSummaryQuery,
-    focusQuery,
-    scheduleQuery,
-  } = useWorkspaceDashboardQueries(token);
+    summary,
+    notebookSummary,
+    scrapeSchedule,
+    refreshSummary,
+    refreshNotebookSummary,
+    refreshSchedule,
+    isBootstrapping,
+  } = usePrivateDashboardData();
+
+  const { offersQuery, diagnosticsSummaryQuery, documentDiagnosticsSummaryQuery, focusQuery } =
+    useWorkspaceDashboardQueries(token);
   const { logoutMutation } = useWorkspaceDashboardMutations({ token, clearSession });
 
   useEffect(() => {
-    if (!token || summaryQuery.isLoading || !summaryQuery.data) {
+    if (!token || isBootstrapping || !summary) {
       return;
     }
-    if (summaryQuery.data.workflow.needsOnboarding) {
-      router.replace('/onboarding');
+    if (summary.workflow.needsOnboarding) {
+      window.location.replace('/onboarding');
     }
-  }, [router, summaryQuery.data, summaryQuery.isLoading, token]);
+  }, [isBootstrapping, summary, token]);
 
-  const isInitialLoading = !token || summaryQuery.isLoading || !summaryQuery.data;
-  const summaryError = summaryQuery.isError
-    ? toUserErrorMessage(summaryQuery.error, 'Unable to load workspace summary.')
-    : null;
+  const isInitialLoading = !token || isBootstrapping || !summary || summary.workflow.needsOnboarding;
+  const summaryError = null;
   const offersError = offersQuery.isError
     ? toUserErrorMessage(offersQuery.error, 'Unable to load recent offers.')
     : null;
@@ -51,13 +50,13 @@ export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceD
 
   return useMemo(
     () => ({
-      summary: summaryQuery.data ?? null,
+      summary,
       offers: offersQuery.data ?? [],
       diagnosticsSummary: diagnosticsSummaryQuery.data ?? null,
       documentDiagnosticsSummary: documentDiagnosticsSummaryQuery.data ?? null,
-      notebookSummary: notebookSummaryQuery.data ?? null,
+      notebookSummary,
       focusQueue: focusQuery.data ?? null,
-      schedule: scheduleQuery.data ?? null,
+      schedule: scrapeSchedule,
       isInitialLoading,
       summaryError,
       offersError,
@@ -66,16 +65,16 @@ export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceD
       isOffersLoading: offersQuery.isLoading,
       isDiagnosticsLoading: diagnosticsSummaryQuery.isLoading,
       isDocumentDiagnosticsLoading: documentDiagnosticsSummaryQuery.isLoading,
-      isNotebookSummaryLoading: notebookSummaryQuery.isLoading,
-      isScheduleLoading: scheduleQuery.isLoading,
+      isNotebookSummaryLoading: false,
+      isScheduleLoading: false,
       isFocusLoading: focusQuery.isLoading,
-      refetchSummary: summaryQuery.refetch,
+      refetchSummary: refreshSummary,
       refetchOffers: offersQuery.refetch,
       refetchDiagnostics: diagnosticsSummaryQuery.refetch,
       refetchDocumentDiagnostics: documentDiagnosticsSummaryQuery.refetch,
-      refetchNotebookSummary: notebookSummaryQuery.refetch,
+      refetchNotebookSummary: refreshNotebookSummary,
       refetchFocusQueue: focusQuery.refetch,
-      refetchSchedule: scheduleQuery.refetch,
+      refetchSchedule: refreshSchedule,
       logout: logoutMutation.mutate,
       isLoggingOut: logoutMutation.isPending,
     }),
@@ -86,15 +85,13 @@ export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceD
       documentDiagnosticsSummaryQuery.data,
       documentDiagnosticsSummaryQuery.isLoading,
       documentDiagnosticsSummaryQuery.refetch,
-      notebookSummaryQuery.data,
-      notebookSummaryQuery.isLoading,
-      notebookSummaryQuery.refetch,
+      notebookSummary,
+      refreshNotebookSummary,
+      refreshSchedule,
+      refreshSummary,
       focusQuery.data,
       focusQuery.isLoading,
       focusQuery.refetch,
-      scheduleQuery.data,
-      scheduleQuery.isLoading,
-      scheduleQuery.refetch,
       diagnosticsError,
       documentDiagnosticsError,
       logoutMutation.isPending,
@@ -104,9 +101,9 @@ export const useWorkspaceDashboardData = ({ token, clearSession }: UseWorkspaceD
       offersQuery.refetch,
       offersError,
       isInitialLoading,
-      summaryQuery.data,
-      summaryQuery.refetch,
+      scrapeSchedule,
       summaryError,
+      summary,
     ],
   );
 };
