@@ -148,12 +148,17 @@ Last updated: 2026-03-09
 - Workspace summary supports optional in-memory ttl cache (`WORKSPACE_SUMMARY_CACHE_TTL_SEC`).
 - Workspace summary now includes deterministic next-action, activity timeline, and readiness health signals for the product dashboard.
 - Workspace summary now also exposes server-driven recovery guidance (`readinessBreakdown`, `blockerDetails`, `recommendedSequence`) for dashboard and notebook blocked states.
+- Workspace blocker details now also declare affected surfaces (`blockedRoutes`) so notebook route gating can choose the right server-driven CTA instead of using a generic first blocker.
 - Profile Studio now reuses the same recovery guidance so blocked document/profile-generation steps point to explicit next actions.
 - Global API throttling is now env-tunable (`API_THROTTLE_TTL_MS`, `API_THROTTLE_LIMIT`).
 - Frontend query freshness/polling defaults are env-tunable (`NEXT_PUBLIC_QUERY_*`).
 - Frontend runtime env guard now rejects localhost/non-https API/worker URLs in production.
 - API error responses now expose normalized top-level fields (`code`, `message`, `requestId`, `timestamp`) with backward-compatible payload.
 - API now persists structured endpoint warning/error diagnostics in `api_request_events` for DB-backed troubleshooting.
+- API health now also verifies required operational tables such as `api_request_events` so migration drift is visible before support flows silently degrade.
+- Production startup now fails fast when required operational tables are missing from the active database.
+- API runtime now rejects retired Gemini 1.5 model defaults at boot and only accepts allowlisted Gemini model/location pairs.
+- Vertex provider access/configuration failures now surface as stable AI-specific service errors instead of raw provider payload leakage.
 - Auth endpoint throttles are env-tunable (`AUTH_*_THROTTLE_*`).
 - Google OAuth login endpoint is available (`POST /api/auth/oauth/google`) with verified-id-token account linking.
 - Scrape schedules are now persisted and available through:
@@ -167,9 +172,11 @@ Last updated: 2026-03-09
 - Production bootstrap rejects wildcard CORS (`ALLOWED_ORIGINS=*`) in production mode.
 - Notebook filter/view preferences are now persisted server-side and restored across sessions/devices.
 - Notebook now exposes a dedicated summary read model (`GET /api/job-offers/summary`) for triage counts, quick actions, and explanation-tag rollups.
+- Notebook summary now also exposes server-driven quick actions (including stale-untriaged focus) and notebook list filtering supports explicit attention queues such as `staleUntriaged`.
 - Notebook now supports follow-up-aware filtering (`due` / `upcoming` / `none`) and exposes due/upcoming reminder counts in its summary payload.
 - Notebook route gating now uses workspace summary readiness directly instead of duplicating the broader workflow query burst.
 - Notebook now supports bulk follow-up metadata updates through `POST /api/job-offers/pipeline/bulk-follow-up`.
+- Bulk follow-up updates now support shared follow-up notes and return a summary of due/upcoming/none outcomes for the affected selection.
 - Dashboard now consumes a dedicated focus queue read model (`GET /api/job-offers/focus`) for follow-up due items, strict top matches, and fresh unscored leads.
 - Dashboard focus queue entries now deep-link into notebook quick-action views with selected-offer context.
 - Dashboard notebook focus stats now also deep-link into notebook quick-action views for unscored, strict-top, and follow-up queues.
@@ -178,7 +185,9 @@ Last updated: 2026-03-09
 - Admin ops console now also exposes persisted API warning/error request events for support triage without direct DB access.
 - Worker diagnostics now classify empty/degraded/blocked outcomes with explicit `resultKind`, `emptyReason`, and `sourceQuality` fields.
 - Documents now support authenticated extraction recovery endpoints (`POST /api/documents/:id/retry-extraction`, `POST /api/documents/retry-failed`) with audit events.
+- Document retry responses now return explicit recovery outcome summaries so the UI can report what was recovered and what still needs attention.
 - Job-source UX now exposes authenticated scrape preflight (`GET /api/job-sources/preflight`) and user-triggered schedule enqueue (`POST /api/job-sources/schedule/trigger-now`).
+- Scrape preflight now returns user-facing blocker/warning details, guidance text, and schedule context in addition to raw readiness booleans.
 - Local e2e fixture seeding now uses retry/backoff and smoke waits for service health before workflow assertions.
 
 ## Data Model Highlights
@@ -237,6 +246,7 @@ Last updated: 2026-03-09
 - Canonical deployment/runtime env+secret contract is documented in `docs/GCP_DEPLOY_MATRIX.md`.
 - New table `job_source_run_attempts` captures per-run attempt outcomes for deterministic callback auditing.
 - Recovery and automation smoke still require local API/worker/web services to be started before the readiness probes can succeed.
+- Neon or branch-specific migration drift can still happen operationally, but it is now surfaced through `/health` and startup validation instead of remaining silent until support endpoints are queried.
 
 ## Highest-Value Remaining Gaps
 

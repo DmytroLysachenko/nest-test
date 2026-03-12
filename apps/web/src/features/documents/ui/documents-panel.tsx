@@ -31,6 +31,7 @@ export const DocumentsPanel = ({
     activeStage,
     error,
     status,
+    recoverySummary,
     documentsQuery,
     uploadHealthQuery,
     documentEventsQuery,
@@ -63,6 +64,12 @@ export const DocumentsPanel = ({
         {disabled && disabledReason ? <p className="text-app-warning text-sm">{disabledReason}</p> : null}
         {status ? <p className="text-app-success text-sm">{status}</p> : null}
         {error ? <p className="text-app-danger text-sm">{error}</p> : null}
+        {recoverySummary ? (
+          <div className="border-app-success-border bg-app-success-soft rounded-2xl border p-3 text-sm">
+            <p className="font-semibold">Recovery update</p>
+            <p className="mt-1">{recoverySummary}</p>
+          </div>
+        ) : null}
         {diagnosticsEnabled && uploadHealthQuery.data ? (
           <div
             className={`rounded-2xl border p-3 text-xs ${uploadHealthQuery.data.ok ? 'border-app-success-border bg-app-success-soft' : 'border-app-warning-border bg-app-warning-soft'}`}
@@ -157,7 +164,7 @@ export const DocumentsPanel = ({
                 ) : null}
                 {document.extractionStatus === 'FAILED' ? (
                   <p className="text-app-warning mt-2 text-xs">
-                    Extraction failed. Retry here or replace the document before profile generation.
+                    Extraction failed. Retry here, inspect diagnostics, or replace the file before profile generation.
                   </p>
                 ) : null}
               </div>

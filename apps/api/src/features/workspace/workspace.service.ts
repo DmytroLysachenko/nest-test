@@ -261,6 +261,7 @@ export class WorkspaceService {
                 'Define desired roles and preferences so profile generation and scraping can use explicit intent.',
               href: '/onboarding',
               ctaLabel: 'Complete onboarding',
+              blockedRoutes: ['dashboard', 'notebook'],
             },
           ]
         : []),
@@ -273,6 +274,7 @@ export class WorkspaceService {
               description: 'One or more uploaded documents failed extraction and should be retried before continuing.',
               href: '/profile',
               ctaLabel: 'Retry document extraction',
+              blockedRoutes: ['dashboard', 'notebook', 'profile'],
             },
           ]
         : []),
@@ -285,6 +287,7 @@ export class WorkspaceService {
               description: 'Generate or restore a ready profile before attempting scrape and notebook workflows.',
               href: '/profile',
               ctaLabel: 'Open profile studio',
+              blockedRoutes: ['dashboard', 'notebook'],
             },
           ]
         : []),
@@ -297,6 +300,7 @@ export class WorkspaceService {
               description: 'Inspect diagnostics, review accepted filters, and retry once the failure cause is clear.',
               href: '/ops',
               ctaLabel: 'Review operations',
+              blockedRoutes: ['dashboard', 'notebook'],
             },
           ]
         : []),
@@ -309,6 +313,7 @@ export class WorkspaceService {
               description: 'Run the first sourcing pass to materialize notebook offers and unlock triage.',
               href: '/notebook',
               ctaLabel: 'Open notebook',
+              blockedRoutes: ['dashboard', 'notebook'],
             },
           ]
         : []),

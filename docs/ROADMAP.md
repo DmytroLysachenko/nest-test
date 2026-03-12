@@ -14,7 +14,7 @@ The current direction is to finish turning the repo from a technically capable i
 ## Now (Execution Priority)
 
 1. Frontend productization from internal tooling to user workflow UX.
-   - Status: onboarding wizard + notebook-first dashboard implemented; server draft recovery, recovery-center guidance, schedule controls, and notebook triage summary shipped.
+   - Status: onboarding wizard + notebook-first dashboard implemented; server draft recovery, recovery-center guidance, schedule controls, notebook triage summary, route-aware blocker CTA metadata, and richer preflight guidance shipped.
 2. Matching quality tuning (score calibration, stricter seniority/constraints behavior).
    - Status: in progress (capped approx penalties + explore recency weighting shipped; threshold tuning ongoing).
 3. Scraper quality hardening and source-specific reliability.
@@ -35,7 +35,7 @@ The current direction is to finish turning the repo from a technically capable i
 ## Next
 
 1. Add cached query/read models for FE cards and dashboard widgets.
-   - Status: in progress (workspace summary now includes next-action/activity/health plus recovery guidance; notebook summary read model shipped for quick triage).
+   - Status: in progress (workspace summary now includes next-action/activity/health plus recovery guidance; notebook summary read model now also ships server-driven quick actions for quick triage).
 2. Improve deterministic ranking calibration (mode thresholds + penalty tuning).
    - Status: in progress (trust-first matcher now includes stronger ambiguity/context penalties and improved employment alias handling).
 3. Add score-explanation audit export for support/debug workflows.
@@ -43,7 +43,7 @@ The current direction is to finish turning the repo from a technically capable i
 4. Expand diagnostics aggregation for long-running scrape history.
    - Status: in progress (optional timeline buckets + lifecycle counters added to diagnostics summary; filtered run history, CSV export, and source health summary now shipped).
 5. Extend document diagnostics with percentile timing metrics per stage (upload/confirm/extract).
-   - Status: in progress (`document_stage_metrics` + `/api/documents/diagnostics/summary` added; extraction retry endpoints shipped to improve user recovery path).
+   - Status: in progress (`document_stage_metrics` + `/api/documents/diagnostics/summary` added; extraction retry endpoints and explicit retry outcome summaries shipped to improve user recovery path).
 6. Persist user notebook operating preferences across sessions/devices.
    - Status: completed (`/api/job-offers/preferences` + web hydration/persistence shipped).
 

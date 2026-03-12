@@ -2,6 +2,10 @@
 
 Day-to-day engineering runbook for local development and verification.
 
+Canonical environment inventory:
+
+- `docs/ENV_MATRIX.md`
+
 ## Prerequisites
 
 1. Node and pnpm installed.
@@ -32,9 +36,24 @@ Day-to-day engineering runbook for local development and verification.
    - `pnpm --filter @repo/db migrate`
 3. Avoid running demo/e2e seeds against production database.
 
+## Neon Migration Recovery
+
+1. If an expected table is missing in Neon, first confirm the API and `packages/db/.env` point at the same Neon project and branch.
+2. Run migrations against that exact database:
+   - `pnpm --filter @repo/db migrate`
+3. Verify migration state in Neon SQL editor:
+   ```sql
+   select * from drizzle.__drizzle_migrations order by created_at desc;
+   select to_regclass('public.api_request_events');
+   ```
+4. `public.api_request_events` should resolve to `api_request_events`.
+5. If `/health` reports `required_tables` as down, the active database is missing required operational tables and must be migrated before relying on support diagnostics.
+
 ## Security/Capacity Env Knobs
 
 1. API:
+   - `GEMINI_MODEL` must use a supported Vertex model from the app allowlist. Legacy `gemini-1.5-*` values are rejected at boot.
+   - `GCP_LOCATION` must use a supported Gemini serving region from the app allowlist.
    - `API_BODY_LIMIT` (example: `1mb`)
    - `SCRAPE_MAX_ACTIVE_RUNS_PER_USER` (per-user backpressure guard)
    - `ALLOWED_ORIGINS` must not be `*` in production mode
@@ -241,6 +260,7 @@ For exact variable-level mapping and secret sources, use:
 20. User schedule trigger-now: `POST /api/job-sources/schedule/trigger-now`
 21. Notebook summary: `GET /api/job-offers/summary`
 22. Notebook bulk follow-up update: `POST /api/job-offers/pipeline/bulk-follow-up`
+23. Year plan doc: `docs/YEAR_PLAN.md`
 
 ## Smoke Coverage (Current)
 
@@ -283,6 +303,11 @@ For exact variable-level mapping and secret sources, use:
    - check `GET /api/documents/upload-health`
    - inspect `GET /api/documents/:id/events` timeline for failure stage and error code
    - correlate with API `traceId` in `logs/error.log`
+5. If career-profile generation fails with an AI provider error:
+   - check API `/health` for `required_tables`
+   - confirm `GEMINI_MODEL` is not a retired `gemini-1.5-*` value
+   - confirm `GCP_LOCATION` and Vertex project access match the runtime environment
+   - retry only after config/access is corrected; `AI_CONFIGURATION_ERROR` is not a transient scrape-style retry condition
 
 ## Change Workflow
 

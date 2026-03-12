@@ -4,6 +4,8 @@ import type {
   DocumentDiagnosticsSummaryDto,
   DocumentDto,
   DocumentEventDto,
+  DocumentRetryResultDto,
+  RetryFailedDocumentsResultDto,
   DocumentUploadHealthDto,
 } from '@/shared/types/api';
 
@@ -41,19 +43,16 @@ export const extractDocument = (token: string, documentId: string) =>
   });
 
 export const retryDocumentExtraction = (token: string, documentId: string) =>
-  apiRequest<DocumentDto>(`/documents/${documentId}/retry-extraction`, {
+  apiRequest<DocumentRetryResultDto>(`/documents/${documentId}/retry-extraction`, {
     method: 'POST',
     token,
   });
 
 export const retryFailedDocumentExtractions = (token: string) =>
-  apiRequest<{ retried: number; failed: Array<{ documentId: string; error: string }>; totalFailed: number }>(
-    '/documents/retry-failed',
-    {
-      method: 'POST',
-      token,
-    },
-  );
+  apiRequest<RetryFailedDocumentsResultDto>('/documents/retry-failed', {
+    method: 'POST',
+    token,
+  });
 
 export const listDocuments = (token: string) =>
   apiRequest<DocumentDto[]>('/documents', {

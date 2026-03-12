@@ -204,11 +204,18 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   });
 
   const bulkFollowUpMutation = useMutation({
-    mutationFn: (payload: { ids: string[]; followUpAt: string | null; nextStep?: string | null }) =>
-      bulkUpdateJobOfferFollowUp(token, payload),
+    mutationFn: (payload: {
+      ids: string[];
+      followUpAt: string | null;
+      nextStep?: string | null;
+      note?: string | null;
+    }) => bulkUpdateJobOfferFollowUp(token, payload),
     onSuccess: (result) => {
       syncJobOffers();
-      toastSuccess(`Updated follow-up plan for ${result.updated} offers`);
+      const noteLabel = result.summary.noteApplied ? ' with notes' : '';
+      toastSuccess(
+        `Updated follow-up plan for ${result.updated} offers (${result.summary.due} due, ${result.summary.upcoming} upcoming, ${result.summary.none} none)${noteLabel}`,
+      );
     },
     onError: (error) => {
       toastError(toUserErrorMessage(error, 'Failed to update follow-up plan'));

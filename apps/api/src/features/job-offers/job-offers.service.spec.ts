@@ -34,6 +34,14 @@ const createFocusQueueQuery = (items: Array<Record<string, unknown>>) => ({
   }),
 });
 
+const createSummaryQuery = (items: Array<Record<string, unknown>>) => ({
+  from: jest.fn().mockReturnValue({
+    where: jest.fn().mockReturnValue({
+      orderBy: jest.fn().mockResolvedValue(items),
+    }),
+  }),
+});
+
 const createBulkFollowUpTransaction = (rows: Array<Record<string, unknown>>, setMock: jest.Mock) => ({
   select: jest.fn().mockReturnValue({
     from: jest.fn().mockReturnValue({
@@ -348,6 +356,59 @@ describe('JobOffersService', () => {
     ]);
   });
 
+  it('returns server-driven notebook quick actions in summary payload', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-03-09T10:00:00.000Z'));
+
+    const select = jest.fn().mockReturnValue(
+      createSummaryQuery([
+        {
+          id: 'ujo-due',
+          status: 'SAVED',
+          matchScore: 81,
+          matchMeta: { hardConstraintViolations: [] },
+          pipelineMeta: { followUpAt: '2026-03-08T10:00:00.000Z' },
+          createdAt: new Date('2026-03-01T12:00:00.000Z'),
+          lastStatusAt: new Date('2026-03-01T12:00:00.000Z'),
+        },
+        {
+          id: 'ujo-unscored',
+          status: 'NEW',
+          matchScore: null,
+          matchMeta: null,
+          pipelineMeta: null,
+          createdAt: new Date('2026-03-01T12:00:00.000Z'),
+          lastStatusAt: new Date('2026-03-01T12:00:00.000Z'),
+        },
+      ]),
+    );
+
+    const service = new JobOffersService(
+      { select } as any,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'NOTEBOOK_APPROX_VIOLATION_PENALTY') return 15;
+          if (key === 'NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY') return 45;
+          if (key === 'NOTEBOOK_APPROX_SCORED_BONUS') return 5;
+          if (key === 'NOTEBOOK_EXPLORE_UNSCORED_BASE') return 55;
+          if (key === 'NOTEBOOK_EXPLORE_RECENCY_WEIGHT') return 12;
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          return undefined;
+        }),
+      } as any,
+    );
+
+    const result = await service.getNotebookSummary('user-1');
+
+    expect(result.quickActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'unscored', href: '/notebook?focus=unscored', count: 1 }),
+        expect.objectContaining({ key: 'saved', href: '/notebook?focus=saved', count: 1 }),
+        expect.objectContaining({ key: 'followUpDue', href: '/notebook?focus=followUpDue', count: 1 }),
+      ]),
+    );
+  });
+
   it('bulk updates follow-up metadata while preserving existing pipeline fields', async () => {
     const updateWhere = jest.fn().mockResolvedValue(undefined);
     const set = jest.fn().mockReturnValue({ where: updateWhere });
@@ -389,15 +450,26 @@ describe('JobOffersService', () => {
       ids: ['ujo-1'],
       followUpAt: '2026-03-20T09:00:00.000Z',
       nextStep: 'Send follow-up email',
+      note: 'Mention portfolio update',
     });
 
-    expect(result).toEqual({ updated: 1 });
+    expect(result).toEqual({
+      updated: 1,
+      summary: {
+        due: 0,
+        upcoming: 0,
+        none: 1,
+        noteApplied: true,
+        nextStepApplied: true,
+      },
+    });
     expect(set).toHaveBeenCalledWith(
       expect.objectContaining({
         pipelineMeta: {
           contactName: 'Alex Recruiter',
           followUpAt: '2026-03-20T09:00:00.000Z',
           nextStep: 'Send follow-up email',
+          followUpNote: 'Mention portfolio update',
         },
       }),
     );

@@ -13,7 +13,15 @@ import { Button } from '@/shared/ui/button';
 
 type NotebookPageProps = {
   token: string;
-  initialQuickAction?: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'followUpDue' | 'followUpUpcoming' | null;
+  initialQuickAction?:
+    | 'unscored'
+    | 'strictTop'
+    | 'saved'
+    | 'applied'
+    | 'staleUntriaged'
+    | 'followUpDue'
+    | 'followUpUpcoming'
+    | null;
   initialOfferId?: string | null;
 };
 

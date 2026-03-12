@@ -156,6 +156,7 @@ export type WorkspaceSummaryDto = {
     description: string;
     href: string;
     ctaLabel: string;
+    blockedRoutes: string[];
   }>;
   recommendedSequence: string[];
 };
@@ -174,6 +175,26 @@ export type DocumentDto = {
   extractionStatus: 'PENDING' | 'READY' | 'FAILED';
   extractionError: string | null;
   createdAt: string;
+};
+
+export type DocumentRetryResultDto = {
+  ok: true;
+  document: DocumentDto;
+  retry: {
+    documentId: string;
+    previousStatus: 'PENDING' | 'READY' | 'FAILED';
+    previousError: string | null;
+    message: string;
+  };
+};
+
+export type RetryFailedDocumentsResultDto = {
+  retried: number;
+  failed: Array<{ documentId: string; error: string }>;
+  totalFailed: number;
+  remainingFailed: number;
+  recovered: number;
+  message: string;
 };
 
 export type DocumentEventDto = {
@@ -467,6 +488,27 @@ export type ScrapePreflightDto = {
   resolvedFromProfile: boolean;
   activeRunCount: number;
   dailyRemaining: number | null;
+  blockerDetails: Array<{
+    code: string;
+    title: string;
+    description: string;
+    href: string;
+    ctaLabel: string;
+  }>;
+  warningDetails: Array<{
+    code: string;
+    title: string;
+    description: string;
+  }>;
+  guidance: string;
+  schedule: {
+    enabled: boolean;
+    cron: string | null;
+    source: string | null;
+    limit: number | null;
+    nextRunAt: string | null;
+    lastRunStatus: string | null;
+  };
 };
 
 export type ScrapeScheduleDto = {
@@ -557,6 +599,13 @@ export type JobOfferSummaryDto = {
     tag: string;
     count: number;
   }>;
+  quickActions: Array<{
+    key: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'staleUntriaged' | 'followUpDue' | 'followUpUpcoming';
+    label: string;
+    description: string;
+    href: string;
+    count: number;
+  }>;
 };
 
 export type JobOfferFocusDto = {
@@ -583,6 +632,7 @@ export type NotebookFiltersDto = {
   tag: string;
   hasScore: 'all' | 'yes' | 'no';
   followUp: 'all' | 'due' | 'upcoming' | 'none';
+  attention: 'all' | 'staleUntriaged';
 };
 
 export type NotebookPreferencesDto = {

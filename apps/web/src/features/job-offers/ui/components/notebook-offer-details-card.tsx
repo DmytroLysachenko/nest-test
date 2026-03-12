@@ -98,6 +98,7 @@ export const NotebookOfferDetailsCard = ({
     pipelineMeta && typeof pipelineMeta.applicationUrl === 'string' ? pipelineMeta.applicationUrl : '';
   const nextStep = pipelineMeta && typeof pipelineMeta.nextStep === 'string' ? pipelineMeta.nextStep : '';
   const contactName = pipelineMeta && typeof pipelineMeta.contactName === 'string' ? pipelineMeta.contactName : '';
+  const followUpNote = pipelineMeta && typeof pipelineMeta.followUpNote === 'string' ? pipelineMeta.followUpNote : '';
 
   const setStructuredPipelineField = (field: string, value: string | null) => {
     const current =
@@ -223,6 +224,18 @@ export const NotebookOfferDetailsCard = ({
                   onChange={(event) => setStructuredPipelineField('nextStep', event.target.value || null)}
                 />
               </div>
+            </div>
+            <div className="app-field-group">
+              <Label htmlFor="follow-up-note" className="app-inline-label">
+                Follow-up note
+              </Label>
+              <Textarea
+                id="follow-up-note"
+                rows={3}
+                value={followUpNote}
+                placeholder="What should you mention or prepare in the next follow-up?"
+                onChange={(event) => setStructuredPipelineField('followUpNote', event.target.value || null)}
+              />
             </div>
             <div className="app-field-group">
               <Label htmlFor="pipeline-meta" className="app-inline-label">

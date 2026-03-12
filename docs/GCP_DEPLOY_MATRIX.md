@@ -4,6 +4,10 @@ Canonical runtime/deploy contract for Google Cloud Run production deployments.
 
 Last updated: 2026-03-05
 
+For the complete local + production inventory, use:
+
+- `docs/ENV_MATRIX.md`
+
 ## 1) Repository-Level CI/CD Inputs
 
 ### Required GitHub Variables (`vars.*`)
@@ -20,6 +24,7 @@ Last updated: 2026-03-05
 | `GCP_WORKER_BASE_URL` | promote-to-prod | Public Worker base URL (`https://...`) |
 | `GCP_WEB_BASE_URL` | promote-to-prod | Public Web base URL (`https://...`) |
 | `GOOGLE_OAUTH_CLIENT_ID` | release-candidate, deploy-prod-on-main | Public Google OAuth client id used by web build and API token verification |
+| `GEMINI_MODEL` | deploy-prod-on-main | Vertex AI model id injected into API runtime |
 | `SCHEDULER_JOB_NAME` | deploy-prod-on-main | Optional Cloud Scheduler job name override (default `job-seek-schedule-trigger`) |
 | `SCHEDULER_CRON` | deploy-prod-on-main | Optional Cloud Scheduler cron expression (default `*/10 * * * *`) |
 | `SCHEDULER_TIMEZONE` | deploy-prod-on-main | Optional Cloud Scheduler timezone (default `Etc/UTC`) |
@@ -64,6 +69,9 @@ Last updated: 2026-03-05
 | `MAIL_USERNAME` | Secret Manager | `<username>` | non-empty |
 | `MAIL_PASSWORD` | Secret Manager | `<password>` | non-empty |
 | `GCS_BUCKET` | env | `career-assistant-prod-docs` | existing bucket |
+| `GCP_PROJECT_ID` | env | `<project-id>` | Vertex/GCS project id |
+| `GCP_LOCATION` | env | `europe-west1` | Vertex AI region |
+| `GEMINI_MODEL` | env | `gemini-2.5-flash` | must be explicitly managed in production |
 | `ALLOWED_ORIGINS` | env | `https://app.example.com` | cannot be `*` in production |
 | `API_PREFIX` | env | `api` | should stay `api` |
 | `WORKER_TASK_PROVIDER` | env | `cloud-tasks` | must be `cloud-tasks` in production |

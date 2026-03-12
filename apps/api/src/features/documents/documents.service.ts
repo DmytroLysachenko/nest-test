@@ -306,7 +306,21 @@ export class DocumentsService {
       },
     });
 
-    return this.extractText(userId, { documentId }, traceId);
+    const updated = await this.extractText(userId, { documentId }, traceId);
+
+    return {
+      ok: true,
+      document: updated,
+      retry: {
+        documentId: document.id,
+        previousStatus: document.extractionStatus,
+        previousError: document.extractionError,
+        message:
+          document.extractionStatus === 'FAILED'
+            ? 'Extraction completed after retry. Review diagnostics if quality still looks wrong.'
+            : 'Extraction reran successfully.',
+      },
+    };
   }
 
   async retryFailedExtractions(userId: string, traceId?: string) {
@@ -337,6 +351,14 @@ export class DocumentsService {
       retried,
       failed,
       totalFailed: failedDocuments.length,
+      remainingFailed: failed.length,
+      recovered: retried,
+      message:
+        retried === 0 && failedDocuments.length === 0
+          ? 'No failed documents required recovery.'
+          : failed.length === 0
+            ? `Recovered ${retried} failed document(s).`
+            : `Recovered ${retried} document(s); ${failed.length} still need attention.`,
     };
   }
 

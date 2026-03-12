@@ -47,6 +47,7 @@ export const initialNotebookFilters: NotebookFiltersDto = {
   tag: '',
   hasScore: 'all',
   followUp: 'all',
+  attention: 'all',
 };
 
 export const useAppUiStore = create<AppUiState & AppUiActions>((set) => ({

@@ -16,6 +16,7 @@ const STATUS_VALUES = [
 const SOURCE_VALUES = ['PRACUJ_PL'] as const;
 const RANKING_MODE_VALUES = ['strict', 'approx', 'explore'] as const;
 const FOLLOW_UP_VALUES = ['due', 'upcoming', 'none'] as const;
+const ATTENTION_VALUES = ['staleUntriaged'] as const;
 
 export class ListJobOffersQuery {
   @ApiPropertyOptional({ enum: RANKING_MODE_VALUES, default: 'strict' })
@@ -79,6 +80,14 @@ export class ListJobOffersQuery {
   @IsOptional()
   @IsIn(FOLLOW_UP_VALUES)
   followUp?: (typeof FOLLOW_UP_VALUES)[number];
+
+  @ApiPropertyOptional({
+    enum: ATTENTION_VALUES,
+    description: 'Apply a server-driven attention filter for common notebook work queues',
+  })
+  @IsOptional()
+  @IsIn(ATTENTION_VALUES)
+  attention?: (typeof ATTENTION_VALUES)[number];
 
   @ApiPropertyOptional({ default: 20 })
   @IsOptional()

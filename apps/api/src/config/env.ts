@@ -1,4 +1,11 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
+
+import {
+  DEFAULT_GEMINI_MODEL,
+  isLegacyGeminiModel,
+  isSupportedGeminiLocation,
+  isSupportedGeminiModel,
+} from '@/common/modules/gemini/gemini-config';
 
 export const EnvSchema = z.object({
   HOST: z.string(),
@@ -10,14 +17,14 @@ export const EnvSchema = z.object({
   REFRESH_TOKEN_EXPIRATION: z.string(),
   MAIL_HOST: z.string(),
   MAIL_PORT: z.coerce.number().default(587),
-  MAIL_SECURE: z.coerce.boolean().default(false), // Use TLS (true for port 465)
+  MAIL_SECURE: z.coerce.boolean().default(false),
   MAIL_USERNAME: z.string(),
   MAIL_PASSWORD: z.string(),
   DATABASE_URL: z.string(),
   GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
+  GEMINI_MODEL: z.string().default(DEFAULT_GEMINI_MODEL),
   GCP_LOCATION: z.string().default('us-central1'),
   DISK_HEALTH_THRESHOLD: z.coerce.number().min(0).max(1).default(0.98),
   GCS_BUCKET: z.string(),
@@ -92,27 +99,48 @@ export const validateEnv = (env: Record<string, unknown>): Env => {
       .join('; ');
     throw new Error(`Invalid environment variables: ${errorMessages}`);
   }
+
   if (parsed.data.NODE_ENV === 'production' && parsed.data.WORKER_CALLBACK_OIDC_AUDIENCE) {
     const audienceUrl = new URL(parsed.data.WORKER_CALLBACK_OIDC_AUDIENCE);
     if (audienceUrl.protocol !== 'https:') {
       throw new Error('WORKER_CALLBACK_OIDC_AUDIENCE must use https in production mode');
     }
   }
+
   if (
     (parsed.data.GOOGLE_OAUTH_CLIENT_ID && !parsed.data.GOOGLE_OAUTH_CLIENT_SECRET) ||
     (!parsed.data.GOOGLE_OAUTH_CLIENT_ID && parsed.data.GOOGLE_OAUTH_CLIENT_SECRET)
   ) {
     throw new Error('GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET must be configured together');
   }
+
+  if (isLegacyGeminiModel(parsed.data.GEMINI_MODEL)) {
+    throw new Error(
+      `GEMINI_MODEL=${parsed.data.GEMINI_MODEL} is retired. Use a supported model such as ${DEFAULT_GEMINI_MODEL}.`,
+    );
+  }
+
+  if (!isSupportedGeminiModel(parsed.data.GEMINI_MODEL)) {
+    throw new Error(`GEMINI_MODEL=${parsed.data.GEMINI_MODEL} is not in the supported allowlist for this app runtime.`);
+  }
+
+  if (!isSupportedGeminiLocation(parsed.data.GCP_LOCATION)) {
+    throw new Error(
+      `GCP_LOCATION=${parsed.data.GCP_LOCATION} is not in the supported Vertex AI Gemini allowlist for this app runtime.`,
+    );
+  }
+
   if (
     parsed.data.WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL &&
     !parsed.data.WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL.includes('@')
   ) {
     throw new Error('WORKER_CALLBACK_OIDC_SERVICE_ACCOUNT_EMAIL is invalid');
   }
+
   if (parsed.data.NODE_ENV === 'production' && parsed.data.WORKER_TASK_PROVIDER !== 'cloud-tasks') {
     throw new Error('WORKER_TASK_PROVIDER must be cloud-tasks in production mode');
   }
+
   if (parsed.data.WORKER_TASK_PROVIDER === 'cloud-tasks') {
     const missing = [
       'WORKER_TASKS_PROJECT_ID',
@@ -120,15 +148,18 @@ export const validateEnv = (env: Record<string, unknown>): Env => {
       'WORKER_TASKS_QUEUE',
       'WORKER_TASK_URL',
     ].filter((key) => !parsed.data[key as keyof Env]);
+
     if (missing.length) {
       throw new Error(`Missing Cloud Tasks env vars: ${missing.join(', ')}`);
     }
+
     if (
       parsed.data.WORKER_TASKS_SERVICE_ACCOUNT_EMAIL &&
       !parsed.data.WORKER_TASKS_SERVICE_ACCOUNT_EMAIL.includes('@')
     ) {
       throw new Error('WORKER_TASKS_SERVICE_ACCOUNT_EMAIL is invalid');
     }
+
     if (parsed.data.NODE_ENV === 'production' && parsed.data.WORKER_TASK_URL) {
       const workerTaskUrl = new URL(parsed.data.WORKER_TASK_URL);
       if (workerTaskUrl.protocol !== 'https:') {
@@ -136,5 +167,6 @@ export const validateEnv = (env: Record<string, unknown>): Env => {
       }
     }
   }
+
   return parsed.data;
 };

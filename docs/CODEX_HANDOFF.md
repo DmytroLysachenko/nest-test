@@ -9,9 +9,10 @@ Use this file as the first read for a fresh Codex session.
 3. `docs/PROJECT_STATE.md`
 4. `docs/ROADMAP.md`
 5. `docs/SPRINT_PLAN.md`
-6. `docs/DECISIONS.md` (only if architecture/contract work)
-7. `docs/FRONTEND_STANDARDS.md` (for FE tasks)
-8. `docs/RUNBOOK.md` (only when running stack/tests)
+6. `docs/YEAR_PLAN.md` (for longer-horizon planning)
+7. `docs/DECISIONS.md` (only if architecture/contract work)
+8. `docs/FRONTEND_STANDARDS.md` (for FE tasks)
+9. `docs/RUNBOOK.md` (only when running stack/tests)
 
 ## 2) Current System Shape
 

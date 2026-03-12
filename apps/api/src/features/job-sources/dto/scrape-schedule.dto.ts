@@ -4,6 +4,54 @@ import { IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, Min, Validat
 
 import { ScrapeFiltersDto } from './scrape-filters.dto';
 
+class ScrapePreflightBlockerDetailDto {
+  @ApiProperty()
+  code!: string;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty()
+  description!: string;
+
+  @ApiProperty()
+  href!: string;
+
+  @ApiProperty()
+  ctaLabel!: string;
+}
+
+class ScrapePreflightWarningDetailDto {
+  @ApiProperty()
+  code!: string;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty()
+  description!: string;
+}
+
+class ScrapePreflightScheduleDto {
+  @ApiProperty()
+  enabled!: boolean;
+
+  @ApiPropertyOptional()
+  cron!: string | null;
+
+  @ApiPropertyOptional()
+  source!: string | null;
+
+  @ApiPropertyOptional()
+  limit!: number | null;
+
+  @ApiPropertyOptional()
+  nextRunAt!: string | null;
+
+  @ApiPropertyOptional()
+  lastRunStatus!: string | null;
+}
+
 export class UpdateScrapeScheduleDto {
   @ApiProperty()
   @Type(() => Boolean)
@@ -103,4 +151,16 @@ export class ScrapePreflightResponseDto {
 
   @ApiPropertyOptional()
   dailyRemaining!: number | null;
+
+  @ApiProperty({ type: [ScrapePreflightBlockerDetailDto] })
+  blockerDetails!: ScrapePreflightBlockerDetailDto[];
+
+  @ApiProperty({ type: [ScrapePreflightWarningDetailDto] })
+  warningDetails!: ScrapePreflightWarningDetailDto[];
+
+  @ApiProperty()
+  guidance!: string;
+
+  @ApiProperty({ type: ScrapePreflightScheduleDto })
+  schedule!: ScrapePreflightScheduleDto;
 }

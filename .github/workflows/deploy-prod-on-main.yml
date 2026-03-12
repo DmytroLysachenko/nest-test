@@ -29,6 +29,7 @@ jobs:
       GCP_WORKER_SERVICE: ${{ vars.GCP_WORKER_SERVICE }}
       GCP_WEB_SERVICE: ${{ vars.GCP_WEB_SERVICE }}
       GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -239,6 +240,7 @@ jobs:
           test -n "${{ vars.GCP_WORKER_SERVICE }}" || (echo "Missing vars.GCP_WORKER_SERVICE" && exit 1)
           test -n "${{ vars.GCP_WEB_SERVICE }}" || (echo "Missing vars.GCP_WEB_SERVICE" && exit 1)
           test -n "${{ vars.GCS_BUCKET }}" || (echo "Missing vars.GCS_BUCKET" && exit 1)
+          test -n "${{ vars.GEMINI_MODEL }}" || (echo "Missing vars.GEMINI_MODEL" && exit 1)
           test -n "${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" || (echo "Missing vars.GOOGLE_OAUTH_CLIENT_ID" && exit 1)
           test -n "${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}" || (echo "Missing secrets.GOOGLE_OAUTH_CLIENT_SECRET" && exit 1)
           test -n "${{ secrets.SCHEDULER_AUTH_TOKEN }}" || (echo "Missing secrets.SCHEDULER_AUTH_TOKEN" && exit 1)
@@ -261,6 +263,7 @@ jobs:
           GCP_WORKER_SERVICE: ${{ vars.GCP_WORKER_SERVICE }}
           GCP_WEB_SERVICE: ${{ vars.GCP_WEB_SERVICE }}
           GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           GCP_API_RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_API_RUNTIME_SERVICE_ACCOUNT }}
           GCP_WORKER_RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_WORKER_RUNTIME_SERVICE_ACCOUNT }}
           GCP_WEB_RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_WEB_RUNTIME_SERVICE_ACCOUNT }}
