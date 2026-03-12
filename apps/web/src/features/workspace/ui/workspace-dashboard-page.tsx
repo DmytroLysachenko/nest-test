@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { Inbox } from 'lucide-react';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
+import { JobSourcesPanel } from '@/features/job-sources';
 import { useWorkspaceDashboardData } from '@/features/workspace/model/hooks/use-workspace-dashboard-data';
 import { PageErrorState, PageLoadingState, SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Button } from '@/shared/ui/button';
 import { DataTableShell, HeroHeader, MetricCard, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
+import { GuidancePanel, JourneySteps } from '@/shared/ui/guidance-panels';
 import { Card } from '@/shared/ui/card';
 import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
 
@@ -128,29 +130,78 @@ export const WorkspaceDashboardPage = () => {
     { key: 'offers', label: 'Offers last updated', timestamp: summary.offers.lastUpdatedAt, tone: 'info' as const },
     { key: 'scrape', label: 'Last scrape run', timestamp: summary.scrape.lastRunAt, tone: 'info' as const },
   ];
+  const latestRunStatus = summary.scrape.lastRunStatus ?? 'IDLE';
+  const scrapeStageTone = getRunStatusTone(summary.scrape.lastRunStatus);
+  const scrapeSetupHint =
+    summary.scrape.totalRuns > 0
+      ? 'You already have run history. Use Run now for a fresh refresh or keep the schedule on for continuous sourcing.'
+      : 'Start with a profile-driven run. Once the results look good, enable a schedule so fresh leads arrive automatically.';
 
   return (
     <main className="app-page">
       <HeroHeader
         eyebrow="Workspace Overview"
         title="JobSeeker Dashboard"
-        subtitle="Monitor sourcing health, keep your profile ready, and triage the highest-value opportunities with a tighter daily operating rhythm."
+        subtitle="Operate your search like a modern command center: keep profile context current, run or schedule sourcing clearly, and triage the highest-signal opportunities without request noise or workflow ambiguity."
         meta={
           <>
             <span className="app-badge">Signed in as {auth.user?.email ?? 'unknown user'}</span>
             <span className="app-badge">Offers: {summary.offers.total}</span>
             <span className="app-badge">Runs: {summary.scrape.totalRuns}</span>
+            <span className="app-badge">Readiness: {health.readinessScore}%</span>
           </>
         }
         action={
-          <StatusPill
-            value={summary.scrape.lastRunStatus ?? 'IDLE'}
-            tone={getRunStatusTone(summary.scrape.lastRunStatus)}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/profile">
+              <Button variant="secondary">Open profile</Button>
+            </Link>
+            <Link href="/notebook">
+              <Button>Open notebook</Button>
+            </Link>
+            <StatusPill value={latestRunStatus} tone={scrapeStageTone} />
+          </div>
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <GuidancePanel
+        eyebrow="What to do next"
+        title={nextAction.title}
+        description={nextAction.description}
+        tone={nextAction.priority === 'critical' ? 'warning' : 'info'}
+        actionLabel="Open recommended flow"
+        onAction={() => {
+          window.location.href = nextAction.href;
+        }}
+      >
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="app-glass-panel p-4">
+            <p className="text-text-soft text-xs uppercase tracking-[0.14em]">Scrape state</p>
+            <p className="text-text-strong mt-2 text-lg font-semibold">{latestRunStatus}</p>
+            <p className="text-text-soft mt-2 text-sm leading-6">{scrapeSetupHint}</p>
+          </div>
+          <div className="app-glass-panel p-4">
+            <p className="text-text-soft text-xs uppercase tracking-[0.14em]">Schedule</p>
+            <p className="text-text-strong mt-2 text-lg font-semibold">
+              {schedule?.enabled ? 'Automation enabled' : 'Manual mode'}
+            </p>
+            <p className="text-text-soft mt-2 text-sm leading-6">
+              {schedule?.enabled
+                ? `Next run ${formatDateTime(schedule.nextRunAt)}`
+                : 'Set a schedule after you confirm the profile-driven run quality.'}
+            </p>
+          </div>
+          <div className="app-glass-panel p-4">
+            <p className="text-text-soft text-xs uppercase tracking-[0.14em]">Triage focus</p>
+            <p className="text-text-strong mt-2 text-lg font-semibold">{summary.offers.followUpDue} follow-ups due</p>
+            <p className="text-text-soft mt-2 text-sm leading-6">
+              Start with due follow-ups and strict-top matches before broader exploration.
+            </p>
+          </div>
+        </div>
+      </GuidancePanel>
+
+      <div className="app-grid-cards">
         <MetricCard
           label="Profile Version"
           value={summary.profile.version == null ? 'n/a' : String(summary.profile.version)}
@@ -214,6 +265,32 @@ export const WorkspaceDashboardPage = () => {
           }}
         />
       </div>
+
+      <JourneySteps
+        title="Smoothest daily flow"
+        description="This is the shortest path from profile changes to fresh leads and controlled triage."
+        steps={[
+          {
+            key: 'profile',
+            title: 'Update profile context',
+            description: 'Keep profile inputs and documents aligned before starting a run.',
+            status: summary.profile.exists ? 'done' : 'active',
+          },
+          {
+            key: 'scrape',
+            title: 'Run or schedule scraping',
+            description:
+              'Run manually when you need immediate fresh leads, then enable schedule once the setup feels right.',
+            status: latestRunStatus === 'RUNNING' || latestRunStatus === 'PENDING' ? 'active' : 'upcoming',
+          },
+          {
+            key: 'triage',
+            title: 'Review notebook focus',
+            description: 'Wait for completion, then act on strict-top matches and due follow-ups first.',
+            status: summary.offers.total > 0 ? 'done' : 'upcoming',
+          },
+        ]}
+      />
 
       <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
         <Card title="Job Search Funnel" description="Visual breakdown of your application stages.">
@@ -290,74 +367,11 @@ export const WorkspaceDashboardPage = () => {
         </Card>
       </div>
 
-      <Card title="Next Best Action" description="Recommended move based on current workspace state.">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-2">
-            <StatusPill
-              value={nextAction.priority}
-              tone={
-                nextAction.priority === 'critical'
-                  ? 'danger'
-                  : nextAction.priority === 'recommended'
-                    ? 'warning'
-                    : 'info'
-              }
-            />
-            <p className="text-text-strong text-lg font-semibold">{nextAction.title}</p>
-            <p className="text-text-soft text-sm">{nextAction.description}</p>
-          </div>
-          <Button onClick={() => (window.location.href = nextAction.href)}>Open</Button>
-        </div>
-      </Card>
-
       <WorkflowRecoveryPanel blockers={summary.blockerDetails ?? []} />
 
       <section className="app-section-grid">
         <div className="space-y-4">
-          <Card
-            title="Execution Playbook"
-            description="Recommended operating rhythm for a stable, high-signal sourcing loop."
-            className="overflow-hidden"
-          >
-            <div className="grid gap-3 md:grid-cols-2">
-              {[
-                'Refresh profile input and uploaded CV whenever your targeting changes.',
-                'Run scrape and wait for run finalization before reviewing job quality.',
-                'Triage offers in strict mode first, then use explore mode for discovery.',
-                'Review diagnostics daily and rerun scrape with adjusted filters when failure rate rises.',
-              ].map((item, index) => (
-                <div key={item} className="app-muted-panel flex gap-3">
-                  <span className="bg-primary/10 text-primary inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-semibold">
-                    {index + 1}
-                  </span>
-                  <p className="text-text-soft text-sm leading-6">{item}</p>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {schedule ? (
-            <Card title="Automation Schedule" description="Current scrape automation status and next run.">
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="app-muted-panel">
-                  <p className="text-text-soft">Enabled</p>
-                  <p className="text-text-strong mt-1 font-medium">{schedule.enabled ? 'Yes' : 'No'}</p>
-                </div>
-                <div className="app-muted-panel">
-                  <p className="text-text-soft">Next run</p>
-                  <p className="text-text-strong mt-1 font-medium">{formatDateTime(schedule.nextRunAt)}</p>
-                </div>
-                <div className="app-muted-panel">
-                  <p className="text-text-soft">Last status</p>
-                  <p className="text-text-strong mt-1 font-medium">{schedule.lastRunStatus ?? 'n/a'}</p>
-                </div>
-                <div className="app-muted-panel">
-                  <p className="text-text-soft">Cadence</p>
-                  <p className="text-text-strong mt-1 font-medium">{schedule.cron}</p>
-                </div>
-              </div>
-            </Card>
-          ) : null}
+          <JobSourcesPanel token={auth.token!} />
 
           {diagnosticsEnabled && dashboard.isDiagnosticsLoading ? (
             <SectionLoadingState
@@ -461,6 +475,13 @@ export const WorkspaceDashboardPage = () => {
         </div>
 
         <aside className="space-y-4">
+          <GuidancePanel
+            eyebrow="Operator tip"
+            title="When should you use Run now vs Schedule?"
+            description="Use Run now when your profile changed or you want an immediate fresh pass. Use Schedule only after the profile-driven run is returning leads you actually want to triage."
+            tone="success"
+          />
+
           {diagnosticsEnabled && diagnostics ? (
             <Card title="Reliability Overview" description="Scheduler and scrape resilience signals.">
               <div className="space-y-3">
