@@ -13,7 +13,6 @@ type AppShellProps = {
   children: React.ReactNode;
   userEmail: string | null | undefined;
   userRole?: string | null;
-  token: string | null;
   onSignOut: () => void;
   hideSidebar?: boolean;
 };
@@ -29,9 +28,10 @@ const testerEnabled = process.env.NODE_ENV !== 'production' && env.NEXT_PUBLIC_E
 
 const baseNavItems: AppNavItem[] = [
   { href: '/', label: 'Dashboard', shortLabel: 'DB' },
+  { href: '/planning', label: 'Planning', shortLabel: 'PL' },
   { href: '/notebook', label: 'Notebook', shortLabel: 'NB' },
+  { href: '/activity', label: 'Activity Board', shortLabel: 'AC' },
   { href: '/profile', label: 'Profile Studio', shortLabel: 'PS' },
-  { href: '/onboarding', label: 'Onboarding', shortLabel: 'OB' },
 ];
 
 const getIsActive = (pathname: string, href: string) => {
@@ -91,6 +91,7 @@ const AppShellSidebar = ({
       </div>
     </div>
     <nav className="space-y-1.5 px-3 py-5">
+      <p className="text-sidebar-foreground/45 px-3 pb-2 text-[11px] uppercase tracking-[0.18em]">Workspace</p>
       {items.map((item) => {
         const active = getIsActive(pathname, item.href);
         return (
@@ -116,20 +117,20 @@ const AppShellSidebar = ({
   </>
 );
 
-export const AppShell = ({ children, userEmail, userRole, token, onSignOut, hideSidebar }: AppShellProps) => {
+export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar }: AppShellProps) => {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { summary, scrapeSchedule } = usePrivateDashboardData();
-  const allowNotebook = summary?.workflow.needsOnboarding === undefined ? true : !summary.workflow.needsOnboarding;
+  const workspaceReady = summary?.workflow.needsOnboarding === undefined ? true : !summary.workflow.needsOnboarding;
 
   const navItems = useMemo(() => {
     const items: AppNavItem[] = [
       ...baseNavItems.map((item) =>
-        item.href === '/notebook'
+        item.href === '/notebook' || item.href === '/planning' || item.href === '/activity'
           ? {
               ...item,
-              hidden: !allowNotebook,
+              hidden: !workspaceReady,
             }
           : item,
       ),
@@ -143,7 +144,7 @@ export const AppShell = ({ children, userEmail, userRole, token, onSignOut, hide
     }
 
     return items.filter((item) => !item.hidden);
-  }, [allowNotebook, userRole]);
+  }, [userRole, workspaceReady]);
 
   const activePage = hideSidebar
     ? 'Setup Workspace'
@@ -152,7 +153,7 @@ export const AppShell = ({ children, userEmail, userRole, token, onSignOut, hide
   return (
     <div className="app-shell">
       {!hideSidebar && (
-        <aside className="border-sidebar-border bg-sidebar text-sidebar-foreground sticky top-0 hidden h-screen w-80 overflow-y-auto border-r lg:block">
+        <aside className="border-sidebar-border bg-sidebar text-sidebar-foreground sticky top-0 hidden h-screen w-72 overflow-y-auto border-r xl:block">
           <AppShellSidebar
             pathname={pathname}
             items={navItems}
@@ -174,7 +175,7 @@ export const AppShell = ({ children, userEmail, userRole, token, onSignOut, hide
 
       {!hideSidebar && (
         <aside
-          className={`border-sidebar-border bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-40 w-80 overflow-y-auto border-r transition-transform lg:hidden ${
+          className={`border-sidebar-border bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-40 w-72 overflow-y-auto border-r transition-transform xl:hidden ${
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -201,7 +202,7 @@ export const AppShell = ({ children, userEmail, userRole, token, onSignOut, hide
                 <Button
                   type="button"
                   variant="secondary"
-                  className="h-9 w-9 px-0 lg:hidden"
+                  className="h-9 w-9 px-0 xl:hidden"
                   aria-label="Open navigation"
                   onClick={() => setMobileOpen(true)}
                 >
