@@ -63,6 +63,14 @@ test('dashboard redirects to onboarding when summary requires it', async ({ page
     });
   });
 
+  await page.route('**/api/profile-inputs/latest', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: null }),
+    });
+  });
+
   await page.route('**/api/job-offers**', async (route) => {
     const url = new URL(route.request().url());
 

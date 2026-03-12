@@ -30,6 +30,7 @@ const envSchema = z.object({
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isCI = process.env.CI === 'true' || process.env.CI === '1';
+const isNextProductionBuild = process.env.NEXT_PHASE === 'phase-production-build';
 
 const defaultApiUrl = isProduction && !isCI ? undefined : 'http://localhost:3000/api';
 const defaultWorkerUrl = isProduction && !isCI ? undefined : 'http://localhost:4000';
@@ -52,7 +53,7 @@ if (!parsedEnv.success) {
   throw new Error(`Invalid frontend environment variables: ${errorMessages}`);
 }
 
-if (isProduction && !isCI) {
+if (isProduction && !isCI && !isNextProductionBuild) {
   const assertPublicHttpsUrl = (name: 'NEXT_PUBLIC_API_URL' | 'NEXT_PUBLIC_WORKER_URL', value: string) => {
     const parsed = new URL(value);
     const host = parsed.hostname.toLowerCase();
