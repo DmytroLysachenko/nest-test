@@ -9,8 +9,15 @@ import {
   listJobSourceRuns,
 } from '@/features/job-sources/api/job-sources-api';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
-import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
+import { liveQueryPreset, mutableQueryPreset } from '@/shared/lib/query/query-option-presets';
 import { queryKeys } from '@/shared/lib/query/query-keys';
+
+import type {
+  JobSourceRunDiagnosticsDto,
+  JobSourceRunsListDto,
+  ScrapePreflightDto,
+  ScrapeScheduleDto,
+} from '@/shared/types/api';
 
 const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
 
@@ -26,44 +33,44 @@ export const useJobSourcesQueries = (
   preflightParams?: ScrapePreflightParams,
 ) => {
   const runsQuery = useQuery(
-    buildAuthedQueryOptions({
+    buildAuthedQueryOptions<JobSourceRunsListDto>({
       token,
       queryKey: queryKeys.jobSources.runs(token),
       queryFn: listJobSourceRuns,
-      staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
+      ...liveQueryPreset(),
       refetchInterval: (query) => {
-        const runs = (query.state.data as Array<{ status: string }> | undefined) ?? [];
+        const runs = (query.state.data as { items?: Array<{ status: string }> } | undefined)?.items ?? [];
         const hasActiveRuns = runs.some((run) => run.status === 'PENDING' || run.status === 'RUNNING');
-        return hasActiveRuns ? 10000 : false;
+        return hasActiveRuns ? 10_000 : false;
       },
     }),
   );
 
   const diagnosticsQuery = useQuery(
-    buildAuthedQueryOptions({
+    buildAuthedQueryOptions<JobSourceRunDiagnosticsDto>({
       token,
       queryKey: ['job-sources', 'run-diagnostics', token, selectedRunId],
       queryFn: (authToken) => getJobSourceRunDiagnostics(authToken, selectedRunId as string),
+      ...liveQueryPreset(),
       enabled: diagnosticsEnabled && Boolean(selectedRunId),
-      staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
     }),
   );
 
   const scheduleQuery = useQuery(
-    buildAuthedQueryOptions({
+    buildAuthedQueryOptions<ScrapeScheduleDto>({
       token,
       queryKey: queryKeys.jobSources.schedule(token),
       queryFn: getScrapeSchedule,
-      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      ...mutableQueryPreset(),
     }),
   );
 
   const preflightQuery = useQuery(
-    buildAuthedQueryOptions({
+    buildAuthedQueryOptions<ScrapePreflightDto>({
       token,
       queryKey: queryKeys.jobSources.preflight(token, preflightParams),
       queryFn: (authToken) => getScrapePreflight(authToken, preflightParams),
-      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      ...mutableQueryPreset(),
     }),
   );
 

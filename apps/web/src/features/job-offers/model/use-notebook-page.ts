@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import { useNotebookMutations } from '@/features/job-offers/model/hooks/use-notebook-mutations';
 import { useNotebookQueries } from '@/features/job-offers/model/hooks/use-notebook-queries';
+import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { useAppUiStore } from '@/shared/store/app-ui-store';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
@@ -22,6 +23,7 @@ type UseNotebookPageArgs = {
 };
 
 export const useNotebookPage = ({ token, initialQuickAction = null, initialOfferId = null }: UseNotebookPageArgs) => {
+  const { notebookSummary } = usePrivateDashboardData();
   const selectedId = useAppUiStore((state) => state.notebook.selectedOfferId);
   const selectedOfferIds = useAppUiStore((state) => state.notebook.selectedOfferIds);
   const filters = useAppUiStore((state) => state.notebook.filters);
@@ -69,6 +71,7 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     token,
     listParams,
     selectedId,
+    sharedNotebookSummary: notebookSummary,
   });
 
   const {

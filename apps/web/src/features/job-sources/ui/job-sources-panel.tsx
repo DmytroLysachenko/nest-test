@@ -1,8 +1,11 @@
 'use client';
 
+import { CalendarClock, PlayCircle, Radar } from 'lucide-react';
+
 import { useJobSourcesPanel } from '@/features/job-sources/model/hooks/use-job-sources-panel';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
+import { GuidancePanel, JourneySteps } from '@/shared/ui/guidance-panels';
 import { Input } from '@/shared/ui/input';
 import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
@@ -29,9 +32,69 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
   const formatTimestamp = (value: string | null | undefined) => (value ? new Date(value).toLocaleString() : 'n/a');
 
   return (
-    <Card title="Worker integration" description="Trigger scrape runs and track worker lifecycle status.">
+    <Card
+      title="Scrape Control Center"
+      description="Run a one-off sourcing pass, confirm whether the system is ready, and manage the schedule that keeps your notebook fresh."
+      className="overflow-hidden"
+    >
+      <GuidancePanel
+        eyebrow="How to use this"
+        title="Two reliable ways to start scraping"
+        description="Use Run now when you changed profile targets or want fresh results immediately. Use Schedule when you want the system to keep your notebook topped up automatically."
+        tone="info"
+      >
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="border-primary/20 rounded-[1.35rem] border bg-white/55 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <PlayCircle className="text-primary h-4 w-4" />
+              <p className="text-text-strong text-sm font-semibold">Run now</p>
+            </div>
+            <p className="text-text-soft text-sm leading-6">
+              Best when you updated profile inputs, uploaded a new CV, or want a fresh sourcing pass before triaging.
+            </p>
+          </div>
+          <div className="border-border/70 rounded-[1.35rem] border bg-white/55 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <CalendarClock className="text-text-strong h-4 w-4" />
+              <p className="text-text-strong text-sm font-semibold">Schedule</p>
+            </div>
+            <p className="text-text-soft text-sm leading-6">
+              Best when the profile is stable and you want new leads to arrive on a consistent cadence without manual
+              action.
+            </p>
+          </div>
+        </div>
+      </GuidancePanel>
+
+      <JourneySteps
+        title="Recommended sourcing loop"
+        description="This keeps quality high and avoids confusion about what the scrape is using."
+        className="mt-5"
+        steps={[
+          {
+            key: 'profile',
+            title: 'Confirm profile context',
+            description:
+              'Keep profile input and ready documents up to date so profile-derived filtering stays relevant.',
+            status: preflight?.resolvedFromProfile ? 'done' : 'active',
+          },
+          {
+            key: 'run',
+            title: 'Run or schedule scrape',
+            description: 'Use a manual run for immediate refresh or turn on a schedule once your targeting is stable.',
+            status: preflight?.ready ? 'active' : 'upcoming',
+          },
+          {
+            key: 'triage',
+            title: 'Review notebook',
+            description: 'Wait for completion, then triage fresh offers in strict mode before exploring wider matches.',
+            status: jobSourcesPanel.runsQuery.data?.items?.[0]?.status === 'COMPLETED' ? 'done' : 'upcoming',
+          },
+        ]}
+      />
+
       <form
-        className="flex flex-col gap-4"
+        className="mt-5 flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
           if (disabled) {
@@ -40,13 +103,17 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           void jobSourcesPanel.submit(event);
         }}
       >
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="app-badge">One-off run</span>
+          <span className="text-text-soft text-xs">This creates a single scrape request immediately.</span>
+        </div>
         <div className="app-field-group">
           <Label htmlFor="scrape-mode" className="app-inline-label">
-            Mode
+            Source mode
           </Label>
           <select id="scrape-mode" className="app-select" {...register('mode')}>
-            <option value="profile">Use profile-derived filters</option>
-            <option value="custom">Use custom listing URL</option>
+            <option value="profile">Use my active profile and saved filters</option>
+            <option value="custom">Use a custom listing URL for a one-off run</option>
           </select>
         </div>
 
@@ -60,6 +127,10 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             disabled={jobSourcesPanel.mode !== 'custom'}
             {...register('listingUrl')}
           />
+          <p className="text-text-soft text-xs">
+            Leave this disabled for the recommended profile-driven mode. Use it only when you want to test a specific
+            listing source manually.
+          </p>
           {errors.listingUrl?.message ? <p className="text-app-danger text-sm">{errors.listingUrl.message}</p> : null}
         </div>
 
@@ -68,6 +139,9 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             Limit
           </Label>
           <Input id="listing-limit" type="number" min={1} max={100} {...register('limit')} />
+          <p className="text-text-soft text-xs">
+            Keep this lower for quick validation, higher for a wider sourcing pass.
+          </p>
           {errors.limit?.message ? <p className="text-app-danger text-sm">{errors.limit.message}</p> : null}
         </div>
 
@@ -84,7 +158,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             type="submit"
             disabled={disabled || jobSourcesPanel.isSubmitting || Boolean(preflight && !preflight.ready)}
           >
-            {jobSourcesPanel.isSubmitting ? 'Enqueuing...' : 'Enqueue scrape run'}
+            {jobSourcesPanel.isSubmitting ? 'Starting run...' : 'Run scrape now'}
           </Button>
         </div>
       </form>
@@ -94,7 +168,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           <div className="flex items-center justify-between gap-3">
             <p className="text-text-strong font-semibold">Preflight</p>
             <span className={preflight.ready ? 'text-app-success' : 'text-app-warning'}>
-              {preflight.ready ? 'Ready to run' : 'Blocked'}
+              {preflight.ready ? 'Ready to run' : 'Action required'}
             </span>
           </div>
           <p className="text-text-soft">{preflight.guidance}</p>
@@ -110,7 +184,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             value={
               preflight.schedule.enabled
                 ? `${preflight.schedule.cron ?? 'n/a'} | next ${formatTimestamp(preflight.schedule.nextRunAt)}`
-                : 'Manual only'
+                : 'No schedule configured yet'
             }
           />
           {preflight.blockerDetails.length ? (
@@ -177,9 +251,12 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
       <form className="app-muted-panel mt-5 space-y-4" onSubmit={jobSourcesPanel.submitSchedule}>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-text-strong text-sm font-semibold">Automation schedule</p>
+            <div className="mb-1 flex items-center gap-2">
+              <Radar className="text-primary h-4 w-4" />
+              <p className="text-text-strong text-sm font-semibold">Automation schedule</p>
+            </div>
             <p className="text-text-soft text-xs">
-              Control cadence, next run visibility, and recovery-triggered manual sync.
+              Turn this on once your targeting is stable. The schedule uses your saved profile-driven sourcing context.
             </p>
           </div>
           <label className="flex items-center gap-2 text-sm">
@@ -188,12 +265,42 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           </label>
         </div>
 
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-8"
+            onClick={() => jobSourcesPanel.applySchedulePreset('weekdays-morning')}
+          >
+            Weekdays 08:00
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-8"
+            onClick={() => jobSourcesPanel.applySchedulePreset('daily-evening')}
+          >
+            Daily 18:00
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-8"
+            onClick={() => jobSourcesPanel.applySchedulePreset('paused')}
+          >
+            Pause
+          </Button>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
           <div className="app-field-group">
             <Label htmlFor="schedule-cron" className="app-inline-label">
               Cron
             </Label>
             <Input id="schedule-cron" placeholder="0 9 * * *" {...registerSchedule('cron')} />
+            <p className="text-text-soft text-xs">
+              Examples: `0 8 * * 1-5` for weekdays at 08:00, `0 18 * * *` for every day at 18:00.
+            </p>
             {scheduleErrors.cron?.message ? (
               <p className="text-app-danger text-sm">{scheduleErrors.cron.message}</p>
             ) : null}
@@ -204,6 +311,9 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               Timezone
             </Label>
             <Input id="schedule-timezone" placeholder="Europe/Warsaw" {...registerSchedule('timezone')} />
+            <p className="text-text-soft text-xs">
+              Used for operator clarity in the UI. The backend still evaluates cron in UTC.
+            </p>
           </div>
 
           <div className="app-field-group">
@@ -215,6 +325,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               <option value="pracuj-pl">Pracuj generic</option>
               <option value="pracuj-pl-general">Pracuj general</option>
             </select>
+            <p className="text-text-soft text-xs">Choose the feed you want the schedule to target by default.</p>
           </div>
 
           <div className="app-field-group">
@@ -222,6 +333,9 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               Limit
             </Label>
             <Input id="schedule-limit" type="number" min={1} max={100} {...registerSchedule('limit')} />
+            <p className="text-text-soft text-xs">
+              Use smaller batches for tighter review cycles and larger batches for wider discovery.
+            </p>
             {scheduleErrors.limit?.message ? (
               <p className="text-app-danger text-sm">{scheduleErrors.limit.message}</p>
             ) : null}
@@ -239,7 +353,8 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-text-soft text-xs">
-            Daily cron uses UTC on the backend. Use a timezone label for operator context.
+            Saving the schedule does not start a run immediately. Use Trigger now if you want the schedule config
+            applied right away.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" variant="secondary" disabled={jobSourcesPanel.isSavingSchedule}>
@@ -250,7 +365,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               disabled={!jobSourcesPanel.scheduleResult?.enabled || jobSourcesPanel.isTriggeringSchedule}
               onClick={() => jobSourcesPanel.triggerScheduleNow()}
             >
-              {jobSourcesPanel.isTriggeringSchedule ? 'Triggering...' : 'Trigger now'}
+              {jobSourcesPanel.isTriggeringSchedule ? 'Triggering...' : 'Trigger scheduled run now'}
             </Button>
           </div>
         </div>
@@ -258,6 +373,10 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
 
       <div className="mt-5 space-y-2">
         <p className="text-text-strong text-sm font-semibold">Recent runs</p>
+        <p className="text-text-soft text-xs">
+          Use this to confirm that a run actually started, progressed, and finished before switching into notebook
+          triage.
+        </p>
         {jobSourcesPanel.runsQuery.data?.items?.length ? (
           jobSourcesPanel.runsQuery.data.items.map((run) => (
             <article key={run.id} className="app-muted-panel space-y-3 text-sm">

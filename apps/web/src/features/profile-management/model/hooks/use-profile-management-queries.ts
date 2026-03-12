@@ -14,11 +14,21 @@ import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options
 import { QUERY_GC_TIME, QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
+import type { CareerProfileDto, DocumentDto, ProfileInputDto } from '@/shared/types/api';
+
 type UseProfileManagementQueriesArgs = {
   token: string | null;
+  sharedLatestProfileInput?: ProfileInputDto | null;
+  sharedDocuments?: DocumentDto[];
+  sharedLatestCareerProfile?: CareerProfileDto | null;
 };
 
-export const useProfileManagementQueries = ({ token }: UseProfileManagementQueriesArgs) => {
+export const useProfileManagementQueries = ({
+  token,
+  sharedLatestProfileInput,
+  sharedDocuments,
+  sharedLatestCareerProfile,
+}: UseProfileManagementQueriesArgs) => {
   const hasToken = Boolean(token);
 
   const latestProfileInputQuery = useQuery(
@@ -26,7 +36,7 @@ export const useProfileManagementQueries = ({ token }: UseProfileManagementQueri
       token,
       queryKey: queryKeys.profileInputs.latest(token),
       queryFn: getLatestProfileInput,
-      enabled: hasToken,
+      enabled: hasToken && sharedLatestProfileInput === undefined,
       staleTime: QUERY_STALE_TIME.CORE_DATA,
       gcTime: QUERY_GC_TIME.LONG_LIVED,
     }),
@@ -37,10 +47,14 @@ export const useProfileManagementQueries = ({ token }: UseProfileManagementQueri
       token,
       queryKey: queryKeys.documents.list(token),
       queryFn: listDocuments,
-      enabled: hasToken,
+      enabled: hasToken && sharedDocuments === undefined,
       staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
       refetchInterval: (query) => {
-        const docs = (query.state.data as Array<{ extractionStatus?: string }> | undefined) ?? [];
+        const docs = (sharedDocuments ??
+          (query.state.data as Array<{ extractionStatus?: string }> | undefined) ??
+          []) as Array<{
+          extractionStatus?: string;
+        }>;
         return docs.some((item) => item.extractionStatus === 'PENDING') ? 2500 : false;
       },
     }),
@@ -51,14 +65,17 @@ export const useProfileManagementQueries = ({ token }: UseProfileManagementQueri
       token,
       queryKey: queryKeys.careerProfiles.latest(token),
       queryFn: getLatestCareerProfile,
-      enabled: hasToken,
+      enabled: hasToken && sharedLatestCareerProfile === undefined,
       staleTime: QUERY_STALE_TIME.CORE_DATA,
       gcTime: QUERY_GC_TIME.LONG_LIVED,
     }),
   );
 
-  const latestCareerProfileId = latestCareerProfileQuery.data?.id;
-  const latestCareerProfileStatus = latestCareerProfileQuery.data?.status;
+  const latestProfileInputData = sharedLatestProfileInput ?? latestProfileInputQuery.data;
+  const documentsData = sharedDocuments ?? documentsQuery.data ?? [];
+  const latestCareerProfileData = sharedLatestCareerProfile ?? latestCareerProfileQuery.data;
+  const latestCareerProfileId = latestCareerProfileData?.id;
+  const latestCareerProfileStatus = latestCareerProfileData?.status;
 
   const careerProfileQualityQuery = useQuery(
     buildAuthedQueryOptions({
@@ -91,9 +108,18 @@ export const useProfileManagementQueries = ({ token }: UseProfileManagementQueri
   );
 
   return {
-    latestProfileInputQuery,
-    documentsQuery,
-    latestCareerProfileQuery,
+    latestProfileInputQuery: {
+      ...latestProfileInputQuery,
+      data: latestProfileInputData,
+    },
+    documentsQuery: {
+      ...documentsQuery,
+      data: documentsData,
+    },
+    latestCareerProfileQuery: {
+      ...latestCareerProfileQuery,
+      data: latestCareerProfileData,
+    },
     careerProfileQualityQuery,
     careerProfileVersionsQuery,
     selectedProfileDocumentsQuery,

@@ -199,6 +199,104 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
     });
   });
 
+  await page.route('**/api/workspace/summary', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          profile: { exists: true, status: 'READY', version: 1, updatedAt: '2026-02-01T00:00:00.000Z' },
+          profileInput: { exists: true, updatedAt: '2026-02-01T00:00:00.000Z' },
+          offers: {
+            total: 1,
+            scored: 1,
+            saved: 0,
+            applied: 0,
+            interviewing: 0,
+            offersMade: 0,
+            rejected: 0,
+            followUpDue: 0,
+            lastUpdatedAt: '2026-02-01T00:00:00.000Z',
+          },
+          documents: {
+            total: 1,
+            ready: 1,
+            pending: 0,
+            failed: 0,
+          },
+          scrape: {
+            lastRunStatus: 'COMPLETED',
+            lastRunAt: '2026-02-01T00:00:00.000Z',
+            lastRunProgress: null,
+            totalRuns: 1,
+          },
+          workflow: { needsOnboarding: false },
+          nextAction: {
+            key: 'triage-notebook',
+            title: 'Review notebook',
+            description: 'Triage the newest opportunities first.',
+            href: '/notebook',
+            priority: 'info',
+          },
+          activity: [],
+          health: {
+            readinessScore: 100,
+            blockers: [],
+            scrapeReliability: 'stable',
+          },
+          readinessBreakdown: [],
+          blockerDetails: [],
+          recommendedSequence: ['profile-input', 'documents', 'career-profile'],
+        },
+      }),
+    });
+  });
+
+  await page.route('**/api/job-offers/summary', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          total: 1,
+          scored: 1,
+          unscored: 0,
+          highConfidenceStrict: 1,
+          staleUntriaged: 0,
+          followUpDue: 0,
+          followUpUpcoming: 0,
+          buckets: [{ key: 'saved', label: 'Saved', count: 0 }],
+          topExplanationTags: [{ tag: 'hard_constraints_ok', count: 1 }],
+          quickActions: [{ key: 'strictTop', label: 'Strict top', count: 1, href: '/notebook?focus=strictTop' }],
+        },
+      }),
+    });
+  });
+
+  await page.route('**/api/job-sources/schedule', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          enabled: false,
+          cron: '0 9 * * *',
+          timezone: 'Europe/Warsaw',
+          source: 'pracuj-pl-it',
+          limit: 20,
+          careerProfileId: 'cp-1',
+          filters: null,
+          lastTriggeredAt: null,
+          nextRunAt: null,
+          lastRunStatus: 'COMPLETED',
+        },
+      }),
+    });
+  });
+
   await page.goto('/notebook', { waitUntil: 'domcontentloaded' });
 
   await expect(page.getByText('Job Notebook')).toBeVisible({ timeout: 15000 });

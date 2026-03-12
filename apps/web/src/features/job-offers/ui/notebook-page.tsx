@@ -9,6 +9,7 @@ import { NotebookOffersListCard } from '@/features/job-offers/ui/components/note
 import { NotebookPipelineCard } from '@/features/job-offers/ui/components/notebook-pipeline-card';
 import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
+import { GuidancePanel } from '@/shared/ui/guidance-panels';
 import { Button } from '@/shared/ui/button';
 
 type NotebookPageProps = {
@@ -33,7 +34,7 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
       <HeroHeader
         eyebrow="Triage & Tracking"
         title="Job Notebook"
-        subtitle="Review, track and manage your entire application pipeline in one place."
+        subtitle="Review fresh offers, move the best ones through your pipeline, and only widen the search when strict matches are exhausted."
         action={
           <div className="bg-surface-muted border-border/60 flex rounded-2xl border p-1">
             <Button
@@ -56,6 +57,13 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
             </Button>
           </div>
         }
+      />
+
+      <GuidancePanel
+        eyebrow="Triage tip"
+        title="Start narrow, then widen"
+        description="Review strict-top and follow-up-due offers first. Explore mode is useful later, but it should not replace the first-pass workflow for high-signal opportunities."
+        tone="info"
       />
 
       <NotebookFiltersCard

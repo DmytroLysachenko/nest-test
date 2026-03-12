@@ -43,7 +43,7 @@ export const useDataSync = (token: string | null) => {
    * Sync Document state (Tier 2)
    */
   const syncDocuments = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.documents.list(token) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.documents.list(token), exact: true });
     queryClient.invalidateQueries({ queryKey: ['documents', 'events', token] });
     // Document changes affect summary
     syncWorkspace();
@@ -53,9 +53,9 @@ export const useDataSync = (token: string | null) => {
    * Sync Job Offers state (Tier 2)
    */
   const syncJobOffers = useCallback(() => {
-    // We invalidate all list variants
     queryClient.invalidateQueries({ queryKey: ['job-offers', token] });
-    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.summary(token) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.summary(token), exact: true });
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.focus(token), exact: true });
     syncWorkspace();
   }, [queryClient, token, syncWorkspace]);
 
@@ -63,7 +63,7 @@ export const useDataSync = (token: string | null) => {
    * Sync Onboarding state (Tier 1/2)
    */
   const syncOnboarding = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.onboarding.draft(token) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.onboarding.draft(token), exact: true });
     syncWorkspace();
   }, [queryClient, token, syncWorkspace]);
 
@@ -87,9 +87,10 @@ export const useDataSync = (token: string | null) => {
    */
   const syncJobSources = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: queryKeys.jobSources.runs(token) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.jobSources.schedule(token) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobSources.schedule(token), exact: true });
     queryClient.invalidateQueries({ queryKey: ['job-sources', 'preflight', token] });
     // Invalidate summary too as runs affect stats
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobSources.diagnosticsSummary(token, 72) });
     syncWorkspace();
   }, [queryClient, token, syncWorkspace]);
 

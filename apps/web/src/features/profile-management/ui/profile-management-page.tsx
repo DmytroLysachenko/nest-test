@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { useProfileManagementData } from '@/features/profile-management/model/hooks/use-profile-management-data';
@@ -11,16 +10,16 @@ import { DocumentsReadinessCard } from '@/features/profile-management/ui/compone
 import { ProfileInputEditorCard } from '@/features/profile-management/ui/components/profile-input-editor-card';
 import { ProfileQualityCard } from '@/features/profile-management/ui/components/profile-quality-card';
 import { DocumentsPanel } from '@/features/documents';
-import { getWorkspaceSummary } from '@/features/workspace/api/workspace-api';
-import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
-import { QUERY_GC_TIME, QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
-import { queryKeys } from '@/shared/lib/query/query-keys';
+import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { useAppUiStore } from '@/shared/store/app-ui-store';
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
+import { GuidancePanel, JourneySteps } from '@/shared/ui/guidance-panels';
+import { WorkspaceSplashState } from '@/shared/ui/async-states';
 import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
 
 export const ProfileManagementPage = () => {
   const auth = useRequireAuth();
+  const { summary, latestCareerProfile, latestProfileInput, documents: sharedDocuments } = usePrivateDashboardData();
   const setLastVisitedSection = useAppUiStore((state) => state.setLastVisitedSection);
 
   useEffect(() => {
@@ -38,26 +37,26 @@ export const ProfileManagementPage = () => {
     generateProfileMutation,
     restoreProfileMutation,
     errors,
-  } = useProfileManagementData({ token: auth.token });
-  const workspaceSummaryQuery = useQuery(
-    buildAuthedQueryOptions({
-      token: auth.token,
-      queryKey: queryKeys.workflow.summary(auth.token),
-      queryFn: getWorkspaceSummary,
-      enabled: Boolean(auth.token),
-      staleTime: QUERY_STALE_TIME.CORE_DATA,
-      gcTime: QUERY_GC_TIME.LONG_LIVED,
-    }),
-  );
+  } = useProfileManagementData({
+    token: auth.token,
+    sharedLatestProfileInput: latestProfileInput,
+    sharedDocuments,
+    sharedLatestCareerProfile: latestCareerProfile,
+  });
 
   if (!auth.token) {
-    return <main className="app-page text-muted-foreground text-sm">Checking session...</main>;
+    return (
+      <WorkspaceSplashState
+        title="Opening Profile Studio"
+        subtitle="Restoring your profile inputs, ready documents, and active profile version..."
+      />
+    );
   }
 
   const documents = documentsQuery.data ?? [];
   const readyDocumentsCount = documents.filter((document) => document.extractionStatus === 'READY').length;
   const canGenerate = readyDocumentsCount > 0;
-  const primaryBlocker = workspaceSummaryQuery.data?.blockerDetails?.[0] ?? null;
+  const primaryBlocker = summary?.blockerDetails?.[0] ?? null;
   const profileQualityEmptyDescription = primaryBlocker
     ? primaryBlocker.description
     : 'Generate a READY career profile to unlock quality diagnostics.';
@@ -67,7 +66,7 @@ export const ProfileManagementPage = () => {
       <HeroHeader
         eyebrow="Profile Studio"
         title="Profile Management"
-        subtitle="Keep your source material, profile input, and generated career profile versions aligned so matching quality stays predictable."
+        subtitle="Keep source documents, profile input, and generated profile versions aligned so the app can score jobs consistently without refetching the same setup over and over."
         meta={
           <>
             <span className="app-badge">Ready documents: {readyDocumentsCount}</span>
@@ -84,6 +83,38 @@ export const ProfileManagementPage = () => {
         }
       />
 
+      <GuidancePanel
+        eyebrow="How this page works"
+        title="Edit the source of truth first"
+        description="Change role targets and notes here, keep at least one ready document available, then generate a fresh profile version only when the underlying context actually changed."
+        tone="info"
+      />
+
+      <JourneySteps
+        title="Profile update flow"
+        description="This keeps profile quality stable and avoids confusing downstream results."
+        steps={[
+          {
+            key: 'inputs',
+            title: 'Adjust profile input',
+            description: 'Update role targets, notes, and preferences only when your search direction changes.',
+            status: latestProfileInputQuery.data ? 'done' : 'active',
+          },
+          {
+            key: 'documents',
+            title: 'Confirm ready documents',
+            description: 'Your CV and other source documents should be uploaded and successfully extracted.',
+            status: readyDocumentsCount > 0 ? 'done' : 'active',
+          },
+          {
+            key: 'generate',
+            title: 'Generate only when needed',
+            description: 'Create a new profile version after meaningful changes instead of regenerating unnecessarily.',
+            status: latestCareerProfileQuery.data?.status === 'READY' ? 'done' : 'upcoming',
+          },
+        ]}
+      />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <ProfileInputEditorCard
           initialTargetRoles={latestProfileInputQuery.data?.targetRoles}
@@ -96,7 +127,7 @@ export const ProfileManagementPage = () => {
       </div>
 
       <WorkflowRecoveryPanel
-        blockers={workspaceSummaryQuery.data?.blockerDetails ?? []}
+        blockers={summary?.blockerDetails ?? []}
         title="Profile Recovery"
         description="Use the current server-driven blockers to unblock profile generation and document readiness."
       />

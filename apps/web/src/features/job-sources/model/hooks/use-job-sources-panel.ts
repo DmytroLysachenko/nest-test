@@ -88,6 +88,17 @@ export const useJobSourcesPanel = (token: string) => {
     });
   });
 
+  const applySchedulePreset = (preset: 'weekdays-morning' | 'daily-evening' | 'paused') => {
+    if (preset === 'paused') {
+      scheduleForm.setValue('enabled', false);
+      return;
+    }
+
+    scheduleForm.setValue('enabled', true);
+    scheduleForm.setValue('cron', preset === 'weekdays-morning' ? '0 8 * * 1-5' : '0 18 * * *');
+    scheduleForm.setValue('timezone', 'Europe/Warsaw');
+  };
+
   return {
     form,
     scheduleForm,
@@ -106,5 +117,6 @@ export const useJobSourcesPanel = (token: string) => {
     isSavingSchedule: updateScheduleMutation.isPending,
     isTriggeringSchedule: triggerScheduleNowMutation.isPending,
     triggerScheduleNow: triggerScheduleNowMutation.mutate,
+    applySchedulePreset,
   };
 };

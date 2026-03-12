@@ -1,14 +1,11 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { NotebookPage } from '@/features/job-offers';
-import { getWorkspaceSummary } from '@/features/workspace/api/workspace-api';
-import { PageLoadingState } from '@/shared/ui/async-states';
-import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
-import { queryKeys } from '@/shared/lib/query/query-keys';
+import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
+import { WorkspaceSplashState } from '@/shared/ui/async-states';
 import { WorkflowBlockedState } from '@/shared/ui/workflow-blocked-state';
 
 const isNotebookQuickAction = (
@@ -26,36 +23,37 @@ export default function NotebookRoute() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const auth = useRequireAuth();
-  const summaryQuery = useQuery(
-    buildAuthedQueryOptions({
-      token: auth.token,
-      queryKey: queryKeys.workflow.summary(auth.token),
-      queryFn: getWorkspaceSummary,
-      enabled: Boolean(auth.token),
-    }),
-  );
+  const { summary, isBootstrapping } = usePrivateDashboardData();
 
   if (!auth.token) {
-    return <PageLoadingState title="Checking session" subtitle="Validating your JobSeeker access..." />;
-  }
-
-  if (summaryQuery.isLoading) {
     return (
-      <PageLoadingState title="Checking notebook readiness" subtitle="Validating profile and scrape prerequisites..." />
+      <WorkspaceSplashState
+        title="Checking your notebook access"
+        subtitle="Restoring your private session before the notebook opens."
+      />
     );
   }
 
-  if (summaryQuery.data?.workflow.needsOnboarding) {
+  if (isBootstrapping || !summary) {
+    return (
+      <WorkspaceSplashState
+        title="Preparing notebook"
+        subtitle="Validating profile readiness and notebook prerequisites before loading the triage view."
+      />
+    );
+  }
+
+  if (summary.workflow.needsOnboarding) {
     const primaryBlocker =
-      summaryQuery.data.blockerDetails?.find((blocker) => blocker.blockedRoutes.includes('notebook')) ??
-      summaryQuery.data.blockerDetails?.[0];
+      summary.blockerDetails?.find((blocker) => blocker.blockedRoutes.includes('notebook')) ??
+      summary.blockerDetails?.[0];
     return (
       <WorkflowBlockedState
         title="Notebook is locked"
         description={primaryBlocker?.description ?? 'Complete onboarding to unlock notebook triage.'}
         actionLabel={primaryBlocker?.ctaLabel ?? 'Go to dashboard'}
         onAction={() => router.push(primaryBlocker?.href ?? '/')}
-        breakdown={summaryQuery.data.readinessBreakdown}
+        breakdown={summary.readinessBreakdown}
       />
     );
   }

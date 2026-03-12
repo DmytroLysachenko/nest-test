@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
+import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { useOnboardingMutations } from '@/features/onboarding/model/hooks/use-onboarding-mutations';
 import { useOnboardingQueries } from '@/features/onboarding/model/hooks/use-onboarding-queries';
@@ -49,9 +50,13 @@ const normalizeStringArray = <T extends string>(values: Array<T | undefined> | u
 
 export const useOnboardingPage = () => {
   const auth = useRequireAuth();
+  const { documents, latestCareerProfile } = usePrivateDashboardData();
   const { draft, step, setStep, patchDraft, resetDraft } = useOnboardingDraftStore();
 
-  const { latestCareerProfileQuery, onboardingDraftQuery, documentsQuery } = useOnboardingQueries(auth.token);
+  const { latestCareerProfileQuery, onboardingDraftQuery, documentsQuery } = useOnboardingQueries(auth.token, {
+    latestCareerProfile,
+    documents,
+  });
 
   const stepOneForm = useForm<OnboardingStepOneValues>({
     resolver: zodFormResolver<OnboardingStepOneValues>(onboardingStepOneSchema),
