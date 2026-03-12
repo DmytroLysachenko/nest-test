@@ -12,6 +12,8 @@ export const createQueryClient = () =>
         gcTime: QUERY_GC_TIME.DEFAULT,
         retry: 1,
         refetchOnWindowFocus: env.NEXT_PUBLIC_QUERY_REFETCH_ON_WINDOW_FOCUS,
+        refetchOnReconnect: false,
+        refetchOnMount: false,
       },
       mutations: {
         retry: 0,

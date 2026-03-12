@@ -16,6 +16,8 @@ describe('createQueryClient', () => {
 
     expect(queryDefaults?.staleTime).toBe(45_000);
     expect(queryDefaults?.refetchOnWindowFocus).toBe(true);
+    expect(queryDefaults?.refetchOnReconnect).toBe(false);
+    expect(queryDefaults?.refetchOnMount).toBe(false);
     expect(queryDefaults?.retry).toBe(1);
 
     vi.unstubAllEnvs();
