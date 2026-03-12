@@ -1,15 +1,11 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
-import { getWorkspaceSummary } from '@/features/workspace/api/workspace-api';
 import { env } from '@/shared/config/env';
-import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
-import { QUERY_GC_TIME, QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
-import { queryKeys } from '@/shared/lib/query/query-keys';
+import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 
@@ -48,15 +44,21 @@ const getIsActive = (pathname: string, href: string) => {
 const AppShellSidebar = ({
   pathname,
   items,
+  readinessScore,
+  nextActionTitle,
+  nextRunAt,
   onNavigate,
 }: {
   pathname: string;
   items: AppNavItem[];
+  readinessScore?: number;
+  nextActionTitle?: string;
+  nextRunAt?: string | null;
   onNavigate?: () => void;
 }) => (
   <>
     <div className="border-sidebar-border border-b px-5 py-6">
-      <div className="border-white/8 bg-white/4 rounded-2xl border p-4">
+      <div className="border-white/8 rounded-[1.7rem] border bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-4 shadow-[0_22px_50px_-36px_rgba(0,0,0,0.75)]">
         <div className="mb-4 flex items-center gap-3">
           <span className="bg-sidebar-primary text-sidebar-primary-foreground inline-flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-semibold">
             JS
@@ -68,13 +70,23 @@ const AppShellSidebar = ({
         </div>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="bg-white/4 rounded-xl px-3 py-2">
-            <p className="text-sidebar-foreground/55">Focus</p>
-            <p className="text-sidebar-foreground mt-1 font-medium">Triage</p>
+            <p className="text-sidebar-foreground/55">Readiness</p>
+            <p className="text-sidebar-foreground mt-1 font-medium">
+              {readinessScore == null ? 'n/a' : `${readinessScore}%`}
+            </p>
           </div>
           <div className="bg-white/4 rounded-xl px-3 py-2">
-            <p className="text-sidebar-foreground/55">Mode</p>
-            <p className="text-sidebar-foreground mt-1 font-medium">Live</p>
+            <p className="text-sidebar-foreground/55">Next run</p>
+            <p className="text-sidebar-foreground mt-1 font-medium">
+              {nextRunAt ? new Date(nextRunAt).toLocaleDateString() : 'manual'}
+            </p>
           </div>
+        </div>
+        <div className="bg-white/4 mt-3 rounded-2xl p-3">
+          <p className="text-sidebar-foreground/55 text-[11px] uppercase tracking-[0.14em]">Next best move</p>
+          <p className="text-sidebar-foreground mt-2 text-sm leading-5">
+            {nextActionTitle ?? 'Review dashboard priorities'}
+          </p>
         </div>
       </div>
     </div>
@@ -108,20 +120,8 @@ export const AppShell = ({ children, userEmail, userRole, token, onSignOut, hide
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const navSummaryQuery = useQuery(
-    buildAuthedQueryOptions({
-      token,
-      queryKey: queryKeys.workflow.summary(token),
-      queryFn: getWorkspaceSummary,
-      enabled: Boolean(token) && !hideSidebar,
-      staleTime: QUERY_STALE_TIME.CORE_DATA,
-      gcTime: QUERY_GC_TIME.LONG_LIVED,
-    }),
-  );
-  const allowNotebook =
-    navSummaryQuery.data?.workflow.needsOnboarding === undefined
-      ? true
-      : !navSummaryQuery.data.workflow.needsOnboarding;
+  const { summary, scrapeSchedule } = usePrivateDashboardData();
+  const allowNotebook = summary?.workflow.needsOnboarding === undefined ? true : !summary.workflow.needsOnboarding;
 
   const navItems = useMemo(() => {
     const items: AppNavItem[] = [
@@ -153,7 +153,13 @@ export const AppShell = ({ children, userEmail, userRole, token, onSignOut, hide
     <div className="app-shell">
       {!hideSidebar && (
         <aside className="border-sidebar-border bg-sidebar text-sidebar-foreground sticky top-0 hidden h-screen w-80 overflow-y-auto border-r lg:block">
-          <AppShellSidebar pathname={pathname} items={navItems} />
+          <AppShellSidebar
+            pathname={pathname}
+            items={navItems}
+            readinessScore={summary?.health.readinessScore}
+            nextActionTitle={summary?.nextAction?.title}
+            nextRunAt={scrapeSchedule?.nextRunAt}
+          />
         </aside>
       )}
 
@@ -172,7 +178,14 @@ export const AppShell = ({ children, userEmail, userRole, token, onSignOut, hide
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          <AppShellSidebar pathname={pathname} items={navItems} onNavigate={() => setMobileOpen(false)} />
+          <AppShellSidebar
+            pathname={pathname}
+            items={navItems}
+            readinessScore={summary?.health.readinessScore}
+            nextActionTitle={summary?.nextAction?.title}
+            nextRunAt={scrapeSchedule?.nextRunAt}
+            onNavigate={() => setMobileOpen(false)}
+          />
         </aside>
       )}
 
@@ -213,7 +226,7 @@ export const AppShell = ({ children, userEmail, userRole, token, onSignOut, hide
                     <p className="text-text-strong text-lg font-semibold leading-tight tracking-[-0.02em]">
                       {activePage}
                     </p>
-                    <p className="text-text-soft text-xs">JobSeeker command center</p>
+                    <p className="text-text-soft text-xs">{summary?.nextAction?.title ?? 'JobSeeker command center'}</p>
                   </div>
                 </div>
               </div>
