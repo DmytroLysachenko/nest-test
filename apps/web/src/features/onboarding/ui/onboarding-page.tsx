@@ -9,6 +9,7 @@ import { Button } from '@/shared/ui/button';
 import { ChoiceChipGroup } from '@/shared/ui/choice-chip-group';
 import { Card } from '@/shared/ui/card';
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
+import { GuidancePanel } from '@/shared/ui/guidance-panels';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { StepProgress } from '@/shared/ui/step-progress';
@@ -53,13 +54,20 @@ export const OnboardingPage = () => {
       <HeroHeader
         eyebrow="Guided Setup"
         title="Build your job-search profile"
-        subtitle="Define search preferences, upload source documents, and generate a career profile that powers better sourcing and matching decisions."
+        subtitle="Set up the minimum high-quality context once, then the dashboard and scrape controls can stay fast and predictable instead of repeatedly re-asking the API for the same state."
         meta={
           <>
             <span className="app-badge">Step {onboarding.step} of 3</span>
             <span className="app-badge">Ready docs: {onboarding.hasReadyDocument ? 'yes' : 'no'}</span>
           </>
         }
+      />
+
+      <GuidancePanel
+        eyebrow="Setup tip"
+        title="You only need a clean baseline once"
+        description="Complete onboarding carefully, then most of your day-to-day work moves to the dashboard and notebook. Return here only when your search direction changes materially."
+        tone="success"
       />
 
       <Card
