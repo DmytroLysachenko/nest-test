@@ -193,6 +193,11 @@ export class ScrapeCompleteDto {
   @IsString()
   runId?: string;
 
+  @ApiPropertyOptional({ description: 'Correlated trace id for this scrape lifecycle' })
+  @IsOptional()
+  @IsUUID('4')
+  traceId?: string;
+
   @ApiPropertyOptional({ description: 'Worker callback event id for replay protection' })
   @IsOptional()
   @IsString()
