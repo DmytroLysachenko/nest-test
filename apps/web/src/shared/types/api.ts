@@ -357,6 +357,7 @@ export type JobMatchListDto = {
 
 export type JobSourceRunDto = {
   id: string;
+  traceId?: string;
   source: 'PRACUJ_PL';
   userId: string | null;
   careerProfileId: string | null;
@@ -393,10 +394,17 @@ export type JobSourceHealthDto = {
 
 export type JobSourceRunDiagnosticsDto = {
   runId: string;
+  traceId?: string;
   source: string;
   status: string;
   listingUrl: string;
   finalizedAt: string | null;
+  heartbeatAt?: string | null;
+  callbackAttempts?: number;
+  callbackAcceptedAt?: string | null;
+  reconcileReason?: string | null;
+  lastEventAt?: string | null;
+  progress?: Record<string, unknown> | null;
   diagnostics: {
     relaxationTrail: string[];
     blockedUrls: string[];
@@ -415,6 +423,26 @@ export type JobSourceRunDiagnosticsDto = {
       ignoredRecommendedLinks: number;
     };
   };
+};
+
+export type JobSourceRunEventDto = {
+  id: string;
+  sourceRunId: string;
+  traceId: string;
+  eventType: string;
+  severity: 'info' | 'warning' | 'error';
+  requestId: string | null;
+  phase: string | null;
+  attemptNo: number | null;
+  code: string | null;
+  message: string;
+  meta: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type JobSourceRunEventsListDto = {
+  items: JobSourceRunEventDto[];
+  total: number;
 };
 
 export type JobSourceRunDiagnosticsSummaryDto = {
@@ -683,6 +711,199 @@ export type ApiRequestEventsListDto = {
   statusSummary: Array<{
     statusCode: number;
     count: number;
+  }>;
+};
+
+export type SupportOverviewDto = {
+  generatedAt: string;
+  windowHours: number;
+  metrics: {
+    windowHours: number;
+    queue: {
+      activeRuns: number;
+      pendingRuns: number;
+      runningRuns: number;
+      runningWithoutHeartbeat: number;
+    };
+    scrape: {
+      totalRuns: number;
+      completedRuns: number;
+      failedRuns: number;
+      successRate: number;
+    };
+    offers: {
+      totalUserOffers: number;
+      unscoredUserOffers: number;
+    };
+    lifecycle: {
+      staleReconciledRuns: number;
+      retriesTriggered: number;
+      retrySuccessRate: number;
+    };
+    callback: {
+      totalEvents: number;
+      completedEvents: number;
+      failedEvents: number;
+      failedRate: number;
+      failuresByType: Record<string, number>;
+      failuresByCode: Record<string, number>;
+      retryRate24h: number;
+      conflictingPayloadEvents24h: number;
+    };
+    scheduler: {
+      lastTriggerAt: string | null;
+      dueSchedules: number;
+      enqueueFailures24h: number;
+    };
+  };
+  recentFailures: {
+    scrapeRuns: Array<{
+      id: string;
+      traceId: string;
+      userId: string | null;
+      source: string;
+      status: string;
+      failureType: string | null;
+      error: string | null;
+      lastHeartbeatAt: string | null;
+      finalizedAt: string | null;
+      createdAt: string;
+    }>;
+    callbackEvents: Array<{
+      id: string;
+      sourceRunId: string;
+      eventId: string;
+      requestId: string | null;
+      attemptNo: number | null;
+      status: string;
+      payloadHash: string | null;
+      receivedAt: string | null;
+    }>;
+    apiRequests: Array<{
+      id: string;
+      userId: string | null;
+      requestId: string | null;
+      level: string;
+      method: string;
+      path: string;
+      statusCode: number;
+      message: string;
+      errorCode: string | null;
+      createdAt: string;
+    }>;
+  };
+};
+
+export type SupportScrapeIncidentDto = {
+  generatedAt: string;
+  run: {
+    id: string;
+    traceId: string;
+    source: string;
+    userId: string | null;
+    listingUrl: string;
+    filters: Record<string, unknown> | null;
+    status: string;
+    failureType: string | null;
+    error: string | null;
+    totalFound: number | null;
+    scrapedCount: number | null;
+    lastHeartbeatAt: string | null;
+    startedAt: string | null;
+    completedAt: string | null;
+    finalizedAt: string | null;
+    createdAt: string;
+  };
+  signals: {
+    lastHeartbeatAt: string | null;
+    lastTimelineEventAt: string | null;
+    reconcileReason: string | null;
+    likelyFailureStage: string;
+  };
+  callbackSummary: {
+    totalEvents: number;
+    failedEvents: number;
+    latestReceivedAt: string | null;
+    latestAcceptedRequestId: string | null;
+  };
+  timeline: Array<{
+    id: string;
+    eventType: string;
+    severity: string;
+    requestId: string | null;
+    phase: string | null;
+    attemptNo: number | null;
+    code: string | null;
+    message: string;
+    meta: Record<string, unknown> | null;
+    createdAt: string;
+  }>;
+  callbackEvents: Array<{
+    id: string;
+    eventId: string;
+    requestId: string | null;
+    attemptNo: number | null;
+    status: string;
+    payloadHash: string | null;
+    emittedAt: string | null;
+    receivedAt: string | null;
+    payloadSummary: Record<string, unknown> | null;
+  }>;
+  apiRequestEvents: ApiRequestEventDto[];
+};
+
+export type SupportUserIncidentDto = {
+  generatedAt: string;
+  windowHours: number;
+  user: {
+    id: string;
+    email: string | null;
+    role: string;
+  };
+  schedule: {
+    enabled: boolean;
+    cron: string;
+    timezone: string;
+    source: string;
+    limit: number;
+    nextRunAt: string | null;
+    lastTriggeredAt: string | null;
+    lastRunStatus: string | null;
+    filters: Record<string, unknown> | null;
+  } | null;
+  offerStats: {
+    totalOffers: number;
+    unscoredOffers: number;
+    statusCounts: Record<string, number>;
+  };
+  recentScrapeRuns: Array<{
+    id: string;
+    traceId: string;
+    source: string;
+    status: string;
+    failureType: string | null;
+    error: string | null;
+    finalizedAt: string | null;
+    createdAt: string;
+  }>;
+  recentApiRequestEvents: ApiRequestEventDto[];
+};
+
+export type SupportCorrelationDto = {
+  generatedAt: string;
+  requestId: string | null;
+  traceId: string | null;
+  sourceRunId: string | null;
+  userId: string | null;
+  matches: Array<{
+    kind: string;
+    id: string;
+    requestId: string | null;
+    traceId: string | null;
+    sourceRunId: string | null;
+    userId: string | null;
+    summary: Record<string, unknown> | null;
+    createdAt: string;
   }>;
 };
 
