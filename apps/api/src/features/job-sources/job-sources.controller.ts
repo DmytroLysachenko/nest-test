@@ -16,6 +16,7 @@ import { ScrapeRunDiagnosticsResponse } from './dto/run-diagnostics.response';
 import { ListRunDiagnosticsSummaryQuery } from './dto/list-run-diagnostics-summary.query';
 import { ScrapeRunDiagnosticsSummaryResponse } from './dto/run-diagnostics-summary.response';
 import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';
+import { ScrapeRunEventsResponse } from './dto/run-events.response';
 import {
   ScrapePreflightResponseDto,
   ScrapeScheduleResponseDto,
@@ -84,6 +85,16 @@ export class JobSourcesController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ) {
     return this.jobSourcesService.getRunDiagnostics(user.userId, id);
+  }
+
+  @Get('runs/:id/events')
+  @ApiOperation({ summary: 'Get persisted scrape run event timeline' })
+  @ApiOkResponse({ type: ScrapeRunEventsResponse })
+  async listRunEvents(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.jobSourcesService.listRunEvents(user.userId, id);
   }
 
   @Get('runs/diagnostics/summary')
