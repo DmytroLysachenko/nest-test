@@ -40,7 +40,9 @@
     "prepare": "pnpm build",
     "seed": "tsx src/seeds/index.ts",
     "seed:e2e": "tsx src/seeds/e2e-fixtures.ts",
-    "studio": "drizzle-kit studio"
+    "studio": "drizzle-kit studio",
+    "support:bundle": "tsx ../../tools/support/src/build-support-bundle.ts",
+    "support:query": "tsx ../../tools/support/src/run-support-query.ts"
   },
   "types": "dist/index.d.ts"
 }
