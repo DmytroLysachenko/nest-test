@@ -1,0 +1,6 @@
+{
+  "apiBaseUrl": "https://your-api.example.com/api",
+  "workerBaseUrl": "https://your-worker.example.com",
+  "apiBearerToken": "replace-with-admin-or-support-token",
+  "databaseUrl": "postgresql://readonly-user:password@host/db?sslmode=require"
+}

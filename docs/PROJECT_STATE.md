@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-03-09
+Last updated: 2026-03-13
 
 ## Milestone Progress Snapshot
 
@@ -72,6 +72,7 @@ Last updated: 2026-03-09
   - metrics dashboard
   - run history and callback event export
   - source health summary
+  - support overview, scrape incident bundle, user incident bundle, and correlation lookup
   - dead-letter replay and stale-run reconcile controls
 
 ## Backend and Platform Progress By Area
@@ -80,6 +81,7 @@ Last updated: 2026-03-09
   - owns all user workflow read models and recovery decisions
   - explicit DTO coverage has improved for notebook, ops, schedule, and workspace summary
   - contract surface is now broad enough to support a product UI instead of internal-tool panels
+  - support-facing read models now provide LLM-friendly incident bundles instead of forcing raw endpoint composition
 - Worker
   - scrape lifecycle visibility is materially stronger
   - diagnostics now distinguish degraded/empty/blocked outcomes
@@ -112,7 +114,10 @@ Last updated: 2026-03-09
 - Notebook ranking calibration now includes capped approx penalties and configurable explore recency weighting.
 - Career profile exposes deterministic quality diagnostics endpoint.
 - Scrape runs expose diagnostics endpoint (relaxation trail + source stats).
+- Scrape runs now persist a DB-backed event timeline (`job_source_run_events`) and trace id for enqueue, heartbeat, callback, retry, cache-reuse, and stale-reconcile lifecycle inspection.
+- Production support now has a read-only local toolkit (`tools/support`) that combines support endpoints with allowlisted Neon queries into one incident bundle.
 - Scrape runs expose aggregated diagnostics summary endpoint (`/job-sources/runs/diagnostics/summary`).
+- Scrape runs expose per-run event timeline endpoint (`GET /api/job-sources/runs/:id/events`).
 - Scrape diagnostics summary now supports optional timeline buckets (`hour` / `day`) and short-lived in-memory response cache.
 - Scrape runs now persist deterministic lifecycle fields (`failure_type`, `finalized_at`, `retry_of_run_id`, `retry_count`).
 - API lazily reconciles stale `PENDING/RUNNING` runs to terminal timeout failures.
