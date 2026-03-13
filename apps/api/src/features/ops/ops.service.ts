@@ -1,18 +1,35 @@
-import { NotFoundException, ServiceUnavailableException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
   apiRequestEventsTable,
   jobSourceCallbackEventsTable,
+  jobSourceRunEventsTable,
   jobSourceRunsTable,
   scrapeSchedulesTable,
   userJobOffersTable,
+  usersTable,
 } from '@repo/db';
 
 import { Drizzle } from '@/common/decorators';
 
 import type { Env } from '@/config/env';
+
+type SupportApiRequestEventRow = {
+  id: string;
+  userId: string | null;
+  requestId: string | null;
+  level: string;
+  method: string;
+  path: string;
+  statusCode: number;
+  message: string;
+  errorCode: string | null;
+  details: string[] | null;
+  meta: unknown;
+  createdAt: Date;
+};
 
 @Injectable()
 export class OpsService {
@@ -218,6 +235,540 @@ export class OpsService {
         dueSchedules: Number(dueSchedulesRow?.value ?? 0),
         enqueueFailures24h: Number(enqueueFailuresRow?.value ?? 0),
       },
+    };
+  }
+
+  async getSupportOverview(windowHoursInput?: number) {
+    const metrics = await this.getMetrics(windowHoursInput);
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - metrics.windowHours * 60 * 60 * 1000);
+
+    const [failedRuns, failedCallbackEvents, failedApiRequestEvents] = await Promise.all([
+      this.db
+        .select({
+          id: jobSourceRunsTable.id,
+          traceId: jobSourceRunsTable.traceId,
+          userId: jobSourceRunsTable.userId,
+          source: jobSourceRunsTable.source,
+          status: jobSourceRunsTable.status,
+          failureType: jobSourceRunsTable.failureType,
+          error: jobSourceRunsTable.error,
+          lastHeartbeatAt: jobSourceRunsTable.lastHeartbeatAt,
+          finalizedAt: jobSourceRunsTable.finalizedAt,
+          createdAt: jobSourceRunsTable.createdAt,
+        })
+        .from(jobSourceRunsTable)
+        .where(and(eq(jobSourceRunsTable.status, 'FAILED'), gte(jobSourceRunsTable.createdAt, cutoff)))
+        .orderBy(desc(jobSourceRunsTable.finalizedAt), desc(jobSourceRunsTable.createdAt))
+        .limit(10),
+      this.db
+        .select({
+          id: jobSourceCallbackEventsTable.id,
+          sourceRunId: jobSourceCallbackEventsTable.sourceRunId,
+          eventId: jobSourceCallbackEventsTable.eventId,
+          requestId: jobSourceCallbackEventsTable.requestId,
+          attemptNo: jobSourceCallbackEventsTable.attemptNo,
+          status: jobSourceCallbackEventsTable.status,
+          payloadHash: jobSourceCallbackEventsTable.payloadHash,
+          receivedAt: jobSourceCallbackEventsTable.receivedAt,
+        })
+        .from(jobSourceCallbackEventsTable)
+        .where(
+          and(eq(jobSourceCallbackEventsTable.status, 'FAILED'), gte(jobSourceCallbackEventsTable.createdAt, cutoff)),
+        )
+        .orderBy(desc(jobSourceCallbackEventsTable.receivedAt))
+        .limit(10),
+      this.db
+        .select({
+          id: apiRequestEventsTable.id,
+          userId: apiRequestEventsTable.userId,
+          requestId: apiRequestEventsTable.requestId,
+          level: apiRequestEventsTable.level,
+          method: apiRequestEventsTable.method,
+          path: apiRequestEventsTable.path,
+          statusCode: apiRequestEventsTable.statusCode,
+          message: apiRequestEventsTable.message,
+          errorCode: apiRequestEventsTable.errorCode,
+          createdAt: apiRequestEventsTable.createdAt,
+        })
+        .from(apiRequestEventsTable)
+        .where(
+          and(
+            gte(apiRequestEventsTable.createdAt, cutoff),
+            or(eq(apiRequestEventsTable.level, 'ERROR'), eq(apiRequestEventsTable.level, 'WARN')),
+          ),
+        )
+        .orderBy(desc(apiRequestEventsTable.createdAt))
+        .limit(10),
+    ]);
+
+    return {
+      generatedAt: now.toISOString(),
+      windowHours: metrics.windowHours,
+      metrics,
+      recentFailures: {
+        scrapeRuns: failedRuns.map((run) => ({
+          ...run,
+          traceId: String(run.traceId),
+          lastHeartbeatAt: this.toIsoString(run.lastHeartbeatAt),
+          finalizedAt: this.toIsoString(run.finalizedAt),
+          createdAt: this.toIsoString(run.createdAt),
+        })),
+        callbackEvents: failedCallbackEvents.map((event) => ({
+          ...event,
+          receivedAt: this.toIsoString(event.receivedAt),
+        })),
+        apiRequests: failedApiRequestEvents.map((event) => ({
+          ...event,
+          createdAt: this.toIsoString(event.createdAt),
+        })),
+      },
+    };
+  }
+
+  async getSupportScrapeIncident(runId: string) {
+    const run = await this.db
+      .select({
+        id: jobSourceRunsTable.id,
+        traceId: jobSourceRunsTable.traceId,
+        source: jobSourceRunsTable.source,
+        userId: jobSourceRunsTable.userId,
+        listingUrl: jobSourceRunsTable.listingUrl,
+        filters: jobSourceRunsTable.filters,
+        status: jobSourceRunsTable.status,
+        failureType: jobSourceRunsTable.failureType,
+        error: jobSourceRunsTable.error,
+        totalFound: jobSourceRunsTable.totalFound,
+        scrapedCount: jobSourceRunsTable.scrapedCount,
+        lastHeartbeatAt: jobSourceRunsTable.lastHeartbeatAt,
+        startedAt: jobSourceRunsTable.startedAt,
+        completedAt: jobSourceRunsTable.completedAt,
+        finalizedAt: jobSourceRunsTable.finalizedAt,
+        createdAt: jobSourceRunsTable.createdAt,
+      })
+      .from(jobSourceRunsTable)
+      .where(eq(jobSourceRunsTable.id, runId))
+      .limit(1)
+      .then(([result]) => result ?? null);
+
+    if (!run) {
+      throw new NotFoundException('Job source run not found');
+    }
+
+    const [timeline, callbackEvents] = await Promise.all([
+      this.db
+        .select({
+          id: jobSourceRunEventsTable.id,
+          eventType: jobSourceRunEventsTable.eventType,
+          severity: jobSourceRunEventsTable.severity,
+          requestId: jobSourceRunEventsTable.requestId,
+          phase: jobSourceRunEventsTable.phase,
+          attemptNo: jobSourceRunEventsTable.attemptNo,
+          code: jobSourceRunEventsTable.code,
+          message: jobSourceRunEventsTable.message,
+          meta: jobSourceRunEventsTable.meta,
+          createdAt: jobSourceRunEventsTable.createdAt,
+        })
+        .from(jobSourceRunEventsTable)
+        .where(eq(jobSourceRunEventsTable.sourceRunId, run.id))
+        .orderBy(desc(jobSourceRunEventsTable.createdAt))
+        .limit(100),
+      this.db
+        .select({
+          id: jobSourceCallbackEventsTable.id,
+          eventId: jobSourceCallbackEventsTable.eventId,
+          requestId: jobSourceCallbackEventsTable.requestId,
+          attemptNo: jobSourceCallbackEventsTable.attemptNo,
+          status: jobSourceCallbackEventsTable.status,
+          payloadHash: jobSourceCallbackEventsTable.payloadHash,
+          emittedAt: jobSourceCallbackEventsTable.emittedAt,
+          receivedAt: jobSourceCallbackEventsTable.receivedAt,
+          payload: jobSourceCallbackEventsTable.payload,
+        })
+        .from(jobSourceCallbackEventsTable)
+        .where(eq(jobSourceCallbackEventsTable.sourceRunId, run.id))
+        .orderBy(desc(jobSourceCallbackEventsTable.receivedAt))
+        .limit(50),
+    ]);
+
+    const requestIds = this.collectUniqueStrings([
+      ...timeline.map((event) => event.requestId),
+      ...callbackEvents.map((event) => event.requestId),
+    ]);
+    const apiRequestEvents = requestIds.length ? await this.listApiRequestEventsByRequestIds(requestIds) : [];
+    const latestTimelineEvent = timeline[0] ?? null;
+    const acceptedCallbackEvent = callbackEvents.find((event) => event.status === 'COMPLETED') ?? null;
+    const failedCallbackEvents = callbackEvents.filter((event) => event.status === 'FAILED').length;
+
+    return {
+      generatedAt: new Date().toISOString(),
+      run: {
+        ...run,
+        traceId: String(run.traceId),
+        filters: this.asRecordOrNull(run.filters),
+        lastHeartbeatAt: this.toIsoString(run.lastHeartbeatAt),
+        startedAt: this.toIsoString(run.startedAt),
+        completedAt: this.toIsoString(run.completedAt),
+        finalizedAt: this.toIsoString(run.finalizedAt),
+        createdAt: this.toIsoString(run.createdAt),
+      },
+      signals: {
+        lastHeartbeatAt: this.toIsoString(run.lastHeartbeatAt),
+        lastTimelineEventAt: this.toIsoString(latestTimelineEvent?.createdAt),
+        reconcileReason: run.error?.includes('reconcile endpoint stale run') ? run.error : null,
+        likelyFailureStage: this.detectLikelyFailureStage({
+          status: run.status,
+          failureType: run.failureType,
+          lastHeartbeatAt: run.lastHeartbeatAt,
+          timeline,
+          callbackEvents,
+          error: run.error,
+        }),
+      },
+      callbackSummary: {
+        totalEvents: callbackEvents.length,
+        failedEvents: failedCallbackEvents,
+        latestReceivedAt: this.toIsoString(callbackEvents[0]?.receivedAt),
+        latestAcceptedRequestId: acceptedCallbackEvent?.requestId ?? null,
+      },
+      timeline: timeline.map((event) => ({
+        ...event,
+        meta: this.asRecordOrNull(event.meta),
+        createdAt: this.toIsoString(event.createdAt),
+      })),
+      callbackEvents: callbackEvents.map((event) => ({
+        id: event.id,
+        eventId: event.eventId,
+        requestId: event.requestId,
+        attemptNo: event.attemptNo,
+        status: event.status,
+        payloadHash: event.payloadHash,
+        emittedAt: this.toIsoString(event.emittedAt),
+        receivedAt: this.toIsoString(event.receivedAt),
+        payloadSummary: this.summarizeCallbackPayload(event.payload),
+      })),
+      apiRequestEvents: apiRequestEvents.map((event) => this.mapApiRequestEvent(event)),
+    };
+  }
+
+  async getSupportUserIncident(userId: string, windowHoursInput?: number) {
+    const configuredWindowHours = this.configService.get('JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS', { infer: true });
+    const windowHours = Math.min(Math.max(windowHoursInput ?? configuredWindowHours, 1), 168);
+    const cutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+
+    const user = await this.db
+      .select({
+        id: usersTable.id,
+        email: usersTable.email,
+        role: usersTable.role,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1)
+      .then(([result]) => result ?? null);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const [schedule, recentScrapeRuns, recentApiRequestEvents, statusCounts, totalOffersRow, unscoredOffersRow] =
+      await Promise.all([
+        this.db
+          .select({
+            enabled: scrapeSchedulesTable.enabled,
+            cron: scrapeSchedulesTable.cron,
+            timezone: scrapeSchedulesTable.timezone,
+            source: scrapeSchedulesTable.source,
+            limit: scrapeSchedulesTable.limit,
+            nextRunAt: scrapeSchedulesTable.nextRunAt,
+            lastTriggeredAt: scrapeSchedulesTable.lastTriggeredAt,
+            lastRunStatus: scrapeSchedulesTable.lastRunStatus,
+            filters: scrapeSchedulesTable.filters,
+          })
+          .from(scrapeSchedulesTable)
+          .where(eq(scrapeSchedulesTable.userId, userId))
+          .limit(1)
+          .then(([result]) => result ?? null),
+        this.db
+          .select({
+            id: jobSourceRunsTable.id,
+            traceId: jobSourceRunsTable.traceId,
+            source: jobSourceRunsTable.source,
+            status: jobSourceRunsTable.status,
+            failureType: jobSourceRunsTable.failureType,
+            error: jobSourceRunsTable.error,
+            finalizedAt: jobSourceRunsTable.finalizedAt,
+            createdAt: jobSourceRunsTable.createdAt,
+          })
+          .from(jobSourceRunsTable)
+          .where(eq(jobSourceRunsTable.userId, userId))
+          .orderBy(desc(jobSourceRunsTable.createdAt))
+          .limit(10),
+        this.db
+          .select({
+            id: apiRequestEventsTable.id,
+            userId: apiRequestEventsTable.userId,
+            requestId: apiRequestEventsTable.requestId,
+            level: apiRequestEventsTable.level,
+            method: apiRequestEventsTable.method,
+            path: apiRequestEventsTable.path,
+            statusCode: apiRequestEventsTable.statusCode,
+            message: apiRequestEventsTable.message,
+            errorCode: apiRequestEventsTable.errorCode,
+            details: apiRequestEventsTable.details,
+            meta: apiRequestEventsTable.meta,
+            createdAt: apiRequestEventsTable.createdAt,
+          })
+          .from(apiRequestEventsTable)
+          .where(and(eq(apiRequestEventsTable.userId, userId), gte(apiRequestEventsTable.createdAt, cutoff)))
+          .orderBy(desc(apiRequestEventsTable.createdAt))
+          .limit(20),
+        this.db
+          .select({
+            status: userJobOffersTable.status,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(userJobOffersTable)
+          .where(eq(userJobOffersTable.userId, userId))
+          .groupBy(userJobOffersTable.status),
+        this.db
+          .select({ value: count() })
+          .from(userJobOffersTable)
+          .where(eq(userJobOffersTable.userId, userId))
+          .then(([row]) => row ?? { value: 0 }),
+        this.db
+          .select({ value: count() })
+          .from(userJobOffersTable)
+          .where(and(eq(userJobOffersTable.userId, userId), isNull(userJobOffersTable.matchScore)))
+          .then(([row]) => row ?? { value: 0 }),
+      ]);
+
+    const statusCountsRecord = statusCounts.reduce<Record<string, number>>((accumulator, item) => {
+      accumulator[item.status] = Number(item.count);
+      return accumulator;
+    }, {});
+
+    return {
+      generatedAt: new Date().toISOString(),
+      windowHours,
+      user,
+      schedule: schedule
+        ? {
+            enabled: schedule.enabled === 1,
+            cron: schedule.cron,
+            timezone: schedule.timezone,
+            source: schedule.source,
+            limit: schedule.limit,
+            nextRunAt: this.toIsoString(schedule.nextRunAt),
+            lastTriggeredAt: this.toIsoString(schedule.lastTriggeredAt),
+            lastRunStatus: schedule.lastRunStatus,
+            filters: this.asRecordOrNull(schedule.filters),
+          }
+        : null,
+      offerStats: {
+        totalOffers: Number(totalOffersRow.value ?? 0),
+        unscoredOffers: Number(unscoredOffersRow.value ?? 0),
+        statusCounts: statusCountsRecord,
+      },
+      recentScrapeRuns: recentScrapeRuns.map((run) => ({
+        ...run,
+        traceId: String(run.traceId),
+        finalizedAt: this.toIsoString(run.finalizedAt),
+        createdAt: this.toIsoString(run.createdAt),
+      })),
+      recentApiRequestEvents: recentApiRequestEvents.map((event) => this.mapApiRequestEvent(event)),
+    };
+  }
+
+  async correlateSupport(input: { requestId?: string; traceId?: string; sourceRunId?: string; userId?: string }) {
+    const requestId = input.requestId?.trim() || null;
+    const traceId = input.traceId?.trim() || null;
+    const sourceRunId = input.sourceRunId?.trim() || null;
+    const userId = input.userId?.trim() || null;
+
+    if (!requestId && !traceId && !sourceRunId && !userId) {
+      throw new BadRequestException('At least one of requestId, traceId, sourceRunId, or userId is required');
+    }
+
+    const matches: Array<{
+      kind: string;
+      id: string;
+      requestId: string | null;
+      traceId: string | null;
+      sourceRunId: string | null;
+      userId: string | null;
+      summary: Record<string, unknown> | null;
+      createdAt: string;
+    }> = [];
+    const seenKeys = new Set<string>();
+    const addMatch = (match: (typeof matches)[number]) => {
+      const dedupeKey = `${match.kind}:${match.id}`;
+      if (seenKeys.has(dedupeKey)) {
+        return;
+      }
+      seenKeys.add(dedupeKey);
+      matches.push(match);
+    };
+
+    if (sourceRunId || traceId || userId) {
+      const runConditions = [];
+      if (sourceRunId) runConditions.push(eq(jobSourceRunsTable.id, sourceRunId));
+      if (traceId) runConditions.push(eq(jobSourceRunsTable.traceId, traceId));
+      if (userId) runConditions.push(eq(jobSourceRunsTable.userId, userId));
+      const runs = await this.db
+        .select({
+          id: jobSourceRunsTable.id,
+          traceId: jobSourceRunsTable.traceId,
+          userId: jobSourceRunsTable.userId,
+          status: jobSourceRunsTable.status,
+          failureType: jobSourceRunsTable.failureType,
+          error: jobSourceRunsTable.error,
+          createdAt: jobSourceRunsTable.createdAt,
+        })
+        .from(jobSourceRunsTable)
+        .where(and(...runConditions))
+        .orderBy(desc(jobSourceRunsTable.createdAt))
+        .limit(20);
+      for (const run of runs) {
+        addMatch({
+          kind: 'scrape-run',
+          id: run.id,
+          requestId: null,
+          traceId: String(run.traceId),
+          sourceRunId: run.id,
+          userId: run.userId,
+          summary: {
+            status: run.status,
+            failureType: run.failureType,
+            error: run.error,
+          },
+          createdAt: this.toIsoString(run.createdAt) ?? new Date(0).toISOString(),
+        });
+      }
+    }
+
+    if (sourceRunId || traceId || requestId) {
+      const runEventConditions = [];
+      if (sourceRunId) runEventConditions.push(eq(jobSourceRunEventsTable.sourceRunId, sourceRunId));
+      if (traceId) runEventConditions.push(eq(jobSourceRunEventsTable.traceId, traceId));
+      if (requestId) runEventConditions.push(eq(jobSourceRunEventsTable.requestId, requestId));
+      const runEvents = await this.db
+        .select({
+          id: jobSourceRunEventsTable.id,
+          sourceRunId: jobSourceRunEventsTable.sourceRunId,
+          traceId: jobSourceRunEventsTable.traceId,
+          requestId: jobSourceRunEventsTable.requestId,
+          message: jobSourceRunEventsTable.message,
+          eventType: jobSourceRunEventsTable.eventType,
+          severity: jobSourceRunEventsTable.severity,
+          createdAt: jobSourceRunEventsTable.createdAt,
+        })
+        .from(jobSourceRunEventsTable)
+        .where(and(...runEventConditions))
+        .orderBy(desc(jobSourceRunEventsTable.createdAt))
+        .limit(20);
+      for (const event of runEvents) {
+        addMatch({
+          kind: 'scrape-run-event',
+          id: event.id,
+          requestId: event.requestId,
+          traceId: String(event.traceId),
+          sourceRunId: event.sourceRunId,
+          userId: null,
+          summary: {
+            eventType: event.eventType,
+            severity: event.severity,
+            message: event.message,
+          },
+          createdAt: this.toIsoString(event.createdAt) ?? new Date(0).toISOString(),
+        });
+      }
+    }
+
+    if (sourceRunId || requestId) {
+      const callbackConditions = [];
+      if (sourceRunId) callbackConditions.push(eq(jobSourceCallbackEventsTable.sourceRunId, sourceRunId));
+      if (requestId) callbackConditions.push(eq(jobSourceCallbackEventsTable.requestId, requestId));
+      const callbackEvents = await this.db
+        .select({
+          id: jobSourceCallbackEventsTable.id,
+          sourceRunId: jobSourceCallbackEventsTable.sourceRunId,
+          requestId: jobSourceCallbackEventsTable.requestId,
+          eventId: jobSourceCallbackEventsTable.eventId,
+          status: jobSourceCallbackEventsTable.status,
+          attemptNo: jobSourceCallbackEventsTable.attemptNo,
+          receivedAt: jobSourceCallbackEventsTable.receivedAt,
+        })
+        .from(jobSourceCallbackEventsTable)
+        .where(and(...callbackConditions))
+        .orderBy(desc(jobSourceCallbackEventsTable.receivedAt))
+        .limit(20);
+      for (const event of callbackEvents) {
+        addMatch({
+          kind: 'callback-event',
+          id: event.id,
+          requestId: event.requestId,
+          traceId: null,
+          sourceRunId: event.sourceRunId,
+          userId: null,
+          summary: {
+            eventId: event.eventId,
+            status: event.status,
+            attemptNo: event.attemptNo,
+          },
+          createdAt: this.toIsoString(event.receivedAt) ?? new Date(0).toISOString(),
+        });
+      }
+    }
+
+    if (requestId || traceId || userId) {
+      const apiEventConditions = [];
+      if (requestId) apiEventConditions.push(eq(apiRequestEventsTable.requestId, requestId));
+      if (traceId) apiEventConditions.push(this.traceIdCondition(traceId));
+      if (userId) apiEventConditions.push(eq(apiRequestEventsTable.userId, userId));
+      const apiEvents = await this.db
+        .select({
+          id: apiRequestEventsTable.id,
+          userId: apiRequestEventsTable.userId,
+          requestId: apiRequestEventsTable.requestId,
+          level: apiRequestEventsTable.level,
+          path: apiRequestEventsTable.path,
+          statusCode: apiRequestEventsTable.statusCode,
+          message: apiRequestEventsTable.message,
+          createdAt: apiRequestEventsTable.createdAt,
+        })
+        .from(apiRequestEventsTable)
+        .where(and(...apiEventConditions))
+        .orderBy(desc(apiRequestEventsTable.createdAt))
+        .limit(20);
+      for (const event of apiEvents) {
+        addMatch({
+          kind: 'api-request-event',
+          id: event.id,
+          requestId: event.requestId,
+          traceId,
+          sourceRunId: null,
+          userId: event.userId,
+          summary: {
+            level: event.level,
+            path: event.path,
+            statusCode: event.statusCode,
+            message: event.message,
+          },
+          createdAt: this.toIsoString(event.createdAt) ?? new Date(0).toISOString(),
+        });
+      }
+    }
+
+    matches.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+
+    return {
+      generatedAt: new Date().toISOString(),
+      requestId,
+      traceId,
+      sourceRunId,
+      userId,
+      matches,
     };
   }
 
@@ -478,5 +1029,120 @@ export class OpsService {
       failed: 0,
       reconciledInWindow: Number(reconciledInWindowRow?.value ?? 0),
     };
+  }
+
+  private async listApiRequestEventsByRequestIds(requestIds: string[]) {
+    return this.db
+      .select({
+        id: apiRequestEventsTable.id,
+        userId: apiRequestEventsTable.userId,
+        requestId: apiRequestEventsTable.requestId,
+        level: apiRequestEventsTable.level,
+        method: apiRequestEventsTable.method,
+        path: apiRequestEventsTable.path,
+        statusCode: apiRequestEventsTable.statusCode,
+        message: apiRequestEventsTable.message,
+        errorCode: apiRequestEventsTable.errorCode,
+        details: apiRequestEventsTable.details,
+        meta: apiRequestEventsTable.meta,
+        createdAt: apiRequestEventsTable.createdAt,
+      })
+      .from(apiRequestEventsTable)
+      .where(inArray(apiRequestEventsTable.requestId, requestIds))
+      .orderBy(desc(apiRequestEventsTable.createdAt))
+      .limit(50);
+  }
+
+  private mapApiRequestEvent(row: SupportApiRequestEventRow) {
+    return {
+      ...row,
+      meta: this.asRecordOrNull(row.meta),
+      createdAt: this.toIsoString(row.createdAt),
+    };
+  }
+
+  private detectLikelyFailureStage(input: {
+    status: string;
+    failureType: string | null;
+    lastHeartbeatAt: Date | null;
+    timeline: Array<{ eventType: string; phase: string | null }>;
+    callbackEvents: Array<{ status: string }>;
+    error: string | null;
+  }) {
+    if (input.status === 'COMPLETED') {
+      return 'completed';
+    }
+    if (input.failureType === 'timeout' && input.error?.includes('reconcile endpoint stale run')) {
+      if (!input.lastHeartbeatAt) {
+        return 'worker-not-started-or-heartbeat-missing';
+      }
+      if (!input.callbackEvents.some((event) => event.status === 'COMPLETED')) {
+        return 'worker-heartbeat-stopped-before-callback';
+      }
+      return 'callback-accepted-but-run-still-reconciled';
+    }
+    if (input.callbackEvents.some((event) => event.status === 'FAILED')) {
+      return 'callback-rejected-or-retried';
+    }
+    if (input.timeline.some((event) => event.eventType === 'worker.accepted')) {
+      return 'worker-processing-failed-before-finalization';
+    }
+    return 'unknown';
+  }
+
+  private summarizeCallbackPayload(payload: string | null) {
+    const parsedPayload = this.safeParseJson(payload);
+    if (!parsedPayload) {
+      return null;
+    }
+
+    const result: Record<string, unknown> = {};
+    for (const key of ['status', 'failureType', 'failureCode', 'traceId', 'attemptNo']) {
+      if (key in parsedPayload) {
+        result[key] = parsedPayload[key];
+      }
+    }
+
+    return Object.keys(result).length ? result : parsedPayload;
+  }
+
+  private safeParseJson(value: string | null | undefined) {
+    if (!value) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(value) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
+  private traceIdCondition(traceId: string) {
+    return sql<boolean>`${apiRequestEventsTable.meta} ->> 'traceId' = ${traceId}`;
+  }
+
+  private asRecordOrNull(value: unknown) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+
+    return value as Record<string, unknown>;
+  }
+
+  private collectUniqueStrings(values: Array<string | null | undefined>) {
+    return Array.from(
+      new Set(values.filter((value): value is string => typeof value === 'string' && value.length > 0)),
+    );
+  }
+
+  private toIsoString(value: Date | string | null | undefined) {
+    if (!value) {
+      return null;
+    }
+    if (typeof value === 'string') {
+      return value;
+    }
+    return value.toISOString();
   }
 }

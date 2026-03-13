@@ -21,6 +21,10 @@ import { JwtAuthGuard } from '@/common/guards';
 import { JwtValidateUser } from '@/types/interface/jwt';
 
 import { OpsMetricsResponse } from './dto/ops-metrics.response';
+import { SupportCorrelationResponse } from './dto/support-correlation.response';
+import { SupportOverviewResponse } from './dto/support-overview.response';
+import { SupportScrapeIncidentResponse } from './dto/support-scrape-incident.response';
+import { SupportUserIncidentResponse } from './dto/support-user-incident.response';
 import { OpsService } from './ops.service';
 
 import type { Env } from '@/config/env';
@@ -50,6 +54,51 @@ export class OpsController {
   ) {
     this.assertAdmin(user);
     return this.opsService.getMetrics(windowHours);
+  }
+
+  @Get('support/overview')
+  @ApiOperation({ summary: 'Get compact support overview bundle (admin only)' })
+  @ApiOkResponse({ type: SupportOverviewResponse })
+  async getSupportOverview(
+    @CurrentUser() user: JwtValidateUser,
+    @Query('windowHours', new ParseIntPipe({ optional: true })) windowHours?: number,
+  ) {
+    this.assertAdmin(user);
+    return this.opsService.getSupportOverview(windowHours);
+  }
+
+  @Get('support/scrape-runs/:id')
+  @ApiOperation({ summary: 'Get scrape incident support bundle (admin only)' })
+  @ApiOkResponse({ type: SupportScrapeIncidentResponse })
+  async getSupportScrapeIncident(@CurrentUser() user: JwtValidateUser, @Param('id', new ParseUUIDPipe()) id: string) {
+    this.assertAdmin(user);
+    return this.opsService.getSupportScrapeIncident(id);
+  }
+
+  @Get('support/users/:id')
+  @ApiOperation({ summary: 'Get user support bundle (admin only)' })
+  @ApiOkResponse({ type: SupportUserIncidentResponse })
+  async getSupportUserIncident(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query('windowHours', new ParseIntPipe({ optional: true })) windowHours?: number,
+  ) {
+    this.assertAdmin(user);
+    return this.opsService.getSupportUserIncident(id, windowHours);
+  }
+
+  @Get('support/correlate')
+  @ApiOperation({ summary: 'Correlate support artifacts by request, trace, run, or user id (admin only)' })
+  @ApiOkResponse({ type: SupportCorrelationResponse })
+  async correlateSupport(
+    @CurrentUser() user: JwtValidateUser,
+    @Query('requestId') requestId?: string,
+    @Query('traceId') traceId?: string,
+    @Query('sourceRunId') sourceRunId?: string,
+    @Query('userId') userId?: string,
+  ) {
+    this.assertAdmin(user);
+    return this.opsService.correlateSupport({ requestId, traceId, sourceRunId, userId });
   }
 
   @Get('scrape/callback-events')
