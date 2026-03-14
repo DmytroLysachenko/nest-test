@@ -7,6 +7,7 @@ import {
   jobSourceCallbackEventsTable,
   jobSourceRunEventsTable,
   jobSourceRunsTable,
+  scrapeScheduleEventsTable,
   scrapeSchedulesTable,
   userJobOffersTable,
   usersTable,
@@ -243,7 +244,7 @@ export class OpsService {
     const now = new Date();
     const cutoff = new Date(now.getTime() - metrics.windowHours * 60 * 60 * 1000);
 
-    const [failedRuns, failedCallbackEvents, failedApiRequestEvents] = await Promise.all([
+    const [failedRuns, failedCallbackEvents, failedApiRequestEvents, failedScheduleExecutions] = await Promise.all([
       this.db
         .select({
           id: jobSourceRunsTable.id,
@@ -300,6 +301,32 @@ export class OpsService {
         )
         .orderBy(desc(apiRequestEventsTable.createdAt))
         .limit(10),
+      this.db
+        .select({
+          id: scrapeScheduleEventsTable.id,
+          scheduleId: scrapeScheduleEventsTable.scheduleId,
+          userId: scrapeScheduleEventsTable.userId,
+          sourceRunId: scrapeScheduleEventsTable.sourceRunId,
+          traceId: scrapeScheduleEventsTable.traceId,
+          requestId: scrapeScheduleEventsTable.requestId,
+          eventType: scrapeScheduleEventsTable.eventType,
+          severity: scrapeScheduleEventsTable.severity,
+          code: scrapeScheduleEventsTable.code,
+          message: scrapeScheduleEventsTable.message,
+          createdAt: scrapeScheduleEventsTable.createdAt,
+        })
+        .from(scrapeScheduleEventsTable)
+        .where(
+          and(
+            gte(scrapeScheduleEventsTable.createdAt, cutoff),
+            or(
+              eq(scrapeScheduleEventsTable.severity, 'error'),
+              eq(scrapeScheduleEventsTable.eventType, 'schedule_enqueue_failed'),
+            ),
+          ),
+        )
+        .orderBy(desc(scrapeScheduleEventsTable.createdAt))
+        .limit(10),
     ]);
 
     return {
@@ -320,6 +347,11 @@ export class OpsService {
         })),
         apiRequests: failedApiRequestEvents.map((event) => ({
           ...event,
+          createdAt: this.toIsoString(event.createdAt),
+        })),
+        scheduleExecutions: failedScheduleExecutions.map((event) => ({
+          ...event,
+          traceId: event.traceId ? String(event.traceId) : null,
           createdAt: this.toIsoString(event.createdAt),
         })),
       },
@@ -461,6 +493,9 @@ export class OpsService {
         id: usersTable.id,
         email: usersTable.email,
         role: usersTable.role,
+        isActive: usersTable.isActive,
+        lastLoginAt: usersTable.lastLoginAt,
+        deletedAt: usersTable.deletedAt,
       })
       .from(usersTable)
       .where(eq(usersTable.id, userId))
@@ -471,77 +506,101 @@ export class OpsService {
       throw new NotFoundException('User not found');
     }
 
-    const [schedule, recentScrapeRuns, recentApiRequestEvents, statusCounts, totalOffersRow, unscoredOffersRow] =
-      await Promise.all([
-        this.db
-          .select({
-            enabled: scrapeSchedulesTable.enabled,
-            cron: scrapeSchedulesTable.cron,
-            timezone: scrapeSchedulesTable.timezone,
-            source: scrapeSchedulesTable.source,
-            limit: scrapeSchedulesTable.limit,
-            nextRunAt: scrapeSchedulesTable.nextRunAt,
-            lastTriggeredAt: scrapeSchedulesTable.lastTriggeredAt,
-            lastRunStatus: scrapeSchedulesTable.lastRunStatus,
-            filters: scrapeSchedulesTable.filters,
-          })
-          .from(scrapeSchedulesTable)
-          .where(eq(scrapeSchedulesTable.userId, userId))
-          .limit(1)
-          .then(([result]) => result ?? null),
-        this.db
-          .select({
-            id: jobSourceRunsTable.id,
-            traceId: jobSourceRunsTable.traceId,
-            source: jobSourceRunsTable.source,
-            status: jobSourceRunsTable.status,
-            failureType: jobSourceRunsTable.failureType,
-            error: jobSourceRunsTable.error,
-            finalizedAt: jobSourceRunsTable.finalizedAt,
-            createdAt: jobSourceRunsTable.createdAt,
-          })
-          .from(jobSourceRunsTable)
-          .where(eq(jobSourceRunsTable.userId, userId))
-          .orderBy(desc(jobSourceRunsTable.createdAt))
-          .limit(10),
-        this.db
-          .select({
-            id: apiRequestEventsTable.id,
-            userId: apiRequestEventsTable.userId,
-            requestId: apiRequestEventsTable.requestId,
-            level: apiRequestEventsTable.level,
-            method: apiRequestEventsTable.method,
-            path: apiRequestEventsTable.path,
-            statusCode: apiRequestEventsTable.statusCode,
-            message: apiRequestEventsTable.message,
-            errorCode: apiRequestEventsTable.errorCode,
-            details: apiRequestEventsTable.details,
-            meta: apiRequestEventsTable.meta,
-            createdAt: apiRequestEventsTable.createdAt,
-          })
-          .from(apiRequestEventsTable)
-          .where(and(eq(apiRequestEventsTable.userId, userId), gte(apiRequestEventsTable.createdAt, cutoff)))
-          .orderBy(desc(apiRequestEventsTable.createdAt))
-          .limit(20),
-        this.db
-          .select({
-            status: userJobOffersTable.status,
-            count: sql<number>`count(*)::int`,
-          })
-          .from(userJobOffersTable)
-          .where(eq(userJobOffersTable.userId, userId))
-          .groupBy(userJobOffersTable.status),
-        this.db
-          .select({ value: count() })
-          .from(userJobOffersTable)
-          .where(eq(userJobOffersTable.userId, userId))
-          .then(([row]) => row ?? { value: 0 }),
-        this.db
-          .select({ value: count() })
-          .from(userJobOffersTable)
-          .where(and(eq(userJobOffersTable.userId, userId), isNull(userJobOffersTable.matchScore)))
-          .then(([row]) => row ?? { value: 0 }),
-      ]);
+    const [
+      schedule,
+      recentScrapeRuns,
+      recentApiRequestEvents,
+      recentScheduleEvents,
+      statusCounts,
+      totalOffersRow,
+      unscoredOffersRow,
+    ] = await Promise.all([
+      this.db
+        .select({
+          enabled: scrapeSchedulesTable.enabled,
+          cron: scrapeSchedulesTable.cron,
+          timezone: scrapeSchedulesTable.timezone,
+          source: scrapeSchedulesTable.source,
+          limit: scrapeSchedulesTable.limit,
+          nextRunAt: scrapeSchedulesTable.nextRunAt,
+          lastTriggeredAt: scrapeSchedulesTable.lastTriggeredAt,
+          lastRunStatus: scrapeSchedulesTable.lastRunStatus,
+          filters: scrapeSchedulesTable.filters,
+        })
+        .from(scrapeSchedulesTable)
+        .where(eq(scrapeSchedulesTable.userId, userId))
+        .limit(1)
+        .then(([result]) => result ?? null),
+      this.db
+        .select({
+          id: jobSourceRunsTable.id,
+          traceId: jobSourceRunsTable.traceId,
+          source: jobSourceRunsTable.source,
+          status: jobSourceRunsTable.status,
+          failureType: jobSourceRunsTable.failureType,
+          error: jobSourceRunsTable.error,
+          finalizedAt: jobSourceRunsTable.finalizedAt,
+          createdAt: jobSourceRunsTable.createdAt,
+        })
+        .from(jobSourceRunsTable)
+        .where(eq(jobSourceRunsTable.userId, userId))
+        .orderBy(desc(jobSourceRunsTable.createdAt))
+        .limit(10),
+      this.db
+        .select({
+          id: apiRequestEventsTable.id,
+          userId: apiRequestEventsTable.userId,
+          requestId: apiRequestEventsTable.requestId,
+          level: apiRequestEventsTable.level,
+          method: apiRequestEventsTable.method,
+          path: apiRequestEventsTable.path,
+          statusCode: apiRequestEventsTable.statusCode,
+          message: apiRequestEventsTable.message,
+          errorCode: apiRequestEventsTable.errorCode,
+          details: apiRequestEventsTable.details,
+          meta: apiRequestEventsTable.meta,
+          createdAt: apiRequestEventsTable.createdAt,
+        })
+        .from(apiRequestEventsTable)
+        .where(and(eq(apiRequestEventsTable.userId, userId), gte(apiRequestEventsTable.createdAt, cutoff)))
+        .orderBy(desc(apiRequestEventsTable.createdAt))
+        .limit(20),
+      this.db
+        .select({
+          id: scrapeScheduleEventsTable.id,
+          scheduleId: scrapeScheduleEventsTable.scheduleId,
+          sourceRunId: scrapeScheduleEventsTable.sourceRunId,
+          traceId: scrapeScheduleEventsTable.traceId,
+          requestId: scrapeScheduleEventsTable.requestId,
+          eventType: scrapeScheduleEventsTable.eventType,
+          severity: scrapeScheduleEventsTable.severity,
+          code: scrapeScheduleEventsTable.code,
+          message: scrapeScheduleEventsTable.message,
+          createdAt: scrapeScheduleEventsTable.createdAt,
+        })
+        .from(scrapeScheduleEventsTable)
+        .where(and(eq(scrapeScheduleEventsTable.userId, userId), gte(scrapeScheduleEventsTable.createdAt, cutoff)))
+        .orderBy(desc(scrapeScheduleEventsTable.createdAt))
+        .limit(20),
+      this.db
+        .select({
+          status: userJobOffersTable.status,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(userJobOffersTable)
+        .where(eq(userJobOffersTable.userId, userId))
+        .groupBy(userJobOffersTable.status),
+      this.db
+        .select({ value: count() })
+        .from(userJobOffersTable)
+        .where(eq(userJobOffersTable.userId, userId))
+        .then(([row]) => row ?? { value: 0 }),
+      this.db
+        .select({ value: count() })
+        .from(userJobOffersTable)
+        .where(and(eq(userJobOffersTable.userId, userId), isNull(userJobOffersTable.matchScore)))
+        .then(([row]) => row ?? { value: 0 }),
+    ]);
 
     const statusCountsRecord = statusCounts.reduce<Record<string, number>>((accumulator, item) => {
       accumulator[item.status] = Number(item.count);
@@ -551,7 +610,11 @@ export class OpsService {
     return {
       generatedAt: new Date().toISOString(),
       windowHours,
-      user,
+      user: {
+        ...user,
+        lastLoginAt: this.toIsoString(user.lastLoginAt),
+        deletedAt: this.toIsoString(user.deletedAt),
+      },
       schedule: schedule
         ? {
             enabled: schedule.enabled === 1,
@@ -576,7 +639,72 @@ export class OpsService {
         finalizedAt: this.toIsoString(run.finalizedAt),
         createdAt: this.toIsoString(run.createdAt),
       })),
+      recentScheduleEvents: recentScheduleEvents.map((event) => ({
+        ...event,
+        traceId: event.traceId ? String(event.traceId) : null,
+        createdAt: this.toIsoString(event.createdAt),
+      })),
       recentApiRequestEvents: recentApiRequestEvents.map((event) => this.mapApiRequestEvent(event)),
+    };
+  }
+
+  async listSupportScheduleEvents(input: {
+    userId?: string;
+    sourceRunId?: string;
+    requestId?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
+    const offset = Math.max(input.offset ?? 0, 0);
+    const conditions = [];
+
+    if (input.userId) {
+      conditions.push(eq(scrapeScheduleEventsTable.userId, input.userId));
+    }
+    if (input.sourceRunId) {
+      conditions.push(eq(scrapeScheduleEventsTable.sourceRunId, input.sourceRunId));
+    }
+    if (input.requestId) {
+      conditions.push(eq(scrapeScheduleEventsTable.requestId, input.requestId));
+    }
+
+    const items = await this.db
+      .select({
+        id: scrapeScheduleEventsTable.id,
+        scheduleId: scrapeScheduleEventsTable.scheduleId,
+        userId: scrapeScheduleEventsTable.userId,
+        sourceRunId: scrapeScheduleEventsTable.sourceRunId,
+        traceId: scrapeScheduleEventsTable.traceId,
+        requestId: scrapeScheduleEventsTable.requestId,
+        eventType: scrapeScheduleEventsTable.eventType,
+        severity: scrapeScheduleEventsTable.severity,
+        code: scrapeScheduleEventsTable.code,
+        message: scrapeScheduleEventsTable.message,
+        meta: scrapeScheduleEventsTable.meta,
+        createdAt: scrapeScheduleEventsTable.createdAt,
+      })
+      .from(scrapeScheduleEventsTable)
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(scrapeScheduleEventsTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const [totalRow] = await this.db
+      .select({ value: count() })
+      .from(scrapeScheduleEventsTable)
+      .where(conditions.length ? and(...conditions) : undefined);
+
+    return {
+      items: items.map((event) => ({
+        ...event,
+        traceId: event.traceId ? String(event.traceId) : null,
+        meta: this.asRecordOrNull(event.meta),
+        createdAt: this.toIsoString(event.createdAt),
+      })),
+      limit,
+      offset,
+      total: Number(totalRow?.value ?? 0),
     };
   }
 
@@ -675,6 +803,45 @@ export class OpsService {
           traceId: String(event.traceId),
           sourceRunId: event.sourceRunId,
           userId: null,
+          summary: {
+            eventType: event.eventType,
+            severity: event.severity,
+            message: event.message,
+          },
+          createdAt: this.toIsoString(event.createdAt) ?? new Date(0).toISOString(),
+        });
+      }
+    }
+
+    if (sourceRunId || requestId || userId) {
+      const scheduleEventConditions = [];
+      if (sourceRunId) scheduleEventConditions.push(eq(scrapeScheduleEventsTable.sourceRunId, sourceRunId));
+      if (requestId) scheduleEventConditions.push(eq(scrapeScheduleEventsTable.requestId, requestId));
+      if (userId) scheduleEventConditions.push(eq(scrapeScheduleEventsTable.userId, userId));
+      const scheduleEvents = await this.db
+        .select({
+          id: scrapeScheduleEventsTable.id,
+          userId: scrapeScheduleEventsTable.userId,
+          sourceRunId: scrapeScheduleEventsTable.sourceRunId,
+          traceId: scrapeScheduleEventsTable.traceId,
+          requestId: scrapeScheduleEventsTable.requestId,
+          eventType: scrapeScheduleEventsTable.eventType,
+          severity: scrapeScheduleEventsTable.severity,
+          message: scrapeScheduleEventsTable.message,
+          createdAt: scrapeScheduleEventsTable.createdAt,
+        })
+        .from(scrapeScheduleEventsTable)
+        .where(and(...scheduleEventConditions))
+        .orderBy(desc(scrapeScheduleEventsTable.createdAt))
+        .limit(20);
+      for (const event of scheduleEvents) {
+        addMatch({
+          kind: 'schedule-event',
+          id: event.id,
+          requestId: event.requestId,
+          traceId: event.traceId ? String(event.traceId) : null,
+          sourceRunId: event.sourceRunId,
+          userId: event.userId,
           summary: {
             eventType: event.eventType,
             severity: event.severity,

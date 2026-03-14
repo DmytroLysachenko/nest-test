@@ -385,6 +385,71 @@ describe('OpsService', () => {
               }),
             }),
           }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'schedule-event-1',
+                    scheduleId: 'schedule-1',
+                    userId: 'user-1',
+                    sourceRunId: 'run-1',
+                    traceId: '11111111-1111-4111-8111-111111111111',
+                    requestId: 'req-1',
+                    eventType: 'schedule_enqueue_failed',
+                    severity: 'error',
+                    code: 'INTERNAL_SCHEDULER',
+                    message: 'Scheduler failed while enqueueing a due scrape run.',
+                    createdAt: new Date('2026-03-13T10:02:00.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'schedule-1',
+                    userId: 'user-1',
+                    sourceRunId: 'run-1',
+                    traceId: '11111111-1111-4111-8111-111111111111',
+                    requestId: 'req-1',
+                    eventType: 'schedule_enqueue_failed',
+                    severity: 'error',
+                    message: 'Scheduler failed',
+                    createdAt: new Date('2026-03-13T09:04:00.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'schedule-1',
+                    userId: 'user-1',
+                    sourceRunId: 'run-1',
+                    traceId: '11111111-1111-4111-8111-111111111111',
+                    requestId: 'req-1',
+                    eventType: 'schedule_enqueue_failed',
+                    severity: 'error',
+                    message: 'Scheduler failed',
+                    createdAt: new Date('2026-03-13T09:04:00.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
         }),
     } as any;
 
@@ -412,6 +477,7 @@ describe('OpsService', () => {
     expect(result.recentFailures.scrapeRuns[0]?.id).toBe('run-1');
     expect(result.recentFailures.callbackEvents[0]?.id).toBe('callback-1');
     expect(result.recentFailures.apiRequests[0]?.id).toBe('api-1');
+    expect(result.recentFailures.scheduleExecutions[0]?.id).toBe('schedule-event-1');
   });
 
   it('builds scrape incident bundle with timeline and correlated request events', async () => {
@@ -580,6 +646,27 @@ describe('OpsService', () => {
               orderBy: jest.fn().mockReturnValue({
                 limit: jest.fn().mockResolvedValue([
                   {
+                    id: 'schedule-1',
+                    userId: 'user-1',
+                    sourceRunId: 'run-1',
+                    traceId: '11111111-1111-4111-8111-111111111111',
+                    requestId: 'req-1',
+                    eventType: 'schedule_enqueue_failed',
+                    severity: 'error',
+                    message: 'Scheduler failed',
+                    createdAt: new Date('2026-03-13T09:04:00.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
                     id: 'callback-1',
                     sourceRunId: 'run-1',
                     requestId: 'req-1',
@@ -626,6 +713,7 @@ describe('OpsService', () => {
     expect(result.matches.map((item) => item.kind)).toEqual([
       'api-request-event',
       'callback-event',
+      'schedule-event',
       'scrape-run-event',
       'scrape-run',
     ]);

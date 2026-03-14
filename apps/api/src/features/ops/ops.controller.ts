@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 
@@ -31,6 +32,7 @@ import type { Env } from '@/config/env';
 
 @ApiTags('ops')
 @ApiBearerAuth()
+@SkipThrottle()
 @UseGuards(JwtAuthGuard)
 @Controller('ops')
 export class OpsController {
@@ -99,6 +101,20 @@ export class OpsController {
   ) {
     this.assertAdmin(user);
     return this.opsService.correlateSupport({ requestId, traceId, sourceRunId, userId });
+  }
+
+  @Get('support/schedule-events')
+  @ApiOperation({ summary: 'List scrape schedule execution events (admin only)' })
+  async listSupportScheduleEvents(
+    @CurrentUser() user: JwtValidateUser,
+    @Query('userId') userId?: string,
+    @Query('sourceRunId') sourceRunId?: string,
+    @Query('requestId') requestId?: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
+  ) {
+    this.assertAdmin(user);
+    return this.opsService.listSupportScheduleEvents({ userId, sourceRunId, requestId, limit, offset });
   }
 
   @Get('scrape/callback-events')
