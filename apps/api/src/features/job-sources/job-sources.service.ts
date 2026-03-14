@@ -23,6 +23,7 @@ import {
   jobSourceRunEventsTable,
   jobSourceRunAttemptsTable,
   jobSourceRunsTable,
+  scrapeScheduleEventsTable,
   scrapeSchedulesTable,
   userJobOffersTable,
   usersTable,
@@ -64,6 +65,20 @@ type RunEventInput = {
   requestId?: string | null;
   phase?: string | null;
   attemptNo?: number | null;
+  code?: string | null;
+  meta?: Record<string, unknown> | null;
+  createdAt?: Date;
+};
+type ScheduleEventSeverity = 'info' | 'warning' | 'error';
+type ScheduleEventInput = {
+  scheduleId: string;
+  userId: string;
+  sourceRunId?: string | null;
+  traceId?: string | null;
+  requestId?: string | null;
+  eventType: string;
+  message: string;
+  severity?: ScheduleEventSeverity;
   code?: string | null;
   meta?: Record<string, unknown> | null;
   createdAt?: Date;
@@ -454,11 +469,38 @@ export class JobSourcesService {
       .limit(1)
       .then((rows) => rows[0]);
 
+    let scheduleId = existing?.id ?? null;
+
     if (existing) {
       await this.db.update(scrapeSchedulesTable).set(values).where(eq(scrapeSchedulesTable.id, existing.id));
     } else {
-      await this.db.insert(scrapeSchedulesTable).values({
-        ...values,
+      const [inserted] = await this.db
+        .insert(scrapeSchedulesTable)
+        .values({
+          ...values,
+          createdAt: now,
+        })
+        .returning({ id: scrapeSchedulesTable.id });
+      scheduleId = inserted?.id ?? null;
+    }
+
+    if (!scheduleId) {
+      scheduleId = existing?.id ?? null;
+    }
+
+    if (scheduleId) {
+      await this.appendScheduleEvent({
+        scheduleId,
+        userId,
+        eventType: 'schedule_updated',
+        message: enabled ? 'Scrape schedule saved and enabled.' : 'Scrape schedule saved and disabled.',
+        meta: {
+          cron,
+          timezone: values.timezone,
+          source: values.source,
+          limit: values.limit,
+          nextRunAt: values.nextRunAt?.toISOString() ?? null,
+        },
         createdAt: now,
       });
     }
@@ -478,27 +520,90 @@ export class JobSourcesService {
       throw new BadRequestException('Scrape schedule is not enabled');
     }
 
-    const response = await this.enqueueScrape(
-      userId,
+    const acceptedAt = new Date();
+    await this.appendScheduleEvents([
       {
-        source: schedule.source,
-        limit: schedule.limit,
-        careerProfileId: schedule.careerProfileId ?? undefined,
-        filters: (schedule.filters as ScrapeFiltersDto | null) ?? undefined,
+        scheduleId: schedule.id,
+        userId,
+        requestId,
+        eventType: 'schedule_trigger_received',
+        message: 'Manual schedule trigger accepted.',
+        meta: { triggerMode: 'manual' },
+        createdAt: acceptedAt,
       },
-      requestId,
-    );
+      {
+        scheduleId: schedule.id,
+        userId,
+        requestId,
+        eventType: 'schedule_enqueue_started',
+        message: 'Scrape enqueue started from manual schedule trigger.',
+        meta: { triggerMode: 'manual' },
+        createdAt: acceptedAt,
+      },
+    ]);
 
-    await this.db
-      .update(scrapeSchedulesTable)
-      .set({
-        lastTriggeredAt: new Date(),
-        lastRunStatus: 'ENQUEUED_MANUAL',
-        updatedAt: new Date(),
-      })
-      .where(eq(scrapeSchedulesTable.id, schedule.id));
+    try {
+      const response = await this.enqueueScrape(
+        userId,
+        {
+          source: schedule.source,
+          limit: schedule.limit,
+          careerProfileId: schedule.careerProfileId ?? undefined,
+          filters: (schedule.filters as ScrapeFiltersDto | null) ?? undefined,
+        },
+        requestId,
+      );
 
-    return response;
+      await this.db
+        .update(scrapeSchedulesTable)
+        .set({
+          lastTriggeredAt: acceptedAt,
+          lastRunStatus: 'ENQUEUED_MANUAL',
+          updatedAt: acceptedAt,
+        })
+        .where(eq(scrapeSchedulesTable.id, schedule.id));
+
+      await this.appendScheduleEvent({
+        scheduleId: schedule.id,
+        userId,
+        sourceRunId: response.sourceRunId,
+        traceId: response.traceId ?? null,
+        requestId,
+        eventType: 'schedule_enqueue_succeeded',
+        message: 'Manual schedule trigger enqueued a scrape run successfully.',
+        code: 'MANUAL_TRIGGER',
+        meta: { triggerMode: 'manual' },
+        createdAt: acceptedAt,
+      });
+
+      return response;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Schedule trigger failed';
+      await this.db
+        .update(scrapeSchedulesTable)
+        .set({
+          lastRunStatus: 'ENQUEUE_FAILED_MANUAL',
+          updatedAt: acceptedAt,
+        })
+        .where(eq(scrapeSchedulesTable.id, schedule.id));
+
+      await this.appendScheduleEvent({
+        scheduleId: schedule.id,
+        userId,
+        requestId,
+        eventType: 'schedule_enqueue_failed',
+        severity: 'error',
+        code: 'MANUAL_TRIGGER',
+        message: 'Manual schedule trigger failed before scrape enqueue completed.',
+        meta: {
+          triggerMode: 'manual',
+          error: message,
+        },
+        createdAt: acceptedAt,
+      });
+
+      throw error;
+    }
   }
 
   async triggerSchedules(authorization: string | undefined, requestId?: string) {
@@ -532,6 +637,34 @@ export class JobSourcesService {
     const results: Array<{ userId: string; ok: boolean; sourceRunId?: string; error?: string }> = [];
     for (const schedule of schedules) {
       const nextRunAt = computeNextRunAt(schedule.cron, acceptedAt);
+      await this.appendScheduleEvents([
+        {
+          scheduleId: schedule.id,
+          userId: schedule.userId,
+          requestId,
+          eventType: 'schedule_trigger_received',
+          message: 'Scheduler picked up a due scrape schedule.',
+          code: 'INTERNAL_SCHEDULER',
+          meta: {
+            dueAt: schedule.nextRunAt?.toISOString() ?? null,
+            nextRunAt: nextRunAt.toISOString(),
+          },
+          createdAt: acceptedAt,
+        },
+        {
+          scheduleId: schedule.id,
+          userId: schedule.userId,
+          requestId,
+          eventType: 'schedule_enqueue_started',
+          message: 'Scheduler started scrape enqueue for due schedule.',
+          code: 'INTERNAL_SCHEDULER',
+          meta: {
+            dueAt: schedule.nextRunAt?.toISOString() ?? null,
+            nextRunAt: nextRunAt.toISOString(),
+          },
+          createdAt: acceptedAt,
+        },
+      ]);
       try {
         const response = await this.enqueueScrape(
           schedule.userId,
@@ -553,6 +686,20 @@ export class JobSourcesService {
             updatedAt: acceptedAt,
           })
           .where(eq(scrapeSchedulesTable.id, schedule.id));
+        await this.appendScheduleEvent({
+          scheduleId: schedule.id,
+          userId: schedule.userId,
+          sourceRunId: response.sourceRunId,
+          traceId: response.traceId ?? null,
+          requestId,
+          eventType: 'schedule_enqueue_succeeded',
+          message: 'Scheduler enqueued a scrape run successfully.',
+          code: 'INTERNAL_SCHEDULER',
+          meta: {
+            nextRunAt: nextRunAt.toISOString(),
+          },
+          createdAt: acceptedAt,
+        });
         results.push({ userId: schedule.userId, ok: true, sourceRunId: response.sourceRunId });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Schedule trigger failed';
@@ -564,6 +711,20 @@ export class JobSourcesService {
             updatedAt: acceptedAt,
           })
           .where(eq(scrapeSchedulesTable.id, schedule.id));
+        await this.appendScheduleEvent({
+          scheduleId: schedule.id,
+          userId: schedule.userId,
+          requestId,
+          eventType: 'schedule_enqueue_failed',
+          severity: 'error',
+          code: 'INTERNAL_SCHEDULER',
+          message: 'Scheduler failed while enqueueing a due scrape run.',
+          meta: {
+            error: message,
+            nextRunAt: nextRunAt.toISOString(),
+          },
+          createdAt: acceptedAt,
+        });
         results.push({ userId: schedule.userId, ok: false, error: message });
       }
     }
@@ -1671,6 +1832,40 @@ export class JobSourcesService {
   private async appendRunEvents(inputs: RunEventInput[]) {
     for (const input of inputs) {
       await this.appendRunEvent(input);
+    }
+  }
+
+  private async appendScheduleEvent(input: ScheduleEventInput) {
+    try {
+      await this.db.insert(scrapeScheduleEventsTable).values({
+        scheduleId: input.scheduleId,
+        userId: input.userId,
+        sourceRunId: input.sourceRunId ?? null,
+        traceId: input.traceId ?? null,
+        requestId: input.requestId ?? null,
+        eventType: input.eventType,
+        severity: input.severity ?? 'info',
+        code: input.code ?? null,
+        message: input.message,
+        meta: this.normalizeRunEventMeta(input.meta) ?? null,
+        createdAt: input.createdAt ?? new Date(),
+      });
+    } catch (error) {
+      this.logger.warn(
+        {
+          scheduleId: input.scheduleId,
+          userId: input.userId,
+          eventType: input.eventType,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to persist scrape schedule event',
+      );
+    }
+  }
+
+  private async appendScheduleEvents(inputs: ScheduleEventInput[]) {
+    for (const input of inputs) {
+      await this.appendScheduleEvent(input);
     }
   }
 
