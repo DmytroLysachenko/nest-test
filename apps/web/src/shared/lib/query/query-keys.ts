@@ -79,6 +79,12 @@ export const queryKeys = {
     focus: (token: string | null) => ['job-offers', 'focus', token] as const,
   },
   ops: {
+    supportOverview: (token: string | null, windowHours = 72) =>
+      ['ops', 'support-overview', token, windowHours] as const,
+    supportScheduleEvents: (
+      token: string | null,
+      params: { userId?: string; sourceRunId?: string; requestId?: string; limit?: number; offset?: number },
+    ) => ['ops', 'support-schedule-events', token, params] as const,
     callbackEvents: (
       token: string | null,
       params: { status?: string; sourceRunId?: string; limit?: number; offset?: number },

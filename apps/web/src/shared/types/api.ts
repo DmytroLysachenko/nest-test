@@ -26,6 +26,9 @@ export type UserDto = {
   id: string;
   email: string;
   role?: string;
+  lastLoginAt?: string | null;
+  isActive?: boolean;
+  deletedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -492,6 +495,7 @@ export type JobSourceRunsListDto = {
 export type EnqueueScrapeResponseDto = {
   ok: boolean;
   sourceRunId: string;
+  traceId?: string;
   status: string;
   acceptedAt?: string;
   warning?: string;
@@ -791,6 +795,19 @@ export type SupportOverviewDto = {
       errorCode: string | null;
       createdAt: string;
     }>;
+    scheduleExecutions: Array<{
+      id: string;
+      scheduleId: string;
+      userId: string;
+      sourceRunId: string | null;
+      traceId: string | null;
+      requestId: string | null;
+      eventType: string;
+      severity: string;
+      code: string | null;
+      message: string;
+      createdAt: string;
+    }>;
   };
 };
 
@@ -859,6 +876,9 @@ export type SupportUserIncidentDto = {
     id: string;
     email: string | null;
     role: string;
+    isActive: boolean;
+    lastLoginAt: string | null;
+    deletedAt: string | null;
   };
   schedule: {
     enabled: boolean;
@@ -886,7 +906,39 @@ export type SupportUserIncidentDto = {
     finalizedAt: string | null;
     createdAt: string;
   }>;
+  recentScheduleEvents: Array<{
+    id: string;
+    scheduleId: string;
+    sourceRunId: string | null;
+    traceId: string | null;
+    requestId: string | null;
+    eventType: string;
+    severity: string;
+    code: string | null;
+    message: string;
+    createdAt: string;
+  }>;
   recentApiRequestEvents: ApiRequestEventDto[];
+};
+
+export type SupportScheduleEventsListDto = {
+  items: Array<{
+    id: string;
+    scheduleId: string;
+    userId: string;
+    sourceRunId: string | null;
+    traceId: string | null;
+    requestId: string | null;
+    eventType: string;
+    severity: string;
+    code: string | null;
+    message: string;
+    meta: Record<string, unknown> | null;
+    createdAt: string;
+  }>;
+  limit: number;
+  offset: number;
+  total: number;
 };
 
 export type SupportCorrelationDto = {
