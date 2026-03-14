@@ -19,5 +19,6 @@ import { GoogleOauthService } from './google-oauth.service';
   imports: [NodeMailerModule, ConfigModule, PassportModule],
   providers: [AuthService, OptsService, MailService, LocalStrategy, JwtStrategy, TokenService, GoogleOauthService],
   controllers: [AuthController],
+  exports: [TokenService],
 })
 export class AuthModule {}
