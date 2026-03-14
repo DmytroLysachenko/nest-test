@@ -9,6 +9,15 @@ class SupportIncidentUserResponse {
 
   @ApiProperty()
   role!: string;
+
+  @ApiProperty()
+  isActive!: boolean;
+
+  @ApiProperty({ nullable: true })
+  lastLoginAt!: string | null;
+
+  @ApiProperty({ nullable: true })
+  deletedAt!: string | null;
 }
 
 class SupportIncidentScheduleResponse {
@@ -106,6 +115,38 @@ class SupportIncidentUserApiRequestResponse {
   createdAt!: string;
 }
 
+class SupportIncidentScheduleEventResponse {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  scheduleId!: string;
+
+  @ApiProperty({ nullable: true })
+  sourceRunId!: string | null;
+
+  @ApiProperty({ nullable: true })
+  traceId!: string | null;
+
+  @ApiProperty({ nullable: true })
+  requestId!: string | null;
+
+  @ApiProperty()
+  eventType!: string;
+
+  @ApiProperty()
+  severity!: string;
+
+  @ApiProperty({ nullable: true })
+  code!: string | null;
+
+  @ApiProperty()
+  message!: string;
+
+  @ApiProperty()
+  createdAt!: string;
+}
+
 export class SupportUserIncidentResponse {
   @ApiProperty()
   generatedAt!: string;
@@ -124,6 +165,9 @@ export class SupportUserIncidentResponse {
 
   @ApiProperty({ type: [SupportIncidentUserRunResponse] })
   recentScrapeRuns!: SupportIncidentUserRunResponse[];
+
+  @ApiProperty({ type: [SupportIncidentScheduleEventResponse] })
+  recentScheduleEvents!: SupportIncidentScheduleEventResponse[];
 
   @ApiProperty({ type: [SupportIncidentUserApiRequestResponse] })
   recentApiRequestEvents!: SupportIncidentUserApiRequestResponse[];

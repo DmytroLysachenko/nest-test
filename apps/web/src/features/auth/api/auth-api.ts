@@ -46,6 +46,12 @@ export const getCurrentUser = (token: string) =>
     token,
   });
 
+export const deleteCurrentUser = (token: string) =>
+  apiRequest<{ ok: true; userId: string; deletedAt: string }>('/user', {
+    method: 'DELETE',
+    token,
+  });
+
 export const logout = (token: string) =>
   apiRequest<string>('/auth/logout', {
     method: 'POST',

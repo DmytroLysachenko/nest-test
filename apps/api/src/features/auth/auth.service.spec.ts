@@ -7,6 +7,7 @@ describe('AuthService', () => {
     const db = {
       transaction: jest.fn(),
       update: jest.fn(),
+      insert: jest.fn(),
       select: jest.fn(),
     } as any;
     const optsService = {
@@ -19,6 +20,7 @@ describe('AuthService', () => {
       verifyRefreshToken: jest.fn(),
       findSessionByRefreshToken: jest.fn(),
       createJwtToken: jest.fn(),
+      hashRefreshToken: jest.fn(),
       rotateRefreshToken: jest.fn(),
     } as any;
     const googleOauthService = {
@@ -114,6 +116,9 @@ describe('AuthService', () => {
                     id: 'user-1',
                     email: 'user@example.com',
                     role: 'user',
+                    isActive: true,
+                    lastLoginAt: null,
+                    deletedAt: null,
                     createdAt: new Date('2026-01-01T00:00:00.000Z'),
                     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
                   },
@@ -135,6 +140,78 @@ describe('AuthService', () => {
         email: 'user@example.com',
       },
     });
+  });
+
+  it('updates lastLoginAt when issuing a new login session', async () => {
+    const { service, db, tokenService } = createService();
+    tokenService.createJwtToken.mockResolvedValueOnce({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      sessionRefreshTime: '2026-01-01T00:00:00.000Z',
+    });
+    tokenService.hashRefreshToken.mockResolvedValueOnce('hashed-refresh-token');
+    db.update.mockReturnValue({
+      set: jest.fn().mockReturnValue({
+        where: jest.fn().mockResolvedValue(undefined),
+      }),
+    });
+    db.insert.mockReturnValue({
+      values: jest.fn().mockResolvedValue(undefined),
+    });
+
+    await service.login(
+      {
+        id: 'user-1',
+        email: 'user@example.com',
+        role: 'user',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      } as any,
+      {
+        ip: '127.0.0.1',
+        userAgent: 'test-agent',
+        deviceType: 'desktop',
+        deviceName: 'test-device',
+        deviceOs: 'test-os',
+        browser: 'test-browser',
+      },
+    );
+
+    expect(db.update).toHaveBeenCalledTimes(1);
+    expect(db.insert).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects refresh for inactive accounts', async () => {
+    const { service, db, tokenService } = createService();
+
+    tokenService.verifyRefreshToken.mockResolvedValueOnce({ sub: 'user-1', role: 'user' });
+    tokenService.findSessionByRefreshToken.mockResolvedValueOnce({ id: 'session-1' });
+
+    db.select.mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnValue({
+          limit: jest.fn().mockReturnValue({
+            then: (cb: (rows: unknown[]) => unknown) =>
+              Promise.resolve(
+                cb([
+                  {
+                    id: 'user-1',
+                    email: 'user@example.com',
+                    role: 'user',
+                    isActive: false,
+                    lastLoginAt: null,
+                    deletedAt: null,
+                    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+                    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+                  },
+                ]),
+              ),
+          }),
+        }),
+      }),
+    });
+
+    await expect(service.refresh('refresh-token')).rejects.toThrow('Account is inactive');
   });
 
   it('fails google login when nonce does not match', async () => {

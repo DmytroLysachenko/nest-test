@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-03-13
+Last updated: 2026-03-14
 
 ## Milestone Progress Snapshot
 
@@ -115,6 +115,7 @@ Last updated: 2026-03-13
 - Career profile exposes deterministic quality diagnostics endpoint.
 - Scrape runs expose diagnostics endpoint (relaxation trail + source stats).
 - Scrape runs now persist a DB-backed event timeline (`job_source_run_events`) and trace id for enqueue, heartbeat, callback, retry, cache-reuse, and stale-reconcile lifecycle inspection.
+- Scrape schedules now persist a DB-backed execution timeline (`scrape_schedule_events`) so scheduler pickup and enqueue failures can be traced separately from run execution.
 - Production support now has a read-only local toolkit (`tools/support`) that combines support endpoints with allowlisted Neon queries into one incident bundle.
 - Scrape runs expose aggregated diagnostics summary endpoint (`/job-sources/runs/diagnostics/summary`).
 - Scrape runs expose per-run event timeline endpoint (`GET /api/job-sources/runs/:id/events`).
@@ -140,6 +141,8 @@ Last updated: 2026-03-13
 - Job offers now include deterministic `offer_identity_key` used for stable upserts on callback replays.
 - Ops now exposes callback event listing, worker dead-letter replay trigger, and stale run reconcile endpoint.
 - Ops now exposes token-protected bulk stale-run reconcile endpoint (`POST /api/ops/reconcile-stale-runs`) for scheduler automation.
+- Ops support overview now includes recent schedule execution failures, and admins can list schedule events directly through `GET /api/ops/support/schedule-events`.
+- Admin ops endpoints are now skip-throttled and the web ops page uses the compact support overview bundle instead of several parallel diagnostics queries.
 - Job matching now persists explanation metadata on each scored match (`job_matches.match_meta`) and exposes audit export endpoints.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.
@@ -166,6 +169,8 @@ Last updated: 2026-03-13
 - Vertex provider access/configuration failures now surface as stable AI-specific service errors instead of raw provider payload leakage.
 - Auth endpoint throttles are env-tunable (`AUTH_*_THROTTLE_*`).
 - Google OAuth login endpoint is available (`POST /api/auth/oauth/google`) with verified-id-token account linking.
+- Successful login now persists `users.last_login_at`, and JWT validation rejects inactive or soft-deleted users immediately.
+- Users can now soft-delete their own account through `DELETE /api/user`; sessions are revoked while operational history remains auditable.
 - Scrape schedules are now persisted and available through:
   - `GET /api/job-sources/schedule`
   - `PUT /api/job-sources/schedule`
@@ -242,7 +247,7 @@ Last updated: 2026-03-13
 - Matching remains trust-first and now applies stronger ambiguity/context penalties for low-quality offer metadata.
 - CI now uses split quality gates (`CI Verify`, `Smoke Gate`) and release candidate + manual promote workflows.
 - CI Verify and Smoke Gate now use cancel-in-progress concurrency to avoid duplicate billable runs on rapid pushes.
-- Web Playwright e2e now runs in isolated `CI Verify / web-e2e` job (non-blocking on PR, blocking on `master` push).
+- Web Playwright e2e now runs in isolated `CI Verify / web-e2e` heavy validation on `dev`, `master`, and pull requests.
 - Release candidate now builds and pushes api/worker/web container images to GCP Artifact Registry.
 - Manual production promotion now deploys pinned SHA images to Cloud Run and runs post-deploy health verification.
 - Deployment verification now uses retry-based service probes and emits machine-readable summary artifacts.

@@ -92,6 +92,41 @@ class SupportRecentApiRequestFailureResponse {
   createdAt!: string;
 }
 
+class SupportRecentScheduleExecutionFailureResponse {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  scheduleId!: string;
+
+  @ApiProperty()
+  userId!: string;
+
+  @ApiProperty({ nullable: true })
+  sourceRunId!: string | null;
+
+  @ApiProperty({ nullable: true })
+  traceId!: string | null;
+
+  @ApiProperty({ nullable: true })
+  requestId!: string | null;
+
+  @ApiProperty()
+  eventType!: string;
+
+  @ApiProperty()
+  severity!: string;
+
+  @ApiProperty({ nullable: true })
+  code!: string | null;
+
+  @ApiProperty()
+  message!: string;
+
+  @ApiProperty()
+  createdAt!: string;
+}
+
 class SupportRecentFailuresResponse {
   @ApiProperty({ type: [SupportRecentScrapeFailureResponse] })
   scrapeRuns!: SupportRecentScrapeFailureResponse[];
@@ -101,6 +136,9 @@ class SupportRecentFailuresResponse {
 
   @ApiProperty({ type: [SupportRecentApiRequestFailureResponse] })
   apiRequests!: SupportRecentApiRequestFailureResponse[];
+
+  @ApiProperty({ type: [SupportRecentScheduleExecutionFailureResponse] })
+  scheduleExecutions!: SupportRecentScheduleExecutionFailureResponse[];
 }
 
 export class SupportOverviewResponse {

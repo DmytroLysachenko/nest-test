@@ -211,6 +211,13 @@
       "when": 1773436637573,
       "tag": "0029_vengeful_fenris",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1773489600000,
+      "tag": "0030_scrape_schedule_events",
+      "breakpoints": true
     }
   ]
 }

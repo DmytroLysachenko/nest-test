@@ -55,6 +55,8 @@ export class AuthService {
       throw new UserNotFoundException('User not found');
     }
 
+    this.assertAccountAvailable(user);
+
     if (!(await validatePassword(password, user.password))) {
       throw new UnauthorizedException('Incorrect password');
     }
@@ -63,11 +65,25 @@ export class AuthService {
   }
 
   async login(user: User, device: DeviceType) {
-    const { accessToken, refreshToken } = await this.tokenService.createJwtToken(user);
-    const refreshTokenHash = await this.tokenService.hashRefreshToken(refreshToken);
     const now = new Date();
+    await this.db
+      .update(usersTable)
+      .set({
+        lastLoginAt: now,
+        updatedAt: now,
+      })
+      .where(eq(usersTable.id, user.id));
+
+    const sessionUser = {
+      ...user,
+      lastLoginAt: now,
+      updatedAt: now,
+    };
+
+    const { accessToken, refreshToken } = await this.tokenService.createJwtToken(sessionUser);
+    const refreshTokenHash = await this.tokenService.hashRefreshToken(refreshToken);
     await this.db.insert(passportTable).values({
-      userId: user.id,
+      userId: sessionUser.id,
       refreshToken: refreshTokenHash,
       userAgent: device.userAgent,
       createdAt: now,
@@ -77,7 +93,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: this.toUserResponse(user),
+      user: this.toUserResponse(sessionUser),
     };
   }
 
@@ -141,6 +157,8 @@ export class AuthService {
         throw new InternalServerErrorException('Google login unavailable');
       }
     }
+
+    this.assertAccountAvailable(user);
 
     return this.login(user, device);
   }
@@ -254,6 +272,8 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
+    this.assertAccountAvailable(user);
+
     const tokens = await this.tokenService.createJwtToken(user);
     await this.tokenService.rotateRefreshToken(session.id, tokens.refreshToken);
 
@@ -316,8 +336,18 @@ export class AuthService {
     return {
       id: user.id,
       email: user.email,
+      role: user.role,
+      lastLoginAt: user.lastLoginAt ?? null,
+      isActive: user.isActive,
+      deletedAt: user.deletedAt ?? null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+  }
+
+  private assertAccountAvailable(user: typeof usersTable.$inferSelect) {
+    if (!user.isActive || user.deletedAt) {
+      throw new UnauthorizedException('Account is inactive');
+    }
   }
 }

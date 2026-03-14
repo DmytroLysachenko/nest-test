@@ -24,6 +24,7 @@ const createService = (configOverrides: Record<string, unknown> = {}) => {
 
   const db = {
     select: jest.fn(),
+    insert: jest.fn(),
     update: jest.fn(),
   } as any;
 
@@ -57,5 +58,53 @@ describe('JobSourcesService schedule', () => {
     });
 
     await expect(service.triggerSchedules('Bearer wrong-token')).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('writes a schedule event when the schedule is updated', async () => {
+    const { service, db } = createService();
+    const selectThen = jest
+      .fn()
+      .mockReturnValueOnce(Promise.resolve({ id: 'schedule-1' }))
+      .mockReturnValueOnce(
+        Promise.resolve({
+          enabled: 1,
+          cron: '0 9 * * *',
+          timezone: 'Europe/Warsaw',
+          source: 'pracuj-pl-it',
+          limit: 20,
+          careerProfileId: null,
+          filters: null,
+          lastTriggeredAt: null,
+          nextRunAt: new Date('2026-03-15T09:00:00.000Z'),
+          lastRunStatus: null,
+        }),
+      );
+
+    db.select.mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnValue({
+          limit: jest.fn().mockReturnValue({
+            then: (cb: (rows: Array<Record<string, unknown>>) => unknown) =>
+              selectThen().then((row) => cb(row ? [row] : [])),
+          }),
+        }),
+      }),
+    });
+    db.update.mockReturnValue({
+      set: jest.fn().mockReturnValue({
+        where: jest.fn().mockResolvedValue(undefined),
+      }),
+    });
+    db.insert.mockReturnValue({
+      values: jest.fn().mockResolvedValue(undefined),
+    });
+
+    const result = await service.updateSchedule('user-1', {
+      enabled: true,
+      cron: '0 9 * * *',
+    });
+
+    expect(result.enabled).toBe(true);
+    expect(db.insert).toHaveBeenCalled();
   });
 });
