@@ -9,6 +9,14 @@ import { getNotebookSummary } from '@/features/job-offers/api/job-offers-api';
 import { getScrapeSchedule } from '@/features/job-sources/api/job-sources-api';
 import { getLatestProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
 import { getWorkspaceSummary } from '@/features/workspace/api/workspace-api';
+import {
+  normalizeNotebookSummary,
+  normalizeScrapeSchedule,
+  normalizeWorkspaceSummary,
+  type PrivateDashboardNotebookSummary,
+  type PrivateDashboardSchedule,
+  type PrivateDashboardSummary,
+} from '@/shared/lib/dashboard/private-dashboard-data-normalizers';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
 import { mutableQueryPreset, staticQueryPreset } from '@/shared/lib/query/query-option-presets';
 import { queryKeys } from '@/shared/lib/query/query-keys';
@@ -24,12 +32,12 @@ import type {
 
 type PrivateDashboardDataValue = {
   token: string | null;
-  summary: WorkspaceSummaryDto | null;
+  summary: PrivateDashboardSummary | null;
   latestProfileInput: ProfileInputDto | null;
   latestCareerProfile: CareerProfileDto | null;
   documents: DocumentDto[];
-  notebookSummary: JobOfferSummaryDto | null;
-  scrapeSchedule: ScrapeScheduleDto | null;
+  notebookSummary: PrivateDashboardNotebookSummary;
+  scrapeSchedule: PrivateDashboardSchedule;
   isBootstrapping: boolean;
   refreshSummary: () => Promise<unknown>;
   refreshDocuments: () => Promise<unknown>;
@@ -112,12 +120,12 @@ export const PrivateDashboardDataProvider = ({
   const value = useMemo<PrivateDashboardDataValue>(
     () => ({
       token,
-      summary: summaryQuery.data ?? null,
+      summary: normalizeWorkspaceSummary(summaryQuery.data),
       latestProfileInput: latestProfileInputQuery.data ?? null,
       latestCareerProfile: latestCareerProfileQuery.data ?? null,
       documents: documentsQuery.data ?? [],
-      notebookSummary: notebookSummaryQuery.data ?? null,
-      scrapeSchedule: scrapeScheduleQuery.data ?? null,
+      notebookSummary: normalizeNotebookSummary(notebookSummaryQuery.data),
+      scrapeSchedule: normalizeScrapeSchedule(scrapeScheduleQuery.data),
       isBootstrapping:
         !token ||
         summaryQuery.isLoading ||

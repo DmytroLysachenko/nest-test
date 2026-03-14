@@ -165,6 +165,15 @@ Forms:
 - Use `interface` only when declaration merging or explicit interface extension semantics are required.
 - Prefer explicit API DTO types in `shared/types/api.ts`.
 - Feature-specific view types stay local in feature `model`.
+- Do not introduce unclear abbreviations in names. Prefer full descriptive identifiers such as `jobPosition`, `careerProfile`, `requestIdentifier`, and `workspaceSummary`.
+- Single-letter or compressed aliases are allowed only for tiny callback parameters that never leave a 1-3 line local scope.
+
+## UI-Safe View Models
+
+- Controller hooks and shared providers must return UI-safe defaults for optional arrays and nested objects.
+- Components must not assume server payload completeness when rendering private dashboard surfaces.
+- Normalize partial API payloads in `api/` mappers, query `select`, or controller hooks before they reach `ui/*`.
+- Prefer descriptive, render-ready view models over optional chaining spread throughout components.
 
 ## Imports and Exports
 

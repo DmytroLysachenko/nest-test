@@ -20,6 +20,7 @@ import {
   careerProfilesTable,
   jobOffersTable,
   jobSourceCallbackEventsTable,
+  jobSourceRunEventsTable,
   jobSourceRunAttemptsTable,
   jobSourceRunsTable,
   scrapeSchedulesTable,
@@ -47,11 +48,25 @@ import type { Env } from '@/config/env';
 type CallbackJobPayload = NonNullable<ScrapeCompleteDto['jobs']>[number];
 type RunFailureType = 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown';
 type RunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+type RunEventSeverity = 'info' | 'warning' | 'error';
 type WorkerSignaturePayload = {
   sourceRunId: string;
   status: string;
   runId?: string;
   eventId?: string;
+};
+type RunEventInput = {
+  sourceRunId: string;
+  traceId: string;
+  eventType: string;
+  message: string;
+  severity?: RunEventSeverity;
+  requestId?: string | null;
+  phase?: string | null;
+  attemptNo?: number | null;
+  code?: string | null;
+  meta?: Record<string, unknown> | null;
+  createdAt?: Date;
 };
 type CallbackEventRegisterResult =
   | { accepted: true; payloadHash: string; attemptNo: number; emittedAt: Date | null }
@@ -686,12 +701,27 @@ export class JobSourcesService {
       })
       .returning({
         id: jobSourceRunsTable.id,
+        traceId: jobSourceRunsTable.traceId,
         createdAt: jobSourceRunsTable.createdAt,
       });
 
     if (!run?.id) {
       throw new ServiceUnavailableException('Failed to create scrape run');
     }
+
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'run_enqueued',
+      requestId,
+      message: 'Scrape run enqueued and waiting for worker dispatch.',
+      meta: {
+        source: sourceEnum,
+        listingUrl,
+        acceptedFilters: normalizedFilters ?? null,
+        resolvedFromProfile,
+      },
+    });
 
     const workerTaskProvider = this.configService.get('WORKER_TASK_PROVIDER', { infer: true });
     const workerUrl = this.configService.get('WORKER_TASK_URL', { infer: true });
@@ -713,6 +743,7 @@ export class JobSourcesService {
         taskSchemaVersion: WORKER_TASK_SCHEMA_VERSION,
         source,
         sourceRunId: run.id,
+        traceId: run.traceId,
         requestId,
         dedupeKey: intentFingerprint,
         callbackUrl,
@@ -729,16 +760,52 @@ export class JobSourcesService {
       const payloadBytes = Buffer.byteLength(serializedPayload);
       if (payloadBytes > maxPayloadBytes) {
         await this.markRunFailed(run.id, `Worker payload too large: ${payloadBytes} > ${maxPayloadBytes}`);
+        await this.appendRunEvent({
+          sourceRunId: run.id,
+          traceId: run.traceId,
+          eventType: 'worker_dispatch_failed',
+          severity: 'error',
+          requestId,
+          code: 'PAYLOAD_TOO_LARGE',
+          message: 'Worker payload exceeded the configured size limit.',
+          meta: {
+            payloadBytes,
+            maxPayloadBytes,
+          },
+        });
         throw new BadRequestException(`Worker payload exceeds max size (${maxPayloadBytes} bytes)`);
       }
 
       if (workerTaskProvider === 'cloud-tasks') {
         const cloudTask = await this.enqueueWorkerCloudTask(serializedPayload, requestId, workerUrl, authToken);
         await this.markRunRunning(run.id);
+        await this.appendRunEvents([
+          {
+            sourceRunId: run.id,
+            traceId: run.traceId,
+            eventType: 'worker_task_dispatched',
+            requestId,
+            code: 'CLOUD_TASKS',
+            message: 'Scrape run dispatched to Cloud Tasks.',
+            meta: {
+              provider: 'cloud-tasks',
+              taskName: cloudTask.taskName,
+              taskId: cloudTask.taskId,
+            },
+          },
+          {
+            sourceRunId: run.id,
+            traceId: run.traceId,
+            eventType: 'run_running',
+            requestId,
+            message: 'Scrape run accepted and marked RUNNING after Cloud Tasks dispatch.',
+          },
+        ]);
         this.logger.log(
           {
             requestId,
             sourceRunId: run.id,
+            traceId: run.traceId,
             userId,
             queueProvider: 'cloud-tasks',
             taskName: cloudTask.taskName,
@@ -750,6 +817,7 @@ export class JobSourcesService {
         return {
           ok: true,
           sourceRunId: run.id,
+          traceId: run.traceId,
           status: 'accepted',
           provider: 'cloud-tasks',
           taskName: cloudTask.taskName,
@@ -779,15 +847,51 @@ export class JobSourcesService {
       if (!response.ok) {
         const reason = `Worker rejected request: ${text}`;
         await this.markRunFailed(run.id, reason);
+        await this.appendRunEvent({
+          sourceRunId: run.id,
+          traceId: run.traceId,
+          eventType: 'worker_dispatch_failed',
+          severity: 'error',
+          requestId,
+          code: 'WORKER_HTTP_REJECTED',
+          message: 'Worker rejected the scrape dispatch request.',
+          meta: {
+            workerUrl,
+            responseText: text,
+          },
+        });
         throw new ServiceUnavailableException(reason);
       }
 
       const payload = text ? JSON.parse(text) : { ok: true };
       await this.markRunRunning(run.id);
-      this.logger.log({ requestId, sourceRunId: run.id, userId }, 'Scrape run accepted by worker');
+      await this.appendRunEvents([
+        {
+          sourceRunId: run.id,
+          traceId: run.traceId,
+          eventType: 'worker_task_dispatched',
+          requestId,
+          code: 'WORKER_HTTP',
+          message: 'Scrape run dispatched directly to worker over HTTP.',
+          meta: {
+            workerUrl,
+          },
+        },
+        {
+          sourceRunId: run.id,
+          traceId: run.traceId,
+          eventType: 'run_running',
+          requestId,
+          message: 'Scrape run accepted and marked RUNNING after worker dispatch.',
+        },
+      ]);
+      this.logger.log(
+        { requestId, sourceRunId: run.id, traceId: run.traceId, userId },
+        'Scrape run accepted by worker',
+      );
       if (Object.keys(normalizedFiltersResult.dropped).length > 0) {
         this.logger.warn(
-          { requestId, sourceRunId: run.id, droppedFilters: normalizedFiltersResult.dropped },
+          { requestId, sourceRunId: run.id, traceId: run.traceId, droppedFilters: normalizedFiltersResult.dropped },
           'Some scrape filters were dropped because they are unsupported for this source',
         );
       }
@@ -795,6 +899,7 @@ export class JobSourcesService {
       return {
         ...payload,
         sourceRunId: run.id,
+        traceId: run.traceId,
         status: 'accepted',
         provider: (payload?.queueProvider as string | undefined) ?? 'worker-http',
         dedupeKey: intentFingerprint,
@@ -808,10 +913,29 @@ export class JobSourcesService {
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         await this.markRunRunning(run.id);
-        this.logger.warn({ requestId, sourceRunId: run.id, userId }, 'Worker response timed out');
+        await this.appendRunEvents([
+          {
+            sourceRunId: run.id,
+            traceId: run.traceId,
+            eventType: 'worker_dispatch_timed_out',
+            severity: 'warning',
+            requestId,
+            message: 'Worker dispatch response timed out; run continues in background.',
+          },
+          {
+            sourceRunId: run.id,
+            traceId: run.traceId,
+            eventType: 'run_running',
+            requestId,
+            severity: 'warning',
+            message: 'Scrape run remains RUNNING after dispatch timeout.',
+          },
+        ]);
+        this.logger.warn({ requestId, sourceRunId: run.id, traceId: run.traceId, userId }, 'Worker response timed out');
         return {
           ok: true,
           sourceRunId: run.id,
+          traceId: run.traceId,
           status: 'accepted',
           provider: 'worker-http',
           dedupeKey: intentFingerprint,
@@ -824,6 +948,18 @@ export class JobSourcesService {
         };
       }
 
+      await this.appendRunEvent({
+        sourceRunId: run.id,
+        traceId: run.traceId,
+        eventType: 'worker_dispatch_failed',
+        severity: 'error',
+        requestId,
+        code: 'WORKER_DISPATCH_ERROR',
+        message: 'Scrape dispatch failed before the worker accepted the run.',
+        meta: {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
       throw error;
     } finally {
       clearTimeout(timeout);
@@ -898,6 +1034,7 @@ export class JobSourcesService {
     const run = await this.db
       .select({
         id: jobSourceRunsTable.id,
+        traceId: jobSourceRunsTable.traceId,
         source: jobSourceRunsTable.source,
         userId: jobSourceRunsTable.userId,
         careerProfileId: jobSourceRunsTable.careerProfileId,
@@ -940,6 +1077,7 @@ export class JobSourcesService {
           {
             requestId,
             sourceRunId: run.id,
+            traceId: run.traceId,
             eventId: callbackEventId,
             idempotent: true,
             reasonCode,
@@ -1006,6 +1144,21 @@ export class JobSourcesService {
       };
     }
 
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'callback_received',
+      requestId,
+      attemptNo: callbackAttemptNo,
+      code: dto.status ?? 'COMPLETED',
+      message: 'Worker callback payload accepted for processing.',
+      meta: {
+        eventId: callbackEventId,
+        payloadHash: callbackPayloadHash,
+        emittedAt: callbackEmittedAt?.toISOString() ?? null,
+      },
+    });
+
     const scrapedCount =
       (sanitizedJobs.length ? sanitizedJobs.length : undefined) ??
       dto.scrapedCount ??
@@ -1038,6 +1191,7 @@ export class JobSourcesService {
         {
           requestId,
           sourceRunId: run.id,
+          traceId: run.traceId,
           statusFrom,
           statusTo: 'FAILED',
           failureType,
@@ -1047,6 +1201,23 @@ export class JobSourcesService {
         },
         'Scrape run finalized as FAILED',
       );
+      await this.appendRunEvent({
+        sourceRunId: run.id,
+        traceId: run.traceId,
+        eventType: 'callback_failed',
+        requestId,
+        severity: 'error',
+        attemptNo: callbackAttemptNo,
+        code: dto.failureCode ?? failureType,
+        message: 'Worker callback finalized the scrape run as FAILED.',
+        meta: {
+          eventId: callbackEventId,
+          totalFound,
+          scrapedCount,
+          error: dto.error ?? 'Scrape failed in worker',
+          failureType,
+        },
+      });
 
       return {
         ok: true,
@@ -1158,6 +1329,14 @@ export class JobSourcesService {
         finalizedAt: null,
         startedAt: callbackEmittedAt ?? finalizedAt,
       });
+      await this.appendRunEvent({
+        sourceRunId: run.id,
+        traceId: run.traceId,
+        eventType: 'run_running',
+        requestId,
+        attemptNo: callbackAttemptNo,
+        message: 'Pending run promoted to RUNNING before callback finalization.',
+      });
       statusForCompletion = 'RUNNING';
     }
     await this.registerRunAttempt(run.id, callbackAttemptNo, {
@@ -1228,6 +1407,7 @@ export class JobSourcesService {
       {
         requestId,
         sourceRunId: run.id,
+        traceId: run.traceId,
         statusFrom,
         statusTo: 'COMPLETED',
         totalFound,
@@ -1236,6 +1416,21 @@ export class JobSourcesService {
       },
       'Scrape run finalized as COMPLETED',
     );
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'callback_completed',
+      requestId,
+      attemptNo: callbackAttemptNo,
+      code: 'COMPLETED',
+      message: 'Worker callback finalized the scrape run as COMPLETED.',
+      meta: {
+        eventId: callbackEventId,
+        totalFound,
+        scrapedCount,
+        offersInserted: inserted.length,
+      },
+    });
 
     return {
       ok: true,
@@ -1270,6 +1465,7 @@ export class JobSourcesService {
     const run = await this.db
       .select({
         id: jobSourceRunsTable.id,
+        traceId: jobSourceRunsTable.traceId,
         status: jobSourceRunsTable.status,
       })
       .from(jobSourceRunsTable)
@@ -1308,6 +1504,22 @@ export class JobSourcesService {
         progress,
       })
       .where(eq(jobSourceRunsTable.id, run.id));
+
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'heartbeat_received',
+      requestId,
+      phase: dto.phase ?? null,
+      attemptNo: dto.attempt ?? null,
+      message: 'Worker heartbeat accepted for active scrape run.',
+      meta: {
+        pagesVisited: dto.pagesVisited ?? 0,
+        jobLinksDiscovered: dto.jobLinksDiscovered ?? 0,
+        normalizedOffers: dto.normalizedOffers ?? 0,
+        progressMeta: dto.meta ?? null,
+      },
+    });
 
     return {
       ok: true,
@@ -1408,6 +1620,58 @@ export class JobSourcesService {
       return false;
     }
     return timingSafeEqual(left, right);
+  }
+
+  private toNullableRecord(value: unknown): Record<string, unknown> | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+    return value as Record<string, unknown>;
+  }
+
+  private normalizeRunEventMeta(value: Record<string, unknown> | null | undefined) {
+    if (!value) {
+      return null;
+    }
+
+    return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as Record<
+      string,
+      unknown
+    > | null;
+  }
+
+  private async appendRunEvent(input: RunEventInput) {
+    try {
+      await this.db.insert(jobSourceRunEventsTable).values({
+        sourceRunId: input.sourceRunId,
+        traceId: input.traceId,
+        eventType: input.eventType,
+        severity: input.severity ?? 'info',
+        requestId: input.requestId ?? null,
+        phase: input.phase ?? null,
+        attemptNo: input.attemptNo ?? null,
+        code: input.code ?? null,
+        message: input.message,
+        meta: this.normalizeRunEventMeta(input.meta) ?? null,
+        createdAt: input.createdAt ?? new Date(),
+      });
+    } catch (error) {
+      this.logger.warn(
+        {
+          sourceRunId: input.sourceRunId,
+          traceId: input.traceId,
+          eventType: input.eventType,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to persist scrape run event',
+      );
+    }
+  }
+
+  private async appendRunEvents(inputs: RunEventInput[]) {
+    for (const input of inputs) {
+      await this.appendRunEvent(input);
+    }
   }
 
   async listRuns(userId: string, query: ListJobSourceRunsQuery) {
@@ -1640,6 +1904,30 @@ export class JobSourcesService {
       })
       .where(eq(jobSourceRunsTable.id, result.sourceRunId));
 
+    const retriedRun = await this.db
+      .select({
+        traceId: jobSourceRunsTable.traceId,
+      })
+      .from(jobSourceRunsTable)
+      .where(eq(jobSourceRunsTable.id, result.sourceRunId))
+      .limit(1)
+      .then(([item]) => item);
+
+    if (retriedRun?.traceId) {
+      await this.appendRunEvent({
+        sourceRunId: result.sourceRunId,
+        traceId: retriedRun.traceId,
+        eventType: 'run_retried',
+        requestId,
+        code: 'MANUAL_RETRY',
+        message: 'Failed scrape run was retried from the UI/API.',
+        meta: {
+          retriedFromRunId: run.id,
+          retryCount: nextRetryCount,
+        },
+      });
+    }
+
     return {
       ...result,
       retriedFromRunId: run.id,
@@ -1679,15 +1967,61 @@ export class JobSourcesService {
       }
     }
 
+    let callbackSummary:
+      | {
+          total: number;
+          latestReceivedAt: Date | null;
+        }
+      | undefined;
+    try {
+      callbackSummary = await this.db
+        .select({
+          total: sql<number>`count(*)`,
+          latestReceivedAt: sql<Date | null>`max(${jobSourceCallbackEventsTable.receivedAt})`,
+        })
+        .from(jobSourceCallbackEventsTable)
+        .where(eq(jobSourceCallbackEventsTable.sourceRunId, runId))
+        .then(([item]) => item);
+    } catch {
+      callbackSummary = undefined;
+    }
+
+    let latestRunEvent:
+      | {
+          createdAt: Date;
+          code: string | null;
+        }
+      | undefined;
+    try {
+      latestRunEvent = await this.db
+        .select({
+          createdAt: jobSourceRunEventsTable.createdAt,
+          code: jobSourceRunEventsTable.code,
+        })
+        .from(jobSourceRunEventsTable)
+        .where(eq(jobSourceRunEventsTable.sourceRunId, runId))
+        .orderBy(desc(jobSourceRunEventsTable.createdAt))
+        .limit(1)
+        .then(([item]) => item);
+    } catch {
+      latestRunEvent = undefined;
+    }
+
     const diagnostics = (parsedPayload?.diagnostics as Record<string, unknown> | undefined) ?? {};
 
     return {
       runId: run.id,
+      traceId: run.traceId,
       source: run.source,
       status: run.status,
       listingUrl: run.listingUrl,
       finalizedAt: run.finalizedAt ?? run.completedAt,
       heartbeatAt: run.lastHeartbeatAt ?? null,
+      callbackAttempts: Number(callbackSummary?.total ?? 0),
+      callbackAcceptedAt: callbackSummary?.latestReceivedAt ?? null,
+      reconcileReason:
+        run.status === 'FAILED' && run.error === '[timeout] run stale watchdog' ? 'STALE_HEARTBEAT_OR_CALLBACK' : null,
+      lastEventAt: latestRunEvent?.createdAt ?? null,
       progress: (run.progress as Record<string, unknown> | null) ?? null,
       diagnostics: {
         relaxationTrail: Array.isArray(diagnostics.relaxationTrail)
@@ -1715,6 +2049,32 @@ export class JobSourcesService {
           ignoredRecommendedLinks: Number(diagnostics.ignoredRecommendedLinks ?? 0),
         },
       },
+    };
+  }
+
+  async listRunEvents(userId: string, runId: string) {
+    const run = await this.db
+      .select({
+        id: jobSourceRunsTable.id,
+      })
+      .from(jobSourceRunsTable)
+      .where(and(eq(jobSourceRunsTable.id, runId), eq(jobSourceRunsTable.userId, userId)))
+      .limit(1)
+      .then(([item]) => item);
+
+    if (!run) {
+      throw new NotFoundException('Job source run not found');
+    }
+
+    const items = await this.db
+      .select()
+      .from(jobSourceRunEventsTable)
+      .where(eq(jobSourceRunEventsTable.sourceRunId, runId))
+      .orderBy(desc(jobSourceRunEventsTable.createdAt));
+
+    return {
+      items,
+      total: items.length,
     };
   }
 
@@ -1971,10 +2331,25 @@ export class JobSourcesService {
         totalFound: offers.length,
         scrapedCount: 0,
       })
-      .returning({ id: jobSourceRunsTable.id, createdAt: jobSourceRunsTable.createdAt });
+      .returning({
+        id: jobSourceRunsTable.id,
+        traceId: jobSourceRunsTable.traceId,
+        createdAt: jobSourceRunsTable.createdAt,
+      });
     if (!reuseRun?.id) {
       return null;
     }
+
+    await this.appendRunEvent({
+      sourceRunId: reuseRun.id,
+      traceId: reuseRun.traceId,
+      eventType: 'run_reused_from_cache',
+      message: 'Scrape request was served from cached database offers.',
+      meta: {
+        reusedFromRunId: reusedRun.id,
+        listingUrl: input.listingUrl,
+      },
+    });
 
     const inserted = await this.db
       .insert(userJobOffersTable)
@@ -2001,6 +2376,7 @@ export class JobSourcesService {
 
     return {
       sourceRunId: reuseRun.id,
+      traceId: reuseRun.traceId,
       acceptedAt: (reuseRun.createdAt ?? now).toISOString(),
       inserted: inserted.length,
       totalOffers: offers.length,

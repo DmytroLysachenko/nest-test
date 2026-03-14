@@ -16,6 +16,7 @@ test('buildScrapeCallbackPayload emits completed callback fields', () => {
     source: 'pracuj-pl',
     runId: 'run-1',
     sourceRunId: 'run-source-1',
+    traceId: '11111111-1111-4111-8111-111111111111',
     listingUrl: 'https://it.pracuj.pl/praca?wm=home-office',
     status: 'COMPLETED',
     scrapedCount: 8,
@@ -31,6 +32,7 @@ test('buildScrapeCallbackPayload emits completed callback fields', () => {
   });
 
   assert.equal(payload.status, 'COMPLETED');
+  assert.equal(payload.traceId, '11111111-1111-4111-8111-111111111111');
   assert.equal(payload.scrapedCount, 8);
   assert.equal(payload.totalFound, 14);
   assert.equal(payload.error, undefined);

@@ -5,6 +5,7 @@ export type ScrapeSourceJob = {
   source: string;
   runId?: string;
   sourceRunId?: string;
+  traceId?: string;
   requestId?: string;
   dedupeKey?: string;
   callbackUrl?: string;

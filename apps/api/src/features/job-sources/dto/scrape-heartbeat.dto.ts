@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsInt, IsObject, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsObject, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
 
 const SCRAPE_HEARTBEAT_PHASES = ['listing_fetch', 'detail_fetch', 'normalize', 'callback'] as const;
 
@@ -9,6 +9,11 @@ export class ScrapeHeartbeatDto {
   @IsString()
   @MaxLength(128)
   runId?: string;
+
+  @ApiPropertyOptional({ description: 'Correlated trace id for this scrape lifecycle' })
+  @IsOptional()
+  @IsUUID('4')
+  traceId?: string;
 
   @ApiPropertyOptional({ enum: SCRAPE_HEARTBEAT_PHASES })
   @IsOptional()

@@ -246,6 +246,26 @@ ADR-lite log for major architectural and contract decisions.
   - Improve stale-run detection accuracy for long-running scrape jobs.
   - Provide deterministic visibility into in-flight run phases without final callback wait.
 
+## 2026-03-13: Scrape Trace Id and Run Event Ledger
+
+- Decision:
+  - Add `job_source_runs.trace_id` for end-to-end scrape correlation.
+  - Add `job_source_run_events` for persisted lifecycle events across enqueue, dispatch, heartbeat, callback, retry, cache reuse, and stale reconciliation.
+  - Expose `GET /job-sources/runs/:id/events` and enrich `GET /job-sources/runs/:id/diagnostics` with callback and last-event metadata.
+- Why:
+  - Make stale-run and callback-debug workflows supportable from DB-backed diagnostics.
+  - Keep scrape observability vendor-agnostic and easier to audit during incident response.
+
+## 2026-03-13: Read-Only Production Support Toolkit
+
+- Decision:
+  - Add read-only admin support endpoints under `/ops/support/*`.
+  - Add a local-only support toolkit under `tools/support/` that combines those API bundles with allowlisted read-only Neon queries.
+  - Keep live support config and exported bundles outside git under `.support-local/`.
+- Why:
+  - Let engineers and LLM sessions diagnose production incidents from one deterministic artifact instead of manual API/DB copy-paste.
+  - Improve production debugging speed without granting mutation capability to support tooling.
+
 ## 2026-03-01: Query Path Index Reinforcement for Notebook/Matching
 
 - Decision:

@@ -17,6 +17,7 @@ type CallbackPayload = {
   source: string;
   runId: string;
   sourceRunId?: string;
+  traceId?: string;
   attemptNo?: number;
   emittedAt?: string;
   payloadHash?: string;
@@ -192,6 +193,7 @@ const notifyHeartbeat = async (
   payload: {
     sourceRunId?: string;
     runId?: string;
+    traceId?: string;
     phase: 'listing_fetch' | 'detail_fetch' | 'normalize' | 'callback';
     attempt: number;
     pagesVisited: number;
@@ -223,7 +225,14 @@ const notifyHeartbeat = async (
     if (!response.ok) {
       const text = await response.text();
       logger.warn(
-        { requestId, sourceRunId: payload.sourceRunId, status: response.status, body: text, phase: payload.phase },
+        {
+          requestId,
+          sourceRunId: payload.sourceRunId,
+          traceId: payload.traceId,
+          status: response.status,
+          body: text,
+          phase: payload.phase,
+        },
         'Heartbeat rejected',
       );
     }
@@ -232,6 +241,7 @@ const notifyHeartbeat = async (
       {
         requestId,
         sourceRunId: payload.sourceRunId,
+        traceId: payload.traceId,
         phase: payload.phase,
         error: error instanceof Error ? error.message : String(error),
       },
@@ -298,14 +308,42 @@ const notifyCallback = async (
       if (!response.ok) {
         const text = await response.text();
         lastError = new Error(`Callback rejected (${response.status}): ${text}`);
-        logger.warn({ requestId, status: response.status, body: text, attempt }, 'Callback rejected');
+        logger.warn(
+          {
+            requestId,
+            sourceRunId: payload.sourceRunId,
+            traceId: payload.traceId,
+            status: response.status,
+            body: text,
+            attempt,
+          },
+          'Callback rejected',
+        );
       } else {
-        logger.info({ requestId, status: response.status, attempt }, 'Callback acknowledged');
+        logger.info(
+          {
+            requestId,
+            sourceRunId: payload.sourceRunId,
+            traceId: payload.traceId,
+            status: response.status,
+            attempt,
+          },
+          'Callback acknowledged',
+        );
         return;
       }
     } catch (error) {
       lastError = error;
-      logger.warn({ requestId, error, attempt }, 'Failed to notify callback');
+      logger.warn(
+        {
+          requestId,
+          sourceRunId: payload.sourceRunId,
+          traceId: payload.traceId,
+          error,
+          attempt,
+        },
+        'Failed to notify callback',
+      );
     }
     if (attempt < options.retryAttempts) {
       await sleep(
@@ -326,7 +364,15 @@ const notifyCallback = async (
     options.deadLetterDir,
     logger,
   );
-  logger.error({ requestId, error: lastError }, 'Callback failed after retries');
+  logger.error(
+    {
+      requestId,
+      sourceRunId: payload.sourceRunId,
+      traceId: payload.traceId,
+      error: lastError,
+    },
+    'Callback failed after retries',
+  );
 };
 
 export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
@@ -334,6 +380,7 @@ export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
   source: input.source,
   runId: input.runId,
   sourceRunId: input.sourceRunId,
+  traceId: input.traceId,
   attemptNo: input.attemptNo,
   emittedAt: input.emittedAt,
   payloadHash: input.payloadHash,
@@ -386,6 +433,7 @@ export const runScrapeJob = async (
   const runId = payload.runId ?? `run-${Date.now()}`;
   const callbackEventId = randomUUID();
   const sourceRunId = payload.sourceRunId;
+  const traceId = payload.traceId;
   const pipeline = resolvePipeline(payload.source);
   const listingUrl = payload.listingUrl ?? (payload.filters ? pipeline.buildListingUrl(payload.filters) : undefined);
   if (!listingUrl) {
@@ -434,6 +482,7 @@ export const runScrapeJob = async (
         {
           sourceRunId,
           runId,
+          traceId,
           phase,
           attempt,
           pagesVisited,
@@ -482,6 +531,7 @@ export const runScrapeJob = async (
           {
             requestId: payload.requestId,
             sourceRunId,
+            traceId,
             attempt,
             relaxReason,
             activeFilters,
@@ -660,6 +710,7 @@ export const runScrapeJob = async (
         source: payload.source,
         runId,
         sourceRunId,
+        traceId,
         attemptNo: Math.max(1, attemptsExecuted),
         emittedAt,
         listingUrl,
@@ -729,6 +780,7 @@ export const runScrapeJob = async (
         source: payload.source,
         runId,
         sourceRunId,
+        traceId,
         pages: aggregatedPages.length,
         jobs: sanitizedJobs.length,
         blockedPages: aggregatedBlockedUrls.length,
@@ -762,6 +814,7 @@ export const runScrapeJob = async (
         source: payload.source,
         runId,
         sourceRunId,
+        traceId,
         attemptNo: 1,
         emittedAt,
         listingUrl,
@@ -815,6 +868,7 @@ export const runScrapeJob = async (
         source: payload.source,
         runId,
         sourceRunId,
+        traceId,
         failureType,
         error: errorMessage,
         durationMs: Date.now() - startedAt,

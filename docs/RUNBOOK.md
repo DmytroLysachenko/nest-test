@@ -36,6 +36,19 @@ Canonical environment inventory:
    - `pnpm --filter @repo/db migrate`
 3. Avoid running demo/e2e seeds against production database.
 
+## Production Support Toolkit
+
+1. Production debugging is read-only by default.
+2. Use committed API support endpoints plus local-only support scripts for direct Neon reads.
+3. Keep production support config only in `.support-local/support.config.json` and never commit it.
+4. Use a dedicated read-only production `DATABASE_URL`, not the main runtime credential.
+5. Support scripts must never execute `INSERT`, `UPDATE`, `DELETE`, `ALTER`, `TRUNCATE`, `DROP`, or `CREATE`.
+6. Main local workflow:
+   - `pnpm support:bundle --recipe scrape-incident --run-id <run-id>`
+   - `pnpm support:bundle --recipe user-incident --user-id <user-id>`
+   - `pnpm support:bundle --recipe correlation --trace-id <trace-id>`
+7. Generated incident bundles are written to `.support-local/output/` and are safe to attach to a Codex session if they do not contain secrets you do not want to share.
+
 ## Neon Migration Recovery
 
 1. If an expected table is missing in Neon, first confirm the API and `packages/db/.env` point at the same Neon project and branch.
@@ -248,19 +261,24 @@ For exact variable-level mapping and secret sources, use:
 9. Admin dead-letter replay trigger: `POST /api/ops/scrape/callbacks/replay`
 10. Admin stale-run reconcile: `POST /api/ops/scrape/runs/:id/reconcile`
 11. Internal bulk stale-run reconcile: `POST /api/ops/reconcile-stale-runs`
-11. Job source health summary: `GET /api/job-sources/sources/health`
-12. Job source run export: `GET /api/job-sources/runs/export.csv`
-13. Job match audit export: `GET /api/job-matching/audit/export.csv`
-14. Document diagnostics summary: `GET /api/documents/diagnostics/summary`
-15. Retry failed scrape run: `POST /api/job-sources/runs/:id/retry`
-16. Worker heartbeat callback (internal): `POST /api/job-sources/runs/:id/heartbeat`
-17. Document extraction retry: `POST /api/documents/:id/retry-extraction`
-18. Retry all failed document extractions: `POST /api/documents/retry-failed`
-19. Scrape preflight: `GET /api/job-sources/preflight`
-20. User schedule trigger-now: `POST /api/job-sources/schedule/trigger-now`
-21. Notebook summary: `GET /api/job-offers/summary`
-22. Notebook bulk follow-up update: `POST /api/job-offers/pipeline/bulk-follow-up`
-23. Year plan doc: `docs/YEAR_PLAN.md`
+12. Admin support overview: `GET /api/ops/support/overview`
+13. Admin scrape incident bundle: `GET /api/ops/support/scrape-runs/:id`
+14. Admin user incident bundle: `GET /api/ops/support/users/:id`
+15. Admin support correlation lookup: `GET /api/ops/support/correlate`
+16. Job source health summary: `GET /api/job-sources/sources/health`
+17. Job source run export: `GET /api/job-sources/runs/export.csv`
+18. Job match audit export: `GET /api/job-matching/audit/export.csv`
+19. Document diagnostics summary: `GET /api/documents/diagnostics/summary`
+20. Retry failed scrape run: `POST /api/job-sources/runs/:id/retry`
+21. Worker heartbeat callback (internal): `POST /api/job-sources/runs/:id/heartbeat`
+22. Document extraction retry: `POST /api/documents/:id/retry-extraction`
+23. Retry all failed document extractions: `POST /api/documents/retry-failed`
+24. Scrape preflight: `GET /api/job-sources/preflight`
+25. User schedule trigger-now: `POST /api/job-sources/schedule/trigger-now`
+26. Notebook summary: `GET /api/job-offers/summary`
+27. Notebook bulk follow-up update: `POST /api/job-offers/pipeline/bulk-follow-up`
+28. Scrape run event timeline: `GET /api/job-sources/runs/:id/events`
+29. Year plan doc: `docs/YEAR_PLAN.md`
 
 ## Smoke Coverage (Current)
 
@@ -297,13 +315,19 @@ For exact variable-level mapping and secret sources, use:
 
 1. If scrape callbacks fail, replay worker dead letters:
    - `pnpm --filter worker callbacks:replay`
-2. `pnpm smoke:e2e` now waits for `/health` endpoints, but local API/worker/web processes still need to be started before the readiness probes can succeed.
-3. If local tests hit throttling, reduce request rate or wait for throttle window reset.
-4. If document uploads fail in FE:
+2. For stale or silently failed scrapes, inspect the lifecycle in this order:
+   - `GET /api/ops/support/scrape-runs/:id`
+   - `GET /api/job-sources/runs/:id`
+   - `GET /api/job-sources/runs/:id/diagnostics`
+   - `GET /api/job-sources/runs/:id/events`
+   - then correlate the same `traceId` across API, worker, and DB support bundle output
+3. `pnpm smoke:e2e` now waits for `/health` endpoints, but local API/worker/web processes still need to be started before the readiness probes can succeed.
+4. If local tests hit throttling, reduce request rate or wait for throttle window reset.
+5. If document uploads fail in FE:
    - check `GET /api/documents/upload-health`
    - inspect `GET /api/documents/:id/events` timeline for failure stage and error code
    - correlate with API `traceId` in `logs/error.log`
-5. If career-profile generation fails with an AI provider error:
+6. If career-profile generation fails with an AI provider error:
    - check API `/health` for `required_tables`
    - confirm `GEMINI_MODEL` is not a retired `gemini-1.5-*` value
    - confirm `GCP_LOCATION` and Vertex project access match the runtime environment

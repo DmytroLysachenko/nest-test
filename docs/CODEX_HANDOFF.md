@@ -57,3 +57,15 @@ Expected dev ports:
 2. `pnpm smoke:e2e` passes if cross-service behavior changed.
 3. Docs updated (`PROJECT_STATE`, `ROADMAP`, `DECISIONS` when relevant).
 4. No debug leftovers, no contract drift.
+
+## 7) Prod Debug Workflow
+
+For production incidents, first use the support toolkit instead of manually relaying API/DB snippets:
+
+1. Prepare `.support-local/support.config.json` from [`tools/support/support.config.example.json`](../tools/support/support.config.example.json)
+2. Generate a bundle:
+   - `pnpm support:bundle --recipe scrape-incident --run-id <run-id>`
+   - `pnpm support:bundle --recipe user-incident --user-id <user-id>`
+   - `pnpm support:bundle --recipe correlation --trace-id <trace-id>`
+3. Attach the generated JSON from `.support-local/output/` to the Codex session
+4. If needed, run a single allowlisted query with `pnpm support:query`

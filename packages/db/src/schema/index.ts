@@ -13,6 +13,7 @@ import * as documentStageMetrics from './document-stage-metrics';
 import * as careerProfiles from './career-profiles';
 import * as jobMatches from './job-matches';
 import * as jobSourceRuns from './job-source-runs';
+import * as jobSourceRunEvents from './job-source-run-events';
 import * as jobSourceRunAttempts from './job-source-run-attempts';
 import * as jobSourceCallbackEvents from './job-source-callback-events';
 import * as scrapeSchedules from './scrape-schedules';
@@ -35,6 +36,7 @@ export * from './document-stage-metrics';
 export * from './career-profiles';
 export * from './job-matches';
 export * from './job-source-runs';
+export * from './job-source-run-events';
 export * from './job-source-run-attempts';
 export * from './job-source-callback-events';
 export * from './scrape-schedules';
@@ -61,6 +63,7 @@ const schema = {
   ...careerProfiles,
   ...jobMatches,
   ...jobSourceRuns,
+  ...jobSourceRunEvents,
   ...jobSourceRunAttempts,
   ...jobSourceCallbackEvents,
   ...scrapeSchedules,

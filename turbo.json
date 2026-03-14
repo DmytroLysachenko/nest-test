@@ -1,7 +1,7 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "ui": "tui",
-  "globalEnv": ["CI", "DATABASE_URL", "PORT", "SystemDrive"],
+  "globalEnv": ["CI", "DATABASE_URL", "PORT", "SUPPORT_CONFIG_PATH", "SystemDrive"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

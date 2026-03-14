@@ -65,6 +65,9 @@ export class ScrapeRunDiagnosticsResponse {
   @ApiProperty({ format: 'uuid' })
   runId!: string;
 
+  @ApiProperty({ format: 'uuid' })
+  traceId!: string;
+
   @ApiProperty()
   source!: string;
 
@@ -79,6 +82,18 @@ export class ScrapeRunDiagnosticsResponse {
 
   @ApiProperty({ nullable: true })
   heartbeatAt!: Date | null;
+
+  @ApiProperty()
+  callbackAttempts!: number;
+
+  @ApiProperty({ nullable: true })
+  callbackAcceptedAt!: Date | null;
+
+  @ApiProperty({ nullable: true })
+  reconcileReason!: string | null;
+
+  @ApiProperty({ nullable: true })
+  lastEventAt!: Date | null;
 
   @ApiProperty({ nullable: true, type: Object })
   progress!: Record<string, unknown> | null;

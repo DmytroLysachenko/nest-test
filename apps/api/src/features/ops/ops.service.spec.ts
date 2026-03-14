@@ -1,5 +1,3 @@
-import { jobSourceRunsTable, userJobOffersTable } from '@repo/db';
-
 import { OpsService } from './ops.service';
 
 const createConfigService = (overrides: Record<string, unknown> = {}) =>
@@ -318,5 +316,318 @@ describe('OpsService', () => {
       windowHours: 24,
     });
     expect(db.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('builds support overview bundle with recent failures', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'run-1',
+                    traceId: '11111111-1111-4111-8111-111111111111',
+                    userId: 'user-1',
+                    source: 'PRACUJ_PL',
+                    status: 'FAILED',
+                    failureType: 'timeout',
+                    error: '[timeout] reconcile endpoint stale run',
+                    lastHeartbeatAt: null,
+                    finalizedAt: new Date('2026-03-13T10:00:00.000Z'),
+                    createdAt: new Date('2026-03-13T09:00:00.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'callback-1',
+                    sourceRunId: 'run-1',
+                    eventId: 'evt-1',
+                    requestId: 'req-1',
+                    attemptNo: 1,
+                    status: 'FAILED',
+                    payloadHash: 'hash-1',
+                    receivedAt: new Date('2026-03-13T10:01:00.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'api-1',
+                    userId: 'user-1',
+                    requestId: 'req-1',
+                    level: 'ERROR',
+                    method: 'POST',
+                    path: '/api/job-sources/complete',
+                    statusCode: 500,
+                    message: 'Callback failed',
+                    errorCode: 'CALLBACK_ERROR',
+                    createdAt: new Date('2026-03-13T10:01:30.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        }),
+    } as any;
+
+    const service = new OpsService(db, createConfigService({ JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS: 24 }));
+    jest.spyOn(service, 'getMetrics').mockResolvedValue({
+      windowHours: 24,
+      queue: { activeRuns: 0, pendingRuns: 0, runningRuns: 0, runningWithoutHeartbeat: 0 },
+      scrape: { totalRuns: 0, completedRuns: 0, failedRuns: 0, successRate: 0 },
+      offers: { totalUserOffers: 0, unscoredUserOffers: 0 },
+      lifecycle: { staleReconciledRuns: 0, retriesTriggered: 0, retrySuccessRate: 0 },
+      callback: {
+        totalEvents: 0,
+        completedEvents: 0,
+        failedEvents: 0,
+        failedRate: 0,
+        failuresByType: {},
+        failuresByCode: {},
+        retryRate24h: 0,
+        conflictingPayloadEvents24h: 0,
+      },
+      scheduler: { lastTriggerAt: null, dueSchedules: 0, enqueueFailures24h: 0 },
+    });
+    const result = await service.getSupportOverview();
+
+    expect(result.recentFailures.scrapeRuns[0]?.id).toBe('run-1');
+    expect(result.recentFailures.callbackEvents[0]?.id).toBe('callback-1');
+    expect(result.recentFailures.apiRequests[0]?.id).toBe('api-1');
+  });
+
+  it('builds scrape incident bundle with timeline and correlated request events', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) =>
+                  Promise.resolve(
+                    cb([
+                      {
+                        id: 'run-1',
+                        traceId: '11111111-1111-4111-8111-111111111111',
+                        source: 'PRACUJ_PL',
+                        userId: 'user-1',
+                        listingUrl: 'https://example.com',
+                        filters: { keywords: 'frontend' },
+                        status: 'FAILED',
+                        failureType: 'timeout',
+                        error: '[timeout] reconcile endpoint stale run',
+                        totalFound: null,
+                        scrapedCount: null,
+                        lastHeartbeatAt: null,
+                        startedAt: null,
+                        completedAt: null,
+                        finalizedAt: new Date('2026-03-13T10:00:00.000Z'),
+                        createdAt: new Date('2026-03-13T09:00:00.000Z'),
+                      },
+                    ]),
+                  ),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'timeline-1',
+                    eventType: 'worker.accepted',
+                    severity: 'info',
+                    requestId: 'req-1',
+                    phase: 'accepted',
+                    attemptNo: 1,
+                    code: 'WORKER_ACCEPTED',
+                    message: 'Worker accepted',
+                    meta: null,
+                    createdAt: new Date('2026-03-13T09:00:30.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'callback-1',
+                    eventId: 'evt-1',
+                    requestId: 'req-1',
+                    attemptNo: 1,
+                    status: 'FAILED',
+                    payloadHash: 'hash-1',
+                    emittedAt: new Date('2026-03-13T09:05:00.000Z'),
+                    receivedAt: new Date('2026-03-13T09:05:02.000Z'),
+                    payload: JSON.stringify({
+                      failureType: 'timeout',
+                      traceId: '11111111-1111-4111-8111-111111111111',
+                    }),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'api-1',
+                    userId: 'user-1',
+                    requestId: 'req-1',
+                    level: 'ERROR',
+                    method: 'POST',
+                    path: '/api/job-sources/complete',
+                    statusCode: 500,
+                    message: 'Callback failed',
+                    errorCode: 'CALLBACK_ERROR',
+                    details: null,
+                    meta: { traceId: '11111111-1111-4111-8111-111111111111' },
+                    createdAt: new Date('2026-03-13T09:05:03.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        }),
+    } as any;
+
+    const service = new OpsService(db, createConfigService());
+    const result = await service.getSupportScrapeIncident('run-1');
+
+    expect(result.run.id).toBe('run-1');
+    expect(result.timeline).toHaveLength(1);
+    expect(result.callbackEvents).toHaveLength(1);
+    expect(result.apiRequestEvents[0]?.requestId).toBe('req-1');
+    expect(result.signals.likelyFailureStage).toBe('worker-not-started-or-heartbeat-missing');
+  });
+
+  it('correlates support artifacts across request, trace, run, and user ids', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'run-1',
+                    traceId: '11111111-1111-4111-8111-111111111111',
+                    userId: 'user-1',
+                    status: 'FAILED',
+                    failureType: 'timeout',
+                    error: 'stale',
+                    createdAt: new Date('2026-03-13T09:00:00.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'timeline-1',
+                    sourceRunId: 'run-1',
+                    traceId: '11111111-1111-4111-8111-111111111111',
+                    requestId: 'req-1',
+                    message: 'Worker accepted',
+                    eventType: 'worker.accepted',
+                    severity: 'info',
+                    createdAt: new Date('2026-03-13T09:00:30.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'callback-1',
+                    sourceRunId: 'run-1',
+                    requestId: 'req-1',
+                    eventId: 'evt-1',
+                    status: 'FAILED',
+                    attemptNo: 1,
+                    receivedAt: new Date('2026-03-13T09:05:02.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'api-1',
+                    userId: 'user-1',
+                    requestId: 'req-1',
+                    level: 'ERROR',
+                    path: '/api/job-sources/complete',
+                    statusCode: 500,
+                    message: 'Callback failed',
+                    createdAt: new Date('2026-03-13T09:05:03.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        }),
+    } as any;
+
+    const service = new OpsService(db, createConfigService());
+    const result = await service.correlateSupport({
+      requestId: 'req-1',
+      traceId: '11111111-1111-4111-8111-111111111111',
+      sourceRunId: 'run-1',
+      userId: 'user-1',
+    });
+
+    expect(result.matches.map((item) => item.kind)).toEqual([
+      'api-request-event',
+      'callback-event',
+      'scrape-run-event',
+      'scrape-run',
+    ]);
   });
 });

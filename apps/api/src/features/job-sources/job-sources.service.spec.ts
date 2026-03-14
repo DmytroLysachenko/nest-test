@@ -185,9 +185,13 @@ describe('JobSourcesService', () => {
         if (table === jobSourceRunsTable) {
           return {
             values: jest.fn().mockReturnValue({
-              returning: jest
-                .fn()
-                .mockResolvedValue([{ id: 'run-uuid', createdAt: new Date('2026-02-12T00:00:00.000Z') }]),
+              returning: jest.fn().mockResolvedValue([
+                {
+                  id: 'run-uuid',
+                  traceId: '11111111-1111-4111-8111-111111111111',
+                  createdAt: new Date('2026-02-12T00:00:00.000Z'),
+                },
+              ]),
             }),
           };
         }
@@ -230,7 +234,9 @@ describe('JobSourcesService', () => {
     const body = JSON.parse(String(request.body)) as Record<string, unknown>;
     expect(body.taskSchemaVersion).toBe('1');
     expect(typeof body.dedupeKey).toBe('string');
+    expect(body.traceId).toBe('11111111-1111-4111-8111-111111111111');
     expect(result.sourceRunId).toBe('run-uuid');
+    expect(result.traceId).toBe('11111111-1111-4111-8111-111111111111');
     expect(result.status).toBe('accepted');
     expect(result.taskSchemaVersion).toBe('1');
   });
