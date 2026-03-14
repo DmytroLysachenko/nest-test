@@ -36,8 +36,7 @@ jobs:
 
   test-build-heavy:
     name: Heavy Validation (DB, Build, E2E)
-    # Run only on master or PRs to master. Skips push to dev to save budget.
-    if: github.ref == 'refs/heads/master' || github.event_name == 'pull_request'
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev' || github.event_name == 'pull_request'
     needs: verify-light
     runs-on: ubuntu-latest
     timeout-minutes: 35

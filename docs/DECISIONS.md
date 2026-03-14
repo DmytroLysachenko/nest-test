@@ -266,6 +266,36 @@ ADR-lite log for major architectural and contract decisions.
   - Let engineers and LLM sessions diagnose production incidents from one deterministic artifact instead of manual API/DB copy-paste.
   - Improve production debugging speed without granting mutation capability to support tooling.
 
+## 2026-03-14: Separate Schedule Execution Ledger
+
+- Decision:
+  - Add `scrape_schedule_events` as a DB-backed scheduler ledger distinct from `job_source_run_events`.
+  - Persist schedule update, trigger, enqueue success, and enqueue failure events with optional `sourceRunId`, `traceId`, and `requestId`.
+  - Expose admin listing at `GET /ops/support/schedule-events`.
+- Why:
+  - Scheduling failures need to be debugged separately from worker execution failures.
+  - Support should be able to answer "did the scheduler fail, or did the worker fail?" from one deterministic data source.
+
+## 2026-03-14: Immediate Account Revocation via Soft Delete
+
+- Decision:
+  - Update `users.last_login_at` on successful login.
+  - Add soft-delete self-service endpoint `DELETE /user`.
+  - Revoke sessions on delete and reject inactive/deleted users during JWT validation and refresh.
+- Why:
+  - Support and ops need trustworthy account activity metadata.
+  - Soft-deleted users should lose access immediately without destroying historical operational evidence.
+
+## 2026-03-14: Compact Admin Ops Snapshot as Primary Diagnostics Read Model
+
+- Decision:
+  - Make `GET /ops/support/overview` the primary admin diagnostics payload.
+  - Reduce admin FE fan-out by using one support snapshot query instead of multiple automatically refreshed datasets.
+  - Skip global throttling on authenticated admin ops endpoints.
+- Why:
+  - The ops UI should not contribute meaningfully to `429` pressure while debugging incidents.
+  - Compact support bundles are easier for both humans and LLM sessions to reason about than many loosely correlated queries.
+
 ## 2026-03-01: Query Path Index Reinforcement for Notebook/Matching
 
 - Decision:
