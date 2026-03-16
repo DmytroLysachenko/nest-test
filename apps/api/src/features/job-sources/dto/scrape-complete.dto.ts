@@ -135,6 +135,23 @@ class ScrapeRunDiagnosticsDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  acceptedOfferCount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  rejectedOfferCount?: number;
+
+  @ApiPropertyOptional({ type: Object })
+  @IsOptional()
+  @IsObject()
+  rejectedOfferReasons?: Record<string, number>;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsBoolean()
   hadZeroOffersStep?: boolean;
 

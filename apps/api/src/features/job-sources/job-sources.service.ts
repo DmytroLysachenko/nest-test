@@ -27,13 +27,19 @@ import {
   scrapeSchedulesTable,
   userJobOffersTable,
   usersTable,
+  type JobOfferQualityState,
+  type UserJobOfferOrigin,
 } from '@repo/db';
 import { buildPracujListingUrl, normalizePracujFilters, type PracujSourceKind, JobSourceRunStatus } from '@repo/db';
 
 import { Drizzle } from '@/common/decorators';
 import { JobOffersService } from '@/features/job-offers/job-offers.service';
 import { MailService } from '@/features/auth/mail.service';
-import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
+import {
+  parseCandidateProfile,
+  type CandidateProfile,
+} from '@/features/career-profiles/schema/candidate-profile.schema';
+import { scoreCandidateAgainstJob } from '@/features/job-matching/candidate-matcher';
 
 import { EnqueueScrapeDto } from './dto/enqueue-scrape.dto';
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
@@ -49,6 +55,7 @@ import type { Env } from '@/config/env';
 type CallbackJobPayload = NonNullable<ScrapeCompleteDto['jobs']>[number];
 type RunFailureType = 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown';
 type RunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+type CatalogRecommendationAction = 'scrape' | 'rematch' | 'blocked';
 type RunEventSeverity = 'info' | 'warning' | 'error';
 type WorkerSignaturePayload = {
   sourceRunId: string;
@@ -89,6 +96,21 @@ type CallbackEventRegisterResult =
       accepted: false;
       reasonCode: 'DUPLICATE_EVENT_ID' | 'CONFLICTING_EVENT_PAYLOAD' | 'STALE_ATTEMPT' | 'ATTEMPT_ORDER_VIOLATION';
     };
+
+type CatalogOfferRow = {
+  id: string;
+  title: string;
+  company: string | null;
+  location: string | null;
+  salary: string | null;
+  employmentType: string | null;
+  description: string;
+  requirements: unknown;
+  details: unknown;
+  lastSeenAt: Date | null;
+};
+type JobOfferInsert = typeof jobOffersTable.$inferInsert;
+type UserJobOfferInsert = typeof userJobOffersTable.$inferInsert;
 
 const ALLOWED_STATUS_TRANSITIONS: Record<RunStatus, readonly RunStatus[]> = {
   PENDING: ['RUNNING', 'FAILED'],
@@ -254,6 +276,15 @@ const resolveCallbackPayloadHash = (dto: ScrapeCompleteDto) =>
 const workerOidcClient = new OAuth2Client();
 const WORKER_TASK_SCHEMA_VERSION = '1' as const;
 const WORKER_OIDC_ISSUERS = new Set(['https://accounts.google.com', 'accounts.google.com']);
+const CATALOG_MATCH_VERSION = 2;
+const CATALOG_MATCH_ENGINE = 'catalog-rematch-v1';
+const ACCEPTED_QUALITY_STATE: JobOfferQualityState = 'ACCEPTED';
+const DEFAULT_CATALOG_REMATCH_HOURS = 72;
+const DEFAULT_CATALOG_REMATCH_BATCH_SIZE = 250;
+const DEFAULT_CATALOG_REMATCH_MIN_SCORE = 60;
+const DEFAULT_SCRAPE_SOURCE_FAILURE_WINDOW_RUNS = 5;
+const DEFAULT_SCRAPE_SOURCE_FAILURE_THRESHOLD = 3;
+const DEFAULT_SCRAPE_SOURCE_AUTOMATION_BACKOFF_MINUTES = 30;
 
 const parseSchedule = (
   cron: string,
@@ -409,17 +440,30 @@ export class JobSourcesService {
       warnings.push('using-profile-derived-filters');
     }
 
+    const requestedLimit = dto.limit ?? 20;
+    const catalogEligibleCount = profileContext.profile
+      ? await this.countCatalogMatchesForProfile(profileContext.profile, mapSource(source), requestedLimit)
+      : 0;
+    const sourceBackoff = await this.getSourceAutomationBackoff(mapSource(source));
+    if (sourceBackoff.active) {
+      warnings.push('source-health-backoff');
+    }
+
     const schedule = await this.getSchedule(userId);
     const blockerDetails = blockers.map((code) => this.buildPreflightBlockerDetail(code));
     const warningDetails = warnings.map((code) => this.buildPreflightWarningDetail(code));
+    const recommendedAction: CatalogRecommendationAction =
+      blockers.length > 0 ? 'blocked' : catalogEligibleCount >= requestedLimit ? 'rematch' : 'scrape';
     const guidance =
       blockerDetails.length > 0
         ? 'Resolve the blocking items before enqueueing a run.'
-        : warningDetails.length > 0
-          ? 'Review the warnings below. You can still enqueue a run if they are acceptable.'
-          : schedule.enabled
-            ? 'Your filters are ready and automation is enabled. You can run now or wait for the next scheduled trigger.'
-            : 'Your filters are ready. Enqueue a manual run now or save a schedule for later automation.';
+        : recommendedAction === 'rematch'
+          ? 'Recent accepted catalog offers already cover this profile. Reuse matched offers before spending another scrape.'
+          : warningDetails.length > 0
+            ? 'Review the warnings below. You can still enqueue a run if they are acceptable.'
+            : schedule.enabled
+              ? 'Your filters are ready and automation is enabled. You can run now or wait for the next scheduled trigger.'
+              : 'Your filters are ready. Enqueue a manual run now or save a schedule for later automation.';
 
     return {
       ready: blockers.length === 0,
@@ -431,6 +475,9 @@ export class JobSourcesService {
       resolvedFromProfile: !dto.filters && !dto.source && Boolean(profileContext.profile),
       activeRunCount,
       dailyRemaining,
+      recommendedAction,
+      catalogEligibleCount,
+      catalogFreshUntil: this.resolveCatalogFreshUntil(),
       blockerDetails,
       warningDetails,
       guidance,
@@ -442,6 +489,19 @@ export class JobSourcesService {
         nextRunAt: schedule.nextRunAt ?? null,
         lastRunStatus: schedule.lastRunStatus ?? null,
       },
+      sourceHealth: sourceBackoff.active
+        ? {
+            paused: true,
+            pausedUntil: sourceBackoff.pausedUntil?.toISOString() ?? null,
+            recentFailures: sourceBackoff.failureCount,
+            windowRuns: sourceBackoff.windowRuns,
+          }
+        : {
+            paused: false,
+            pausedUntil: null,
+            recentFailures: sourceBackoff.failureCount,
+            windowRuns: sourceBackoff.windowRuns,
+          },
     };
   }
 
@@ -552,6 +612,7 @@ export class JobSourcesService {
           filters: (schedule.filters as ScrapeFiltersDto | null) ?? undefined,
         },
         requestId,
+        'manual',
       );
 
       await this.db
@@ -676,6 +737,7 @@ export class JobSourcesService {
             forceRefresh: false,
           },
           requestId,
+          'scheduled',
         );
         await this.db
           .update(scrapeSchedulesTable)
@@ -739,7 +801,12 @@ export class JobSourcesService {
     };
   }
 
-  async enqueueScrape(userId: string, dto: EnqueueScrapeDto, incomingRequestId?: string) {
+  async enqueueScrape(
+    userId: string,
+    dto: EnqueueScrapeDto,
+    incomingRequestId?: string,
+    triggerMode: 'direct' | 'manual' | 'scheduled' = 'direct',
+  ) {
     await this.reconcileStaleRuns(userId);
     const requestId = incomingRequestId?.trim() || randomUUID();
     const profileContext = await this.getCareerProfileContext(userId, dto.careerProfileId);
@@ -750,6 +817,15 @@ export class JobSourcesService {
     const inferredSource = profileContext.profile ? inferPracujSource(profileContext.profile) : 'pracuj-pl-it';
     const source = (dto.source ?? inferredSource) as PracujSourceKind;
     const sourceEnum = mapSource(source);
+    const requestedLimit = dto.limit ?? 20;
+    if (triggerMode === 'scheduled') {
+      const sourceBackoff = await this.getSourceAutomationBackoff(sourceEnum);
+      if (sourceBackoff.active) {
+        throw new BadRequestException(
+          `Automation paused for ${sourceEnum} until ${sourceBackoff.pausedUntil?.toISOString() ?? 'later'} due to recent source failures.`,
+        );
+      }
+    }
     const maxActiveRuns = this.configService.get('SCRAPE_MAX_ACTIVE_RUNS_PER_USER', { infer: true });
     if (typeof maxActiveRuns === 'number' && maxActiveRuns > 0) {
       const activeRunsResult = await this.db
@@ -811,6 +887,42 @@ export class JobSourcesService {
     }
 
     if (!dto.forceRefresh) {
+      const catalogReuse = await this.tryServeFromCatalog({
+        userId,
+        careerProfileId,
+        profile: profileContext.profile,
+        source: sourceEnum,
+        limit: requestedLimit,
+      });
+
+      if (catalogReuse) {
+        this.logger.log(
+          {
+            requestId,
+            sourceRunId: catalogReuse.sourceRunId,
+            linkedOffers: catalogReuse.inserted,
+            totalOffers: catalogReuse.totalOffers,
+          },
+          'Scrape request served from catalog rematch',
+        );
+
+        return {
+          ok: true,
+          sourceRunId: catalogReuse.sourceRunId,
+          status: 'reused',
+          acceptedAt: catalogReuse.acceptedAt,
+          inserted: catalogReuse.inserted,
+          totalOffers: catalogReuse.totalOffers,
+          reusedFromRunId: null,
+          rematchedFromCatalog: true,
+          traceId: catalogReuse.traceId,
+          intentFingerprint,
+          resolvedFromProfile,
+          droppedFilters: normalizedFiltersResult.dropped,
+          acceptedFilters: normalizedFilters ?? null,
+        };
+      }
+
       const reuse = await this.tryReuseFromDatabase({
         userId,
         careerProfileId,
@@ -841,6 +953,8 @@ export class JobSourcesService {
           inserted: reuse.inserted,
           totalOffers: reuse.totalOffers,
           reusedFromRunId: reuse.reusedFromRunId,
+          rematchedFromCatalog: false,
+          traceId: reuse.traceId,
           intentFingerprint,
           resolvedFromProfile,
           droppedFilters: normalizedFiltersResult.dropped,
@@ -1390,35 +1504,52 @@ export class JobSourcesService {
 
     if (sanitizedJobs.length) {
       const now = new Date();
+      await this.appendRunEvent({
+        sourceRunId: run.id,
+        traceId: run.traceId,
+        eventType: 'catalog_upsert_started',
+        requestId,
+        attemptNo: callbackAttemptNo,
+        message: 'Persisting accepted scrape offers into the shared catalog.',
+        meta: {
+          acceptedOfferCount: sanitizedJobs.length,
+          rejectedOfferCount: dto.diagnostics?.rejectedOfferCount ?? 0,
+          rejectedOfferReasons: dto.diagnostics?.rejectedOfferReasons ?? {},
+        },
+      });
       const jobsToPersist = await this.reuseExistingUrlsBySourceId(run.source, sanitizedJobs);
       const cols = getTableColumns(jobOffersTable);
+      const catalogOfferValues: JobOfferInsert[] = jobsToPersist.map((job) => ({
+        source: run.source,
+        sourceId: job.sourceId ?? null,
+        offerIdentityKey: computeOfferIdentityKey({
+          sourceId: job.sourceId ?? null,
+          url: job.url,
+        }),
+        runId: run.id,
+        url: job.url,
+        title: job.title,
+        company: job.company ?? null,
+        location: job.location ?? null,
+        salary: job.salary ?? null,
+        employmentType: job.employmentType ?? null,
+        description: job.description,
+        requirements: job.requirements?.length ? job.requirements : null,
+        details: job.details ?? null,
+        contentHash: this.computeCatalogContentHash(job),
+        qualityState: ACCEPTED_QUALITY_STATE,
+        qualityReason: null,
+        isExpired: job.isExpired ?? false,
+        expiresAt: job.isExpired ? now : null,
+        lastFullScrapeAt: now,
+        firstSeenAt: now,
+        lastSeenAt: now,
+        fetchedAt: now,
+      }));
 
-      await this.db
+      const persistedOffers = await this.db
         .insert(jobOffersTable)
-        .values(
-          jobsToPersist.map((job) => ({
-            source: run.source,
-            sourceId: job.sourceId ?? null,
-            offerIdentityKey: computeOfferIdentityKey({
-              sourceId: job.sourceId ?? null,
-              url: job.url,
-            }),
-            runId: run.id,
-            url: job.url,
-            title: job.title,
-            company: job.company ?? null,
-            location: job.location ?? null,
-            salary: job.salary ?? null,
-            employmentType: job.employmentType ?? null,
-            description: job.description,
-            requirements: job.requirements?.length ? job.requirements : null,
-            details: job.details ?? null,
-            isExpired: job.isExpired ?? false,
-            expiresAt: job.isExpired ? now : null,
-            lastFullScrapeAt: now,
-            fetchedAt: now,
-          })),
-        )
+        .values(catalogOfferValues)
         .onConflictDoUpdate({
           target: [jobOffersTable.source, jobOffersTable.offerIdentityKey],
           set: {
@@ -1476,9 +1607,34 @@ export class JobSourcesService {
               ELSE ${jobOffersTable.expiresAt}
             END`,
             lastFullScrapeAt: excludedColumn(cols.lastFullScrapeAt),
+            contentHash: sql`CASE
+              WHEN length(coalesce(${excludedColumn(cols.description)}, '')) > length(coalesce(${jobOffersTable.description}, ''))
+              THEN ${excludedColumn(cols.contentHash)}
+              ELSE coalesce(${jobOffersTable.contentHash}, ${excludedColumn(cols.contentHash)})
+            END`,
+            qualityState: sql`CASE
+              WHEN ${excludedColumn(cols.isExpired)} = TRUE THEN ${jobOffersTable.qualityState}
+              ELSE ${excludedColumn(cols.qualityState)}
+            END`,
+            qualityReason: sql`coalesce(${excludedColumn(cols.qualityReason)}, ${jobOffersTable.qualityReason})`,
+            firstSeenAt: sql`least(${jobOffersTable.firstSeenAt}, ${excludedColumn(cols.firstSeenAt)})`,
+            lastSeenAt: excludedColumn(cols.lastSeenAt),
             fetchedAt: now,
           },
-        });
+        })
+        .returning({ id: jobOffersTable.id });
+
+      await this.appendRunEvent({
+        sourceRunId: run.id,
+        traceId: run.traceId,
+        eventType: 'catalog_upsert_completed',
+        requestId,
+        attemptNo: callbackAttemptNo,
+        message: 'Accepted scrape offers were persisted into the shared catalog.',
+        meta: {
+          catalogOfferCount: persistedOffers.length,
+        },
+      });
     }
 
     const finalizedAt = new Date();
@@ -1543,26 +1699,22 @@ export class JobSourcesService {
       };
     }
 
-    const inserted = await this.db
-      .insert(userJobOffersTable)
-      .values(
-        offers.map((offer) => ({
-          userId: run.userId!,
-          careerProfileId: run.careerProfileId!,
-          jobOfferId: offer.id,
+    const profileContext = await this.getCareerProfileContext(run.userId, run.careerProfileId);
+    const inserted = profileContext.profile
+      ? await this.linkCatalogOffersToUser({
+          userId: run.userId,
+          careerProfileId: run.careerProfileId,
           sourceRunId: run.id,
-          statusHistory: [{ status: 'NEW', changedAt: new Date().toISOString() }],
-          lastStatusAt: new Date(),
-        })),
-      )
-      .onConflictDoNothing()
-      .returning({ id: userJobOffersTable.id });
-
-    void this.autoScoreIngestedOffers(
-      run.userId,
-      run.id,
-      inserted.map((entry) => entry.id),
-    );
+          source: run.source,
+          profile: profileContext.profile,
+          specificOfferIds: offers.map((offer) => offer.id),
+          origin: 'SCRAPE',
+        })
+      : {
+          insertedCount: 0,
+          totalCandidateCount: offers.length,
+          matchedCount: 0,
+        };
 
     this.logger.log(
       {
@@ -1573,7 +1725,7 @@ export class JobSourcesService {
         statusTo: 'COMPLETED',
         totalFound,
         scrapedCount,
-        offersInserted: inserted.length,
+        offersInserted: inserted.insertedCount,
       },
       'Scrape run finalized as COMPLETED',
     );
@@ -1589,16 +1741,30 @@ export class JobSourcesService {
         eventId: callbackEventId,
         totalFound,
         scrapedCount,
-        offersInserted: inserted.length,
+        offersInserted: inserted.insertedCount,
+      },
+    });
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'user_link_completed',
+      requestId,
+      attemptNo: callbackAttemptNo,
+      message: 'Catalog offers were linked to the user notebook.',
+      meta: {
+        candidateOffers: offers.length,
+        matchedOffers: inserted.matchedCount,
+        insertedOffers: inserted.insertedCount,
+        origin: 'SCRAPE',
       },
     });
 
     return {
       ok: true,
       status: 'COMPLETED',
-      inserted: inserted.length,
+      inserted: inserted.insertedCount,
       totalOffers: offers.length,
-      idempotent: inserted.length === 0,
+      idempotent: inserted.insertedCount === 0,
     };
   }
 
@@ -2546,36 +2712,372 @@ export class JobSourcesService {
       },
     });
 
-    const inserted = await this.db
-      .insert(userJobOffersTable)
-      .values(
-        offers.map((offer) => ({
+    const profileContext = await this.getCareerProfileContext(input.userId, input.careerProfileId);
+    const inserted = profileContext.profile
+      ? await this.linkCatalogOffersToUser({
           userId: input.userId,
           careerProfileId: input.careerProfileId,
-          jobOfferId: offer.id,
           sourceRunId: reuseRun.id,
-          statusHistory: [{ status: 'NEW', changedAt: now.toISOString() }],
-          lastStatusAt: now,
-        })),
-      )
-      .onConflictDoNothing()
-      .returning({ id: userJobOffersTable.id });
+          source: input.source,
+          profile: profileContext.profile,
+          specificOfferIds: offers.map((offer) => offer.id),
+          origin: 'DB_REUSE',
+        })
+      : {
+          insertedCount: 0,
+          totalCandidateCount: offers.length,
+          matchedCount: 0,
+        };
 
-    if (inserted.length) {
-      void this.autoScoreIngestedOffers(
-        input.userId,
-        reuseRun.id,
-        inserted.map((row) => row.id),
-      );
-    }
+    await this.appendRunEvent({
+      sourceRunId: reuseRun.id,
+      traceId: reuseRun.traceId,
+      eventType: 'user_link_completed',
+      message: 'Cached catalog offers were linked to the user notebook.',
+      meta: {
+        candidateOffers: offers.length,
+        matchedOffers: inserted.matchedCount,
+        insertedOffers: inserted.insertedCount,
+        origin: 'DB_REUSE',
+      },
+    });
 
     return {
       sourceRunId: reuseRun.id,
       traceId: reuseRun.traceId,
       acceptedAt: (reuseRun.createdAt ?? now).toISOString(),
-      inserted: inserted.length,
+      inserted: inserted.insertedCount,
       totalOffers: offers.length,
       reusedFromRunId: reusedRun.id,
+    };
+  }
+
+  private computeCatalogContentHash(job: CallbackJobPayload) {
+    return computeSha256Hex({
+      sourceId: normalizeString(job.sourceId),
+      url: normalizeOfferUrl(job.url),
+      title: normalizeString(job.title),
+      company: normalizeString(job.company),
+      location: normalizeString(job.location),
+      salary: normalizeString(job.salary),
+      employmentType: normalizeString(job.employmentType),
+      description: normalizeString(job.description),
+      requirements: sanitizeStringArray(job.requirements),
+      details: job.details ?? null,
+    });
+  }
+
+  private resolveCatalogFreshUntil() {
+    const rematchHours =
+      this.configService.get('CATALOG_REMATCH_HOURS', { infer: true }) ?? DEFAULT_CATALOG_REMATCH_HOURS;
+    return new Date(Date.now() + rematchHours * 60 * 60 * 1000).toISOString();
+  }
+
+  private buildCatalogMatchMeta(
+    deterministic: ReturnType<typeof scoreCandidateAgainstJob>,
+    origin: 'SCRAPE' | 'DB_REUSE' | 'CATALOG_REMATCH',
+  ) {
+    return {
+      engine: CATALOG_MATCH_ENGINE,
+      origin,
+      score: deterministic.score,
+      blockedByHardConstraints: deterministic.blockedByHardConstraints,
+      breakdown: deterministic.breakdown,
+      hardConstraintViolations: deterministic.hardConstraintViolations,
+      softPreferenceGaps: deterministic.softPreferenceGaps,
+      matchedCompetencies: deterministic.matchedCompetencies,
+    };
+  }
+
+  private async loadCatalogCandidateOffers(
+    source: 'PRACUJ_PL',
+    specificOfferIds?: string[],
+    explicitLimit?: number,
+  ): Promise<CatalogOfferRow[]> {
+    const rematchHours =
+      this.configService.get('CATALOG_REMATCH_HOURS', { infer: true }) ?? DEFAULT_CATALOG_REMATCH_HOURS;
+    const cutoff = new Date(Date.now() - rematchHours * 60 * 60 * 1000);
+    const limit =
+      this.configService.get('CATALOG_REMATCH_BATCH_SIZE', { infer: true }) ?? DEFAULT_CATALOG_REMATCH_BATCH_SIZE;
+    const conditions = [
+      eq(jobOffersTable.source, source),
+      eq(jobOffersTable.qualityState, 'ACCEPTED'),
+      eq(jobOffersTable.isExpired, false),
+      gte(jobOffersTable.lastSeenAt, cutoff),
+    ];
+    if (specificOfferIds?.length) {
+      conditions.push(inArray(jobOffersTable.id, specificOfferIds));
+    }
+
+    return this.db
+      .select({
+        id: jobOffersTable.id,
+        title: jobOffersTable.title,
+        company: jobOffersTable.company,
+        location: jobOffersTable.location,
+        salary: jobOffersTable.salary,
+        employmentType: jobOffersTable.employmentType,
+        description: jobOffersTable.description,
+        requirements: jobOffersTable.requirements,
+        details: jobOffersTable.details,
+        lastSeenAt: jobOffersTable.lastSeenAt,
+      })
+      .from(jobOffersTable)
+      .where(and(...conditions))
+      .orderBy(desc(jobOffersTable.lastSeenAt), desc(jobOffersTable.fetchedAt))
+      .limit(specificOfferIds?.length ? specificOfferIds.length : (explicitLimit ?? limit));
+  }
+
+  private async countCatalogMatchesForProfile(profile: CandidateProfile, source: 'PRACUJ_PL', limit: number) {
+    const minScore =
+      this.configService.get('CATALOG_REMATCH_MIN_SCORE', { infer: true }) ?? DEFAULT_CATALOG_REMATCH_MIN_SCORE;
+    const candidates = await this.loadCatalogCandidateOffers(source);
+    let matched = 0;
+    for (const offer of candidates) {
+      const deterministic = scoreCandidateAgainstJob(profile, {
+        text: offer.description,
+        title: offer.title,
+        location: offer.location,
+        employmentType: offer.employmentType,
+        salaryText: offer.salary,
+      });
+      if (!deterministic.blockedByHardConstraints && deterministic.score >= minScore) {
+        matched += 1;
+      }
+      if (matched >= limit) {
+        break;
+      }
+    }
+    return matched;
+  }
+
+  private async linkCatalogOffersToUser(input: {
+    userId: string;
+    careerProfileId: string;
+    sourceRunId: string;
+    source: 'PRACUJ_PL';
+    profile: CandidateProfile;
+    origin: 'SCRAPE' | 'DB_REUSE' | 'CATALOG_REMATCH';
+    specificOfferIds?: string[];
+    limit?: number;
+  }) {
+    const minScore =
+      this.configService.get('CATALOG_REMATCH_MIN_SCORE', { infer: true }) ?? DEFAULT_CATALOG_REMATCH_MIN_SCORE;
+    const now = new Date();
+    const candidates = await this.loadCatalogCandidateOffers(input.source, input.specificOfferIds, input.limit);
+    if (!candidates.length) {
+      return { insertedCount: 0, totalCandidateCount: 0, matchedCount: 0 };
+    }
+
+    const existingLinks = await this.db
+      .select({ jobOfferId: userJobOffersTable.jobOfferId })
+      .from(userJobOffersTable)
+      .where(
+        and(
+          eq(userJobOffersTable.userId, input.userId),
+          eq(userJobOffersTable.careerProfileId, input.careerProfileId),
+          inArray(
+            userJobOffersTable.jobOfferId,
+            candidates.map((offer) => offer.id),
+          ),
+        ),
+      );
+    const existingOfferIds = new Set(existingLinks.map((row) => row.jobOfferId));
+
+    const matchingOffers = candidates
+      .filter((offer) => !existingOfferIds.has(offer.id))
+      .map((offer) => ({
+        offer,
+        deterministic: scoreCandidateAgainstJob(input.profile, {
+          text: offer.description,
+          title: offer.title,
+          location: offer.location,
+          employmentType: offer.employmentType,
+          salaryText: offer.salary,
+        }),
+      }))
+      .filter(({ deterministic }) => !deterministic.blockedByHardConstraints && deterministic.score >= minScore);
+
+    if (!matchingOffers.length) {
+      return {
+        insertedCount: 0,
+        totalCandidateCount: candidates.length,
+        matchedCount: 0,
+      };
+    }
+
+    const inserted = await this.db
+      .insert(userJobOffersTable)
+      .values(
+        matchingOffers.map(({ offer, deterministic }) => ({
+          userId: input.userId,
+          careerProfileId: input.careerProfileId,
+          jobOfferId: offer.id,
+          sourceRunId: input.sourceRunId,
+          origin: input.origin,
+          matchVersion: CATALOG_MATCH_VERSION,
+          statusHistory: [{ status: 'NEW', changedAt: now.toISOString() }],
+          lastStatusAt: now,
+          matchScore: deterministic.score,
+          matchMeta: this.buildCatalogMatchMeta(deterministic, input.origin),
+        })),
+      )
+      .onConflictDoNothing()
+      .returning({ id: userJobOffersTable.id, jobOfferId: userJobOffersTable.jobOfferId });
+
+    if (inserted.length) {
+      await this.db
+        .update(jobOffersTable)
+        .set({ lastMatchedAt: now })
+        .where(
+          inArray(
+            jobOffersTable.id,
+            inserted.map((row) => row.jobOfferId),
+          ),
+        );
+    }
+
+    return {
+      insertedCount: inserted.length,
+      totalCandidateCount: candidates.length,
+      matchedCount: matchingOffers.length,
+    };
+  }
+
+  async rematchCatalogForUser(userId: string, careerProfileId?: string | null, limit = 20) {
+    const profileContext = await this.getCareerProfileContext(userId, careerProfileId);
+    if (!profileContext.careerProfileId || !profileContext.profile) {
+      throw new NotFoundException('Active career profile not found');
+    }
+
+    const source = mapSource(inferPracujSource(profileContext.profile));
+    const requestedLimit = Math.max(1, limit);
+    const matchedCount = await this.countCatalogMatchesForProfile(profileContext.profile, source, requestedLimit);
+    if (matchedCount === 0) {
+      return { ok: true, inserted: 0, totalOffers: 0, matchedOffers: 0, status: 'empty' as const };
+    }
+
+    const now = new Date();
+    const [run] = await this.db
+      .insert(jobSourceRunsTable)
+      .values({
+        source,
+        userId,
+        careerProfileId: profileContext.careerProfileId,
+        listingUrl: 'catalog://rematch',
+        filters: null,
+        status: 'COMPLETED',
+        startedAt: now,
+        completedAt: now,
+        totalFound: matchedCount,
+        scrapedCount: 0,
+      })
+      .returning({
+        id: jobSourceRunsTable.id,
+        traceId: jobSourceRunsTable.traceId,
+        createdAt: jobSourceRunsTable.createdAt,
+      });
+
+    if (!run?.id) {
+      throw new ServiceUnavailableException('Failed to create catalog rematch run');
+    }
+
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'run_reused_from_catalog',
+      message: 'Notebook refresh was served from the shared offer catalog.',
+      meta: {
+        requestedLimit,
+        matchedCount,
+      },
+    });
+
+    const linked = await this.linkCatalogOffersToUser({
+      userId,
+      careerProfileId: profileContext.careerProfileId,
+      sourceRunId: run.id,
+      source,
+      profile: profileContext.profile,
+      origin: 'CATALOG_REMATCH',
+      limit: requestedLimit,
+    });
+
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'user_link_completed',
+      message: 'Catalog rematch offers were linked to the user notebook.',
+      meta: {
+        matchedOffers: linked.matchedCount,
+        insertedOffers: linked.insertedCount,
+        origin: 'CATALOG_REMATCH',
+      },
+    });
+
+    return {
+      ok: true,
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      acceptedAt: (run.createdAt ?? now).toISOString(),
+      inserted: linked.insertedCount,
+      totalOffers: linked.totalCandidateCount,
+      matchedOffers: linked.matchedCount,
+      status: 'reused' as const,
+    };
+  }
+
+  private async tryServeFromCatalog(input: {
+    userId: string;
+    careerProfileId: string;
+    profile: CandidateProfile | null;
+    source: 'PRACUJ_PL';
+    limit: number;
+  }) {
+    if (!input.profile) {
+      return null;
+    }
+    const matchedCount = await this.countCatalogMatchesForProfile(input.profile, input.source, input.limit);
+    if (matchedCount < input.limit) {
+      return null;
+    }
+    return this.rematchCatalogForUser(input.userId, input.careerProfileId, input.limit);
+  }
+
+  private async getSourceAutomationBackoff(source: 'PRACUJ_PL') {
+    const windowRuns =
+      this.configService.get('SCRAPE_SOURCE_FAILURE_WINDOW_RUNS', { infer: true }) ??
+      DEFAULT_SCRAPE_SOURCE_FAILURE_WINDOW_RUNS;
+    const failureThreshold =
+      this.configService.get('SCRAPE_SOURCE_FAILURE_THRESHOLD', { infer: true }) ??
+      DEFAULT_SCRAPE_SOURCE_FAILURE_THRESHOLD;
+    const backoffMinutes =
+      this.configService.get('SCRAPE_SOURCE_AUTOMATION_BACKOFF_MINUTES', { infer: true }) ??
+      DEFAULT_SCRAPE_SOURCE_AUTOMATION_BACKOFF_MINUTES;
+    const recentRuns = await this.db
+      .select({
+        status: jobSourceRunsTable.status,
+        failureType: jobSourceRunsTable.failureType,
+        finalizedAt: jobSourceRunsTable.finalizedAt,
+        completedAt: jobSourceRunsTable.completedAt,
+      })
+      .from(jobSourceRunsTable)
+      .where(eq(jobSourceRunsTable.source, source))
+      .orderBy(desc(jobSourceRunsTable.createdAt))
+      .limit(windowRuns);
+
+    const failedRuns = recentRuns.filter(
+      (run) => run.status === 'FAILED' && ['timeout', 'network', 'parse', 'callback'].includes(run.failureType ?? ''),
+    );
+    const latestFailure = failedRuns[0] ?? null;
+    const referenceTime = latestFailure?.finalizedAt ?? latestFailure?.completedAt ?? null;
+    const pausedUntil = referenceTime ? new Date(referenceTime.getTime() + backoffMinutes * 60 * 1000) : null;
+
+    return {
+      active: failedRuns.length >= failureThreshold && Boolean(pausedUntil && pausedUntil > new Date()),
+      failureCount: failedRuns.length,
+      windowRuns: recentRuns.length,
+      pausedUntil,
     };
   }
 
@@ -2715,6 +3217,14 @@ export class JobSourcesService {
         title: 'Using profile-derived filters',
         description:
           'This run will use filters resolved from the active career profile instead of a custom listing URL.',
+      };
+    }
+    if (code === 'source-health-backoff') {
+      return {
+        code,
+        title: 'Automation is temporarily paused for this source',
+        description:
+          'Recent scrape failures indicate unstable source behavior. Manual runs are still allowed, but scheduled scraping is backing off.',
       };
     }
 

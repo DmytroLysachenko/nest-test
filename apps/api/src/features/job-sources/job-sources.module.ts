@@ -10,5 +10,6 @@ import { JobSourcesService } from './job-sources.service';
   imports: [JobOffersModule, AuthModule],
   controllers: [JobSourcesController],
   providers: [JobSourcesService],
+  exports: [JobSourcesService],
 })
 export class JobSourcesModule {}
