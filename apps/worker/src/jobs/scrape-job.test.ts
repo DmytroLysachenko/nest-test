@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  assessNormalizedJobs,
   buildScrapeCallbackPayload,
   computeCallbackPayloadHash,
+  computeNormalizedJobContentHash,
   buildWorkerCallbackSignaturePayload,
   classifyScrapeError,
   computeCallbackRetryDelayMs,
@@ -174,6 +176,85 @@ test('sanitizeCallbackJobs removes invalid entries and deduplicates by canonical
   assert.equal(sanitized[0]?.url, 'https://it.pracuj.pl/praca/test,oferta,1');
   assert.deepEqual(sanitized[0]?.tags, ['backend']);
   assert.deepEqual(sanitized[0]?.requirements, ['TypeScript']);
+});
+
+test('assessNormalizedJobs rejects placeholder and expired offers', () => {
+  const assessed = assessNormalizedJobs([
+    {
+      source: 'pracuj-pl-it',
+      sourceId: 'accepted-1',
+      title: 'Frontend Developer',
+      company: 'ACME',
+      location: 'Remote',
+      description: 'Build React and TypeScript user interfaces for a SaaS platform.',
+      url: 'https://it.pracuj.pl/praca/frontend,oferta,1',
+      tags: [],
+      salary: null,
+      employmentType: 'B2B',
+      requirements: ['React', 'TypeScript'],
+    },
+    {
+      source: 'pracuj-pl-it',
+      sourceId: 'rejected-1',
+      title: 'Unknown title',
+      company: 'ACME',
+      location: 'Remote',
+      description: 'Listing summary only',
+      url: 'https://it.pracuj.pl/praca/frontend,oferta,2',
+      tags: [],
+      salary: null,
+      employmentType: 'B2B',
+      requirements: [],
+    },
+    {
+      source: 'pracuj-pl-it',
+      sourceId: 'rejected-2',
+      title: 'Expired Role',
+      company: 'ACME',
+      location: 'Remote',
+      description: 'Legacy offer that should not be linked.',
+      url: 'https://it.pracuj.pl/praca/frontend,oferta,3',
+      tags: [],
+      salary: null,
+      employmentType: 'B2B',
+      requirements: [],
+      isExpired: true,
+    },
+  ]);
+
+  assert.equal(assessed.acceptedOfferCount, 1);
+  assert.equal(assessed.rejectedOfferCount, 2);
+  assert.equal(assessed.rejectedOfferReasons.placeholder_title, 1);
+  assert.equal(assessed.rejectedOfferReasons.expired_offer, 1);
+});
+
+test('computeNormalizedJobContentHash is deterministic for stable offer payload', () => {
+  const hashA = computeNormalizedJobContentHash({
+    sourceId: '123',
+    url: 'https://it.pracuj.pl/praca/frontend,oferta,123',
+    title: 'Frontend Developer',
+    company: 'ACME',
+    location: 'Remote',
+    description: 'React and TypeScript role',
+    salary: '20k',
+    employmentType: 'B2B',
+    requirements: ['React', 'TypeScript'],
+    details: { seniority: 'senior' },
+  });
+  const hashB = computeNormalizedJobContentHash({
+    sourceId: '123',
+    url: 'https://it.pracuj.pl/praca/frontend,oferta,123',
+    title: 'Frontend Developer',
+    company: 'ACME',
+    location: 'Remote',
+    description: 'React and TypeScript role',
+    salary: '20k',
+    employmentType: 'B2B',
+    requirements: ['React', 'TypeScript'],
+    details: { seniority: 'senior' },
+  });
+
+  assert.equal(hashA, hashB);
 });
 
 test('buildWorkerCallbackSignaturePayload is deterministic', () => {
