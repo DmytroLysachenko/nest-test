@@ -255,6 +255,8 @@ These are the most useful support tables for scrape incidents:
 - `job_source_runs`
 - `job_source_run_events`
 - `job_source_callback_events`
+- `job_offers`
+- `user_job_offers`
 - `api_request_events`
 - `scrape_schedule_events`
 
@@ -263,6 +265,8 @@ What each table tells you:
 - `job_source_runs`: current run state, timestamps, `failure_type`, `trace_id`, `progress`
 - `job_source_run_events`: lifecycle timeline, dispatch, heartbeat, callback transitions
 - `job_source_callback_events`: accepted callback envelopes and replay metadata
+- `job_offers`: shared catalog freshness, quality state, dedupe identity, last-seen/matched timestamps
+- `user_job_offers`: whether offers reached the notebook through `SCRAPE`, `DB_REUSE`, or `CATALOG_REMATCH`
 - `api_request_events`: API-side warnings and errors persisted for support/debugging
 - `scrape_schedule_events`: scheduler pickup and enqueue timeline
 
@@ -325,6 +329,35 @@ Interpretation:
 - usually frontend polling or repeated support queries
 - not usually the root cause of worker callback failures
 
+### Fresh catalog but no new worker run
+
+Check:
+
+- `GET /api/job-sources/preflight`
+- `GET /api/ops/catalog/summary`
+- `POST /api/ops/catalog/rematch/users/:id`
+- `user_job_offers.origin`
+
+Interpretation:
+
+- if preflight recommends rematch, the API should serve the request from catalog without queueing the worker
+- if rematch inserts offers, the issue is notebook-linking or FE refresh, not scraping
+- if catalog is stale or low-quality, investigate worker/source health next
+
+### Scheduled scrape not enqueued
+
+Check:
+
+- `GET /api/job-sources/preflight`
+- recent `job_source_runs.failure_type`
+- `scrape_schedule_events`
+- source health warnings in support bundle output
+
+Interpretation:
+
+- the scheduler now pauses automated scrapes when recent runs show clustered `parse`, `network`, `callback`, or `timeout` failures
+- manual runs can still be triggered, but the pause is usually a source-health signal rather than a scheduler bug
+
 ## Current Known Production Incident
 
 Observed on March 16, 2026:
@@ -342,7 +375,8 @@ Observed on March 16, 2026:
 4. Confirm API saw the callback request id.
 5. If API did not see it, inspect callback URL generation and deployed service env.
 6. If API did see it, inspect `api_request_events` and API request logs.
-7. Only then decide between replay, retry, reconcile, or redeploy.
+7. Check whether fresh accepted catalog inventory already covers the user need before triggering another scrape.
+8. Only then decide between rematch, replay, retry, reconcile, or redeploy.
 
 ## Safe Recovery Actions
 
@@ -351,6 +385,8 @@ Observed on March 16, 2026:
   - `POST /api/ops/reconcile-stale-runs`
 - Retry failed runs:
   - `POST /api/job-sources/runs/:id/retry`
+- Trigger catalog rematch for a user:
+  - `POST /api/ops/catalog/rematch/users/:id`
 - Replay dead letters:
   - `pnpm --filter worker callbacks:replay`
 

@@ -128,12 +128,18 @@ Last updated: 2026-03-14
 - Stale run reconciliation now prioritizes `last_heartbeat_at` over legacy timestamp-only heuristics.
 - API scrape enqueue now applies short-window idempotency suppression for duplicate intents.
 - API scrape enqueue now enforces per-user 24h enqueue budget guard (`SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER`).
+- Shared `job_offers` catalog now persists `content_hash`, `quality_state`, `first_seen_at`, `last_seen_at`, and `last_matched_at` so scrape ingestion and reuse share one canonical store.
+- `user_job_offers` now records `origin` (`SCRAPE`, `DB_REUSE`, `CATALOG_REMATCH`) and `match_version` for auditability of notebook links.
+- Scrape enqueue now prefers fresh catalog rematch before worker dispatch when the active profile already has enough eligible offers in the shared catalog.
+- Career-profile READY/restore flows now trigger catalog rematch without forcing a new scrape.
+- Automated scheduled scrapes now pause temporarily when recent runs indicate source-health degradation (`parse`/`network`/`callback`/`timeout` failure cluster).
 - Scrape retry now enforces configurable retry-chain depth cap.
 - Admin ops metrics endpoint available at `/ops/metrics`.
 - Ops metrics now expose scrape lifecycle counters (`staleReconciledRuns`, `retriesTriggered`, `retrySuccessRate`).
 - Ops metrics now expose callback event breakdown (`failuresByType`, `failuresByCode`) and heartbeat freshness indicator (`runningWithoutHeartbeat`).
 - Ops metrics now support optional `windowHours` query override and scheduler reliability fields (`lastTriggerAt`, `dueSchedules`, `enqueueFailures24h`).
 - Ops metrics callback section now includes retry/conflict indicators (`retryRate24h`, `conflictingPayloadEvents24h`).
+- Ops now exposes catalog summary + targeted user rematch endpoints (`GET /api/ops/catalog/summary`, `POST /api/ops/catalog/rematch/users/:id`).
 - Worker Cloud Tasks ingress now supports both static bearer auth and verified OIDC ID tokens (service account + audience).
 - API worker callbacks now support OIDC bearer verification (audience + optional worker service-account email pinning) as an alternative to static callback token.
 - Worker callback envelope now emits deterministic attempt metadata (`attemptNo`, `emittedAt`, `payloadHash`) for replay safety.
