@@ -27,6 +27,7 @@ import { SupportOverviewResponse } from './dto/support-overview.response';
 import { SupportScrapeIncidentResponse } from './dto/support-scrape-incident.response';
 import { SupportUserIncidentResponse } from './dto/support-user-incident.response';
 import { OpsService } from './ops.service';
+import { JobSourcesService } from '@/features/job-sources/job-sources.service';
 
 import type { Env } from '@/config/env';
 
@@ -38,6 +39,7 @@ import type { Env } from '@/config/env';
 export class OpsController {
   constructor(
     private readonly opsService: OpsService,
+    private readonly jobSourcesService: JobSourcesService,
     private readonly configService: ConfigService<Env, true>,
   ) {}
 
@@ -67,6 +69,16 @@ export class OpsController {
   ) {
     this.assertAdmin(user);
     return this.opsService.getSupportOverview(windowHours);
+  }
+
+  @Get('catalog/summary')
+  @ApiOperation({ summary: 'Get shared catalog health summary (admin only)' })
+  async getCatalogSummary(
+    @CurrentUser() user: JwtValidateUser,
+    @Query('windowHours', new ParseIntPipe({ optional: true })) windowHours?: number,
+  ) {
+    this.assertAdmin(user);
+    return this.opsService.getCatalogSummary(windowHours);
   }
 
   @Get('support/scrape-runs/:id')
@@ -175,6 +187,18 @@ export class OpsController {
   async reconcileRun(@CurrentUser() user: JwtValidateUser, @Param('id', new ParseUUIDPipe()) id: string) {
     this.assertAdmin(user);
     return this.opsService.reconcileRun(id);
+  }
+
+  @Post('catalog/rematch/users/:id')
+  @ApiOperation({ summary: 'Trigger catalog rematch for a user (admin only)' })
+  async rematchCatalogForUser(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query('careerProfileId') careerProfileId?: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    this.assertAdmin(user);
+    return this.jobSourcesService.rematchCatalogForUser(id, careerProfileId, limit ?? 20);
   }
 
   @Post('reconcile-stale-runs')

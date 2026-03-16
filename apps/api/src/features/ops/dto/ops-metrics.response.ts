@@ -36,6 +36,14 @@ class OpsOffersMetricsResponse {
   unscoredUserOffers!: number;
 }
 
+class OpsCatalogMetricsResponse {
+  @ApiProperty()
+  freshAcceptedOffers!: number;
+
+  @ApiProperty()
+  matchedRecently!: number;
+}
+
 class OpsLifecycleMetricsResponse {
   @ApiProperty()
   staleReconciledRuns!: number;
@@ -96,6 +104,9 @@ export class OpsMetricsResponse {
 
   @ApiProperty({ type: OpsOffersMetricsResponse })
   offers!: OpsOffersMetricsResponse;
+
+  @ApiProperty({ type: OpsCatalogMetricsResponse })
+  catalog!: OpsCatalogMetricsResponse;
 
   @ApiProperty({ type: OpsLifecycleMetricsResponse })
   lifecycle!: OpsLifecycleMetricsResponse;
