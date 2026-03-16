@@ -107,6 +107,16 @@ export const validateEnv = (env: Record<string, unknown>): Env => {
     }
   }
 
+  if (parsed.data.NODE_ENV === 'production') {
+    if (!parsed.data.WORKER_CALLBACK_URL) {
+      throw new Error('WORKER_CALLBACK_URL must be configured in production mode');
+    }
+    const callbackUrl = new URL(parsed.data.WORKER_CALLBACK_URL);
+    if (callbackUrl.protocol !== 'https:') {
+      throw new Error('WORKER_CALLBACK_URL must use https in production mode');
+    }
+  }
+
   if (
     (parsed.data.GOOGLE_OAUTH_CLIENT_ID && !parsed.data.GOOGLE_OAUTH_CLIENT_SECRET) ||
     (!parsed.data.GOOGLE_OAUTH_CLIENT_ID && parsed.data.GOOGLE_OAUTH_CLIENT_SECRET)

@@ -26,6 +26,7 @@ Read these instead of expanding this README:
 - Key architecture decisions: `docs/DECISIONS.md`
 - Frontend architecture standards: `docs/FRONTEND_STANDARDS.md`
 - Local run/test commands: `docs/RUNBOOK.md`
+- End-to-end prod debugging: `docs/E2E_DEBUGGING.md`
 - GCP runtime/deploy matrix: `docs/GCP_DEPLOY_MATRIX.md`
 - Step-by-step production deployment: `docs/PROD_DEPLOY_GUIDE.md`
 - Operational recovery: `docs/operations-runbook.md`
