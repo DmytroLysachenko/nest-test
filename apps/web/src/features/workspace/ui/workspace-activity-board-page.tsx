@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { formatWorkspaceDateTime, getWorkspaceRunStatusTone } from '@/features/workspace/model/workspace-page-helpers';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
-import { WorkspaceSplashState } from '@/shared/ui/async-states';
+import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { HeroHeader, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
@@ -14,13 +14,25 @@ import { WorkflowBlockedState } from '@/shared/ui/workflow-blocked-state';
 
 export const WorkspaceActivityBoardPage = () => {
   const auth = useRequireAuth();
-  const { summary, notebookSummary, isBootstrapping } = usePrivateDashboardData();
+  const { summary, notebookSummary, isBootstrapping, summaryError, refreshSummary } = usePrivateDashboardData();
 
-  if (!auth.token || isBootstrapping || !summary) {
+  if (!auth.token || isBootstrapping) {
     return (
       <WorkspaceSplashState
         title="Opening Activity Board"
         subtitle="Restoring readiness, follow-up pressure, and the signals that tell you what deserves attention next."
+      />
+    );
+  }
+
+  if (summaryError || !summary) {
+    return (
+      <PageErrorState
+        title="Activity board unavailable"
+        message={summaryError ?? 'Unable to load workspace summary.'}
+        onRetry={() => {
+          void refreshSummary();
+        }}
       />
     );
   }

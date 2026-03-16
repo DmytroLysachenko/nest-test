@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { getDocumentUploadHealth, listDocumentEvents, listDocuments } from '@/features/documents/api/documents-api';
+import { isRateLimitedError } from '@/shared/lib/http/rate-limit';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
 import { liveQueryPreset, mutableQueryPreset } from '@/shared/lib/query/query-option-presets';
 import { queryKeys } from '@/shared/lib/query/query-keys';
@@ -19,6 +20,9 @@ export const useDocumentsPanelQueries = (token: string, selectedDocumentId: stri
       queryFn: listDocuments,
       ...mutableQueryPreset(),
       refetchInterval: (query) => {
+        if (isRateLimitedError(query.state.error)) {
+          return false;
+        }
         const docs = (query.state.data as Array<{ extractionStatus?: string }> | undefined) ?? [];
         return docs.some((item) => item.extractionStatus === 'PENDING') ? 2500 : false;
       },

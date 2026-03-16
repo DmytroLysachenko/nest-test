@@ -12,7 +12,7 @@ import {
 } from '@/features/workspace/model/workspace-page-helpers';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
-import { SectionErrorState, SectionLoadingState, WorkspaceSplashState } from '@/shared/ui/async-states';
+import { PageErrorState, SectionErrorState, SectionLoadingState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { HeroHeader, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
@@ -23,14 +23,26 @@ const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
 
 export const WorkspacePlanningPage = () => {
   const auth = useRequireAuth();
-  const { summary, scrapeSchedule, isBootstrapping } = usePrivateDashboardData();
+  const { summary, scrapeSchedule, isBootstrapping, summaryError, refreshSummary } = usePrivateDashboardData();
   const { diagnosticsSummaryQuery, documentDiagnosticsSummaryQuery } = useWorkspacePlanningQueries(auth.token);
 
-  if (!auth.token || isBootstrapping || !summary) {
+  if (!auth.token || isBootstrapping) {
     return (
       <WorkspaceSplashState
         title="Opening Planning"
         subtitle="Restoring schedule state, run health, and the controls that keep new leads flowing."
+      />
+    );
+  }
+
+  if (summaryError || !summary) {
+    return (
+      <PageErrorState
+        title="Planning unavailable"
+        message={summaryError ?? 'Unable to load workspace summary.'}
+        onRetry={() => {
+          void refreshSummary();
+        }}
       />
     );
   }

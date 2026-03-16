@@ -17,6 +17,8 @@ import {
   type PrivateDashboardSchedule,
   type PrivateDashboardSummary,
 } from '@/shared/lib/dashboard/private-dashboard-data-normalizers';
+import { WORKSPACE_RATE_LIMIT_MESSAGE, isRateLimitedError } from '@/shared/lib/http/rate-limit';
+import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
 import { mutableQueryPreset, staticQueryPreset } from '@/shared/lib/query/query-option-presets';
 import { queryKeys } from '@/shared/lib/query/query-keys';
@@ -39,6 +41,7 @@ type PrivateDashboardDataValue = {
   notebookSummary: PrivateDashboardNotebookSummary;
   scrapeSchedule: PrivateDashboardSchedule;
   isBootstrapping: boolean;
+  summaryError: string | null;
   refreshSummary: () => Promise<unknown>;
   refreshDocuments: () => Promise<unknown>;
   refreshNotebookSummary: () => Promise<unknown>;
@@ -61,6 +64,9 @@ export const PrivateDashboardDataProvider = ({
       queryFn: getWorkspaceSummary,
       ...staticQueryPreset(),
       refetchInterval: (query) => {
+        if (isRateLimitedError(query.state.error)) {
+          return false;
+        }
         const summary = query.state.data as WorkspaceSummaryDto | undefined;
         const status = summary?.scrape.lastRunStatus;
         return status === 'PENDING' || status === 'RUNNING' ? 8_000 : false;
@@ -93,6 +99,9 @@ export const PrivateDashboardDataProvider = ({
       queryFn: listDocuments,
       ...mutableQueryPreset(),
       refetchInterval: (query) => {
+        if (isRateLimitedError(query.state.error)) {
+          return false;
+        }
         const documents = (query.state.data as DocumentDto[] | undefined) ?? [];
         return documents.some((item) => item.extractionStatus === 'PENDING') ? 2_500 : false;
       },
@@ -117,10 +126,34 @@ export const PrivateDashboardDataProvider = ({
     }),
   );
 
-  const value = useMemo<PrivateDashboardDataValue>(
-    () => ({
+  const value = useMemo<PrivateDashboardDataValue>(() => {
+    const summary = normalizeWorkspaceSummary(summaryQuery.data);
+    const isSummaryBootstrapping = summaryQuery.data === undefined && summaryQuery.isPending && !summaryQuery.isError;
+    const isLatestProfileInputBootstrapping =
+      latestProfileInputQuery.data === undefined &&
+      latestProfileInputQuery.isPending &&
+      !latestProfileInputQuery.isError;
+    const isLatestCareerProfileBootstrapping =
+      latestCareerProfileQuery.data === undefined &&
+      latestCareerProfileQuery.isPending &&
+      !latestCareerProfileQuery.isError;
+    const isDocumentsBootstrapping =
+      documentsQuery.data === undefined && documentsQuery.isPending && !documentsQuery.isError;
+    const summaryError =
+      !summary && summaryQuery.isError
+        ? toUserErrorMessage(summaryQuery.error, 'Unable to load workspace summary.', {
+            byCode: {
+              RATE_LIMITED: WORKSPACE_RATE_LIMIT_MESSAGE,
+            },
+            byStatus: {
+              429: WORKSPACE_RATE_LIMIT_MESSAGE,
+            },
+          })
+        : null;
+
+    return {
       token,
-      summary: normalizeWorkspaceSummary(summaryQuery.data),
+      summary,
       latestProfileInput: latestProfileInputQuery.data ?? null,
       latestCareerProfile: latestCareerProfileQuery.data ?? null,
       documents: documentsQuery.data ?? [],
@@ -128,33 +161,35 @@ export const PrivateDashboardDataProvider = ({
       scrapeSchedule: normalizeScrapeSchedule(scrapeScheduleQuery.data),
       isBootstrapping:
         !token ||
-        summaryQuery.isLoading ||
-        latestProfileInputQuery.isLoading ||
-        latestCareerProfileQuery.isLoading ||
-        documentsQuery.isLoading,
+        isSummaryBootstrapping ||
+        isLatestProfileInputBootstrapping ||
+        isLatestCareerProfileBootstrapping ||
+        isDocumentsBootstrapping,
+      summaryError,
       refreshSummary: summaryQuery.refetch,
       refreshDocuments: documentsQuery.refetch,
       refreshNotebookSummary: notebookSummaryQuery.refetch,
       refreshSchedule: scrapeScheduleQuery.refetch,
-    }),
-    [
-      documentsQuery.data,
-      documentsQuery.isLoading,
-      documentsQuery.refetch,
-      latestCareerProfileQuery.data,
-      latestCareerProfileQuery.isLoading,
-      latestProfileInputQuery.data,
-      latestProfileInputQuery.isLoading,
-      notebookSummaryQuery.data,
-      notebookSummaryQuery.refetch,
-      scrapeScheduleQuery.data,
-      scrapeScheduleQuery.refetch,
-      summaryQuery.data,
-      summaryQuery.isLoading,
-      summaryQuery.refetch,
-      token,
-    ],
-  );
+    };
+  }, [
+    documentsQuery.data,
+    documentsQuery.isPending,
+    documentsQuery.refetch,
+    latestCareerProfileQuery.data,
+    latestCareerProfileQuery.isPending,
+    latestProfileInputQuery.data,
+    latestProfileInputQuery.isPending,
+    notebookSummaryQuery.data,
+    notebookSummaryQuery.refetch,
+    scrapeScheduleQuery.data,
+    scrapeScheduleQuery.refetch,
+    summaryQuery.data,
+    summaryQuery.error,
+    summaryQuery.isError,
+    summaryQuery.isPending,
+    summaryQuery.refetch,
+    token,
+  ]);
 
   return <PrivateDashboardDataContext.Provider value={value}>{children}</PrivateDashboardDataContext.Provider>;
 };
