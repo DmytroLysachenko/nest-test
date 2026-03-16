@@ -5,6 +5,7 @@ import { careerProfilesTable, documentsTable, profileInputsTable } from '@repo/d
 
 import { Drizzle } from '@/common/decorators';
 import { GeminiService } from '@/common/modules/gemini/gemini.service';
+import { JobSourcesService } from '@/features/job-sources/job-sources.service';
 
 import { CreateCareerProfileDto } from './dto/create-career-profile.dto';
 import { ListCareerProfilesQuery } from './dto/list-career-profiles.query';
@@ -26,6 +27,7 @@ export class CareerProfilesService {
   constructor(
     @Drizzle() private readonly db: NodePgDatabase,
     private readonly geminiService: GeminiService,
+    private readonly jobSourcesService: JobSourcesService,
   ) {}
 
   async create(userId: string, dto: CreateCareerProfileDto) {
@@ -112,6 +114,7 @@ export class CareerProfilesService {
         .where(eq(careerProfilesTable.id, careerProfile.id))
         .returning();
 
+      void this.jobSourcesService.rematchCatalogForUser(userId, updated?.id ?? careerProfile.id, 20);
       return updated;
     } catch (error) {
       await this.db
@@ -320,7 +323,9 @@ export class CareerProfilesService {
         .where(eq(careerProfilesTable.id, profileId))
         .returning();
 
-      return updated ?? profile;
+      const restored = updated ?? profile;
+      void this.jobSourcesService.rematchCatalogForUser(userId, restored.id, 20);
+      return restored;
     });
   }
 
