@@ -20,6 +20,7 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public.decorator';
 import { JwtAuthGuard } from '@/common/guards';
 import { JwtValidateUser } from '@/types/interface/jwt';
+import { JobSourcesService } from '@/features/job-sources/job-sources.service';
 
 import { OpsMetricsResponse } from './dto/ops-metrics.response';
 import { SupportCorrelationResponse } from './dto/support-correlation.response';
@@ -27,7 +28,6 @@ import { SupportOverviewResponse } from './dto/support-overview.response';
 import { SupportScrapeIncidentResponse } from './dto/support-scrape-incident.response';
 import { SupportUserIncidentResponse } from './dto/support-user-incident.response';
 import { OpsService } from './ops.service';
-import { JobSourcesService } from '@/features/job-sources/job-sources.service';
 
 import type { Env } from '@/config/env';
 
