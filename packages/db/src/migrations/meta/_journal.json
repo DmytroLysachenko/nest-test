@@ -218,6 +218,13 @@
       "when": 1773489600000,
       "tag": "0030_scrape_schedule_events",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1773666000000,
+      "tag": "0031_job_offer_catalog_and_rematch",
+      "breakpoints": true
     }
   ]
 }

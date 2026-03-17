@@ -2,7 +2,7 @@ import { CareerProfilesService } from './career-profiles.service';
 
 describe('CareerProfilesService prompt builder', () => {
   it('injects normalized input context into prompt', () => {
-    const service = new CareerProfilesService({} as any, {} as any);
+    const service = new CareerProfilesService({} as any, {} as any, {} as any);
 
     const prompt = (service as any).buildPrompt(
       'Frontend Developer',
@@ -70,7 +70,7 @@ describe('CareerProfilesService prompt builder', () => {
   });
 
   it('computes deterministic quality diagnostics from profile content', () => {
-    const service = new CareerProfilesService({} as any, {} as any);
+    const service = new CareerProfilesService({} as any, {} as any, {} as any);
     const quality = (service as any).evaluateProfileQuality({
       schemaVersion: '1.0.0',
       candidateCore: {

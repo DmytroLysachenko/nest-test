@@ -57,10 +57,16 @@ export const EnvSchema = z.object({
     .regex(/^\d+(b|kb|mb)$/i)
     .default('1mb'),
   SCRAPE_DB_REUSE_HOURS: z.coerce.number().int().min(1).max(720).default(24),
+  CATALOG_REMATCH_HOURS: z.coerce.number().int().min(1).max(720).default(72),
+  CATALOG_REMATCH_BATCH_SIZE: z.coerce.number().int().min(1).max(1000).default(250),
+  CATALOG_REMATCH_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(60),
   SCRAPE_MAX_ACTIVE_RUNS_PER_USER: z.coerce.number().int().min(1).max(20).default(2),
   SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER: z.coerce.number().int().min(1).max(500).default(40),
   SCRAPE_ENQUEUE_IDEMPOTENCY_TTL_SEC: z.coerce.number().int().min(0).max(600).default(30),
   SCRAPE_MAX_RETRY_CHAIN_DEPTH: z.coerce.number().int().min(1).max(20).default(5),
+  SCRAPE_SOURCE_FAILURE_WINDOW_RUNS: z.coerce.number().int().min(1).max(50).default(5),
+  SCRAPE_SOURCE_FAILURE_THRESHOLD: z.coerce.number().int().min(1).max(50).default(3),
+  SCRAPE_SOURCE_AUTOMATION_BACKOFF_MINUTES: z.coerce.number().int().min(1).max(1440).default(30),
   SCHEDULER_AUTH_TOKEN: z.string().optional(),
   SCHEDULER_TRIGGER_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(20),
   OPS_INTERNAL_TOKEN: z.string().optional(),
@@ -104,6 +110,16 @@ export const validateEnv = (env: Record<string, unknown>): Env => {
     const audienceUrl = new URL(parsed.data.WORKER_CALLBACK_OIDC_AUDIENCE);
     if (audienceUrl.protocol !== 'https:') {
       throw new Error('WORKER_CALLBACK_OIDC_AUDIENCE must use https in production mode');
+    }
+  }
+
+  if (parsed.data.NODE_ENV === 'production') {
+    if (!parsed.data.WORKER_CALLBACK_URL) {
+      throw new Error('WORKER_CALLBACK_URL must be configured in production mode');
+    }
+    const callbackUrl = new URL(parsed.data.WORKER_CALLBACK_URL);
+    if (callbackUrl.protocol !== 'https:') {
+      throw new Error('WORKER_CALLBACK_URL must use https in production mode');
     }
   }
 

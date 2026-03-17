@@ -11,7 +11,8 @@ type UseWorkspaceDashboardDataArgs = {
 };
 
 export const useWorkspaceDashboardData = ({ token }: UseWorkspaceDashboardDataArgs) => {
-  const { summary, scrapeSchedule, refreshSummary, refreshSchedule, isBootstrapping } = usePrivateDashboardData();
+  const { summary, scrapeSchedule, refreshSummary, refreshSchedule, isBootstrapping, summaryError } =
+    usePrivateDashboardData();
   const { offersQuery } = useWorkspaceDashboardQueries(token);
 
   useEffect(() => {
@@ -23,8 +24,8 @@ export const useWorkspaceDashboardData = ({ token }: UseWorkspaceDashboardDataAr
     }
   }, [isBootstrapping, summary, token]);
 
-  const isInitialLoading = !token || isBootstrapping || !summary || summary.workflow.needsOnboarding;
-  const summaryError = null;
+  const isInitialLoading =
+    !token || isBootstrapping || (!summary && !summaryError) || summary?.workflow.needsOnboarding;
   const offersError = offersQuery.isError
     ? toUserErrorMessage(offersQuery.error, 'Unable to load recent offers.')
     : null;

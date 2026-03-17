@@ -4,6 +4,7 @@ import { and, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lt, or, s
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
   apiRequestEventsTable,
+  jobOffersTable,
   jobSourceCallbackEventsTable,
   jobSourceRunEventsTable,
   jobSourceRunsTable,
@@ -116,6 +117,20 @@ export class OpsService {
       .select({ value: count() })
       .from(userJobOffersTable)
       .where(isNull(userJobOffersTable.matchScore));
+    const [freshCatalogOffersRow] = await this.db
+      .select({ value: count() })
+      .from(jobOffersTable)
+      .where(
+        and(
+          eq(jobOffersTable.qualityState, 'ACCEPTED'),
+          eq(jobOffersTable.isExpired, false),
+          gte(jobOffersTable.lastSeenAt, cutoff),
+        ),
+      );
+    const [catalogMatchedRecentlyRow] = await this.db
+      .select({ value: count() })
+      .from(jobOffersTable)
+      .where(gte(jobOffersTable.lastMatchedAt, cutoff));
     const [dueSchedulesRow] = await this.db
       .select({ value: count() })
       .from(scrapeSchedulesTable)
@@ -215,6 +230,10 @@ export class OpsService {
       offers: {
         totalUserOffers: Number(totalUserOffersRow?.value ?? 0),
         unscoredUserOffers: Number(unscoredUserOffersRow?.value ?? 0),
+      },
+      catalog: {
+        freshAcceptedOffers: Number(freshCatalogOffersRow?.value ?? 0),
+        matchedRecently: Number(catalogMatchedRecentlyRow?.value ?? 0),
       },
       lifecycle: {
         staleReconciledRuns: Number(staleReconciledRunsRow?.value ?? 0),
@@ -355,6 +374,57 @@ export class OpsService {
           createdAt: this.toIsoString(event.createdAt),
         })),
       },
+    };
+  }
+
+  async getCatalogSummary(windowHoursInput?: number) {
+    const windowHours = Math.min(Math.max(windowHoursInput ?? 72, 1), 720);
+    const cutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const [totalCatalogOffersRow] = await this.db.select({ value: count() }).from(jobOffersTable);
+    const [freshAcceptedOffersRow] = await this.db
+      .select({ value: count() })
+      .from(jobOffersTable)
+      .where(
+        and(
+          eq(jobOffersTable.qualityState, 'ACCEPTED'),
+          eq(jobOffersTable.isExpired, false),
+          gte(jobOffersTable.lastSeenAt, cutoff),
+        ),
+      );
+    const [expiredOffersRow] = await this.db
+      .select({ value: count() })
+      .from(jobOffersTable)
+      .where(eq(jobOffersTable.isExpired, true));
+    const [matchedRecentlyRow] = await this.db
+      .select({ value: count() })
+      .from(jobOffersTable)
+      .where(gte(jobOffersTable.lastMatchedAt, cutoff));
+    const offersByQuality = await this.db
+      .select({
+        qualityState: jobOffersTable.qualityState,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(jobOffersTable)
+      .groupBy(jobOffersTable.qualityState)
+      .orderBy(desc(sql<number>`count(*)::int`));
+    const userOfferOrigins = await this.db
+      .select({
+        origin: userJobOffersTable.origin,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(userJobOffersTable)
+      .groupBy(userJobOffersTable.origin)
+      .orderBy(desc(sql<number>`count(*)::int`));
+
+    return {
+      generatedAt: new Date().toISOString(),
+      windowHours,
+      totalCatalogOffers: Number(totalCatalogOffersRow?.value ?? 0),
+      freshAcceptedOffers: Number(freshAcceptedOffersRow?.value ?? 0),
+      expiredOffers: Number(expiredOffersRow?.value ?? 0),
+      matchedRecently: Number(matchedRecentlyRow?.value ?? 0),
+      offersByQuality,
+      userOfferOrigins,
     };
   }
 

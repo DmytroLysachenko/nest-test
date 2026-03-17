@@ -82,6 +82,37 @@ const canonicalize = (value: unknown): unknown => {
 const stableJson = (value: unknown) => JSON.stringify(canonicalize(value ?? null));
 export const computeCallbackPayloadHash = (payload: Record<string, unknown>) =>
   createHash('sha256').update(stableJson(payload)).digest('hex');
+export const computeNormalizedJobContentHash = (
+  job: Pick<
+    NormalizedJob,
+    | 'sourceId'
+    | 'url'
+    | 'title'
+    | 'company'
+    | 'location'
+    | 'description'
+    | 'salary'
+    | 'employmentType'
+    | 'requirements'
+    | 'details'
+  >,
+) =>
+  createHash('sha256')
+    .update(
+      stableJson({
+        sourceId: normalizeString(job.sourceId),
+        url: normalizeString(job.url),
+        title: normalizeString(job.title),
+        company: normalizeString(job.company),
+        location: normalizeString(job.location),
+        description: normalizeString(job.description),
+        salary: normalizeString(job.salary),
+        employmentType: normalizeString(job.employmentType),
+        requirements: sanitizeStringArray(job.requirements),
+        details: job.details ?? null,
+      }),
+    )
+    .digest('hex');
 
 const canonicalOfferKey = (job: Pick<NormalizedJob, 'sourceId' | 'url'>) => {
   const sourceId = normalizeString(job.sourceId);
@@ -146,6 +177,49 @@ export const sanitizeCallbackJobs = (jobs: NormalizedJob[] | undefined) => {
   }
 
   return Array.from(dedupByCanonical.values());
+};
+
+export const assessNormalizedJobs = (jobs: NormalizedJob[] | undefined) => {
+  const sanitized = sanitizeCallbackJobs(jobs);
+  const acceptedJobs: NormalizedJob[] = [];
+  const rejectedOfferReasons: Record<string, number> = {};
+
+  const reject = (reason: string) => {
+    rejectedOfferReasons[reason] = (rejectedOfferReasons[reason] ?? 0) + 1;
+  };
+
+  for (const job of sanitized) {
+    const normalizedTitle = normalizeString(job.title)?.toLowerCase();
+    const normalizedDescription = normalizeString(job.description)?.toLowerCase();
+    if (!normalizedTitle) {
+      reject('missing_title');
+      continue;
+    }
+    if (!normalizedDescription) {
+      reject('missing_description');
+      continue;
+    }
+    if (normalizedTitle === 'unknown title') {
+      reject('placeholder_title');
+      continue;
+    }
+    if (normalizedDescription === 'no description found' || normalizedDescription === 'listing summary only') {
+      reject('placeholder_description');
+      continue;
+    }
+    if (job.isExpired) {
+      reject('expired_offer');
+      continue;
+    }
+    acceptedJobs.push(job);
+  }
+
+  return {
+    acceptedJobs,
+    acceptedOfferCount: acceptedJobs.length,
+    rejectedOfferCount: Object.values(rejectedOfferReasons).reduce((acc, value) => acc + value, 0),
+    rejectedOfferReasons,
+  };
 };
 
 export const classifyScrapeError = (error: unknown): ScrapeFailureType => {
@@ -644,8 +718,12 @@ export const runScrapeJob = async (
       clearTimeout(timeoutRef);
     }
 
-    const sanitizedJobs = sanitizeCallbackJobs(aggregatedNormalized);
-    const dedupedInRunCount = Math.max(0, aggregatedNormalized.length - sanitizedJobs.length);
+    const assessedJobs = assessNormalizedJobs(aggregatedNormalized);
+    const sanitizedJobs = assessedJobs.acceptedJobs;
+    const dedupedInRunCount = Math.max(
+      0,
+      aggregatedNormalized.length - sanitizeCallbackJobs(aggregatedNormalized).length,
+    );
     await emitHeartbeat(
       'normalize',
       attemptsExecuted,
@@ -728,6 +806,9 @@ export const runScrapeJob = async (
           jobLinksDiscovered: aggregatedJobLinks.size,
           ignoredRecommendedLinks: aggregatedRecommendedLinks.size,
           dedupedInRunCount,
+          acceptedOfferCount: assessedJobs.acceptedOfferCount,
+          rejectedOfferCount: assessedJobs.rejectedOfferCount,
+          rejectedOfferReasons: assessedJobs.rejectedOfferReasons,
           skippedFreshUrls: Math.max(
             0,
             aggregatedJobLinks.size - aggregatedPages.length - aggregatedBlockedUrls.length,
@@ -829,6 +910,9 @@ export const runScrapeJob = async (
           jobLinksDiscovered: 0,
           ignoredRecommendedLinks: 0,
           dedupedInRunCount: 0,
+          acceptedOfferCount: 0,
+          rejectedOfferCount: 0,
+          rejectedOfferReasons: {},
           skippedFreshUrls: 0,
           blockedPages: 0,
           hadZeroOffersStep: false,

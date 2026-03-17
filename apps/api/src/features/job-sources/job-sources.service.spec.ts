@@ -694,6 +694,14 @@ describe('JobSourcesService', () => {
       createLogger(),
       db,
     );
+    jest.spyOn(service as any, 'countCatalogMatchesForProfile').mockResolvedValue(0);
+    jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
+      active: false,
+      pausedUntil: null,
+      failedRuns: 0,
+      totalRunsConsidered: 0,
+      recentFailureTypes: [],
+    });
 
     const result = await service.getPreflight('user-1', { limit: 20 });
 
@@ -712,6 +720,104 @@ describe('JobSourcesService', () => {
         lastRunStatus: 'COMPLETED',
       }),
     );
+  });
+
+  it('serves scrape requests from fresh catalog rematch before enqueueing the worker', async () => {
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([
+                {
+                  careerProfileId: 'profile-id',
+                  contentJson: candidateProfileFixture,
+                },
+              ]),
+            }),
+          }),
+        }),
+      }),
+      insert: jest.fn(),
+      update: jest.fn(),
+    } as any;
+
+    const fetchMock = jest.spyOn(global, 'fetch' as any);
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'tryServeFromCatalog').mockResolvedValue({
+      ok: true,
+      sourceRunId: 'catalog-run-1',
+      traceId: 'catalog-trace-1',
+      acceptedAt: '2026-03-16T10:00:00.000Z',
+      inserted: 3,
+      totalOffers: 3,
+      matchedOffers: 3,
+      status: 'reused',
+    });
+
+    const result = await service.enqueueScrape(
+      'user-id',
+      {
+        source: 'pracuj-pl-it',
+        filters: { keywords: 'frontend developer' },
+        limit: 3,
+      },
+      'request-id',
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'reused',
+      sourceRunId: 'catalog-run-1',
+      inserted: 3,
+      totalOffers: 3,
+      rematchedFromCatalog: true,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('blocks scheduled enqueue when source-health backoff is active', async () => {
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([
+                {
+                  careerProfileId: 'profile-id',
+                  contentJson: candidateProfileFixture,
+                },
+              ]),
+            }),
+          }),
+        }),
+      }),
+      insert: jest.fn(),
+      update: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
+      active: true,
+      pausedUntil: new Date('2026-03-16T11:00:00.000Z'),
+      failedRuns: 3,
+      totalRunsConsidered: 5,
+      recentFailureTypes: ['parse', 'network', 'callback'],
+    });
+
+    await expect(
+      (service as any).enqueueScrape(
+        'user-id',
+        {
+          source: 'pracuj-pl-it',
+          filters: { keywords: 'frontend developer' },
+          limit: 10,
+        },
+        'request-id',
+        'scheduled',
+      ),
+    ).rejects.toThrow('Automation paused for PRACUJ_PL');
+    expect(db.insert).not.toHaveBeenCalled();
   });
 
   it('reuses completed run offers from db before enqueueing worker scrape', async () => {
@@ -791,6 +897,15 @@ describe('JobSourcesService', () => {
       createLogger(),
       db,
     );
+    jest.spyOn(service as any, 'tryServeFromCatalog').mockResolvedValue(null);
+    jest.spyOn(service as any, 'tryReuseFromDatabase').mockResolvedValue({
+      sourceRunId: 'reused-run-uuid',
+      traceId: 'reuse-trace-id',
+      acceptedAt: '2026-02-20T00:00:00.000Z',
+      inserted: 2,
+      totalOffers: 2,
+      reusedFromRunId: 'cached-run-1',
+    });
 
     const result = await service.enqueueScrape(
       'user-id',
@@ -1007,6 +1122,15 @@ describe('JobSourcesService', () => {
     } as any;
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'getCareerProfileContext').mockResolvedValue({
+      careerProfileId: 'profile-3',
+      profile: candidateProfileFixture,
+    });
+    jest.spyOn(service as any, 'linkCatalogOffersToUser').mockResolvedValue({
+      insertedCount: 1,
+      totalCandidateCount: 1,
+      matchedCount: 1,
+    });
     const result = await service.completeScrape({
       sourceRunId: 'run-3',
       status: 'COMPLETED',
@@ -1068,7 +1192,9 @@ describe('JobSourcesService', () => {
         if (table === jobOffersTable) {
           return {
             values: jest.fn().mockReturnValue({
-              onConflictDoUpdate: jest.fn().mockResolvedValue(undefined),
+              onConflictDoUpdate: jest.fn().mockReturnValue({
+                returning: jest.fn().mockResolvedValue([{ id: 'offer-51' }]),
+              }),
             }),
           };
         }
@@ -1086,6 +1212,15 @@ describe('JobSourcesService', () => {
     } as any;
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'getCareerProfileContext').mockResolvedValue({
+      careerProfileId: 'profile-5',
+      profile: candidateProfileFixture,
+    });
+    jest.spyOn(service as any, 'linkCatalogOffersToUser').mockResolvedValue({
+      insertedCount: 1,
+      totalCandidateCount: 1,
+      matchedCount: 1,
+    });
     const result = await service.completeScrape({
       sourceRunId: 'run-5',
       status: 'COMPLETED',
@@ -1823,7 +1958,9 @@ describe('JobSourcesService', () => {
             values: jest.fn().mockReturnValue({
               onConflictDoUpdate: jest.fn().mockImplementation((config: { set: Record<string, unknown> }) => {
                 capturedConflictConfig = config;
-                return Promise.resolve(undefined);
+                return {
+                  returning: jest.fn().mockResolvedValue([{ id: 'offer-upsert-1' }]),
+                };
               }),
             }),
           };
@@ -1844,7 +1981,15 @@ describe('JobSourcesService', () => {
     } as any;
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
-    jest.spyOn(service as any, 'autoScoreIngestedOffers').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'getCareerProfileContext').mockResolvedValue({
+      careerProfileId: 'profile-upsert-1',
+      profile: candidateProfileFixture,
+    });
+    jest.spyOn(service as any, 'linkCatalogOffersToUser').mockResolvedValue({
+      insertedCount: 1,
+      totalCandidateCount: 1,
+      matchedCount: 1,
+    });
 
     const result = await service.completeScrape({
       sourceRunId: 'run-upsert-1',

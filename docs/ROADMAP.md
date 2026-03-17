@@ -22,7 +22,7 @@ The current direction is to finish turning the repo from a technically capable i
 4. CI quality gates (API/worker/web tests + smoke on protected branches).
    - Status: in progress (split verify/smoke workflows implemented; protected-branch policy enforcement pending repo settings).
 5. Reliability guardrails for scrape intake + admin ops visibility.
-   - Status: in progress (per-user scrape backpressure + admin metrics endpoint + explicit run-state transition guards + enqueue idempotency + retry-depth cap implemented; user preflight + schedule trigger-now now exposed in product UI/API).
+   - Status: in progress (per-user scrape backpressure + admin metrics endpoint + explicit run-state transition guards + enqueue idempotency + retry-depth cap + catalog-first rematch + source-health automation backoff implemented; user preflight + schedule trigger-now now exposed in product UI/API).
 6. Staging/production deployment pipeline with rollback automation.
    - Status: in progress (release-candidate image build/push + manual Cloud Run promotion + post-deploy verification implemented; rollback automation pending).
 7. Request-budget guardrails (API throttling + FE query traffic controls).
@@ -41,7 +41,7 @@ The current direction is to finish turning the repo from a technically capable i
 3. Add score-explanation audit export for support/debug workflows.
    - Status: completed (`/api/job-matching/audit` + `/api/job-matching/audit/export.csv` backed by persisted `job_matches.match_meta`).
 4. Expand diagnostics aggregation for long-running scrape history.
-   - Status: in progress (optional timeline buckets + lifecycle counters added to diagnostics summary; filtered run history, CSV export, and source health summary now shipped).
+   - Status: in progress (optional timeline buckets + lifecycle counters added to diagnostics summary; filtered run history, CSV export, source health summary, and catalog summary/rematch ops endpoints now shipped).
 5. Extend document diagnostics with percentile timing metrics per stage (upload/confirm/extract).
    - Status: in progress (`document_stage_metrics` + `/api/documents/diagnostics/summary` added; extraction retry endpoints and explicit retry outcome summaries shipped to improve user recovery path).
 6. Persist user notebook operating preferences across sessions/devices.
@@ -77,9 +77,9 @@ The current direction is to finish turning the repo from a technically capable i
 2. Sprint B: notebook throughput and application pipeline
    - follow-up queues, stale-offer actions, better bulk triage, stronger summary views
 3. Sprint C: scraper/source quality hardening
-   - source normalization, parser resilience, better degraded/blocked classification, replay/debug improvements
+   - source normalization, parser resilience, better degraded/blocked classification, catalog quality-state persistence, replay/debug improvements
 4. Sprint D: durable async and automation
-   - move extraction/profile generation and later scrape orchestration toward durable queue execution
+   - move extraction/profile generation and later scrape orchestration toward durable queue execution while keeping catalog-rematch paths off the worker when possible
 5. Sprint E: release and observability hardening
    - startup orchestration, smoke reliability, deploy rollback, alerting, and operational dashboards
 

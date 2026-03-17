@@ -26,6 +26,7 @@ describe('validateEnv', () => {
       validateEnv({
         ...baseEnv(),
         NODE_ENV: 'production',
+        WORKER_CALLBACK_URL: 'https://api.example.com/api/job-sources/complete',
         WORKER_TASK_PROVIDER: 'http',
       }),
     ).toThrow('WORKER_TASK_PROVIDER must be cloud-tasks in production mode');
@@ -50,8 +51,23 @@ describe('validateEnv', () => {
         WORKER_TASKS_LOCATION: 'us-central1',
         WORKER_TASKS_QUEUE: 'scrape',
         WORKER_TASK_URL: 'http://worker.local/tasks',
+        WORKER_CALLBACK_URL: 'https://api.example.com/api/job-sources/complete',
       }),
     ).toThrow('WORKER_TASK_URL must use https in production mode for cloud-tasks provider');
+  });
+
+  it('requires worker callback url in production mode', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        NODE_ENV: 'production',
+        WORKER_TASK_PROVIDER: 'cloud-tasks',
+        WORKER_TASKS_PROJECT_ID: 'proj',
+        WORKER_TASKS_LOCATION: 'us-central1',
+        WORKER_TASKS_QUEUE: 'scrape',
+        WORKER_TASK_URL: 'https://worker.example.com/tasks',
+      }),
+    ).toThrow('WORKER_CALLBACK_URL must be configured in production mode');
   });
 
   it('accepts valid cloud-tasks configuration', () => {
@@ -64,6 +80,7 @@ describe('validateEnv', () => {
         WORKER_TASKS_LOCATION: 'us-central1',
         WORKER_TASKS_QUEUE: 'scrape',
         WORKER_TASK_URL: 'https://worker.example.com/tasks',
+        WORKER_CALLBACK_URL: 'https://api.example.com/api/job-sources/complete',
         WORKER_TASKS_SERVICE_ACCOUNT_EMAIL: 'worker@example.iam.gserviceaccount.com',
       }),
     ).not.toThrow();

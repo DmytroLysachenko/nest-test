@@ -1,6 +1,6 @@
 import { boolean, index, jsonb, pgTable, text, timestamp, uuid, uniqueIndex } from 'drizzle-orm/pg-core';
 
-import { jobSourceEnum } from './_enums';
+import { jobOfferQualityStateEnum, jobSourceEnum } from './_enums';
 import { jobSourceRunsTable } from './job-source-runs';
 
 export const jobOffersTable = pgTable(
@@ -20,9 +20,15 @@ export const jobOffersTable = pgTable(
     description: text('description').notNull(),
     requirements: jsonb('requirements'),
     details: jsonb('details'),
+    contentHash: text('content_hash'),
+    qualityState: jobOfferQualityStateEnum('quality_state').notNull().default('ACCEPTED'),
+    qualityReason: text('quality_reason'),
     isExpired: boolean('is_expired').notNull().default(false),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     lastFullScrapeAt: timestamp('last_full_scrape_at', { withTimezone: true }),
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).defaultNow().notNull(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
+    lastMatchedAt: timestamp('last_matched_at', { withTimezone: true }),
     fetchedAt: timestamp('fetched_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
@@ -32,6 +38,11 @@ export const jobOffersTable = pgTable(
       table.offerIdentityKey,
     ),
     sourceFetchedAtIdx: index('job_offers_source_fetched_at_idx').on(table.source, table.fetchedAt.desc()),
+    sourceQualitySeenIdx: index('job_offers_source_quality_last_seen_idx').on(
+      table.source,
+      table.qualityState,
+      table.lastSeenAt.desc(),
+    ),
     sourceRunFetchedAtIdx: index('job_offers_source_run_fetched_at_idx').on(
       table.source,
       table.runId,

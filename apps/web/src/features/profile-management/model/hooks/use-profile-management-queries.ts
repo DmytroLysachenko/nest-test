@@ -10,6 +10,7 @@ import {
 } from '@/features/career-profiles/api/career-profiles-api';
 import { listDocuments } from '@/features/documents/api/documents-api';
 import { getLatestProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
+import { isRateLimitedError } from '@/shared/lib/http/rate-limit';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
 import { QUERY_GC_TIME, QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
@@ -50,6 +51,9 @@ export const useProfileManagementQueries = ({
       enabled: hasToken && sharedDocuments === undefined,
       staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
       refetchInterval: (query) => {
+        if (isRateLimitedError(query.state.error)) {
+          return false;
+        }
         const docs = (sharedDocuments ??
           (query.state.data as Array<{ extractionStatus?: string }> | undefined) ??
           []) as Array<{

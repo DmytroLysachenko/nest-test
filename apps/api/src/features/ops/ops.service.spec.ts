@@ -39,6 +39,12 @@ describe('OpsService', () => {
         .mockReturnValueOnce({ from: jest.fn().mockResolvedValue([{ value: 40 }]) }) // total offers
         .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: offerWhere }) }) // unscored
         .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 6 }]) }),
+        }) // fresh catalog offers
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 5 }]) }),
+        }) // catalog matched recently
+        .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 2 }]) }),
         }) // due schedules
         .mockReturnValueOnce({
@@ -95,6 +101,8 @@ describe('OpsService', () => {
     expect(result.scrape.totalRuns).toBe(10);
     expect(result.scrape.successRate).toBe(0.8);
     expect(result.offers.unscoredUserOffers).toBe(4);
+    expect(result.catalog.freshAcceptedOffers).toBe(6);
+    expect(result.catalog.matchedRecently).toBe(5);
     expect(result.lifecycle.staleReconciledRuns).toBe(1);
     expect(result.lifecycle.retriesTriggered).toBe(4);
     expect(result.lifecycle.retrySuccessRate).toBe(0.75);
@@ -459,6 +467,7 @@ describe('OpsService', () => {
       queue: { activeRuns: 0, pendingRuns: 0, runningRuns: 0, runningWithoutHeartbeat: 0 },
       scrape: { totalRuns: 0, completedRuns: 0, failedRuns: 0, successRate: 0 },
       offers: { totalUserOffers: 0, unscoredUserOffers: 0 },
+      catalog: { freshAcceptedOffers: 0, matchedRecently: 0 },
       lifecycle: { staleReconciledRuns: 0, retriesTriggered: 0, retrySuccessRate: 0 },
       callback: {
         totalEvents: 0,

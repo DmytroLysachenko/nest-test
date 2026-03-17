@@ -1,6 +1,6 @@
 import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
-import { jobOfferStatusEnum } from './_enums';
+import { jobOfferStatusEnum, userJobOfferOriginEnum } from './_enums';
 import { careerProfilesTable } from './career-profiles';
 import { jobOffersTable } from './job-offers';
 import { jobSourceRunsTable } from './job-source-runs';
@@ -20,6 +20,8 @@ export const userJobOffersTable = pgTable(
       .notNull()
       .references(() => jobOffersTable.id, { onDelete: 'cascade' }),
     sourceRunId: uuid('source_run_id').references(() => jobSourceRunsTable.id, { onDelete: 'set null' }),
+    origin: userJobOfferOriginEnum('origin').default('SCRAPE').notNull(),
+    matchVersion: integer('match_version').default(1).notNull(),
     status: jobOfferStatusEnum('status').default('NEW').notNull(),
     matchScore: integer('match_score'),
     matchMeta: jsonb('match_meta'),

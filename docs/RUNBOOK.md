@@ -335,6 +335,14 @@ For exact variable-level mapping and secret sources, use:
    - check `GET /api/documents/upload-health`
    - inspect `GET /api/documents/:id/events` timeline for failure stage and error code
    - correlate with API `traceId` in `logs/error.log`
+8. For scrape incidents, check shared-catalog health before forcing another worker run:
+   - `GET /api/ops/catalog/summary`
+   - `POST /api/ops/catalog/rematch/users/:id`
+   - if fresh accepted offers already exist, prefer rematch over another scrape
+9. If automated scrapes stop firing, inspect source-health pause state before changing scheduler config:
+   - preflight warning `source-health-backoff`
+   - `GET /api/ops/catalog/summary`
+   - recent `job_source_runs.failure_type` distribution in support bundle output
 8. If career-profile generation fails with an AI provider error:
    - check API `/health` for `required_tables`
    - confirm `GEMINI_MODEL` is not a retired `gemini-1.5-*` value

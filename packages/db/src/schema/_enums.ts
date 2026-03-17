@@ -23,6 +23,8 @@ export const jobOfferStatusEnum = pgEnum('job_offer_status', [
   'ARCHIVED',
   'DISMISSED',
 ]);
+export const jobOfferQualityStateEnum = pgEnum('job_offer_quality_state', ['ACCEPTED', 'REJECTED', 'REVIEW']);
+export const userJobOfferOriginEnum = pgEnum('user_job_offer_origin', ['SCRAPE', 'DB_REUSE', 'CATALOG_REMATCH']);
 
 export type OTPType = (typeof otpTypeEnum.enumValues)[number];
 export type Gender = (typeof genderEnum.enumValues)[number];
@@ -32,3 +34,5 @@ export type DocumentExtractionStatus = (typeof documentExtractionStatusEnum.enum
 export type JobSource = (typeof jobSourceEnum.enumValues)[number];
 export type JobSourceRunStatus = (typeof jobSourceRunStatusEnum.enumValues)[number];
 export type JobOfferStatus = (typeof jobOfferStatusEnum.enumValues)[number];
+export type JobOfferQualityState = (typeof jobOfferQualityStateEnum.enumValues)[number];
+export type UserJobOfferOrigin = (typeof userJobOfferOriginEnum.enumValues)[number];
