@@ -2867,6 +2867,7 @@ export class JobSourcesService {
     const minScore =
       this.configService.get('CATALOG_REMATCH_MIN_SCORE', { infer: true }) ?? DEFAULT_CATALOG_REMATCH_MIN_SCORE;
     const now = new Date();
+    const includeAllScrapeCandidates = input.origin === 'SCRAPE';
     const candidates = await this.loadCatalogCandidateOffers(input.source, input.specificOfferIds, input.limit);
     if (!candidates.length) {
       return { insertedCount: 0, totalCandidateCount: 0, matchedCount: 0 };
@@ -2899,7 +2900,9 @@ export class JobSourcesService {
           salaryText: offer.salary,
         }),
       }))
-      .filter(({ deterministic }) => !deterministic.blockedByHardConstraints && deterministic.score >= minScore);
+      .filter(({ deterministic }) =>
+        includeAllScrapeCandidates ? true : !deterministic.blockedByHardConstraints && deterministic.score >= minScore,
+      );
 
     if (!matchingOffers.length) {
       return {
