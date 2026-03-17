@@ -3,6 +3,8 @@ import { jobOffersTable, jobSourceCallbackEventsTable, jobSourceRunsTable, userJ
 import { OAuth2Client } from 'google-auth-library';
 import { PgDialect } from 'drizzle-orm/pg-core';
 
+import * as candidateMatcher from '@/features/job-matching/candidate-matcher';
+
 import { JobSourcesService } from './job-sources.service';
 
 const createConfigService = (overrides: Record<string, unknown> = {}) =>
@@ -2025,6 +2027,98 @@ describe('JobSourcesService', () => {
     expect(sourceIdQuery.sql).not.toContain('excluded."job_offers"');
     expect(expiresAtQuery.sql).toContain('excluded."is_expired"');
     expect(expiresAtQuery.sql).toContain('excluded."expires_at"');
+  });
+
+  it('links freshly scraped offers into the notebook even when rematch threshold would reject them', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    id: 'offer-low-score-1',
+                    title: 'Junior QA Engineer',
+                    company: 'Example Inc',
+                    location: 'Onsite',
+                    salary: null,
+                    employmentType: 'umowa o prace',
+                    description: 'Manual testing role with limited frontend overlap.',
+                    requirements: [],
+                    details: null,
+                    lastSeenAt: new Date('2026-03-10T00:00:00.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        }),
+      insert: jest.fn().mockImplementation((table) => {
+        if (table === userJobOffersTable) {
+          return {
+            values: jest.fn().mockReturnValue({
+              onConflictDoNothing: jest.fn().mockReturnValue({
+                returning: jest.fn().mockResolvedValue([{ id: 'user-offer-1', jobOfferId: 'offer-low-score-1' }]),
+              }),
+            }),
+          };
+        }
+
+        throw new Error('Unexpected insert table');
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+    } as any;
+
+    jest.spyOn(candidateMatcher, 'scoreCandidateAgainstJob').mockReturnValue({
+      score: 12,
+      matchedCompetencies: [],
+      hardConstraintViolations: ['location'],
+      softPreferenceGaps: [],
+      breakdown: {
+        competencyFit: 0,
+        roleFit: 0,
+        keywordFit: 0,
+        softWorkModes: 0,
+        softEmploymentTypes: 0,
+        softSalary: 0,
+      },
+      blockedByHardConstraints: true,
+    });
+
+    const service = new JobSourcesService(
+      createConfigService({
+        CATALOG_REMATCH_MIN_SCORE: 60,
+      }),
+      createLogger(),
+      db,
+    );
+
+    const result = await (service as any).linkCatalogOffersToUser({
+      userId: 'user-1',
+      careerProfileId: 'profile-1',
+      sourceRunId: 'run-1',
+      source: 'PRACUJ_PL',
+      profile: candidateProfileFixture,
+      origin: 'SCRAPE',
+      specificOfferIds: ['offer-low-score-1'],
+    });
+
+    expect(result).toMatchObject({
+      insertedCount: 1,
+      totalCandidateCount: 1,
+      matchedCount: 1,
+    });
   });
 
   it('marks stale pending/running runs as failed before listing', async () => {
