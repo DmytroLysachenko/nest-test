@@ -13,7 +13,7 @@ describe('HealthService', () => {
       { isHealthy: jest.fn().mockResolvedValue({ drizzle: { status: 'up' } }) } as any,
       {
         isHealthy: jest.fn().mockResolvedValue({
-          required_tables: { status: 'up', requiredTables: ['api_request_events'] },
+          required_tables: { status: 'up', requiredTables: ['api_request_events', 'scrape_schedule_events'] },
         }),
       } as any,
     );

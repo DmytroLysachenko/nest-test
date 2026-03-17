@@ -5,7 +5,7 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { Drizzle } from '@/common/decorators';
 
-const REQUIRED_TABLES = ['api_request_events'] as const;
+const REQUIRED_TABLES = ['api_request_events', 'scrape_schedule_events'] as const;
 
 @Injectable()
 export class RequiredTablesHealthIndicator {
