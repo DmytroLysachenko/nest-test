@@ -2423,13 +2423,18 @@ export class JobSourcesService {
     }
 
     const diagnostics = (parsedPayload?.diagnostics as Record<string, unknown> | undefined) ?? {};
-    const executionEvents = await this.db
-      .select({
-        stage: scrapeExecutionEventsTable.stage,
-        status: scrapeExecutionEventsTable.status,
-      })
-      .from(scrapeExecutionEventsTable)
-      .where(eq(scrapeExecutionEventsTable.sourceRunId, runId));
+    let executionEvents: Array<{ stage: string; status: string }> = [];
+    try {
+      executionEvents = await this.db
+        .select({
+          stage: scrapeExecutionEventsTable.stage,
+          status: scrapeExecutionEventsTable.status,
+        })
+        .from(scrapeExecutionEventsTable)
+        .where(eq(scrapeExecutionEventsTable.sourceRunId, runId));
+    } catch {
+      executionEvents = [];
+    }
     const executionStages = Array.from(
       executionEvents
         .reduce<Map<string, { stage: string; total: number; failed: number; warning: number }>>((acc, event) => {
