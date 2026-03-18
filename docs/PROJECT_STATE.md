@@ -74,6 +74,8 @@ Last updated: 2026-03-14
   - source health summary
   - support overview, scrape incident bundle, user incident bundle, and correlation lookup
   - dead-letter replay and stale-run reconcile controls
+  - DB-backed scrape execution audit trail and forensic timeline endpoint
+  - permission-based ops access control backed by persisted role-permission mappings
 
 ## Backend and Platform Progress By Area
 
@@ -119,6 +121,7 @@ Last updated: 2026-03-14
 - Production support now has a read-only local toolkit (`tools/support`) that combines support endpoints with allowlisted Neon queries into one incident bundle.
 - Scrape runs expose aggregated diagnostics summary endpoint (`/job-sources/runs/diagnostics/summary`).
 - Scrape runs expose per-run event timeline endpoint (`GET /api/job-sources/runs/:id/events`).
+- Scrape runs now also expose a DB-backed forensic audit timeline endpoint (`GET /api/job-sources/runs/:id/forensics`).
 - Scrape diagnostics summary now supports optional timeline buckets (`hour` / `day`) and short-lived in-memory response cache.
 - Scrape runs now persist deterministic lifecycle fields (`failure_type`, `finalized_at`, `retry_of_run_id`, `retry_count`).
 - API lazily reconciles stale `PENDING/RUNNING` runs to terminal timeout failures.
@@ -148,6 +151,15 @@ Last updated: 2026-03-14
 - Ops now exposes callback event listing, worker dead-letter replay trigger, and stale run reconcile endpoint.
 - Ops now exposes token-protected bulk stale-run reconcile endpoint (`POST /api/ops/reconcile-stale-runs`) for scheduler automation.
 - Ops support overview now includes recent schedule execution failures, and admins can list schedule events directly through `GET /api/ops/support/schedule-events`.
+- Ops support overview now degrades partial sections safely instead of failing the whole bundle when one support query errors.
+- Worker now persists DB-backed scrape execution events (`scrape_execution_events`) for task ingress, listing fetch, normalization, callback dispatch, and terminal failures.
+- Worker scrape execution audit now also records callback retry scheduling, dead-letter moves, and dead-letter replay attempts/outcomes.
+- Ops now exposes scrape forensic drill-down via `GET /api/ops/support/scrape-runs/:id/forensics`.
+- Auth/runtime access control now resolves permissions from persisted `roles`, `permissions`, and `role_permissions` tables instead of relying only on inline role checks.
+- Ops now exposes authorization audit listing via `GET /api/ops/authorization-events`.
+- Ops now exposes CSV export for scrape forensics and authorization audit listings to support incident handoff.
+- Admins can inspect and update user roles through `GET /api/user/admin/users/:id/role` and `PUT /api/user/admin/users/:id/role`.
+- Scrape runs now persist normalized outcome fields directly on `job_source_runs` (`classified_outcome`, `empty_reason`, `source_quality`) so dashboards and support flows do not depend only on callback payload parsing.
 - Admin ops endpoints are now skip-throttled and the web ops page uses the compact support overview bundle instead of several parallel diagnostics queries.
 - Job matching now persists explanation metadata on each scored match (`job_matches.match_meta`) and exposes audit export endpoints.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.

@@ -48,6 +48,14 @@ Canonical environment inventory:
    - `pnpm support:bundle --recipe user-incident --user-id <user-id>`
    - `pnpm support:bundle --recipe correlation --trace-id <trace-id>`
 7. Generated incident bundles are written to `.support-local/output/` and are safe to attach to a Codex session if they do not contain secrets you do not want to share.
+8. For scraper-stage attribution, prefer DB-backed forensic endpoints before digging through raw worker logs:
+   - `GET /api/job-sources/runs/:id/forensics`
+   - `GET /api/ops/support/scrape-runs/:id/forensics`
+   - `GET /api/ops/support/scrape-runs/:id/forensics/export.csv`
+9. For access-control incidents, use:
+   - `GET /api/ops/authorization-events`
+   - `GET /api/ops/authorization-events/export.csv`
+   - `GET /api/user/admin/users/:id/role`
 
 ## Neon Migration Recovery
 
@@ -125,6 +133,8 @@ Canonical environment inventory:
    - `pnpm --filter web check-types`
    - `pnpm --filter web test`
    - `pnpm --filter web test:e2e`
+5. Shared DB package:
+   - `pnpm --filter @repo/db build`
 4. End-to-end smoke:
    - `pnpm smoke:e2e`
    - Optional deterministic mode for CI/external-source instability: `SMOKE_FORCE_CALLBACK=true pnpm smoke:e2e`
