@@ -1,5 +1,7 @@
 import { createHash, createHmac, randomUUID } from 'crypto';
 
+import { classifyScrapeOutcome } from '@repo/db';
+
 import { persistDeadLetter } from './callback-dead-letter';
 import { resolveOutboundAuthorizationHeader } from './oidc-auth';
 import { relaxPracujFiltersOnce } from './pracuj-filter-relaxation';
@@ -8,7 +10,6 @@ import { appendScrapeExecutionEvent } from '../db/scrape-execution-events';
 import { saveOutput } from '../output/save-output';
 import { loadFreshOfferUrls } from '../db/fresh-offers';
 
-import { classifyScrapeOutcome } from '@repo/db';
 import type {
   ScrapeClassifiedOutcome,
   PracujSourceKind,
