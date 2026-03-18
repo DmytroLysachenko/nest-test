@@ -26,6 +26,7 @@ export type UserDto = {
   id: string;
   email: string;
   role?: string;
+  permissions?: string[];
   lastLoginAt?: string | null;
   isActive?: boolean;
   deletedAt?: string | null;
@@ -718,6 +719,29 @@ export type ApiRequestEventsListDto = {
   }>;
 };
 
+export type AuthorizationEventDto = {
+  id: string;
+  userId: string | null;
+  role: string | null;
+  permission: string | null;
+  resource: string | null;
+  action: string;
+  outcome: string;
+  requestId: string | null;
+  method: string | null;
+  path: string | null;
+  reason: string | null;
+  meta: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type AuthorizationEventsListDto = {
+  items: AuthorizationEventDto[];
+  limit: number;
+  offset: number;
+  total: number;
+};
+
 export type SupportOverviewDto = {
   generatedAt: string;
   windowHours: number;
@@ -808,7 +832,60 @@ export type SupportOverviewDto = {
       message: string;
       createdAt: string;
     }>;
+    authorizationEvents: AuthorizationEventDto[];
   };
+  stageFailures?: Array<{
+    stage: string;
+    status: string;
+    count: number;
+  }>;
+};
+
+export type SupportScrapeForensicsDto = {
+  run: {
+    id: string;
+    traceId: string;
+    status: string;
+    failureType: string | null;
+    error: string | null;
+    createdAt: string;
+  };
+  stageSummary: Record<string, { total: number; failed: number; warning: number }>;
+  executionEvents: Array<{
+    id: string;
+    sourceRunId: string;
+    traceId: string | null;
+    requestId: string | null;
+    stage: string;
+    status: string;
+    code: string | null;
+    message: string;
+    meta: Record<string, unknown> | null;
+    createdAt: string;
+  }>;
+  runEvents: Array<{
+    id: string;
+    sourceRunId: string;
+    traceId: string;
+    eventType: string;
+    severity: string;
+    requestId: string | null;
+    phase: string | null;
+    attemptNo: number | null;
+    code: string | null;
+    message: string;
+    meta: Record<string, unknown> | null;
+    createdAt: string;
+  }>;
+  callbackEvents: Array<{
+    id: string;
+    eventId: string;
+    status: string;
+    requestId: string | null;
+    attemptNo: number | null;
+    receivedAt: string;
+    payloadSummary: Record<string, unknown> | null;
+  }>;
 };
 
 export type SupportScrapeIncidentDto = {
