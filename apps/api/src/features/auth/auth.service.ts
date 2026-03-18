@@ -11,6 +11,7 @@ import { Drizzle } from '@/common/decorators';
 import { UserNotFoundException } from '@/common/error';
 import { DeviceType } from '@/common/decorators/device.decorator';
 import { JwtValidateUser } from '@/types/interface/jwt';
+import { AuthorizationService } from '@/common/authorization/authorization.service';
 
 import { hashPassword, validatePassword } from './utils/password';
 import { RegisterDto } from './dto/register-dto';
@@ -35,6 +36,7 @@ export class AuthService {
     private readonly logger: Logger,
     private readonly tokenService: TokenService,
     private readonly googleOauthService: GoogleOauthService,
+    private readonly authorizationService: AuthorizationService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -74,7 +76,7 @@ export class AuthService {
       })
       .where(eq(usersTable.id, user.id));
 
-    const sessionUser = {
+    const sessionUser: typeof usersTable.$inferSelect = {
       ...user,
       lastLoginAt: now,
       updatedAt: now,
@@ -93,7 +95,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: this.toUserResponse(sessionUser),
+      user: await this.toUserResponse(sessionUser),
     };
   }
 
@@ -279,7 +281,7 @@ export class AuthService {
 
     return {
       ...tokens,
-      user: this.toUserResponse(user),
+      user: await this.toUserResponse(user),
     };
   }
 
@@ -332,11 +334,13 @@ export class AuthService {
     return result as UserWithProfile | undefined;
   }
 
-  private toUserResponse(user: User | typeof usersTable.$inferSelect) {
+  private async toUserResponse(user: User | typeof usersTable.$inferSelect) {
+    const permissions = await this.authorizationService.getPermissionsForRole(user.role);
     return {
       id: user.id,
       email: user.email,
       role: user.role,
+      permissions,
       lastLoginAt: user.lastLoginAt ?? null,
       isActive: user.isActive,
       deletedAt: user.deletedAt ?? null,

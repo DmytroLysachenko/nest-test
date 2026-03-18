@@ -8,12 +8,14 @@ import { usersTable } from '@repo/db';
 
 import { Drizzle } from '@/common/decorators';
 import { JwtPayload, JwtValidateUser } from '@/types/interface/jwt';
+import { AuthorizationService } from '@/common/authorization/authorization.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly config: ConfigService,
     @Drizzle() private readonly db: NodePgDatabase,
+    private readonly authorizationService: AuthorizationService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -39,9 +41,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       return done(new UnauthorizedException('Account is inactive'), false);
     }
 
+    const permissions = await this.authorizationService.getPermissionsForRole(user.role);
+
     return done(null, {
       userId: user.id,
       role: user.role,
+      permissions,
     } as JwtValidateUser);
   }
 }

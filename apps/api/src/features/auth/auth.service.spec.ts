@@ -27,9 +27,12 @@ describe('AuthService', () => {
       verifyIdToken: jest.fn(),
       exchangeAuthorizationCodeForIdToken: jest.fn(),
     } as any;
+    const authorizationService = {
+      getPermissionsForRole: jest.fn().mockResolvedValue([]),
+    } as any;
 
-    const service = new AuthService(db, optsService, logger, tokenService, googleOauthService);
-    return { service, db, optsService, tokenService, googleOauthService };
+    const service = new AuthService(db, optsService, logger, tokenService, googleOauthService, authorizationService);
+    return { service, db, optsService, tokenService, googleOauthService, authorizationService };
   };
 
   it('throws when register passwords do not match', async () => {

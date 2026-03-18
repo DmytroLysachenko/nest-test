@@ -13,4 +13,5 @@ export interface JwtPayload {
 export interface JwtValidateUser {
   userId: string;
   role: string;
+  permissions: string[];
 }
