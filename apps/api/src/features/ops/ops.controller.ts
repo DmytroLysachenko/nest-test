@@ -17,10 +17,12 @@ import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { Permissions } from '@/common/decorators';
 import { Public } from '@/common/decorators/public.decorator';
 import { JwtAuthGuard } from '@/common/guards';
 import { JwtValidateUser } from '@/types/interface/jwt';
 import { JobSourcesService } from '@/features/job-sources/job-sources.service';
+import { APP_PERMISSIONS } from '@/common/authorization/permissions';
 
 import { OpsMetricsResponse } from './dto/ops-metrics.response';
 import { SupportCorrelationResponse } from './dto/support-correlation.response';
@@ -43,109 +45,125 @@ export class OpsController {
     private readonly configService: ConfigService<Env, true>,
   ) {}
 
-  private assertAdmin(user: JwtValidateUser) {
-    if (user.role !== 'admin') {
-      throw new ForbiddenException('Admin access required');
-    }
-  }
-
   @Get('metrics')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
   @ApiOperation({ summary: 'Get operational metrics (admin only)' })
   @ApiOkResponse({ type: OpsMetricsResponse })
   async getMetrics(
-    @CurrentUser() user: JwtValidateUser,
+    @CurrentUser() _user: JwtValidateUser,
     @Query('windowHours', new ParseIntPipe({ optional: true })) windowHours?: number,
   ) {
-    this.assertAdmin(user);
     return this.opsService.getMetrics(windowHours);
   }
 
   @Get('support/overview')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
   @ApiOperation({ summary: 'Get compact support overview bundle (admin only)' })
   @ApiOkResponse({ type: SupportOverviewResponse })
   async getSupportOverview(
-    @CurrentUser() user: JwtValidateUser,
+    @CurrentUser() _user: JwtValidateUser,
     @Query('windowHours', new ParseIntPipe({ optional: true })) windowHours?: number,
   ) {
-    this.assertAdmin(user);
     return this.opsService.getSupportOverview(windowHours);
   }
 
   @Get('catalog/summary')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
   @ApiOperation({ summary: 'Get shared catalog health summary (admin only)' })
   async getCatalogSummary(
-    @CurrentUser() user: JwtValidateUser,
+    @CurrentUser() _user: JwtValidateUser,
     @Query('windowHours', new ParseIntPipe({ optional: true })) windowHours?: number,
   ) {
-    this.assertAdmin(user);
     return this.opsService.getCatalogSummary(windowHours);
   }
 
   @Get('support/scrape-runs/:id')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
   @ApiOperation({ summary: 'Get scrape incident support bundle (admin only)' })
   @ApiOkResponse({ type: SupportScrapeIncidentResponse })
-  async getSupportScrapeIncident(@CurrentUser() user: JwtValidateUser, @Param('id', new ParseUUIDPipe()) id: string) {
-    this.assertAdmin(user);
+  async getSupportScrapeIncident(@CurrentUser() _user: JwtValidateUser, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.opsService.getSupportScrapeIncident(id);
   }
 
+  @Get('support/scrape-runs/:id/forensics')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
+  @ApiOperation({ summary: 'Get scrape run forensic timeline and stage summary (admin only)' })
+  async getSupportScrapeForensics(@CurrentUser() _user: JwtValidateUser, @Param('id', new ParseUUIDPipe()) id: string) {
+    return this.opsService.getSupportScrapeForensics(id);
+  }
+
+  @Get('support/scrape-runs/:id/forensics/export.csv')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
+  @ApiOperation({ summary: 'Export scrape run forensic timeline as CSV (admin only)' })
+  async exportSupportScrapeForensicsCsv(
+    @CurrentUser() _user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Res() res: Response,
+  ) {
+    const csv = await this.opsService.exportSupportScrapeForensicsCsv(id);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="scrape-run-forensics.csv"');
+    res.send(csv);
+  }
+
   @Get('support/users/:id')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
   @ApiOperation({ summary: 'Get user support bundle (admin only)' })
   @ApiOkResponse({ type: SupportUserIncidentResponse })
   async getSupportUserIncident(
-    @CurrentUser() user: JwtValidateUser,
+    @CurrentUser() _user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Query('windowHours', new ParseIntPipe({ optional: true })) windowHours?: number,
   ) {
-    this.assertAdmin(user);
     return this.opsService.getSupportUserIncident(id, windowHours);
   }
 
   @Get('support/correlate')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
   @ApiOperation({ summary: 'Correlate support artifacts by request, trace, run, or user id (admin only)' })
   @ApiOkResponse({ type: SupportCorrelationResponse })
   async correlateSupport(
-    @CurrentUser() user: JwtValidateUser,
+    @CurrentUser() _user: JwtValidateUser,
     @Query('requestId') requestId?: string,
     @Query('traceId') traceId?: string,
     @Query('sourceRunId') sourceRunId?: string,
     @Query('userId') userId?: string,
   ) {
-    this.assertAdmin(user);
     return this.opsService.correlateSupport({ requestId, traceId, sourceRunId, userId });
   }
 
   @Get('support/schedule-events')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
   @ApiOperation({ summary: 'List scrape schedule execution events (admin only)' })
   async listSupportScheduleEvents(
-    @CurrentUser() user: JwtValidateUser,
+    @CurrentUser() _user: JwtValidateUser,
     @Query('userId') userId?: string,
     @Query('sourceRunId') sourceRunId?: string,
     @Query('requestId') requestId?: string,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
   ) {
-    this.assertAdmin(user);
     return this.opsService.listSupportScheduleEvents({ userId, sourceRunId, requestId, limit, offset });
   }
 
   @Get('scrape/callback-events')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
   @ApiOperation({ summary: 'List scrape callback events (admin only)' })
   async listCallbackEvents(
-    @CurrentUser() user: JwtValidateUser,
+    @CurrentUser() _user: JwtValidateUser,
     @Query('status') status?: string,
     @Query('sourceRunId') sourceRunId?: string,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
   ) {
-    this.assertAdmin(user);
     return this.opsService.listCallbackEvents({ status, sourceRunId, limit, offset });
   }
 
   @Get('api-request-events')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
   @ApiOperation({ summary: 'List API request warning/error events (admin only)' })
   async listApiRequestEvents(
-    @CurrentUser() user: JwtValidateUser,
+    @CurrentUser() _user: JwtValidateUser,
     @Query('level') level?: string,
     @Query('statusCode', new ParseIntPipe({ optional: true })) statusCode?: number,
     @Query('path') path?: string,
@@ -153,21 +171,61 @@ export class OpsController {
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
   ) {
-    this.assertAdmin(user);
     return this.opsService.listApiRequestEvents({ level, statusCode, path, requestId, limit, offset });
   }
 
+  @Get('authorization-events')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
+  @ApiOperation({ summary: 'List authorization allow/deny audit events (admin only)' })
+  async listAuthorizationEvents(
+    @CurrentUser() _user: JwtValidateUser,
+    @Query('permission') permission?: string,
+    @Query('outcome') outcome?: string,
+    @Query('userId') userId?: string,
+    @Query('requestId') requestId?: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
+  ) {
+    return this.opsService.listAuthorizationEvents({ permission, outcome, userId, requestId, limit, offset });
+  }
+
+  @Get('authorization-events/export.csv')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
+  @ApiOperation({ summary: 'Export authorization allow/deny audit events as CSV (admin only)' })
+  async exportAuthorizationEventsCsv(
+    @CurrentUser() _user: JwtValidateUser,
+    @Res() res: Response,
+    @Query('permission') permission?: string,
+    @Query('outcome') outcome?: string,
+    @Query('userId') userId?: string,
+    @Query('requestId') requestId?: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
+  ) {
+    const csv = await this.opsService.exportAuthorizationEventsCsv({
+      permission,
+      outcome,
+      userId,
+      requestId,
+      limit,
+      offset,
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="authorization-events.csv"');
+    res.send(csv);
+  }
+
   @Get('scrape/callback-events/export.csv')
+  @Permissions(APP_PERMISSIONS.OPS_READ)
   @ApiOperation({ summary: 'Export scrape callback events as CSV (admin only)' })
   async exportCallbackEventsCsv(
-    @CurrentUser() user: JwtValidateUser,
+    @CurrentUser() _user: JwtValidateUser,
     @Res() res: Response,
     @Query('status') status?: string,
     @Query('sourceRunId') sourceRunId?: string,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
   ) {
-    this.assertAdmin(user);
     const csv = await this.opsService.exportCallbackEventsCsv({ status, sourceRunId, limit, offset });
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=\"scrape-callback-events.csv\"');
@@ -175,29 +233,29 @@ export class OpsController {
   }
 
   @Post('scrape/callbacks/replay')
+  @Permissions(APP_PERMISSIONS.OPS_CALLBACKS_REPLAY)
   @ApiOperation({ summary: 'Replay worker callback dead letters (admin only)' })
-  async replayDeadLetters(@CurrentUser() user: JwtValidateUser, @Req() req: Request) {
-    this.assertAdmin(user);
+  async replayDeadLetters(@CurrentUser() _user: JwtValidateUser, @Req() req: Request) {
     const requestId = req.header('x-request-id') ?? undefined;
     return this.opsService.replayDeadLetters(requestId);
   }
 
   @Post('scrape/runs/:id/reconcile')
+  @Permissions(APP_PERMISSIONS.OPS_RECONCILE)
   @ApiOperation({ summary: 'Reconcile stale running scrape run (admin only)' })
-  async reconcileRun(@CurrentUser() user: JwtValidateUser, @Param('id', new ParseUUIDPipe()) id: string) {
-    this.assertAdmin(user);
+  async reconcileRun(@CurrentUser() _user: JwtValidateUser, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.opsService.reconcileRun(id);
   }
 
   @Post('catalog/rematch/users/:id')
+  @Permissions(APP_PERMISSIONS.CATALOG_REMATCH)
   @ApiOperation({ summary: 'Trigger catalog rematch for a user (admin only)' })
   async rematchCatalogForUser(
-    @CurrentUser() user: JwtValidateUser,
+    @CurrentUser() _user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Query('careerProfileId') careerProfileId?: string,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
   ) {
-    this.assertAdmin(user);
     return this.jobSourcesService.rematchCatalogForUser(id, careerProfileId, limit ?? 20);
   }
 

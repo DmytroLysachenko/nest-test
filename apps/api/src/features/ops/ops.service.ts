@@ -2,12 +2,15 @@ import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableE
 import { ConfigService } from '@nestjs/config';
 import { and, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { Logger } from 'nestjs-pino';
 import {
   apiRequestEventsTable,
+  authorizationEventsTable,
   jobOffersTable,
   jobSourceCallbackEventsTable,
   jobSourceRunEventsTable,
   jobSourceRunsTable,
+  scrapeExecutionEventsTable,
   scrapeScheduleEventsTable,
   scrapeSchedulesTable,
   userJobOffersTable,
@@ -38,6 +41,7 @@ export class OpsService {
   constructor(
     @Drizzle() private readonly db: NodePgDatabase,
     private readonly configService: ConfigService<Env, true>,
+    private readonly logger: Logger,
   ) {}
 
   async getMetrics(windowHoursInput?: number) {
@@ -259,93 +263,161 @@ export class OpsService {
   }
 
   async getSupportOverview(windowHoursInput?: number) {
-    const metrics = await this.getMetrics(windowHoursInput);
+    const metrics = await this.safeLoad(
+      'support-overview.metrics',
+      () => this.getMetrics(windowHoursInput),
+      this.emptyMetrics(windowHoursInput ?? 24),
+    );
     const now = new Date();
     const cutoff = new Date(now.getTime() - metrics.windowHours * 60 * 60 * 1000);
 
-    const [failedRuns, failedCallbackEvents, failedApiRequestEvents, failedScheduleExecutions] = await Promise.all([
-      this.db
-        .select({
-          id: jobSourceRunsTable.id,
-          traceId: jobSourceRunsTable.traceId,
-          userId: jobSourceRunsTable.userId,
-          source: jobSourceRunsTable.source,
-          status: jobSourceRunsTable.status,
-          failureType: jobSourceRunsTable.failureType,
-          error: jobSourceRunsTable.error,
-          lastHeartbeatAt: jobSourceRunsTable.lastHeartbeatAt,
-          finalizedAt: jobSourceRunsTable.finalizedAt,
-          createdAt: jobSourceRunsTable.createdAt,
-        })
-        .from(jobSourceRunsTable)
-        .where(and(eq(jobSourceRunsTable.status, 'FAILED'), gte(jobSourceRunsTable.createdAt, cutoff)))
-        .orderBy(desc(jobSourceRunsTable.finalizedAt), desc(jobSourceRunsTable.createdAt))
-        .limit(10),
-      this.db
-        .select({
-          id: jobSourceCallbackEventsTable.id,
-          sourceRunId: jobSourceCallbackEventsTable.sourceRunId,
-          eventId: jobSourceCallbackEventsTable.eventId,
-          requestId: jobSourceCallbackEventsTable.requestId,
-          attemptNo: jobSourceCallbackEventsTable.attemptNo,
-          status: jobSourceCallbackEventsTable.status,
-          payloadHash: jobSourceCallbackEventsTable.payloadHash,
-          receivedAt: jobSourceCallbackEventsTable.receivedAt,
-        })
-        .from(jobSourceCallbackEventsTable)
-        .where(
-          and(eq(jobSourceCallbackEventsTable.status, 'FAILED'), gte(jobSourceCallbackEventsTable.createdAt, cutoff)),
-        )
-        .orderBy(desc(jobSourceCallbackEventsTable.receivedAt))
-        .limit(10),
-      this.db
-        .select({
-          id: apiRequestEventsTable.id,
-          userId: apiRequestEventsTable.userId,
-          requestId: apiRequestEventsTable.requestId,
-          level: apiRequestEventsTable.level,
-          method: apiRequestEventsTable.method,
-          path: apiRequestEventsTable.path,
-          statusCode: apiRequestEventsTable.statusCode,
-          message: apiRequestEventsTable.message,
-          errorCode: apiRequestEventsTable.errorCode,
-          createdAt: apiRequestEventsTable.createdAt,
-        })
-        .from(apiRequestEventsTable)
-        .where(
-          and(
-            gte(apiRequestEventsTable.createdAt, cutoff),
-            or(eq(apiRequestEventsTable.level, 'ERROR'), eq(apiRequestEventsTable.level, 'WARN')),
-          ),
-        )
-        .orderBy(desc(apiRequestEventsTable.createdAt))
-        .limit(10),
-      this.db
-        .select({
-          id: scrapeScheduleEventsTable.id,
-          scheduleId: scrapeScheduleEventsTable.scheduleId,
-          userId: scrapeScheduleEventsTable.userId,
-          sourceRunId: scrapeScheduleEventsTable.sourceRunId,
-          traceId: scrapeScheduleEventsTable.traceId,
-          requestId: scrapeScheduleEventsTable.requestId,
-          eventType: scrapeScheduleEventsTable.eventType,
-          severity: scrapeScheduleEventsTable.severity,
-          code: scrapeScheduleEventsTable.code,
-          message: scrapeScheduleEventsTable.message,
-          createdAt: scrapeScheduleEventsTable.createdAt,
-        })
-        .from(scrapeScheduleEventsTable)
-        .where(
-          and(
-            gte(scrapeScheduleEventsTable.createdAt, cutoff),
-            or(
-              eq(scrapeScheduleEventsTable.severity, 'error'),
-              eq(scrapeScheduleEventsTable.eventType, 'schedule_enqueue_failed'),
-            ),
-          ),
-        )
-        .orderBy(desc(scrapeScheduleEventsTable.createdAt))
-        .limit(10),
+    const [
+      failedRuns,
+      failedCallbackEvents,
+      failedApiRequestEvents,
+      failedScheduleExecutions,
+      recentAuthorizationEvents,
+      stageFailures,
+    ] = await Promise.all([
+      this.safeLoad(
+        'support-overview.failed-runs',
+        () =>
+          this.db
+            .select({
+              id: jobSourceRunsTable.id,
+              traceId: jobSourceRunsTable.traceId,
+              userId: jobSourceRunsTable.userId,
+              source: jobSourceRunsTable.source,
+              status: jobSourceRunsTable.status,
+              failureType: jobSourceRunsTable.failureType,
+              error: jobSourceRunsTable.error,
+              lastHeartbeatAt: jobSourceRunsTable.lastHeartbeatAt,
+              finalizedAt: jobSourceRunsTable.finalizedAt,
+              createdAt: jobSourceRunsTable.createdAt,
+            })
+            .from(jobSourceRunsTable)
+            .where(and(eq(jobSourceRunsTable.status, 'FAILED'), gte(jobSourceRunsTable.createdAt, cutoff)))
+            .orderBy(desc(jobSourceRunsTable.finalizedAt), desc(jobSourceRunsTable.createdAt))
+            .limit(10),
+        [],
+      ),
+      this.safeLoad(
+        'support-overview.callback-failures',
+        () =>
+          this.db
+            .select({
+              id: jobSourceCallbackEventsTable.id,
+              sourceRunId: jobSourceCallbackEventsTable.sourceRunId,
+              eventId: jobSourceCallbackEventsTable.eventId,
+              requestId: jobSourceCallbackEventsTable.requestId,
+              attemptNo: jobSourceCallbackEventsTable.attemptNo,
+              status: jobSourceCallbackEventsTable.status,
+              payloadHash: jobSourceCallbackEventsTable.payloadHash,
+              receivedAt: jobSourceCallbackEventsTable.receivedAt,
+            })
+            .from(jobSourceCallbackEventsTable)
+            .where(
+              and(
+                eq(jobSourceCallbackEventsTable.status, 'FAILED'),
+                gte(jobSourceCallbackEventsTable.createdAt, cutoff),
+              ),
+            )
+            .orderBy(desc(jobSourceCallbackEventsTable.receivedAt))
+            .limit(10),
+        [],
+      ),
+      this.safeLoad(
+        'support-overview.api-failures',
+        () =>
+          this.db
+            .select({
+              id: apiRequestEventsTable.id,
+              userId: apiRequestEventsTable.userId,
+              requestId: apiRequestEventsTable.requestId,
+              level: apiRequestEventsTable.level,
+              method: apiRequestEventsTable.method,
+              path: apiRequestEventsTable.path,
+              statusCode: apiRequestEventsTable.statusCode,
+              message: apiRequestEventsTable.message,
+              errorCode: apiRequestEventsTable.errorCode,
+              createdAt: apiRequestEventsTable.createdAt,
+            })
+            .from(apiRequestEventsTable)
+            .where(
+              and(
+                gte(apiRequestEventsTable.createdAt, cutoff),
+                or(eq(apiRequestEventsTable.level, 'ERROR'), eq(apiRequestEventsTable.level, 'WARN')),
+              ),
+            )
+            .orderBy(desc(apiRequestEventsTable.createdAt))
+            .limit(10),
+        [],
+      ),
+      this.safeLoad(
+        'support-overview.schedule-failures',
+        () =>
+          this.db
+            .select({
+              id: scrapeScheduleEventsTable.id,
+              scheduleId: scrapeScheduleEventsTable.scheduleId,
+              userId: scrapeScheduleEventsTable.userId,
+              sourceRunId: scrapeScheduleEventsTable.sourceRunId,
+              traceId: scrapeScheduleEventsTable.traceId,
+              requestId: scrapeScheduleEventsTable.requestId,
+              eventType: scrapeScheduleEventsTable.eventType,
+              severity: scrapeScheduleEventsTable.severity,
+              code: scrapeScheduleEventsTable.code,
+              message: scrapeScheduleEventsTable.message,
+              createdAt: scrapeScheduleEventsTable.createdAt,
+            })
+            .from(scrapeScheduleEventsTable)
+            .where(
+              and(
+                gte(scrapeScheduleEventsTable.createdAt, cutoff),
+                or(
+                  eq(scrapeScheduleEventsTable.severity, 'error'),
+                  eq(scrapeScheduleEventsTable.eventType, 'schedule_enqueue_failed'),
+                ),
+              ),
+            )
+            .orderBy(desc(scrapeScheduleEventsTable.createdAt))
+            .limit(10),
+        [],
+      ),
+      this.safeLoad(
+        'support-overview.authorization-events',
+        () =>
+          this.db
+            .select()
+            .from(authorizationEventsTable)
+            .where(
+              and(eq(authorizationEventsTable.outcome, 'forbidden'), gte(authorizationEventsTable.createdAt, cutoff)),
+            )
+            .orderBy(desc(authorizationEventsTable.createdAt))
+            .limit(10),
+        [],
+      ),
+      this.safeLoad(
+        'support-overview.stage-failures',
+        () =>
+          this.db
+            .select({
+              stage: scrapeExecutionEventsTable.stage,
+              status: scrapeExecutionEventsTable.status,
+              count: sql<number>`count(*)::int`,
+            })
+            .from(scrapeExecutionEventsTable)
+            .where(
+              and(
+                gte(scrapeExecutionEventsTable.createdAt, cutoff),
+                or(eq(scrapeExecutionEventsTable.status, 'failed'), eq(scrapeExecutionEventsTable.status, 'warning')),
+              ),
+            )
+            .groupBy(scrapeExecutionEventsTable.stage, scrapeExecutionEventsTable.status)
+            .orderBy(desc(sql<number>`count(*)::int`))
+            .limit(10),
+        [],
+      ),
     ]);
 
     return {
@@ -373,8 +445,164 @@ export class OpsService {
           traceId: event.traceId ? String(event.traceId) : null,
           createdAt: this.toIsoString(event.createdAt),
         })),
+        authorizationEvents: recentAuthorizationEvents.map((event) => ({
+          ...event,
+          meta: this.asRecordOrNull(event.meta),
+          createdAt: this.toIsoString(event.createdAt),
+        })),
       },
+      stageFailures,
     };
+  }
+
+  async getSupportScrapeForensics(runId: string) {
+    const run = await this.db
+      .select({
+        id: jobSourceRunsTable.id,
+        traceId: jobSourceRunsTable.traceId,
+        status: jobSourceRunsTable.status,
+        failureType: jobSourceRunsTable.failureType,
+        error: jobSourceRunsTable.error,
+        createdAt: jobSourceRunsTable.createdAt,
+      })
+      .from(jobSourceRunsTable)
+      .where(eq(jobSourceRunsTable.id, runId))
+      .limit(1)
+      .then(([item]) => item);
+
+    if (!run) {
+      throw new NotFoundException('Job source run not found');
+    }
+
+    const executionEvents = await this.safeLoad(
+      'support-run-forensics.execution-events',
+      () =>
+        this.db
+          .select()
+          .from(scrapeExecutionEventsTable)
+          .where(eq(scrapeExecutionEventsTable.sourceRunId, runId))
+          .orderBy(desc(scrapeExecutionEventsTable.createdAt)),
+      [],
+    );
+    const runEvents = await this.safeLoad(
+      'support-run-forensics.run-events',
+      () =>
+        this.db
+          .select()
+          .from(jobSourceRunEventsTable)
+          .where(eq(jobSourceRunEventsTable.sourceRunId, runId))
+          .orderBy(desc(jobSourceRunEventsTable.createdAt)),
+      [],
+    );
+    const callbackEvents = await this.safeLoad(
+      'support-run-forensics.callback-events',
+      () =>
+        this.db
+          .select()
+          .from(jobSourceCallbackEventsTable)
+          .where(eq(jobSourceCallbackEventsTable.sourceRunId, runId))
+          .orderBy(desc(jobSourceCallbackEventsTable.receivedAt)),
+      [],
+    );
+
+    const groupedStages = executionEvents.reduce<Record<string, { total: number; failed: number; warning: number }>>(
+      (acc, event) => {
+        const current = acc[event.stage] ?? { total: 0, failed: 0, warning: 0 };
+        current.total += 1;
+        if (event.status === 'failed') {
+          current.failed += 1;
+        }
+        if (event.status === 'warning') {
+          current.warning += 1;
+        }
+        acc[event.stage] = current;
+        return acc;
+      },
+      {},
+    );
+
+    return {
+      run: {
+        ...run,
+        traceId: String(run.traceId),
+        createdAt: this.toIsoString(run.createdAt),
+      },
+      stageSummary: groupedStages,
+      executionEvents: executionEvents.map((event) => ({
+        ...event,
+        traceId: event.traceId ? String(event.traceId) : null,
+        meta: this.asRecordOrNull(event.meta),
+        createdAt: this.toIsoString(event.createdAt),
+      })),
+      runEvents: runEvents.map((event) => ({
+        ...event,
+        traceId: String(event.traceId),
+        meta: this.asRecordOrNull(event.meta),
+        createdAt: this.toIsoString(event.createdAt),
+      })),
+      callbackEvents: callbackEvents.map((event) => ({
+        ...event,
+        receivedAt: this.toIsoString(event.receivedAt),
+        createdAt: this.toIsoString(event.createdAt),
+        payloadSummary: this.summarizeCallbackPayload(event.payload),
+      })),
+    };
+  }
+
+  async exportSupportScrapeForensicsCsv(runId: string) {
+    const forensic = await this.getSupportScrapeForensics(runId);
+    const header = [
+      'stream',
+      'id',
+      'createdAt',
+      'stageOrEvent',
+      'statusOrSeverity',
+      'attemptNo',
+      'code',
+      'requestId',
+      'message',
+      'meta',
+    ];
+    const rows = [
+      ...forensic.executionEvents.map((event) => [
+        'execution',
+        event.id,
+        event.createdAt ?? '',
+        event.stage,
+        event.status,
+        '',
+        event.code ?? '',
+        event.requestId ?? '',
+        event.message,
+        JSON.stringify(event.meta ?? {}),
+      ]),
+      ...forensic.runEvents.map((event) => [
+        'run',
+        event.id,
+        event.createdAt ?? '',
+        event.eventType,
+        event.severity,
+        event.attemptNo ?? '',
+        event.code ?? '',
+        event.requestId ?? '',
+        event.message,
+        JSON.stringify(event.meta ?? {}),
+      ]),
+      ...forensic.callbackEvents.map((event) => [
+        'callback',
+        event.id,
+        event.receivedAt ?? event.createdAt ?? '',
+        event.status,
+        event.status,
+        event.attemptNo ?? '',
+        event.payloadHash ?? '',
+        event.requestId ?? '',
+        event.eventId,
+        JSON.stringify(event.payloadSummary ?? {}),
+      ]),
+    ].map((row) => row.map((value) => this.toCsvCell(value)).join(','));
+
+    return [header.join(','), ...rows].join('\n');
   }
 
   async getCatalogSummary(windowHoursInput?: number) {
@@ -1059,7 +1287,7 @@ export class OpsService {
         item.emittedAt?.toISOString?.() ?? item.emittedAt ?? '',
         item.receivedAt?.toISOString?.() ?? item.receivedAt ?? '',
       ]
-        .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
+        .map((value) => this.toCsvCell(value))
         .join(','),
     );
 
@@ -1134,6 +1362,101 @@ export class OpsService {
       total: Number(totalRow?.value ?? 0),
       statusSummary,
     };
+  }
+
+  async listAuthorizationEvents(input: {
+    permission?: string;
+    outcome?: string;
+    userId?: string;
+    requestId?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const limit = Math.min(Math.max(input.limit ?? 25, 1), 100);
+    const offset = Math.max(input.offset ?? 0, 0);
+    const conditions = [];
+
+    if (input.permission) {
+      conditions.push(eq(authorizationEventsTable.permission, input.permission));
+    }
+    if (input.outcome) {
+      conditions.push(eq(authorizationEventsTable.outcome, input.outcome));
+    }
+    if (input.userId) {
+      conditions.push(eq(authorizationEventsTable.userId, input.userId));
+    }
+    if (input.requestId) {
+      conditions.push(eq(authorizationEventsTable.requestId, input.requestId));
+    }
+
+    const whereClause = conditions.length ? and(...conditions) : undefined;
+    const rows = await this.db
+      .select()
+      .from(authorizationEventsTable)
+      .where(whereClause)
+      .orderBy(desc(authorizationEventsTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const [totalRow] = await this.db.select({ value: count() }).from(authorizationEventsTable).where(whereClause);
+
+    return {
+      items: rows.map((row) => ({
+        ...row,
+        meta: this.asRecordOrNull(row.meta),
+        createdAt: this.toIsoString(row.createdAt),
+      })),
+      limit,
+      offset,
+      total: Number(totalRow?.value ?? 0),
+    };
+  }
+
+  async exportAuthorizationEventsCsv(input: {
+    permission?: string;
+    outcome?: string;
+    userId?: string;
+    requestId?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const data = await this.listAuthorizationEvents(input);
+    const header = [
+      'id',
+      'userId',
+      'role',
+      'permission',
+      'resource',
+      'action',
+      'outcome',
+      'requestId',
+      'method',
+      'path',
+      'reason',
+      'createdAt',
+      'meta',
+    ];
+    const rows = data.items.map((item) =>
+      [
+        item.id,
+        item.userId ?? '',
+        item.role,
+        item.permission,
+        item.resource,
+        item.action,
+        item.outcome,
+        item.requestId ?? '',
+        item.method ?? '',
+        item.path ?? '',
+        item.reason ?? '',
+        item.createdAt ?? '',
+        JSON.stringify(item.meta ?? {}),
+      ]
+        .map((value) => this.toCsvCell(value))
+        .join(','),
+    );
+
+    return [header.join(','), ...rows].join('\n');
   }
 
   async replayDeadLetters(requestId?: string) {
@@ -1373,6 +1696,10 @@ export class OpsService {
     );
   }
 
+  private toCsvCell(value: unknown) {
+    return `"${String(value ?? '').replace(/"/g, '""')}"`;
+  }
+
   private toIsoString(value: Date | string | null | undefined) {
     if (!value) {
       return null;
@@ -1381,5 +1708,66 @@ export class OpsService {
       return value;
     }
     return value.toISOString();
+  }
+
+  private async safeLoad<T>(label: string, load: () => Promise<T>, fallback: T): Promise<T> {
+    try {
+      return await load();
+    } catch (error) {
+      this.logger.warn(
+        {
+          label,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Ops query degraded to fallback',
+      );
+      return fallback;
+    }
+  }
+
+  private emptyMetrics(windowHours: number) {
+    return {
+      windowHours,
+      queue: {
+        activeRuns: 0,
+        pendingRuns: 0,
+        runningRuns: 0,
+        runningWithoutHeartbeat: 0,
+      },
+      scrape: {
+        totalRuns: 0,
+        completedRuns: 0,
+        failedRuns: 0,
+        successRate: 0,
+      },
+      offers: {
+        totalUserOffers: 0,
+        unscoredUserOffers: 0,
+      },
+      catalog: {
+        freshAcceptedOffers: 0,
+        matchedRecently: 0,
+      },
+      lifecycle: {
+        staleReconciledRuns: 0,
+        retriesTriggered: 0,
+        retrySuccessRate: 0,
+      },
+      callback: {
+        totalEvents: 0,
+        completedEvents: 0,
+        failedEvents: 0,
+        failedRate: 0,
+        retryRate24h: 0,
+        conflictingPayloadEvents24h: 0,
+        failuresByType: {},
+        failuresByCode: {},
+      },
+      scheduler: {
+        lastTriggerAt: null,
+        dueSchedules: 0,
+        enqueueFailures24h: 0,
+      },
+    };
   }
 }

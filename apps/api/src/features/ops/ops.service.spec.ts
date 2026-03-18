@@ -5,6 +5,11 @@ const createConfigService = (overrides: Record<string, unknown> = {}) =>
     get: jest.fn((key: string) => overrides[key]),
   }) as any;
 
+const createLogger = () =>
+  ({
+    warn: jest.fn(),
+  }) as any;
+
 describe('OpsService', () => {
   it('returns aggregated queue/scrape/offer/lifecycle metrics', async () => {
     const runWhere = jest
@@ -91,6 +96,7 @@ describe('OpsService', () => {
       createConfigService({
         JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS: 72,
       }),
+      createLogger(),
     );
 
     const result = await service.getMetrics();
@@ -145,7 +151,7 @@ describe('OpsService', () => {
       }),
     } as any;
 
-    const service = new OpsService(db, createConfigService());
+    const service = new OpsService(db, createConfigService(), createLogger());
     const result = await service.listCallbackEvents({ status: 'COMPLETED', limit: 25, offset: 5 });
 
     expect(result.limit).toBe(25);
@@ -207,7 +213,7 @@ describe('OpsService', () => {
       select: selectMock,
     } as any;
 
-    const service = new OpsService(db, createConfigService());
+    const service = new OpsService(db, createConfigService(), createLogger());
     const result = await service.listApiRequestEvents({
       level: 'error',
       statusCode: 500,
@@ -226,6 +232,59 @@ describe('OpsService', () => {
       { statusCode: 500, count: 7 },
       { statusCode: 400, count: 5 },
     ]);
+  });
+
+  it('lists authorization events with pagination envelope', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  offset: jest.fn().mockResolvedValue([
+                    {
+                      id: 'auth-1',
+                      userId: 'user-1',
+                      role: 'user',
+                      permission: 'ops.read',
+                      resource: 'GET /api/ops/support/overview',
+                      action: 'deny',
+                      outcome: 'forbidden',
+                      requestId: 'req-1',
+                      method: 'GET',
+                      path: '/api/ops/support/overview',
+                      reason: 'missing-permission',
+                      meta: { requiredPermissions: ['ops.read'] },
+                      createdAt: new Date('2026-03-03T10:00:00.000Z'),
+                    },
+                  ]),
+                }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ value: 1 }]),
+          }),
+        }),
+    } as any;
+
+    const service = new OpsService(db, createConfigService(), createLogger());
+    const result = await service.listAuthorizationEvents({
+      outcome: 'forbidden',
+      limit: 25,
+      offset: 0,
+    });
+
+    expect(result.total).toBe(1);
+    expect(result.items[0]).toMatchObject({
+      permission: 'ops.read',
+      outcome: 'forbidden',
+      meta: { requiredPermissions: ['ops.read'] },
+    });
   });
 
   it('reconciles stale running run to failed timeout', async () => {
@@ -264,6 +323,7 @@ describe('OpsService', () => {
       createConfigService({
         SCRAPE_STALE_RUNNING_MINUTES: 60,
       }),
+      createLogger(),
     );
     const result = await service.reconcileRun('run-stale-1');
 
@@ -312,6 +372,7 @@ describe('OpsService', () => {
         SCRAPE_STALE_PENDING_MINUTES: 15,
         SCRAPE_STALE_RUNNING_MINUTES: 60,
       }),
+      createLogger(),
     );
     const result = await service.reconcileStaleRuns(24);
 
@@ -461,7 +522,11 @@ describe('OpsService', () => {
         }),
     } as any;
 
-    const service = new OpsService(db, createConfigService({ JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS: 24 }));
+    const service = new OpsService(
+      db,
+      createConfigService({ JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS: 24 }),
+      createLogger(),
+    );
     jest.spyOn(service, 'getMetrics').mockResolvedValue({
       windowHours: 24,
       queue: { activeRuns: 0, pendingRuns: 0, runningRuns: 0, runningWithoutHeartbeat: 0 },
@@ -596,7 +661,7 @@ describe('OpsService', () => {
         }),
     } as any;
 
-    const service = new OpsService(db, createConfigService());
+    const service = new OpsService(db, createConfigService(), createLogger());
     const result = await service.getSupportScrapeIncident('run-1');
 
     expect(result.run.id).toBe('run-1');
@@ -711,7 +776,7 @@ describe('OpsService', () => {
         }),
     } as any;
 
-    const service = new OpsService(db, createConfigService());
+    const service = new OpsService(db, createConfigService(), createLogger());
     const result = await service.correlateSupport({
       requestId: 'req-1',
       traceId: '11111111-1111-4111-8111-111111111111',
@@ -726,5 +791,75 @@ describe('OpsService', () => {
       'scrape-run-event',
       'scrape-run',
     ]);
+  });
+
+  it('exports authorization events as csv', async () => {
+    const service = new OpsService({} as any, createConfigService(), createLogger());
+    jest.spyOn(service, 'listAuthorizationEvents').mockResolvedValue({
+      items: [
+        {
+          id: 'auth-1',
+          userId: 'user-1',
+          role: 'admin',
+          permission: 'ops.read',
+          resource: 'GET /api/ops/support/overview',
+          action: 'allow',
+          outcome: 'allowed',
+          requestId: 'req-1',
+          method: 'GET',
+          path: '/api/ops/support/overview',
+          reason: null,
+          meta: { requiredPermissions: ['ops.read'] },
+          createdAt: '2026-03-13T10:00:00.000Z',
+        },
+      ],
+      limit: 25,
+      offset: 0,
+      total: 1,
+    });
+
+    const csv = await service.exportAuthorizationEventsCsv({ permission: 'ops.read' });
+
+    expect(csv).toContain('id,userId,role,permission');
+    expect(csv).toContain('"auth-1"');
+    expect(csv).toContain('"ops.read"');
+    expect(csv).toContain('requiredPermissions');
+  });
+
+  it('exports scrape run forensics as csv', async () => {
+    const service = new OpsService({} as any, createConfigService(), createLogger());
+    jest.spyOn(service, 'getSupportScrapeForensics').mockResolvedValue({
+      run: {
+        id: 'run-1',
+        traceId: '11111111-1111-4111-8111-111111111111',
+        status: 'FAILED',
+        failureType: 'timeout',
+        error: '[timeout] stale run',
+        createdAt: '2026-03-13T09:00:00.000Z',
+      },
+      stageSummary: {},
+      executionEvents: [
+        {
+          id: 'exec-1',
+          stage: 'callback_retry',
+          status: 'warning',
+          code: 'CALLBACK_RETRY_SCHEDULED',
+          requestId: 'req-1',
+          message: 'Callback retry scheduled',
+          meta: { delayMs: 1000 },
+          createdAt: '2026-03-13T09:02:00.000Z',
+          sourceRunId: 'run-1',
+          traceId: '11111111-1111-4111-8111-111111111111',
+        },
+      ],
+      runEvents: [],
+      callbackEvents: [],
+    } as any);
+
+    const csv = await service.exportSupportScrapeForensicsCsv('run-1');
+
+    expect(csv).toContain('stream,id,createdAt,stageOrEvent');
+    expect(csv).toContain('"execution","exec-1"');
+    expect(csv).toContain('CALLBACK_RETRY_SCHEDULED');
   });
 });
