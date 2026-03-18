@@ -97,6 +97,15 @@ export class JobSourcesController {
     return this.jobSourcesService.listRunEvents(user.userId, id);
   }
 
+  @Get('runs/:id/forensics')
+  @ApiOperation({ summary: 'Get scrape run forensic execution timeline for current user' })
+  async getRunForensics(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.jobSourcesService.getRunForensics(user.userId, id);
+  }
+
   @Get('runs/diagnostics/summary')
   @ApiOperation({ summary: 'Get aggregated scrape diagnostics summary' })
   @ApiOkResponse({ type: ScrapeRunDiagnosticsSummaryResponse })

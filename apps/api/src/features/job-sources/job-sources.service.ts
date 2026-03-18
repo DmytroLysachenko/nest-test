@@ -25,12 +25,17 @@ import {
   jobSourceRunsTable,
   scrapeScheduleEventsTable,
   scrapeSchedulesTable,
+  scrapeExecutionEventsTable,
   userJobOffersTable,
   usersTable,
   type JobOfferQualityState,
   type UserJobOfferOrigin,
   buildPracujListingUrl,
+  classifyScrapeOutcome,
   normalizePracujFilters,
+  normalizeScrapeEmptyReason,
+  normalizeScrapeResultKind,
+  normalizeScrapeSourceQuality,
   type PracujSourceKind,
   JobSourceRunStatus,
 } from '@repo/db';
@@ -1448,6 +1453,14 @@ export class JobSourcesService {
     if (status === 'FAILED') {
       const completedAt = new Date();
       const failureType = toRunFailureType(dto.failureType) ?? deriveFailureType(dto.error) ?? 'unknown';
+      const classifiedOutcome = this.resolveClassifiedOutcome({
+        status: 'FAILED',
+        failureType,
+        diagnostics: this.toNullableRecord(dto.diagnostics) ?? null,
+        scrapedCount,
+      });
+      const emptyReason = normalizeScrapeEmptyReason(dto.diagnostics?.emptyReason ?? null);
+      const sourceQuality = normalizeScrapeSourceQuality(dto.diagnostics?.sourceQuality ?? null) ?? 'failed';
       await this.registerRunAttempt(run.id, callbackAttemptNo, {
         status: 'FAILED',
         payloadHash: callbackPayloadHash,
@@ -1462,6 +1475,9 @@ export class JobSourcesService {
         totalFound,
         error: dto.error ?? 'Scrape failed in worker',
         failureType,
+        classifiedOutcome,
+        emptyReason,
+        sourceQuality,
         finalizedAt: completedAt,
         completedAt,
       });
@@ -1673,6 +1689,14 @@ export class JobSourcesService {
       totalFound,
       error: null,
       failureType: null,
+      classifiedOutcome: this.resolveClassifiedOutcome({
+        status: 'COMPLETED',
+        failureType: null,
+        diagnostics: this.toNullableRecord(dto.diagnostics) ?? null,
+        scrapedCount,
+      }),
+      emptyReason: normalizeScrapeEmptyReason(dto.diagnostics?.emptyReason ?? null),
+      sourceQuality: normalizeScrapeSourceQuality(dto.diagnostics?.sourceQuality ?? null) ?? 'healthy',
       finalizedAt,
       completedAt: finalizedAt,
     });
@@ -1968,6 +1992,33 @@ export class JobSourcesService {
       string,
       unknown
     > | null;
+  }
+
+  private safeParseJson(value: string | null | undefined) {
+    if (!value?.trim()) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(value) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
+  private resolveClassifiedOutcome(input: {
+    status: RunStatus;
+    failureType: RunFailureType | null;
+    diagnostics: Record<string, unknown> | null;
+    scrapedCount?: number | null;
+  }) {
+    return classifyScrapeOutcome({
+      status: input.status,
+      failureType: input.failureType ?? undefined,
+      resultKind: normalizeScrapeResultKind(input.diagnostics?.resultKind as string | null | undefined),
+      emptyReason: normalizeScrapeEmptyReason(input.diagnostics?.emptyReason as string | null | undefined),
+      scrapedCount: input.scrapedCount ?? 0,
+    });
   }
 
   private async appendRunEvent(input: RunEventInput) {
@@ -2372,6 +2423,33 @@ export class JobSourcesService {
     }
 
     const diagnostics = (parsedPayload?.diagnostics as Record<string, unknown> | undefined) ?? {};
+    const executionEvents = await this.db
+      .select({
+        stage: scrapeExecutionEventsTable.stage,
+        status: scrapeExecutionEventsTable.status,
+      })
+      .from(scrapeExecutionEventsTable)
+      .where(eq(scrapeExecutionEventsTable.sourceRunId, runId));
+    const executionStages = Array.from(
+      executionEvents
+        .reduce<Map<string, { stage: string; total: number; failed: number; warning: number }>>((acc, event) => {
+          const current = acc.get(event.stage) ?? { stage: event.stage, total: 0, failed: 0, warning: 0 };
+          current.total += 1;
+          if (event.status === 'failed') {
+            current.failed += 1;
+          }
+          if (event.status === 'warning') {
+            current.warning += 1;
+          }
+          acc.set(event.stage, current);
+          return acc;
+        }, new Map())
+        .values(),
+    );
+    const classifiedOutcome =
+      normalizeString(run.classifiedOutcome) ??
+      normalizeString(String(diagnostics.resultKind ?? '')) ??
+      (run.status === 'COMPLETED' ? 'success' : deriveFailureType(run.error));
 
     return {
       runId: run.id,
@@ -2387,6 +2465,7 @@ export class JobSourcesService {
         run.status === 'FAILED' && run.error === '[timeout] run stale watchdog' ? 'STALE_HEARTBEAT_OR_CALLBACK' : null,
       lastEventAt: latestRunEvent?.createdAt ?? null,
       progress: (run.progress as Record<string, unknown> | null) ?? null,
+      executionStages,
       diagnostics: {
         relaxationTrail: Array.isArray(diagnostics.relaxationTrail)
           ? diagnostics.relaxationTrail.filter((item): item is string => typeof item === 'string')
@@ -2399,9 +2478,14 @@ export class JobSourcesService {
         adaptiveDelayApplied: Number(diagnostics.adaptiveDelayApplied ?? 0),
         blockedRate: Number(diagnostics.blockedRate ?? 0),
         finalPolicy: normalizeString(String(diagnostics.finalPolicy ?? '')) ?? null,
-        resultKind: normalizeString(String(diagnostics.resultKind ?? '')) ?? null,
-        emptyReason: normalizeString(String(diagnostics.emptyReason ?? '')) ?? null,
-        sourceQuality: normalizeString(String(diagnostics.sourceQuality ?? '')) ?? null,
+        resultKind: normalizeString(String(diagnostics.resultKind ?? '')) ?? normalizeString(run.classifiedOutcome),
+        emptyReason:
+          normalizeScrapeEmptyReason(String(diagnostics.emptyReason ?? '')) ??
+          normalizeScrapeEmptyReason(run.emptyReason),
+        sourceQuality:
+          normalizeScrapeSourceQuality(String(diagnostics.sourceQuality ?? '')) ??
+          normalizeScrapeSourceQuality(run.sourceQuality),
+        classifiedOutcome,
         stats: {
           totalFound: run.totalFound ?? null,
           scrapedCount: run.scrapedCount ?? null,
@@ -2439,6 +2523,66 @@ export class JobSourcesService {
     return {
       items,
       total: items.length,
+    };
+  }
+
+  async getRunForensics(userId: string, runId: string) {
+    const run = await this.db
+      .select({
+        id: jobSourceRunsTable.id,
+        traceId: jobSourceRunsTable.traceId,
+        status: jobSourceRunsTable.status,
+        failureType: jobSourceRunsTable.failureType,
+        error: jobSourceRunsTable.error,
+        createdAt: jobSourceRunsTable.createdAt,
+      })
+      .from(jobSourceRunsTable)
+      .where(and(eq(jobSourceRunsTable.id, runId), eq(jobSourceRunsTable.userId, userId)))
+      .limit(1)
+      .then(([item]) => item);
+
+    if (!run) {
+      throw new NotFoundException('Job source run not found');
+    }
+
+    const [executionEvents, callbackEvents] = await Promise.all([
+      this.db
+        .select()
+        .from(scrapeExecutionEventsTable)
+        .where(eq(scrapeExecutionEventsTable.sourceRunId, runId))
+        .orderBy(desc(scrapeExecutionEventsTable.createdAt)),
+      this.db
+        .select({
+          id: jobSourceCallbackEventsTable.id,
+          eventId: jobSourceCallbackEventsTable.eventId,
+          status: jobSourceCallbackEventsTable.status,
+          requestId: jobSourceCallbackEventsTable.requestId,
+          attemptNo: jobSourceCallbackEventsTable.attemptNo,
+          receivedAt: jobSourceCallbackEventsTable.receivedAt,
+          payload: jobSourceCallbackEventsTable.payload,
+        })
+        .from(jobSourceCallbackEventsTable)
+        .where(eq(jobSourceCallbackEventsTable.sourceRunId, runId))
+        .orderBy(desc(jobSourceCallbackEventsTable.receivedAt)),
+    ]);
+
+    return {
+      run: {
+        ...run,
+        traceId: String(run.traceId),
+        createdAt: run.createdAt.toISOString(),
+      },
+      executionEvents: executionEvents.map((event) => ({
+        ...event,
+        traceId: event.traceId ? String(event.traceId) : null,
+        meta: this.toNullableRecord(event.meta),
+        createdAt: event.createdAt.toISOString(),
+      })),
+      callbackEvents: callbackEvents.map((event) => ({
+        ...event,
+        receivedAt: event.receivedAt.toISOString(),
+        payloadSummary: this.safeParseJson(event.payload),
+      })),
     };
   }
 
@@ -3313,6 +3457,9 @@ export class JobSourcesService {
       totalFound: number | null;
       error: string | null;
       failureType: RunFailureType | null;
+      classifiedOutcome: string | null;
+      emptyReason: string | null;
+      sourceQuality: string | null;
       finalizedAt: Date | null;
       completedAt: Date | null;
       lastHeartbeatAt: Date | null;
@@ -3349,6 +3496,14 @@ export class JobSourcesService {
     await this.transitionRunStatus(runId, 'PENDING', 'FAILED', {
       error,
       failureType,
+      classifiedOutcome: this.resolveClassifiedOutcome({
+        status: 'FAILED',
+        failureType,
+        diagnostics: null,
+        scrapedCount: 0,
+      }),
+      emptyReason: null,
+      sourceQuality: 'failed',
       finalizedAt: now,
       completedAt: now,
     });
@@ -3374,6 +3529,9 @@ export class JobSourcesService {
         status: 'FAILED',
         error: staleError,
         failureType: 'timeout',
+        classifiedOutcome: 'worker_timeout',
+        emptyReason: null,
+        sourceQuality: 'failed',
         finalizedAt: now,
         completedAt: now,
       })
@@ -3394,6 +3552,9 @@ export class JobSourcesService {
         status: 'FAILED',
         error: staleError,
         failureType: 'timeout',
+        classifiedOutcome: 'worker_timeout',
+        emptyReason: null,
+        sourceQuality: 'failed',
         finalizedAt: now,
         completedAt: now,
       })
