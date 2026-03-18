@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from 'fs/promises';
 import { isAbsolute, join, resolve } from 'path';
 
 import { resolveOutboundAuthorizationHeader } from './oidc-auth';
+import { appendScrapeExecutionEvent } from '../db/scrape-execution-events';
 
 import type { Logger } from 'pino';
 
@@ -32,6 +33,46 @@ const resolveDeadLetterDir = (value?: string) => {
   return isAbsolute(value) ? value : resolve(process.cwd(), value);
 };
 
+const toNullableString = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
+
+const appendReplayAuditEvent = async (
+  databaseUrl: string | undefined,
+  entry: DeadLetterPayload,
+  input: {
+    stage: string;
+    status: 'info' | 'success' | 'warning' | 'failed';
+    code: string;
+    message: string;
+    meta?: Record<string, unknown>;
+  },
+  logger: Logger,
+) => {
+  const sourceRunId = toNullableString(entry.payload.sourceRunId);
+  if (!sourceRunId) {
+    return;
+  }
+
+  await appendScrapeExecutionEvent(databaseUrl, {
+    sourceRunId,
+    traceId: toNullableString(entry.payload.traceId) ?? undefined,
+    requestId: entry.requestId,
+    stage: input.stage,
+    status: input.status,
+    code: input.code,
+    message: input.message,
+    meta: input.meta ?? null,
+  }).catch((error) => {
+    logger.warn(
+      {
+        sourceRunId,
+        stage: input.stage,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      'Failed to persist dead-letter replay audit event',
+    );
+  });
+};
+
 export const persistDeadLetter = async (
   entry: DeadLetterPayload,
   deadLetterDir: string | undefined,
@@ -52,6 +93,7 @@ export const replayDeadLetters = async (
   logger: Logger,
   callbackSigningSecret?: string,
   callbackOidcAudience?: string,
+  databaseUrl?: string,
 ) => {
   const dir = resolveDeadLetterDir(deadLetterDir);
   const filenames = await readdir(dir).catch(() => []);
@@ -66,6 +108,21 @@ export const replayDeadLetters = async (
     try {
       const raw = await readFile(path, 'utf-8');
       const entry = JSON.parse(raw) as DeadLetterPayload;
+      await appendReplayAuditEvent(
+        databaseUrl,
+        entry,
+        {
+          stage: 'callback_replay',
+          status: 'info',
+          code: 'CALLBACK_REPLAY_ATTEMPTED',
+          message: 'Dead-letter callback replay attempt started',
+          meta: {
+            filename,
+            callbackUrl: entry.callbackUrl,
+          },
+        },
+        logger,
+      );
       const timestampSec = Math.floor(Date.now() / 1000);
       const signature = callbackSigningSecret
         ? createHmac('sha256', callbackSigningSecret).update(buildSignaturePayload(entry, timestampSec)).digest('hex')
@@ -83,14 +140,69 @@ export const replayDeadLetters = async (
       });
       if (!response.ok) {
         const body = await response.text();
+        await appendReplayAuditEvent(
+          databaseUrl,
+          entry,
+          {
+            stage: 'callback_replay',
+            status: 'warning',
+            code: 'CALLBACK_REPLAY_REJECTED',
+            message: 'Dead-letter callback replay was rejected',
+            meta: {
+              filename,
+              statusCode: response.status,
+              body,
+            },
+          },
+          logger,
+        );
         logger.warn({ filename, status: response.status, body }, 'Dead-letter callback replay rejected');
         results.failed += 1;
         continue;
       }
       await rm(path);
       results.sent += 1;
+      await appendReplayAuditEvent(
+        databaseUrl,
+        entry,
+        {
+          stage: 'callback_replay',
+          status: 'success',
+          code: 'CALLBACK_REPLAY_ACCEPTED',
+          message: 'Dead-letter callback replay accepted',
+          meta: {
+            filename,
+            statusCode: response.status,
+          },
+        },
+        logger,
+      );
       logger.info({ filename }, 'Dead-letter callback replayed');
     } catch (error) {
+      let entry: DeadLetterPayload | null = null;
+      try {
+        const raw = await readFile(path, 'utf-8');
+        entry = JSON.parse(raw) as DeadLetterPayload;
+      } catch {
+        entry = null;
+      }
+      if (entry) {
+        await appendReplayAuditEvent(
+          databaseUrl,
+          entry,
+          {
+            stage: 'callback_replay',
+            status: 'failed',
+            code: 'CALLBACK_REPLAY_FAILED',
+            message: 'Dead-letter callback replay failed',
+            meta: {
+              filename,
+              error: error instanceof Error ? error.message : String(error),
+            },
+          },
+          logger,
+        );
+      }
       logger.warn({ filename, error }, 'Dead-letter callback replay failed');
       results.failed += 1;
     }

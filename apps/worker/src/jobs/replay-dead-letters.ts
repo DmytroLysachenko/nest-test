@@ -6,7 +6,13 @@ const env = loadEnv();
 const logger = createLogger(env);
 
 const run = async () => {
-  const result = await replayDeadLetters(env.WORKER_DEAD_LETTER_DIR, logger, env.WORKER_CALLBACK_SIGNING_SECRET);
+  const result = await replayDeadLetters(
+    env.WORKER_DEAD_LETTER_DIR,
+    logger,
+    env.WORKER_CALLBACK_SIGNING_SECRET,
+    env.WORKER_CALLBACK_OIDC_AUDIENCE,
+    env.DATABASE_URL,
+  );
   logger.info(result, 'Dead-letter replay finished');
 };
 

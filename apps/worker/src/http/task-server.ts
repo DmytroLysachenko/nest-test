@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { OAuth2Client } from 'google-auth-library';
 
 import { replayDeadLetters } from '../jobs/callback-dead-letter';
+import { appendScrapeExecutionEvent } from '../db/scrape-execution-events';
 import { TaskRunner } from '../queue/task-runner';
 import { taskEnvelopeSchema } from '../queue/task-types';
 
@@ -249,6 +250,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
             logger,
             env.WORKER_CALLBACK_SIGNING_SECRET,
             env.WORKER_CALLBACK_OIDC_AUDIENCE,
+            env.DATABASE_URL,
           );
           sendJson(res, 200, { ok: true, ...result });
         } catch (error) {
@@ -282,6 +284,22 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       if (!task.payload.requestId) {
         task.payload.requestId = requestId;
       }
+
+      await appendScrapeExecutionEvent(env.DATABASE_URL, {
+        sourceRunId: task.payload.sourceRunId,
+        traceId: task.payload.traceId,
+        requestId,
+        stage: 'task_ingress',
+        status: 'info',
+        code: 'WORKER_TASK_ACCEPTED',
+        message: 'Worker accepted scrape task',
+        meta: {
+          taskName: task.name,
+          queueProvider: env.QUEUE_PROVIDER,
+        },
+      }).catch((error) => {
+        logger.warn({ requestId, error: formatError(error) }, 'Failed to persist task ingress audit event');
+      });
 
       logger.info(
         {
