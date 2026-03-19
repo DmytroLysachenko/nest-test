@@ -6,7 +6,7 @@ import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { NotebookPage } from '@/features/job-offers';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
-import { WorkflowBlockedState } from '@/shared/ui/workflow-blocked-state';
+import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
 
 const isNotebookQuickAction = (
   value: string | null,
@@ -56,16 +56,14 @@ export default function NotebookRoute() {
   }
 
   if (summary.workflow.needsOnboarding) {
-    const primaryBlocker =
-      summary.blockerDetails?.find((blocker) => blocker.blockedRoutes.includes('notebook')) ??
-      summary.blockerDetails?.[0];
     return (
-      <WorkflowBlockedState
+      <WorkflowRouteBlock
+        summary={summary}
+        route="notebook"
         title="Notebook is locked"
-        description={primaryBlocker?.description ?? 'Complete onboarding to unlock notebook triage.'}
-        actionLabel={primaryBlocker?.ctaLabel ?? 'Go to dashboard'}
-        onAction={() => router.push(primaryBlocker?.href ?? '/')}
-        breakdown={summary.readinessBreakdown}
+        fallbackDescription="Complete onboarding to unlock notebook triage."
+        fallbackActionLabel="Go to dashboard"
+        onNavigate={(href) => router.push(href)}
       />
     );
   }
