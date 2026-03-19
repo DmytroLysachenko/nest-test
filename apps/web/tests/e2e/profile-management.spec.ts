@@ -20,6 +20,114 @@ test('profile management supports save, generate, and restore actions', async ({
     });
   });
 
+  await page.route('**/api/workspace/summary', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          profile: {
+            exists: true,
+            status: 'READY',
+            version: 2,
+            updatedAt: '2026-02-20T00:00:00.000Z',
+          },
+          profileInput: {
+            exists: true,
+            updatedAt: '2026-02-19T00:00:00.000Z',
+          },
+          offers: {
+            total: 0,
+            scored: 0,
+            saved: 0,
+            applied: 0,
+            interviewing: 0,
+            offersMade: 0,
+            rejected: 0,
+            followUpDue: 0,
+            lastUpdatedAt: null,
+          },
+          documents: {
+            total: 1,
+            ready: 1,
+            pending: 0,
+            failed: 0,
+          },
+          scrape: {
+            lastRunStatus: null,
+            lastRunAt: null,
+            lastRunProgress: null,
+            totalRuns: 0,
+          },
+          workflow: {
+            needsOnboarding: false,
+          },
+          nextAction: {
+            key: 'profile-review',
+            title: 'Review profile',
+            description: 'Keep profile inputs and documents aligned.',
+            href: '/profile',
+            priority: 'info',
+          },
+          activity: [],
+          health: {
+            readinessScore: 100,
+            blockers: [],
+            scrapeReliability: 'stable',
+          },
+          readinessBreakdown: [],
+          blockerDetails: [],
+          recommendedSequence: ['profile-input', 'documents', 'career-profile'],
+        },
+      }),
+    });
+  });
+
+  await page.route('**/api/job-offers/summary', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          total: 0,
+          scored: 0,
+          unscored: 0,
+          highConfidenceStrict: 0,
+          staleUntriaged: 0,
+          followUpDue: 0,
+          followUpUpcoming: 0,
+          buckets: [],
+          topExplanationTags: [],
+          quickActions: [],
+        },
+      }),
+    });
+  });
+
+  await page.route('**/api/job-sources/schedule', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          enabled: false,
+          cron: '0 9 * * *',
+          timezone: 'Europe/Warsaw',
+          source: 'pracuj-pl-it',
+          limit: 20,
+          careerProfileId: null,
+          filters: null,
+          lastTriggeredAt: null,
+          nextRunAt: null,
+          lastRunStatus: null,
+        },
+      }),
+    });
+  });
+
   await page.route('**/api/profile-inputs/latest', async (route) => {
     if (route.request().method() === 'POST') {
       await route.fulfill({
