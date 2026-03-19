@@ -80,8 +80,137 @@ function Wait-ForHealthyEndpoint {
   throw "$Context did not become healthy within $TimeoutSeconds seconds. uri=$Uri"
 }
 
+function Test-HealthyEndpoint {
+  param(
+    [Parameter(Mandatory = $true)][string]$Uri
+  )
+
+  try {
+    $response = Invoke-WebRequest -Uri $Uri -UseBasicParsing -TimeoutSec 10
+    return [int]$response.StatusCode -eq 200
+  } catch {
+    return $false
+  }
+}
+
+function Start-ManagedService {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][string]$Command,
+    [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+    [Parameter(Mandatory = $true)][string]$LogDirectory
+  )
+
+  if (-not (Test-Path $LogDirectory)) {
+    New-Item -ItemType Directory -Path $LogDirectory -Force | Out-Null
+  }
+
+  $logPath = Join-Path $LogDirectory "$Name.log"
+  if (Test-Path $logPath) {
+    Remove-Item $logPath -Force
+  }
+
+  $shellPath = (Get-Process -Id $PID).Path
+  $escapedLogPath = $logPath.Replace("'", "''")
+  $wrappedCommand = "& { $Command } *>> '$escapedLogPath'"
+
+  $process = Start-Process `
+    -FilePath $shellPath `
+    -ArgumentList @('-NoProfile', '-Command', $wrappedCommand) `
+    -WorkingDirectory $WorkingDirectory `
+    -PassThru
+
+  return @{
+    Name = $Name
+    LogPath = $logPath
+    Process = $process
+  }
+}
+
+function Stop-ManagedServices {
+  param(
+    [Parameter(Mandatory = $true)][System.Collections.IEnumerable]$Services
+  )
+
+  foreach ($service in $Services) {
+    if ($null -eq $service.Process) {
+      continue
+    }
+
+    try {
+      if (-not $service.Process.HasExited) {
+        Stop-Process -Id $service.Process.Id -Force -ErrorAction Stop
+      }
+    } catch {
+      Write-Warning "Failed to stop managed service '$($service.Name)': $($_.Exception.Message)"
+    }
+  }
+}
+
+function Show-ManagedServiceLogs {
+  param(
+    [Parameter(Mandatory = $true)][System.Collections.IEnumerable]$Services
+  )
+
+  foreach ($service in $Services) {
+    if (-not (Test-Path $service.LogPath)) {
+      continue
+    }
+
+    Write-Host "---- $($service.Name) log tail ----"
+    Get-Content $service.LogPath -Tail 80
+  }
+}
+
+function Ensure-LocalSmokeServices {
+  param(
+    [Parameter(Mandatory = $true)][string]$ApiBaseUrl,
+    [Parameter(Mandatory = $true)][string]$WorkerBaseUrl,
+    [Parameter(Mandatory = $true)][string]$WebBaseUrl,
+    [Parameter(Mandatory = $true)][string]$RepoRoot
+  )
+
+  $managed = @()
+  $logDirectory = Join-Path $RepoRoot '.tmp-test-logs\smoke-managed'
+
+  $serviceDefinitions = @(
+    @{
+      Name = 'api'
+      HealthUri = "$ApiBaseUrl/health"
+      Command = "`$env:HOST='0.0.0.0'; `$env:PORT='3000'; pnpm --filter api dev"
+    },
+    @{
+      Name = 'worker'
+      HealthUri = "$WorkerBaseUrl/health"
+      Command = "`$env:PORT='4001'; `$env:WORKER_PORT='4001'; pnpm --filter worker dev"
+    },
+    @{
+      Name = 'web'
+      HealthUri = "$WebBaseUrl/health"
+      Command = "`$env:PORT='3002'; pnpm --filter web dev"
+    }
+  )
+
+  foreach ($definition in $serviceDefinitions) {
+    if (Test-HealthyEndpoint -Uri $definition.HealthUri) {
+      continue
+    }
+
+    Write-Host "Starting local $($definition.Name) service for smoke..."
+    $managed += Start-ManagedService `
+      -Name $definition.Name `
+      -Command $definition.Command `
+      -WorkingDirectory $RepoRoot `
+      -LogDirectory $logDirectory
+  }
+
+  return $managed
+}
+
 try {
 Write-Host '== E2E Smoke =='
+
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
 $apiBaseUrl = (Get-EnvOrDefault -Name 'API_BASE_URL' -Default 'http://localhost:3000').TrimEnd('/')
 $workerBaseUrl = (Get-EnvOrDefault -Name 'WORKER_BASE_URL' -Default 'http://localhost:4001').TrimEnd('/')
@@ -92,7 +221,10 @@ $skipSeedRaw = Get-EnvOrDefault -Name 'SMOKE_SKIP_SEED' -Default ''
 $skipSeed = @('1', 'true', 'yes') -contains $skipSeedRaw.ToLower()
 $forceCallbackRaw = Get-EnvOrDefault -Name 'SMOKE_FORCE_CALLBACK' -Default ''
 $forceCallback = @('1', 'true', 'yes') -contains $forceCallbackRaw.ToLower()
+$autoStartRaw = Get-EnvOrDefault -Name 'SMOKE_AUTOSTART' -Default 'true'
+$autoStart = @('1', 'true', 'yes') -contains $autoStartRaw.ToLower()
 $workerCallbackToken = Get-EnvOrDefault -Name 'WORKER_CALLBACK_TOKEN' -Default ''
+$managedServices = @()
 
 if (-not $skipSeed) {
   Write-Host '1) Seeding minimal fixture data...'
@@ -102,6 +234,21 @@ if (-not $skipSeed) {
   }
 } else {
   Write-Host '1) Skipping fixture seeding (SMOKE_SKIP_SEED=true)...'
+}
+
+if (
+  $autoStart -and
+  $apiBaseUrl -eq 'http://localhost:3000' -and
+  $workerBaseUrl -eq 'http://localhost:4001' -and
+  $webBaseUrl -eq 'http://localhost:3002'
+) {
+  Write-Host '1.5) Ensuring local smoke services are running...'
+  $stage = 'autostart-services'
+  $managedServices = Ensure-LocalSmokeServices `
+    -ApiBaseUrl $apiBaseUrl `
+    -WorkerBaseUrl $workerBaseUrl `
+    -WebBaseUrl $webBaseUrl `
+    -RepoRoot $repoRoot
 }
 
 Write-Host '2) Checking service health endpoints...'
@@ -648,8 +795,15 @@ if ([string]::IsNullOrWhiteSpace($scheduledTriggerPayload.data.sourceRunId)) {
 
 Write-Host "Smoke test passed. sourceRunId=$sourceRunId offers=$($matched.Count) matchId=$matchId"
 } catch {
+  if ($managedServices.Count -gt 0) {
+    Show-ManagedServiceLogs -Services $managedServices
+  }
   Write-Host "Smoke test failed at stage: $stage" -ForegroundColor Red
   throw
+} finally {
+  if ($managedServices.Count -gt 0) {
+    Stop-ManagedServices -Services $managedServices
+  }
 }
 
 
