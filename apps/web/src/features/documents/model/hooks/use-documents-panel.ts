@@ -4,11 +4,13 @@ import { useState } from 'react';
 
 import { useDocumentsPanelMutations } from '@/features/documents/model/hooks/use-documents-panel-mutations';
 import { useDocumentsPanelQueries } from '@/features/documents/model/hooks/use-documents-panel-queries';
+import type { DocumentDto } from '@/shared/types/api';
 
 type UseDocumentsPanelArgs = {
   token: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  overrideDocumentsQuery?: any;
+  overrideDocumentsQuery?: {
+    data?: DocumentDto[];
+  };
 };
 
 export const useDocumentsPanel = ({ token, overrideDocumentsQuery }: UseDocumentsPanelArgs) => {
@@ -18,6 +20,7 @@ export const useDocumentsPanel = ({ token, overrideDocumentsQuery }: UseDocument
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [recoverySummary, setRecoverySummary] = useState<string | null>(null);
+  const [lastRecoveredDocumentId, setLastRecoveredDocumentId] = useState<string | null>(null);
 
   const {
     documentsQuery: internalDocumentsQuery,
@@ -36,6 +39,7 @@ export const useDocumentsPanel = ({ token, overrideDocumentsQuery }: UseDocument
       setStatus,
       setError,
       setRecoverySummary,
+      setLastRecoveredDocumentId,
     });
 
   return {
@@ -47,6 +51,7 @@ export const useDocumentsPanel = ({ token, overrideDocumentsQuery }: UseDocument
     error,
     status,
     recoverySummary,
+    lastRecoveredDocumentId,
     documentsQuery,
     uploadHealthQuery,
     documentEventsQuery,

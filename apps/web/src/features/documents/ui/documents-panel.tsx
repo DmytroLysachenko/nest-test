@@ -6,6 +6,7 @@ import { useDocumentsPanel } from '@/features/documents/model/hooks/use-document
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
+import type { DocumentDto } from '@/shared/types/api';
 
 const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
 
@@ -13,8 +14,9 @@ type DocumentsPanelProps = {
   token: string;
   disabled?: boolean;
   disabledReason?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  documentsQuery?: any;
+  documentsQuery?: {
+    data?: DocumentDto[];
+  };
 };
 
 export const DocumentsPanel = ({
@@ -32,6 +34,7 @@ export const DocumentsPanel = ({
     error,
     status,
     recoverySummary,
+    lastRecoveredDocumentId,
     documentsQuery,
     uploadHealthQuery,
     documentEventsQuery,
@@ -108,8 +111,7 @@ export const DocumentsPanel = ({
       <div className="mt-6 space-y-3">
         <p className="text-text-strong text-sm font-semibold">Document list</p>
         {documentsQuery.data?.length ? (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          documentsQuery.data.map((document: any) => (
+          documentsQuery.data.map((document) => (
             <article key={document.id} className="app-muted-panel space-y-3 text-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -142,25 +144,35 @@ export const DocumentsPanel = ({
                       type="button"
                       variant="secondary"
                       onClick={() => retryExtractMutation.mutate(document.id)}
-                      disabled={retryExtractMutation.isPending}
+                      disabled={retryExtractMutation.isPending && retryExtractMutation.variables === document.id}
                     >
-                      Retry extract
+                      {retryExtractMutation.isPending && retryExtractMutation.variables === document.id
+                        ? 'Retrying extract...'
+                        : 'Retry extract'}
                     </Button>
                   ) : null}
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={() => removeDocumentMutation.mutate(document.id)}
-                    disabled={removeDocumentMutation.isPending}
+                    disabled={removeDocumentMutation.isPending && removeDocumentMutation.variables === document.id}
                   >
-                    Remove
+                    {removeDocumentMutation.isPending && removeDocumentMutation.variables === document.id
+                      ? 'Removing...'
+                      : 'Remove'}
                   </Button>
                 </div>
-                {retryExtractMutation.isPending ? (
+                {retryExtractMutation.isPending && retryExtractMutation.variables === document.id ? (
                   <p className="text-text-soft mt-2 text-xs">Re-extracting document text...</p>
                 ) : null}
-                {removeDocumentMutation.isPending ? (
+                {removeDocumentMutation.isPending && removeDocumentMutation.variables === document.id ? (
                   <p className="text-text-soft mt-2 text-xs">Removing document...</p>
+                ) : null}
+                {lastRecoveredDocumentId === document.id ? (
+                  <p className="text-app-success mt-2 text-xs">
+                    Latest recovery attempt finished for this document. Review diagnostics if the extracted text still
+                    looks wrong.
+                  </p>
                 ) : null}
                 {document.extractionStatus === 'FAILED' ? (
                   <p className="text-app-warning mt-2 text-xs">
