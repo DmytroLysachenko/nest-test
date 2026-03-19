@@ -6,6 +6,7 @@ import { useDocumentsPanel } from '@/features/documents/model/hooks/use-document
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
+
 import type { DocumentDto } from '@/shared/types/api';
 
 const diagnosticsEnabled = process.env.NODE_ENV !== 'production';

@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { useDocumentsPanelMutations } from '@/features/documents/model/hooks/use-documents-panel-mutations';
 import { useDocumentsPanelQueries } from '@/features/documents/model/hooks/use-documents-panel-queries';
+
 import type { DocumentDto } from '@/shared/types/api';
 
 type UseDocumentsPanelArgs = {

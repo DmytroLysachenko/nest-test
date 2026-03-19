@@ -1,8 +1,8 @@
 'use client';
 
-import type { WorkspaceSummaryDto } from '@/shared/types/api';
-
 import { WorkflowBlockedState } from '@/shared/ui/workflow-blocked-state';
+
+import type { WorkspaceSummaryDto } from '@/shared/types/api';
 
 type WorkflowRouteBlockProps = {
   summary: WorkspaceSummaryDto;
