@@ -314,8 +314,8 @@ describe('JobOffersService', () => {
           title: 'Junior Frontend',
           company: 'Initech',
           location: 'Krakow',
-          lastStatusAt: new Date('2026-03-06T12:00:00.000Z'),
-          createdAt: new Date('2026-03-06T12:00:00.000Z'),
+          lastStatusAt: new Date('2026-03-01T12:00:00.000Z'),
+          createdAt: new Date('2026-03-01T12:00:00.000Z'),
         },
       ]),
     );
@@ -341,17 +341,30 @@ describe('JobOffersService', () => {
     expect(result.groups).toEqual([
       expect.objectContaining({
         key: 'follow-up-due',
+        href: '/notebook?focus=followUpDue',
         count: 1,
         items: [expect.objectContaining({ id: 'ujo-due', followUpState: 'due' })],
       }),
       expect.objectContaining({
         key: 'strict-top',
+        href: '/notebook?focus=strictTop',
         count: 2,
       }),
       expect.objectContaining({
         key: 'unscored-fresh',
+        href: '/notebook?focus=unscored',
         count: 1,
         items: [expect.objectContaining({ id: 'ujo-unscored', matchScore: null })],
+      }),
+      expect.objectContaining({
+        key: 'follow-up-upcoming',
+        href: '/notebook?focus=followUpUpcoming',
+        count: 0,
+      }),
+      expect.objectContaining({
+        key: 'stale-untriaged',
+        href: '/notebook?focus=staleUntriaged',
+        count: 1,
       }),
     ]);
   });

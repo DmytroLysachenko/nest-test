@@ -163,6 +163,12 @@ class JobOfferFocusGroup {
   label!: string;
 
   @ApiProperty()
+  description!: string;
+
+  @ApiProperty()
+  href!: string;
+
+  @ApiProperty()
   count!: number;
 
   @ApiProperty({ type: [JobOfferFocusItem] })

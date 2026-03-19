@@ -13,7 +13,7 @@ type UseWorkspaceDashboardDataArgs = {
 export const useWorkspaceDashboardData = ({ token }: UseWorkspaceDashboardDataArgs) => {
   const { summary, scrapeSchedule, refreshSummary, refreshSchedule, isBootstrapping, summaryError } =
     usePrivateDashboardData();
-  const { offersQuery } = useWorkspaceDashboardQueries(token);
+  const { offersQuery, focusQuery } = useWorkspaceDashboardQueries(token);
 
   useEffect(() => {
     if (!token || isBootstrapping || !summary) {
@@ -29,22 +29,31 @@ export const useWorkspaceDashboardData = ({ token }: UseWorkspaceDashboardDataAr
   const offersError = offersQuery.isError
     ? toUserErrorMessage(offersQuery.error, 'Unable to load recent offers.')
     : null;
+  const focusError = focusQuery.isError ? toUserErrorMessage(focusQuery.error, 'Unable to load focus queue.') : null;
 
   return useMemo(
     () => ({
       summary,
       offers: offersQuery.data ?? [],
+      focusGroups: focusQuery.data?.groups ?? [],
       schedule: scrapeSchedule,
       isInitialLoading,
       summaryError,
       offersError,
+      focusError,
       isOffersLoading: offersQuery.isLoading,
+      isFocusLoading: focusQuery.isLoading,
       isScheduleLoading: false,
       refetchSummary: refreshSummary,
       refetchOffers: offersQuery.refetch,
+      refetchFocus: focusQuery.refetch,
       refetchSchedule: refreshSchedule,
     }),
     [
+      focusError,
+      focusQuery.data,
+      focusQuery.isLoading,
+      focusQuery.refetch,
       refreshSchedule,
       refreshSummary,
       offersQuery.data,

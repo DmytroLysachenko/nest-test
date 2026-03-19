@@ -645,6 +645,8 @@ export type JobOfferFocusDto = {
   groups: Array<{
     key: string;
     label: string;
+    description: string;
+    href: string;
     count: number;
     items: Array<{
       id: string;

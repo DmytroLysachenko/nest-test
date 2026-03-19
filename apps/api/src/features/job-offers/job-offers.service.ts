@@ -413,11 +413,77 @@ export class JobOffersService {
         followUpState: resolveFollowUpState(item.status, item.pipelineMeta, now),
       }));
 
+    const followUpUpcoming = items
+      .filter((item) => resolveFollowUpState(item.status, item.pipelineMeta, now) === 'upcoming')
+      .slice(0, 5)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        company: item.company,
+        location: item.location,
+        matchScore: item.matchScore,
+        followUpState: 'upcoming' as const,
+      }));
+
+    const staleCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const staleUntriaged = items
+      .filter(
+        (item) =>
+          (item.status === 'NEW' || item.status === 'SEEN') &&
+          new Date(item.lastStatusAt ?? item.createdAt) < staleCutoff,
+      )
+      .slice(0, 5)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        company: item.company,
+        location: item.location,
+        matchScore: item.matchScore,
+        followUpState: resolveFollowUpState(item.status, item.pipelineMeta, now),
+      }));
+
     return {
       groups: [
-        { key: 'follow-up-due', label: 'Follow-up due', count: followUpDue.length, items: followUpDue },
-        { key: 'strict-top', label: 'Strict top matches', count: strictTopMatches.length, items: strictTopMatches },
-        { key: 'unscored-fresh', label: 'Unscored fresh leads', count: unscoredFresh.length, items: unscoredFresh },
+        {
+          key: 'follow-up-due',
+          label: 'Follow-up due',
+          description: 'Handle overdue follow-ups before widening the funnel.',
+          href: '/notebook?focus=followUpDue',
+          count: followUpDue.length,
+          items: followUpDue,
+        },
+        {
+          key: 'strict-top',
+          label: 'Strict top matches',
+          description: 'Review the highest-confidence strict matches first.',
+          href: '/notebook?focus=strictTop',
+          count: strictTopMatches.length,
+          items: strictTopMatches,
+        },
+        {
+          key: 'unscored-fresh',
+          label: 'Unscored fresh leads',
+          description: 'Score the newest leads before they get stale.',
+          href: '/notebook?focus=unscored',
+          count: unscoredFresh.length,
+          items: unscoredFresh,
+        },
+        {
+          key: 'follow-up-upcoming',
+          label: 'Follow-up upcoming',
+          description: 'Prepare scheduled follow-ups and next-step notes in advance.',
+          href: '/notebook?focus=followUpUpcoming',
+          count: followUpUpcoming.length,
+          items: followUpUpcoming,
+        },
+        {
+          key: 'stale-untriaged',
+          label: 'Stale untriaged',
+          description: 'Clear old NEW or SEEN offers that still have no decision.',
+          href: '/notebook?focus=staleUntriaged',
+          count: staleUntriaged.length,
+          items: staleUntriaged,
+        },
       ],
     };
   }
