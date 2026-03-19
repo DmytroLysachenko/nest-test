@@ -5,7 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { NodeMailerModule } from '@/common/modules/node-mailer/node-mailer.module';
 import { LocalStrategy } from '@/features/auth/strategies/local.strategy';
 import { JwtStrategy } from '@/features/auth/strategies/jwt.strategy';
-import { AuthorizationService } from '@/common/authorization/authorization.service';
+import { AuthorizationModule } from '@/common/authorization/authorization.module';
 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -15,17 +15,8 @@ import { TokenService } from './token.service';
 import { GoogleOauthService } from './google-oauth.service';
 
 @Module({
-  imports: [NodeMailerModule, ConfigModule, PassportModule],
-  providers: [
-    AuthService,
-    OptsService,
-    MailService,
-    LocalStrategy,
-    JwtStrategy,
-    TokenService,
-    GoogleOauthService,
-    AuthorizationService,
-  ],
+  imports: [NodeMailerModule, ConfigModule, PassportModule, AuthorizationModule],
+  providers: [AuthService, OptsService, MailService, LocalStrategy, JwtStrategy, TokenService, GoogleOauthService],
   controllers: [AuthController],
   exports: [TokenService],
 })

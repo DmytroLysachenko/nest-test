@@ -26,8 +26,7 @@ import { OpsModule } from '@/features/ops/ops.module';
 import { AuthorizationGuard } from '@/common/guards';
 import { ApiRequestEventsService } from '@/common/observability/api-request-events.service';
 import { ApiWarningEventInterceptor } from '@/common/interceptor/api-warning-event.interceptor';
-import { AuthorizationEventsService } from '@/common/authorization/authorization-events.service';
-import { AuthorizationService } from '@/common/authorization/authorization.service';
+import { AuthorizationModule } from '@/common/authorization/authorization.module';
 
 import type { Env } from '@/config/env';
 
@@ -74,6 +73,7 @@ import type { Env } from '@/config/env';
     }),
     LoggerModule,
     DrizzleModule,
+    AuthorizationModule,
     HealthModule,
     AuthModule,
     NodeMailerModule,
@@ -104,8 +104,6 @@ import type { Env } from '@/config/env';
     },
     ApiRequestEventsService,
     ApiWarningEventInterceptor,
-    AuthorizationEventsService,
-    AuthorizationService,
   ],
 })
 export class AppModule {
