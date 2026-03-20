@@ -366,9 +366,8 @@ export class JobOffersService {
       .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt));
 
     const now = new Date();
-    const followUpDue = items
+    const followUpDueItems = items
       .filter((item) => resolveFollowUpState(item.status, item.pipelineMeta, now) === 'due')
-      .slice(0, 5)
       .map((item) => ({
         id: item.id,
         title: item.title,
@@ -377,10 +376,12 @@ export class JobOffersService {
         matchScore: item.matchScore,
         followUpState: 'due' as const,
       }));
+    const followUpDue = followUpDueItems.slice(0, 5);
 
-    const strictTopMatches = items
+    const strictTopMatchesItems = items
       .map((item) => ({
         ...item,
+        followUpState: resolveFollowUpState(item.status, item.pipelineMeta, now),
         ranking: computeNotebookOfferRanking(
           {
             matchScore: item.matchScore,
@@ -390,20 +391,19 @@ export class JobOffersService {
           this.rankingTuning,
         ),
       }))
-      .filter((item) => item.ranking.include && Number(item.matchScore ?? 0) >= 70)
-      .slice(0, 5)
+      .filter((item) => item.ranking.include && Number(item.matchScore ?? 0) >= 70 && item.followUpState !== 'due')
       .map((item) => ({
         id: item.id,
         title: item.title,
         company: item.company,
         location: item.location,
         matchScore: item.matchScore,
-        followUpState: resolveFollowUpState(item.status, item.pipelineMeta, now),
+        followUpState: item.followUpState,
       }));
+    const strictTopMatches = strictTopMatchesItems.slice(0, 5);
 
-    const unscoredFresh = items
+    const unscoredFreshItems = items
       .filter((item) => item.matchScore == null)
-      .slice(0, 5)
       .map((item) => ({
         id: item.id,
         title: item.title,
@@ -412,10 +412,10 @@ export class JobOffersService {
         matchScore: item.matchScore,
         followUpState: resolveFollowUpState(item.status, item.pipelineMeta, now),
       }));
+    const unscoredFresh = unscoredFreshItems.slice(0, 5);
 
-    const followUpUpcoming = items
+    const followUpUpcomingItems = items
       .filter((item) => resolveFollowUpState(item.status, item.pipelineMeta, now) === 'upcoming')
-      .slice(0, 5)
       .map((item) => ({
         id: item.id,
         title: item.title,
@@ -424,15 +424,10 @@ export class JobOffersService {
         matchScore: item.matchScore,
         followUpState: 'upcoming' as const,
       }));
+    const followUpUpcoming = followUpUpcomingItems.slice(0, 5);
 
-    const staleCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const staleUntriaged = items
-      .filter(
-        (item) =>
-          (item.status === 'NEW' || item.status === 'SEEN') &&
-          new Date(item.lastStatusAt ?? item.createdAt) < staleCutoff,
-      )
-      .slice(0, 5)
+    const savedNeedsAttentionItems = items
+      .filter((item) => item.status === 'SAVED' && resolveFollowUpState(item.status, item.pipelineMeta, now) === 'none')
       .map((item) => ({
         id: item.id,
         title: item.title,
@@ -441,6 +436,36 @@ export class JobOffersService {
         matchScore: item.matchScore,
         followUpState: resolveFollowUpState(item.status, item.pipelineMeta, now),
       }));
+    const savedNeedsAttention = savedNeedsAttentionItems.slice(0, 5);
+
+    const appliedActiveItems = items
+      .filter((item) => ['APPLIED', 'INTERVIEWING', 'OFFER'].includes(item.status))
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        company: item.company,
+        location: item.location,
+        matchScore: item.matchScore,
+        followUpState: resolveFollowUpState(item.status, item.pipelineMeta, now),
+      }));
+    const appliedActive = appliedActiveItems.slice(0, 5);
+
+    const staleCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const staleUntriagedItems = items
+      .filter(
+        (item) =>
+          (item.status === 'NEW' || item.status === 'SEEN') &&
+          new Date(item.lastStatusAt ?? item.createdAt) < staleCutoff,
+      )
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        company: item.company,
+        location: item.location,
+        matchScore: item.matchScore,
+        followUpState: resolveFollowUpState(item.status, item.pipelineMeta, now),
+      }));
+    const staleUntriaged = staleUntriagedItems.slice(0, 5);
 
     return {
       groups: [
@@ -449,7 +474,7 @@ export class JobOffersService {
           label: 'Follow-up due',
           description: 'Handle overdue follow-ups before widening the funnel.',
           href: '/notebook?focus=followUpDue',
-          count: followUpDue.length,
+          count: followUpDueItems.length,
           items: followUpDue,
         },
         {
@@ -457,7 +482,7 @@ export class JobOffersService {
           label: 'Strict top matches',
           description: 'Review the highest-confidence strict matches first.',
           href: '/notebook?focus=strictTop',
-          count: strictTopMatches.length,
+          count: strictTopMatchesItems.length,
           items: strictTopMatches,
         },
         {
@@ -465,15 +490,31 @@ export class JobOffersService {
           label: 'Unscored fresh leads',
           description: 'Score the newest leads before they get stale.',
           href: '/notebook?focus=unscored',
-          count: unscoredFresh.length,
+          count: unscoredFreshItems.length,
           items: unscoredFresh,
+        },
+        {
+          key: 'saved-needs-attention',
+          label: 'Saved needs attention',
+          description: 'Return to saved leads that still need a follow-up plan or decision.',
+          href: '/notebook?focus=saved',
+          count: savedNeedsAttentionItems.length,
+          items: savedNeedsAttention,
+        },
+        {
+          key: 'applied-active',
+          label: 'Applied pipeline',
+          description: 'Keep active applications moving with interview prep and next-step tracking.',
+          href: '/notebook?focus=applied',
+          count: appliedActiveItems.length,
+          items: appliedActive,
         },
         {
           key: 'follow-up-upcoming',
           label: 'Follow-up upcoming',
           description: 'Prepare scheduled follow-ups and next-step notes in advance.',
           href: '/notebook?focus=followUpUpcoming',
-          count: followUpUpcoming.length,
+          count: followUpUpcomingItems.length,
           items: followUpUpcoming,
         },
         {
@@ -481,7 +522,7 @@ export class JobOffersService {
           label: 'Stale untriaged',
           description: 'Clear old NEW or SEEN offers that still have no decision.',
           href: '/notebook?focus=staleUntriaged',
-          count: staleUntriaged.length,
+          count: staleUntriagedItems.length,
           items: staleUntriaged,
         },
       ],

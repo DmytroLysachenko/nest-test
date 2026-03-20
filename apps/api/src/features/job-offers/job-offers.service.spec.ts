@@ -276,7 +276,7 @@ describe('JobOffersService', () => {
     expect(update).toHaveBeenCalledTimes(1);
   });
 
-  it('builds focus queues for due follow-ups, strict matches, and unscored leads', async () => {
+  it('builds focus queues for due follow-ups, strict matches, unscored leads, and active funnel slices', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-03-09T10:00:00.000Z'));
 
     const select = jest.fn().mockReturnValue(
@@ -316,6 +316,30 @@ describe('JobOffersService', () => {
           location: 'Krakow',
           lastStatusAt: new Date('2026-03-01T12:00:00.000Z'),
           createdAt: new Date('2026-03-01T12:00:00.000Z'),
+        },
+        {
+          id: 'ujo-saved',
+          status: 'SAVED',
+          matchScore: 68,
+          matchMeta: { hardConstraintViolations: [] },
+          pipelineMeta: { nextStep: 'Reply to recruiter' },
+          title: 'Saved React Role',
+          company: 'Initrode',
+          location: 'Poznan',
+          lastStatusAt: new Date('2026-03-06T12:00:00.000Z'),
+          createdAt: new Date('2026-03-06T12:00:00.000Z'),
+        },
+        {
+          id: 'ujo-applied',
+          status: 'APPLIED',
+          matchScore: 72,
+          matchMeta: { hardConstraintViolations: [] },
+          pipelineMeta: { followUpAt: '2026-03-12T09:00:00.000Z' },
+          title: 'Applied Platform Role',
+          company: 'Umbrella',
+          location: 'Remote',
+          lastStatusAt: new Date('2026-03-05T12:00:00.000Z'),
+          createdAt: new Date('2026-03-05T12:00:00.000Z'),
         },
       ]),
     );
@@ -357,9 +381,21 @@ describe('JobOffersService', () => {
         items: [expect.objectContaining({ id: 'ujo-unscored', matchScore: null })],
       }),
       expect.objectContaining({
+        key: 'saved-needs-attention',
+        href: '/notebook?focus=saved',
+        count: 1,
+        items: [expect.objectContaining({ id: 'ujo-saved' })],
+      }),
+      expect.objectContaining({
+        key: 'applied-active',
+        href: '/notebook?focus=applied',
+        count: 1,
+        items: [expect.objectContaining({ id: 'ujo-applied' })],
+      }),
+      expect.objectContaining({
         key: 'follow-up-upcoming',
         href: '/notebook?focus=followUpUpcoming',
-        count: 0,
+        count: 1,
       }),
       expect.objectContaining({
         key: 'stale-untriaged',
