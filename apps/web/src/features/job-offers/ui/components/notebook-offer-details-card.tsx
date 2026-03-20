@@ -99,6 +99,15 @@ export const NotebookOfferDetailsCard = ({
   const nextStep = pipelineMeta && typeof pipelineMeta.nextStep === 'string' ? pipelineMeta.nextStep : '';
   const contactName = pipelineMeta && typeof pipelineMeta.contactName === 'string' ? pipelineMeta.contactName : '';
   const followUpNote = pipelineMeta && typeof pipelineMeta.followUpNote === 'string' ? pipelineMeta.followUpNote : '';
+  const followUpState = offer.followUpState ?? 'none';
+  const followUpSummary =
+    followUpState === 'due'
+      ? 'Follow-up is overdue. Handle this before widening the funnel.'
+      : followUpState === 'upcoming'
+        ? 'Follow-up is scheduled soon. Prepare the message and next materials now.'
+        : offer.status === 'APPLIED' || offer.status === 'INTERVIEWING' || offer.status === 'OFFER'
+          ? 'No follow-up is scheduled yet. Add a date, next step, and note so this role does not drift.'
+          : 'Use pipeline fields when this lead moves beyond first-pass triage.';
 
   const setStructuredPipelineField = (field: string, value: string | null) => {
     const current =
@@ -139,13 +148,53 @@ export const NotebookOfferDetailsCard = ({
             <span className="app-badge border-primary/20 bg-primary/5 text-primary">{offer.status}</span>
             <span className="app-badge">Score {offer.matchScore ?? 'n/a'}</span>
             {offer.followUpState && offer.followUpState !== 'none' ? (
-              <span className="app-badge">Follow-up {offer.followUpState}</span>
+              <span
+                className={cn(
+                  'app-badge',
+                  offer.followUpState === 'due'
+                    ? 'border-app-danger-border bg-app-danger-soft text-app-danger'
+                    : 'border-app-warning-border bg-app-warning-soft text-app-warning',
+                )}
+              >
+                Follow-up {offer.followUpState}
+              </span>
             ) : null}
             <DataFreshnessBadge updatedAt={updatedAt} label="Offer data" />
           </div>
           <p className="text-secondary-foreground font-medium">
             {offer.company ?? 'Unknown company'} · {offer.location ?? 'Unknown location'}
           </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="app-muted-panel space-y-2">
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Action plan</p>
+            <p className="text-text-strong text-sm font-semibold">{followUpSummary}</p>
+            {nextStep ? <p className="text-text-soft text-sm">Next step: {nextStep}</p> : null}
+            {followUpAt ? (
+              <p className="text-text-soft text-sm">Scheduled for: {new Date(followUpAt).toLocaleString()}</p>
+            ) : null}
+          </div>
+          <div className="app-muted-panel space-y-2">
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Prep context</p>
+            {contactName ? <p className="text-text-soft text-sm">Contact: {contactName}</p> : null}
+            {applicationUrl ? (
+              <Link
+                href={applicationUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary inline-flex text-sm underline-offset-4 hover:underline"
+              >
+                Open application thread
+              </Link>
+            ) : null}
+            {followUpNote ? <p className="text-text-soft text-sm">{followUpNote}</p> : null}
+            {!contactName && !applicationUrl && !followUpNote ? (
+              <p className="text-text-soft text-sm">
+                Add recruiter details, thread URL, or follow-up notes for the next touch.
+              </p>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-1.5">

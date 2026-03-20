@@ -273,7 +273,7 @@ export const WorkspaceDashboardPage = () => {
               <div className="space-y-3">
                 {dashboard.focusGroups
                   .filter((group) => group.count > 0)
-                  .slice(0, 4)
+                  .slice(0, 5)
                   .map((group) => (
                     <Link
                       key={group.key}
