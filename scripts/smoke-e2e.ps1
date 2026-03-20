@@ -698,6 +698,18 @@ $notebookSummaryPayload = $notebookSummary.Content | ConvertFrom-Json
 if ($null -eq $notebookSummaryPayload.data.unscored -or $null -eq $notebookSummaryPayload.data.buckets) {
   throw 'Notebook summary payload missing unscored or buckets.'
 }
+if ($null -eq $notebookSummaryPayload.data.quickActions -or $notebookSummaryPayload.data.quickActions.Count -lt 3) {
+  throw 'Notebook summary payload missing expected quickActions.'
+}
+
+Write-Host '12.06) Verifying notebook focus endpoint...'
+$stage = 'notebook-focus'
+$notebookFocus = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/focus" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $notebookFocus.StatusCode -Allowed @(200) -Context 'Get notebook focus queues'
+$notebookFocusPayload = $notebookFocus.Content | ConvertFrom-Json
+if ($null -eq $notebookFocusPayload.data.groups -or $notebookFocusPayload.data.groups.Count -lt 3) {
+  throw 'Notebook focus payload missing expected groups.'
+}
 
 Write-Host '12.1) Verifying scrape diagnostics endpoint...'
 $stage = 'verify-scrape-diagnostics'
@@ -761,6 +773,18 @@ Assert-StatusCode -Actual $statusUpdate.StatusCode -Allowed @(200) -Context 'Upd
 
 $metaUpdate = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/$offerId/meta" -Method Patch -Headers $authHeaders -ContentType 'application/json' -Body (@{ notes = 'smoke-note'; tags = @('smoke','backend') } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $metaUpdate.StatusCode -Allowed @(200) -Context 'Update job offer meta'
+
+$bulkFollowUp = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/pipeline/bulk-follow-up" -Method Post -Headers $authHeaders -ContentType 'application/json' -Body (@{
+  ids = @($offerId)
+  followUpAt = (Get-Date).AddDays(2).ToString('o')
+  nextStep = 'Send recruiter follow-up'
+  note = 'Mention updated portfolio'
+} | ConvertTo-Json) -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $bulkFollowUp.StatusCode -Allowed @(200, 201) -Context 'Bulk update job offer follow-up'
+$bulkFollowUpPayload = $bulkFollowUp.Content | ConvertFrom-Json
+if ($bulkFollowUpPayload.data.updated -lt 1) {
+  throw 'Bulk follow-up update did not update any offers.'
+}
 
 $history = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/$offerId/history" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $history.StatusCode -Allowed @(200) -Context 'Get job offer history'
