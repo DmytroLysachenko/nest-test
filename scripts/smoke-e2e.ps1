@@ -262,7 +262,7 @@ function Stop-RepoServiceProcesses {
       if (-not $match.Success) {
         continue
       }
-      $pid = [int]$match.Groups[1].Value
+      $processId = [int]$match.Groups[1].Value
       $commandLine = $match.Groups[2].Value
       if ($commandLine -notlike "*$RepoRoot*") {
         continue
@@ -275,7 +275,7 @@ function Stop-RepoServiceProcesses {
         }
       }
       if ($isMatch) {
-        $processes += [pscustomobject]@{ ProcessId = $pid }
+        $processes += [pscustomobject]@{ ProcessId = $processId }
       }
     }
   }
