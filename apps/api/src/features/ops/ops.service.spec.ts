@@ -117,8 +117,8 @@ describe('OpsService', () => {
     expect(result.callback.failedRate).toBe(0.5);
     expect(result.callback.retryRate24h).toBe(0.5);
     expect(result.callback.conflictingPayloadEvents24h).toBe(1);
-    expect(result.callback.failuresByType.network).toBe(1);
-    expect(result.callback.failuresByCode.WORKER_NETWORK).toBe(1);
+    expect(result.callback.failuresByType).toMatchObject({ network: 1 });
+    expect(result.callback.failuresByCode).toMatchObject({ WORKER_NETWORK: 1 });
     expect(result.scheduler.lastTriggerAt).toBe('2026-03-03T10:00:00.000Z');
     expect(result.scheduler.dueSchedules).toBe(2);
     expect(result.scheduler.enqueueFailures24h).toBe(1);

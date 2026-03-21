@@ -234,20 +234,50 @@ function Stop-RepoServiceProcesses {
     default { @() }
   }
 
-  $processes = Get-CimInstance Win32_Process | Where-Object {
-    $commandLine = $_.CommandLine
-    if ([string]::IsNullOrWhiteSpace($commandLine)) {
+  if (Get-Command Get-CimInstance -ErrorAction SilentlyContinue) {
+    $processes = Get-CimInstance Win32_Process | Where-Object {
+      $commandLine = $_.CommandLine
+      if ([string]::IsNullOrWhiteSpace($commandLine)) {
+        return $false
+      }
+      if ($commandLine -notlike "*$RepoRoot*") {
+        return $false
+      }
+      foreach ($pattern in $patterns) {
+        if ($commandLine -like "*$pattern*") {
+          return $true
+        }
+      }
       return $false
-    }
-    if ($commandLine -notlike "*$RepoRoot*") {
-      return $false
-    }
-    foreach ($pattern in $patterns) {
-      if ($commandLine -like "*$pattern*") {
-        return $true
+    } | Select-Object @{ Name = 'ProcessId'; Expression = { $_.ProcessId } }
+  } else {
+    $processes = @()
+    $psOutput = & ps -eo pid=,args= 2>$null
+    foreach ($line in $psOutput) {
+      $trimmed = [string]$line
+      if ([string]::IsNullOrWhiteSpace($trimmed)) {
+        continue
+      }
+      $match = [regex]::Match($trimmed, '^\s*(\d+)\s+(.*)$')
+      if (-not $match.Success) {
+        continue
+      }
+      $pid = [int]$match.Groups[1].Value
+      $commandLine = $match.Groups[2].Value
+      if ($commandLine -notlike "*$RepoRoot*") {
+        continue
+      }
+      $isMatch = $false
+      foreach ($pattern in $patterns) {
+        if ($commandLine -like "*$pattern*") {
+          $isMatch = $true
+          break
+        }
+      }
+      if ($isMatch) {
+        $processes += [pscustomobject]@{ ProcessId = $pid }
       }
     }
-    return $false
   }
 
   foreach ($process in $processes) {
