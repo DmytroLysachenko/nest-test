@@ -4,11 +4,11 @@ import { Reflector } from '@nestjs/core';
 import { AuthorizationGuard } from './authorization.guard';
 
 describe('AuthorizationGuard', () => {
-  const createContext = (user: { userId?: string; role?: string; permissions?: string[] } = {}) =>
+  const createContext = (user?: { userId?: string; role?: string; permissions?: string[] }) =>
     ({
       switchToHttp: () => ({
         getRequest: () => ({
-          user,
+          ...(user ? { user } : {}),
           method: 'GET',
           originalUrl: '/api/ops/support/overview',
           headers: { 'x-request-id': 'req-1' },
@@ -59,5 +59,18 @@ describe('AuthorizationGuard', () => {
         permission: 'ops.read',
       }),
     );
+  });
+
+  it('defers authorization until auth guard attaches request.user', async () => {
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValueOnce(undefined).mockReturnValueOnce(['ops.read']),
+    } as unknown as Reflector;
+    const authorizationEventsService = {
+      create: jest.fn().mockResolvedValue(undefined),
+    } as any;
+    const guard = new AuthorizationGuard(reflector, authorizationEventsService);
+
+    await expect(guard.canActivate(createContext(undefined as any))).resolves.toBe(true);
+    expect(authorizationEventsService.create).not.toHaveBeenCalled();
   });
 });

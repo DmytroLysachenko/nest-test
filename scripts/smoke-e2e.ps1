@@ -59,6 +59,66 @@ function Invoke-WithRetry {
   }
 }
 
+function Get-RetryDelaySeconds {
+  param(
+    [Parameter(Mandatory = $false)]$Response,
+    [int]$DefaultSeconds = 65
+  )
+
+  if ($null -eq $Response) {
+    return $DefaultSeconds
+  }
+
+  try {
+    $retryAfter = $Response.Headers['Retry-After']
+    if ($retryAfter -is [System.Array]) {
+      $retryAfter = $retryAfter[0]
+    }
+    if (-not [string]::IsNullOrWhiteSpace([string]$retryAfter)) {
+      $parsedSeconds = 0
+      if ([int]::TryParse([string]$retryAfter, [ref]$parsedSeconds) -and $parsedSeconds -gt 0) {
+        return $parsedSeconds
+      }
+    }
+  } catch {
+  }
+
+  return $DefaultSeconds
+}
+
+function Invoke-WebRequestWithRateLimitRetry {
+  param(
+    [Parameter(Mandatory = $true)][scriptblock]$Action,
+    [Parameter(Mandatory = $true)][string]$Context,
+    [int]$Attempts = 3,
+    [int]$DefaultDelaySeconds = 65
+  )
+
+  for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+    try {
+      return & $Action
+    } catch {
+      $response = $_.Exception.Response
+      $statusCode = $null
+      if ($response) {
+        try {
+          $statusCode = [int]$response.StatusCode
+        } catch {
+          $statusCode = $null
+        }
+      }
+
+      if ($statusCode -ne 429 -or $attempt -ge $Attempts) {
+        throw
+      }
+
+      $delaySeconds = Get-RetryDelaySeconds -Response $response -DefaultSeconds $DefaultDelaySeconds
+      Write-Host "$Context was rate limited on attempt $attempt/$Attempts. Retrying in $delaySeconds seconds..."
+      Start-Sleep -Seconds $delaySeconds
+    }
+  }
+}
+
 function Wait-ForHealthyEndpoint {
   param(
     [Parameter(Mandatory = $true)][string]$Uri,
@@ -88,6 +148,27 @@ function Test-HealthyEndpoint {
   try {
     $response = Invoke-WebRequest -Uri $Uri -UseBasicParsing -TimeoutSec 10
     return [int]$response.StatusCode -eq 200
+  } catch {
+    return $false
+  }
+}
+
+function Get-UriPort {
+  param(
+    [Parameter(Mandatory = $true)][string]$Uri
+  )
+
+  $parsed = [System.Uri]$Uri
+  return $parsed.Port
+}
+
+function Test-PortListening {
+  param(
+    [Parameter(Mandatory = $true)][int]$Port
+  )
+
+  try {
+    return $null -ne (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop | Select-Object -First 1)
   } catch {
     return $false
   }
@@ -124,6 +205,58 @@ function Start-ManagedService {
     Name = $Name
     LogPath = $logPath
     Process = $process
+  }
+}
+
+function Build-BaseUrl {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][int]$Port
+  )
+
+  if ($Name -eq 'api' -or $Name -eq 'worker') {
+    return "http://localhost:$Port"
+  }
+
+  return "http://localhost:$Port"
+}
+
+function Stop-RepoServiceProcesses {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][string]$RepoRoot
+  )
+
+  $patterns = switch ($Name) {
+    'api' { @('--filter api', 'apps\api', '@nestjs\cli') }
+    'worker' { @('--filter worker', 'apps\worker', 'tsx watch src/index.ts') }
+    'web' { @('--filter web', 'apps\web', 'next\dist\bin\next') }
+    default { @() }
+  }
+
+  $processes = Get-CimInstance Win32_Process | Where-Object {
+    $commandLine = $_.CommandLine
+    if ([string]::IsNullOrWhiteSpace($commandLine)) {
+      return $false
+    }
+    if ($commandLine -notlike "*$RepoRoot*") {
+      return $false
+    }
+    foreach ($pattern in $patterns) {
+      if ($commandLine -like "*$pattern*") {
+        return $true
+      }
+    }
+    return $false
+  }
+
+  foreach ($process in $processes) {
+    try {
+      Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
+      Write-Host "Stopped stale repo-owned $Name process pid=$($process.ProcessId)."
+    } catch {
+      Write-Warning "Failed to stop stale repo-owned $Name process pid=$($process.ProcessId): $($_.Exception.Message)"
+    }
   }
 }
 
@@ -172,39 +305,71 @@ function Ensure-LocalSmokeServices {
 
   $managed = @()
   $logDirectory = Join-Path $RepoRoot '.tmp-test-logs\smoke-managed'
+  $resolvedApiBaseUrl = $ApiBaseUrl
+  $resolvedWorkerBaseUrl = $WorkerBaseUrl
+  $resolvedWebBaseUrl = $WebBaseUrl
 
   $serviceDefinitions = @(
     @{
       Name = 'api'
-      HealthUri = "$ApiBaseUrl/health"
-      Command = "`$env:HOST='0.0.0.0'; `$env:PORT='3000'; pnpm --filter api dev"
+      BaseUrl = $ApiBaseUrl
+      HealthPath = '/health'
+      FallbackPort = 3100
+      CommandTemplate = {
+        param([int]$Port)
+        "`$env:HOST='0.0.0.0'; `$env:PORT='$Port'; `$env:WORKER_TASK_URL='http://localhost:4101/tasks'; `$env:WORKER_CALLBACK_URL='http://localhost:$Port/api/job-sources/complete'; pnpm --filter api dev"
+      }
     },
     @{
       Name = 'worker'
-      HealthUri = "$WorkerBaseUrl/health"
-      Command = "`$env:PORT='4001'; `$env:WORKER_PORT='4001'; pnpm --filter worker dev"
+      BaseUrl = $WorkerBaseUrl
+      HealthPath = '/health'
+      FallbackPort = 4101
+      CommandTemplate = { param([int]$Port) "`$env:PORT='$Port'; `$env:WORKER_PORT='$Port'; pnpm --filter worker dev" }
     },
     @{
       Name = 'web'
-      HealthUri = "$WebBaseUrl/health"
-      Command = "`$env:PORT='3002'; pnpm --filter web dev"
+      BaseUrl = $WebBaseUrl
+      HealthPath = '/health'
+      FallbackPort = 3102
+      CommandTemplate = { param([int]$Port) "pnpm --filter web exec next dev --port $Port --hostname localhost" }
     }
   )
 
   foreach ($definition in $serviceDefinitions) {
-    if (Test-HealthyEndpoint -Uri $definition.HealthUri) {
-      continue
+    $fallbackPort = $definition.FallbackPort
+    $targetBaseUrl = Build-BaseUrl -Name $definition.Name -Port $fallbackPort
+    $targetHealthUri = "$($targetBaseUrl.TrimEnd('/'))$($definition.HealthPath)"
+    Stop-RepoServiceProcesses -Name $definition.Name -RepoRoot $RepoRoot
+    Start-Sleep -Seconds 2
+    if (Test-HealthyEndpoint -Uri $targetHealthUri) {
+      Write-Host "Reusing dedicated smoke $($definition.Name) service at $targetBaseUrl."
+    } elseif (Test-PortListening -Port $fallbackPort) {
+      throw "Dedicated smoke port $fallbackPort for $($definition.Name) is occupied by another unhealthy service."
+    } else {
+      Write-Host "Starting local $($definition.Name) smoke service on dedicated port $fallbackPort."
+      $managed += Start-ManagedService `
+        -Name $definition.Name `
+        -Command (& $definition.CommandTemplate $fallbackPort) `
+        -WorkingDirectory $RepoRoot `
+        -LogDirectory $logDirectory
     }
 
-    Write-Host "Starting local $($definition.Name) service for smoke..."
-    $managed += Start-ManagedService `
-      -Name $definition.Name `
-      -Command $definition.Command `
-      -WorkingDirectory $RepoRoot `
-      -LogDirectory $logDirectory
+    if ($definition.Name -eq 'api') {
+      $resolvedApiBaseUrl = $targetBaseUrl
+    } elseif ($definition.Name -eq 'worker') {
+      $resolvedWorkerBaseUrl = $targetBaseUrl
+    } else {
+      $resolvedWebBaseUrl = $targetBaseUrl
+    }
   }
 
-  return $managed
+  return @{
+    Managed = $managed
+    ApiBaseUrl = $resolvedApiBaseUrl
+    WorkerBaseUrl = $resolvedWorkerBaseUrl
+    WebBaseUrl = $resolvedWebBaseUrl
+  }
 }
 
 try {
@@ -244,11 +409,15 @@ if (
 ) {
   Write-Host '1.5) Ensuring local smoke services are running...'
   $stage = 'autostart-services'
-  $managedServices = Ensure-LocalSmokeServices `
+  $autostartResult = Ensure-LocalSmokeServices `
     -ApiBaseUrl $apiBaseUrl `
     -WorkerBaseUrl $workerBaseUrl `
     -WebBaseUrl $webBaseUrl `
     -RepoRoot $repoRoot
+  $managedServices = $autostartResult.Managed
+  $apiBaseUrl = $autostartResult.ApiBaseUrl
+  $workerBaseUrl = $autostartResult.WorkerBaseUrl
+  $webBaseUrl = $autostartResult.WebBaseUrl
 }
 
 Write-Host '2) Checking service health endpoints...'
@@ -589,7 +758,9 @@ $scrapeHeaders = @{
   'x-request-id' = "smoke-$([Guid]::NewGuid().ToString())"
 }
 
-$scrape = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/scrape" -Method Post -Headers $scrapeHeaders -ContentType 'application/json' -Body $scrapeBody -UseBasicParsing -TimeoutSec 45
+$scrape = Invoke-WebRequestWithRateLimitRetry -Context 'Enqueue scrape' -Attempts 2 -DefaultDelaySeconds 65 -Action {
+  Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/scrape" -Method Post -Headers $scrapeHeaders -ContentType 'application/json' -Body $scrapeBody -UseBasicParsing -TimeoutSec 45
+}
 Assert-StatusCode -Actual $scrape.StatusCode -Allowed @(200, 201, 202) -Context 'Enqueue scrape'
 
 $scrapePayload = $scrape.Content | ConvertFrom-Json
@@ -793,7 +964,9 @@ if (-not $historyPayload.data.statusHistory) {
   throw 'Status history payload missing'
 }
 
-$score = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/$offerId/score" -Method Post -Headers $authHeaders -ContentType 'application/json' -Body (@{ minScore = 0 } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 45
+$score = Invoke-WebRequestWithRateLimitRetry -Context 'Score user job offer' -Attempts 2 -DefaultDelaySeconds 65 -Action {
+  Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/$offerId/score" -Method Post -Headers $authHeaders -ContentType 'application/json' -Body (@{ minScore = 0 } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 45
+}
 Assert-StatusCode -Actual $score.StatusCode -Allowed @(200, 201) -Context 'Score job offer'
 $scorePayload = $score.Content | ConvertFrom-Json
 if ($null -eq $scorePayload.data.score) {

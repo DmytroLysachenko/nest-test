@@ -49,217 +49,229 @@ export class OpsService {
     const windowHours = Math.min(Math.max(windowHoursInput ?? configuredWindowHours, 1), 168);
     const now = new Date();
     const cutoff = new Date(now.getTime() - windowHours * 60 * 60 * 1000);
+    try {
+      const [activeRunsRow] = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(inArray(jobSourceRunsTable.status, ['PENDING', 'RUNNING']));
+      const [pendingRunsRow] = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(eq(jobSourceRunsTable.status, 'PENDING'));
+      const [runningRunsRow] = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(eq(jobSourceRunsTable.status, 'RUNNING'));
+      const staleHeartbeatCutoff = new Date(Date.now() - 2 * 60 * 1000);
+      const [runningWithoutHeartbeatRow] = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(and(eq(jobSourceRunsTable.status, 'RUNNING'), isNull(jobSourceRunsTable.lastHeartbeatAt)));
+      const [runningStaleHeartbeatRow] = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(
+          and(
+            eq(jobSourceRunsTable.status, 'RUNNING'),
+            isNotNull(jobSourceRunsTable.lastHeartbeatAt),
+            lt(jobSourceRunsTable.lastHeartbeatAt, staleHeartbeatCutoff),
+          ),
+        );
 
-    const [activeRunsRow] = await this.db
-      .select({ value: count() })
-      .from(jobSourceRunsTable)
-      .where(inArray(jobSourceRunsTable.status, ['PENDING', 'RUNNING']));
-    const [pendingRunsRow] = await this.db
-      .select({ value: count() })
-      .from(jobSourceRunsTable)
-      .where(eq(jobSourceRunsTable.status, 'PENDING'));
-    const [runningRunsRow] = await this.db
-      .select({ value: count() })
-      .from(jobSourceRunsTable)
-      .where(eq(jobSourceRunsTable.status, 'RUNNING'));
-    const staleHeartbeatCutoff = new Date(Date.now() - 2 * 60 * 1000);
-    const [runningWithoutHeartbeatRow] = await this.db
-      .select({ value: count() })
-      .from(jobSourceRunsTable)
-      .where(and(eq(jobSourceRunsTable.status, 'RUNNING'), isNull(jobSourceRunsTable.lastHeartbeatAt)));
-    const [runningStaleHeartbeatRow] = await this.db
-      .select({ value: count() })
-      .from(jobSourceRunsTable)
-      .where(
-        and(
-          eq(jobSourceRunsTable.status, 'RUNNING'),
-          isNotNull(jobSourceRunsTable.lastHeartbeatAt),
-          lt(jobSourceRunsTable.lastHeartbeatAt, staleHeartbeatCutoff),
-        ),
-      );
+      const [totalRunsRow] = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(gte(jobSourceRunsTable.createdAt, cutoff));
+      const [completedRunsRow] = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(and(eq(jobSourceRunsTable.status, 'COMPLETED'), gte(jobSourceRunsTable.createdAt, cutoff)));
+      const [failedRunsRow] = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(and(eq(jobSourceRunsTable.status, 'FAILED'), gte(jobSourceRunsTable.createdAt, cutoff)));
+      const [staleReconciledRunsRow] = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(
+          and(
+            eq(jobSourceRunsTable.status, 'FAILED'),
+            eq(jobSourceRunsTable.failureType, 'timeout'),
+            eq(jobSourceRunsTable.error, '[timeout] run stale watchdog'),
+            gte(jobSourceRunsTable.createdAt, cutoff),
+          ),
+        );
+      const [retriesTriggeredRow] = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(and(isNotNull(jobSourceRunsTable.retryOfRunId), gte(jobSourceRunsTable.createdAt, cutoff)));
+      const [retryCompletedRow] = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(
+          and(
+            isNotNull(jobSourceRunsTable.retryOfRunId),
+            eq(jobSourceRunsTable.status, 'COMPLETED'),
+            gte(jobSourceRunsTable.createdAt, cutoff),
+          ),
+        );
 
-    const [totalRunsRow] = await this.db
-      .select({ value: count() })
-      .from(jobSourceRunsTable)
-      .where(gte(jobSourceRunsTable.createdAt, cutoff));
-    const [completedRunsRow] = await this.db
-      .select({ value: count() })
-      .from(jobSourceRunsTable)
-      .where(and(eq(jobSourceRunsTable.status, 'COMPLETED'), gte(jobSourceRunsTable.createdAt, cutoff)));
-    const [failedRunsRow] = await this.db
-      .select({ value: count() })
-      .from(jobSourceRunsTable)
-      .where(and(eq(jobSourceRunsTable.status, 'FAILED'), gte(jobSourceRunsTable.createdAt, cutoff)));
-    const [staleReconciledRunsRow] = await this.db
-      .select({ value: count() })
-      .from(jobSourceRunsTable)
-      .where(
-        and(
-          eq(jobSourceRunsTable.status, 'FAILED'),
-          eq(jobSourceRunsTable.failureType, 'timeout'),
-          eq(jobSourceRunsTable.error, '[timeout] run stale watchdog'),
-          gte(jobSourceRunsTable.createdAt, cutoff),
-        ),
-      );
-    const [retriesTriggeredRow] = await this.db
-      .select({ value: count() })
-      .from(jobSourceRunsTable)
-      .where(and(isNotNull(jobSourceRunsTable.retryOfRunId), gte(jobSourceRunsTable.createdAt, cutoff)));
-    const [retryCompletedRow] = await this.db
-      .select({ value: count() })
-      .from(jobSourceRunsTable)
-      .where(
-        and(
-          isNotNull(jobSourceRunsTable.retryOfRunId),
-          eq(jobSourceRunsTable.status, 'COMPLETED'),
-          gte(jobSourceRunsTable.createdAt, cutoff),
-        ),
-      );
+      const [totalUserOffersRow] = await this.db.select({ value: count() }).from(userJobOffersTable);
+      const [unscoredUserOffersRow] = await this.db
+        .select({ value: count() })
+        .from(userJobOffersTable)
+        .where(isNull(userJobOffersTable.matchScore));
+      const [freshCatalogOffersRow] = await this.db
+        .select({ value: count() })
+        .from(jobOffersTable)
+        .where(
+          and(
+            eq(jobOffersTable.qualityState, 'ACCEPTED'),
+            eq(jobOffersTable.isExpired, false),
+            gte(jobOffersTable.lastSeenAt, cutoff),
+          ),
+        );
+      const [catalogMatchedRecentlyRow] = await this.db
+        .select({ value: count() })
+        .from(jobOffersTable)
+        .where(gte(jobOffersTable.lastMatchedAt, cutoff));
+      const [dueSchedulesRow] = await this.db
+        .select({ value: count() })
+        .from(scrapeSchedulesTable)
+        .where(
+          and(
+            eq(scrapeSchedulesTable.enabled, 1),
+            or(isNull(scrapeSchedulesTable.nextRunAt), lt(scrapeSchedulesTable.nextRunAt, now)),
+          ),
+        );
+      const [enqueueFailuresRow] = await this.db
+        .select({ value: count() })
+        .from(scrapeSchedulesTable)
+        .where(
+          and(eq(scrapeSchedulesTable.lastRunStatus, 'ENQUEUE_FAILED'), gte(scrapeSchedulesTable.updatedAt, cutoff)),
+        );
+      const latestTrigger = await this.db
+        .select({ lastTriggeredAt: scrapeSchedulesTable.lastTriggeredAt })
+        .from(scrapeSchedulesTable)
+        .where(isNotNull(scrapeSchedulesTable.lastTriggeredAt))
+        .orderBy(desc(scrapeSchedulesTable.lastTriggeredAt))
+        .limit(1)
+        .then(([result]) => result ?? null);
+      const callbackEvents = await this.db
+        .select({
+          status: jobSourceCallbackEventsTable.status,
+          payload: jobSourceCallbackEventsTable.payload,
+          attemptNo: jobSourceCallbackEventsTable.attemptNo,
+          sourceRunId: jobSourceCallbackEventsTable.sourceRunId,
+          eventId: jobSourceCallbackEventsTable.eventId,
+          payloadHash: jobSourceCallbackEventsTable.payloadHash,
+        })
+        .from(jobSourceCallbackEventsTable)
+        .where(gte(jobSourceCallbackEventsTable.createdAt, cutoff));
 
-    const [totalUserOffersRow] = await this.db.select({ value: count() }).from(userJobOffersTable);
-    const [unscoredUserOffersRow] = await this.db
-      .select({ value: count() })
-      .from(userJobOffersTable)
-      .where(isNull(userJobOffersTable.matchScore));
-    const [freshCatalogOffersRow] = await this.db
-      .select({ value: count() })
-      .from(jobOffersTable)
-      .where(
-        and(
-          eq(jobOffersTable.qualityState, 'ACCEPTED'),
-          eq(jobOffersTable.isExpired, false),
-          gte(jobOffersTable.lastSeenAt, cutoff),
-        ),
-      );
-    const [catalogMatchedRecentlyRow] = await this.db
-      .select({ value: count() })
-      .from(jobOffersTable)
-      .where(gte(jobOffersTable.lastMatchedAt, cutoff));
-    const [dueSchedulesRow] = await this.db
-      .select({ value: count() })
-      .from(scrapeSchedulesTable)
-      .where(
-        and(
-          eq(scrapeSchedulesTable.enabled, 1),
-          or(isNull(scrapeSchedulesTable.nextRunAt), lt(scrapeSchedulesTable.nextRunAt, now)),
-        ),
-      );
-    const [enqueueFailuresRow] = await this.db
-      .select({ value: count() })
-      .from(scrapeSchedulesTable)
-      .where(
-        and(eq(scrapeSchedulesTable.lastRunStatus, 'ENQUEUE_FAILED'), gte(scrapeSchedulesTable.updatedAt, cutoff)),
-      );
-    const latestTrigger = await this.db
-      .select({ lastTriggeredAt: scrapeSchedulesTable.lastTriggeredAt })
-      .from(scrapeSchedulesTable)
-      .where(isNotNull(scrapeSchedulesTable.lastTriggeredAt))
-      .orderBy(desc(scrapeSchedulesTable.lastTriggeredAt))
-      .limit(1)
-      .then(([result]) => result ?? null);
-    const callbackEvents = await this.db
-      .select({
-        status: jobSourceCallbackEventsTable.status,
-        payload: jobSourceCallbackEventsTable.payload,
-        attemptNo: jobSourceCallbackEventsTable.attemptNo,
-        sourceRunId: jobSourceCallbackEventsTable.sourceRunId,
-        eventId: jobSourceCallbackEventsTable.eventId,
-        payloadHash: jobSourceCallbackEventsTable.payloadHash,
-      })
-      .from(jobSourceCallbackEventsTable)
-      .where(gte(jobSourceCallbackEventsTable.createdAt, cutoff));
-
-    const totalRuns = Number(totalRunsRow?.value ?? 0);
-    const completedRuns = Number(completedRunsRow?.value ?? 0);
-    const retriesTriggered = Number(retriesTriggeredRow?.value ?? 0);
-    const retryCompleted = Number(retryCompletedRow?.value ?? 0);
-    const failuresByType: Record<string, number> = {};
-    const failuresByCode: Record<string, number> = {};
-    let completedEvents = 0;
-    let failedEvents = 0;
-    let retriedEvents = 0;
-    const conflictGroups = new Map<string, Set<string>>();
-    for (const item of callbackEvents) {
-      if (item.status === 'COMPLETED') {
-        completedEvents += 1;
-      }
-      if (item.status === 'FAILED') {
-        failedEvents += 1;
-      }
-      if ((item.attemptNo ?? 1) > 1) {
-        retriedEvents += 1;
-      }
-      const key = `${item.sourceRunId}:${item.eventId}`;
-      if (!conflictGroups.has(key)) {
-        conflictGroups.set(key, new Set<string>());
-      }
-      const hashKey = item.payloadHash?.trim() ? item.payloadHash.trim() : '__empty__';
-      conflictGroups.get(key)?.add(hashKey);
-      if (!item.payload) {
-        continue;
-      }
-      try {
-        const parsed = JSON.parse(item.payload) as Record<string, unknown>;
-        const type =
-          typeof parsed.failureType === 'string' && parsed.failureType.trim() ? parsed.failureType.trim() : null;
-        const code =
-          typeof parsed.failureCode === 'string' && parsed.failureCode.trim() ? parsed.failureCode.trim() : null;
-        if (type) {
-          failuresByType[type] = (failuresByType[type] ?? 0) + 1;
+      const totalRuns = Number(totalRunsRow?.value ?? 0);
+      const completedRuns = Number(completedRunsRow?.value ?? 0);
+      const retriesTriggered = Number(retriesTriggeredRow?.value ?? 0);
+      const retryCompleted = Number(retryCompletedRow?.value ?? 0);
+      const failuresByType: Record<string, number> = {};
+      const failuresByCode: Record<string, number> = {};
+      let completedEvents = 0;
+      let failedEvents = 0;
+      let retriedEvents = 0;
+      const conflictGroups = new Map<string, Set<string>>();
+      for (const item of callbackEvents) {
+        if (item.status === 'COMPLETED') {
+          completedEvents += 1;
         }
-        if (code) {
-          failuresByCode[code] = (failuresByCode[code] ?? 0) + 1;
+        if (item.status === 'FAILED') {
+          failedEvents += 1;
         }
-      } catch {
-        // Ignore malformed payloads to keep metrics endpoint resilient.
+        if ((item.attemptNo ?? 1) > 1) {
+          retriedEvents += 1;
+        }
+        const key = `${item.sourceRunId}:${item.eventId}`;
+        if (!conflictGroups.has(key)) {
+          conflictGroups.set(key, new Set<string>());
+        }
+        const hashKey = item.payloadHash?.trim() ? item.payloadHash.trim() : '__empty__';
+        conflictGroups.get(key)?.add(hashKey);
+        if (!item.payload) {
+          continue;
+        }
+        try {
+          const parsed = JSON.parse(item.payload) as Record<string, unknown>;
+          const type =
+            typeof parsed.failureType === 'string' && parsed.failureType.trim() ? parsed.failureType.trim() : null;
+          const code =
+            typeof parsed.failureCode === 'string' && parsed.failureCode.trim() ? parsed.failureCode.trim() : null;
+          if (type) {
+            failuresByType[type] = (failuresByType[type] ?? 0) + 1;
+          }
+          if (code) {
+            failuresByCode[code] = (failuresByCode[code] ?? 0) + 1;
+          }
+        } catch {
+          // Ignore malformed payloads to keep metrics endpoint resilient.
+        }
       }
+      const conflictingPayloadEvents24h = Array.from(conflictGroups.values()).filter(
+        (hashes) => hashes.size > 1,
+      ).length;
+
+      return {
+        windowHours,
+        queue: {
+          activeRuns: Number(activeRunsRow?.value ?? 0),
+          pendingRuns: Number(pendingRunsRow?.value ?? 0),
+          runningRuns: Number(runningRunsRow?.value ?? 0),
+          runningWithoutHeartbeat:
+            Number(runningWithoutHeartbeatRow?.value ?? 0) + Number(runningStaleHeartbeatRow?.value ?? 0),
+        },
+        scrape: {
+          totalRuns,
+          completedRuns,
+          failedRuns: Number(failedRunsRow?.value ?? 0),
+          successRate: totalRuns ? Number((completedRuns / totalRuns).toFixed(4)) : 0,
+        },
+        offers: {
+          totalUserOffers: Number(totalUserOffersRow?.value ?? 0),
+          unscoredUserOffers: Number(unscoredUserOffersRow?.value ?? 0),
+        },
+        catalog: {
+          freshAcceptedOffers: Number(freshCatalogOffersRow?.value ?? 0),
+          matchedRecently: Number(catalogMatchedRecentlyRow?.value ?? 0),
+        },
+        lifecycle: {
+          staleReconciledRuns: Number(staleReconciledRunsRow?.value ?? 0),
+          retriesTriggered,
+          retrySuccessRate: retriesTriggered ? Number((retryCompleted / retriesTriggered).toFixed(4)) : 0,
+        },
+        callback: {
+          totalEvents: callbackEvents.length,
+          completedEvents,
+          failedEvents,
+          failedRate: callbackEvents.length ? Number((failedEvents / callbackEvents.length).toFixed(4)) : 0,
+          retryRate24h: callbackEvents.length ? Number((retriedEvents / callbackEvents.length).toFixed(4)) : 0,
+          conflictingPayloadEvents24h,
+          failuresByType,
+          failuresByCode,
+        },
+        scheduler: {
+          lastTriggerAt: latestTrigger?.lastTriggeredAt?.toISOString() ?? null,
+          dueSchedules: Number(dueSchedulesRow?.value ?? 0),
+          enqueueFailures24h: Number(enqueueFailuresRow?.value ?? 0),
+        },
+      };
+    } catch (error) {
+      this.logger.warn(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          windowHours,
+        },
+        'Ops metrics degraded to fallback',
+      );
+      return this.emptyMetrics(windowHours);
     }
-    const conflictingPayloadEvents24h = Array.from(conflictGroups.values()).filter((hashes) => hashes.size > 1).length;
-
-    return {
-      windowHours,
-      queue: {
-        activeRuns: Number(activeRunsRow?.value ?? 0),
-        pendingRuns: Number(pendingRunsRow?.value ?? 0),
-        runningRuns: Number(runningRunsRow?.value ?? 0),
-        runningWithoutHeartbeat:
-          Number(runningWithoutHeartbeatRow?.value ?? 0) + Number(runningStaleHeartbeatRow?.value ?? 0),
-      },
-      scrape: {
-        totalRuns,
-        completedRuns,
-        failedRuns: Number(failedRunsRow?.value ?? 0),
-        successRate: totalRuns ? Number((completedRuns / totalRuns).toFixed(4)) : 0,
-      },
-      offers: {
-        totalUserOffers: Number(totalUserOffersRow?.value ?? 0),
-        unscoredUserOffers: Number(unscoredUserOffersRow?.value ?? 0),
-      },
-      catalog: {
-        freshAcceptedOffers: Number(freshCatalogOffersRow?.value ?? 0),
-        matchedRecently: Number(catalogMatchedRecentlyRow?.value ?? 0),
-      },
-      lifecycle: {
-        staleReconciledRuns: Number(staleReconciledRunsRow?.value ?? 0),
-        retriesTriggered,
-        retrySuccessRate: retriesTriggered ? Number((retryCompleted / retriesTriggered).toFixed(4)) : 0,
-      },
-      callback: {
-        totalEvents: callbackEvents.length,
-        completedEvents,
-        failedEvents,
-        failedRate: callbackEvents.length ? Number((failedEvents / callbackEvents.length).toFixed(4)) : 0,
-        retryRate24h: callbackEvents.length ? Number((retriedEvents / callbackEvents.length).toFixed(4)) : 0,
-        conflictingPayloadEvents24h,
-        failuresByType,
-        failuresByCode,
-      },
-      scheduler: {
-        lastTriggerAt: latestTrigger?.lastTriggeredAt?.toISOString() ?? null,
-        dueSchedules: Number(dueSchedulesRow?.value ?? 0),
-        enqueueFailures24h: Number(enqueueFailuresRow?.value ?? 0),
-      },
-    };
   }
 
   async getSupportOverview(windowHoursInput?: number) {
