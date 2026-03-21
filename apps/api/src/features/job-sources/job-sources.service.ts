@@ -2193,6 +2193,8 @@ export class JobSourcesService {
         source: jobSourceRunsTable.source,
         status: jobSourceRunsTable.status,
         failureType: jobSourceRunsTable.failureType,
+        classifiedOutcome: jobSourceRunsTable.classifiedOutcome,
+        sourceQuality: jobSourceRunsTable.sourceQuality,
         createdAt: jobSourceRunsTable.createdAt,
         lastHeartbeatAt: jobSourceRunsTable.lastHeartbeatAt,
       })
@@ -2208,7 +2210,19 @@ export class JobSourcesService {
         failedRuns: number;
         timeoutFailures: number;
         callbackFailures: number;
+        networkFailures: number;
+        parseFailures: number;
+        validationFailures: number;
+        unknownFailures: number;
         staleHeartbeatRuns: number;
+        degradedRuns: number;
+        emptyRuns: number;
+        failedQualityRuns: number;
+        partialSuccessRuns: number;
+        blockedOutcomeRuns: number;
+        listingEmptyRuns: number;
+        filtersExhaustedRuns: number;
+        detailParseGapRuns: number;
         latestRunAt: Date | null;
         latestRunStatus: string | null;
       }
@@ -2223,7 +2237,19 @@ export class JobSourcesService {
         failedRuns: 0,
         timeoutFailures: 0,
         callbackFailures: 0,
+        networkFailures: 0,
+        parseFailures: 0,
+        validationFailures: 0,
+        unknownFailures: 0,
         staleHeartbeatRuns: 0,
+        degradedRuns: 0,
+        emptyRuns: 0,
+        failedQualityRuns: 0,
+        partialSuccessRuns: 0,
+        blockedOutcomeRuns: 0,
+        listingEmptyRuns: 0,
+        filtersExhaustedRuns: 0,
+        detailParseGapRuns: 0,
         latestRunAt: null,
         latestRunStatus: null,
       };
@@ -2232,8 +2258,20 @@ export class JobSourcesService {
       current.failedRuns += run.status === 'FAILED' ? 1 : 0;
       current.timeoutFailures += run.failureType === 'timeout' ? 1 : 0;
       current.callbackFailures += run.failureType === 'callback' ? 1 : 0;
+      current.networkFailures += run.failureType === 'network' ? 1 : 0;
+      current.parseFailures += run.failureType === 'parse' ? 1 : 0;
+      current.validationFailures += run.failureType === 'validation' ? 1 : 0;
+      current.unknownFailures += !run.failureType || run.failureType === 'unknown' ? 1 : 0;
       current.staleHeartbeatRuns +=
         run.status === 'RUNNING' && run.lastHeartbeatAt != null && run.lastHeartbeatAt < staleHeartbeatCutoff ? 1 : 0;
+      current.degradedRuns += run.sourceQuality === 'degraded' ? 1 : 0;
+      current.emptyRuns += run.sourceQuality === 'empty' ? 1 : 0;
+      current.failedQualityRuns += run.sourceQuality === 'failed' ? 1 : 0;
+      current.partialSuccessRuns += run.classifiedOutcome === 'partial_success' ? 1 : 0;
+      current.blockedOutcomeRuns += run.classifiedOutcome === 'blocked_by_source' ? 1 : 0;
+      current.listingEmptyRuns += run.classifiedOutcome === 'listing_empty' ? 1 : 0;
+      current.filtersExhaustedRuns += run.classifiedOutcome === 'filters_exhausted' ? 1 : 0;
+      current.detailParseGapRuns += run.classifiedOutcome === 'detail_parse_gap' ? 1 : 0;
       if (!current.latestRunAt || run.createdAt > current.latestRunAt) {
         current.latestRunAt = run.createdAt;
         current.latestRunStatus = run.status;
@@ -2960,24 +2998,34 @@ export class JobSourcesService {
     if (specificOfferIds?.length) {
       conditions.push(inArray(jobOffersTable.id, specificOfferIds));
     }
-
-    return this.db
-      .select({
-        id: jobOffersTable.id,
-        title: jobOffersTable.title,
-        company: jobOffersTable.company,
-        location: jobOffersTable.location,
-        salary: jobOffersTable.salary,
-        employmentType: jobOffersTable.employmentType,
-        description: jobOffersTable.description,
-        requirements: jobOffersTable.requirements,
-        details: jobOffersTable.details,
-        lastSeenAt: jobOffersTable.lastSeenAt,
-      })
-      .from(jobOffersTable)
-      .where(and(...conditions))
-      .orderBy(desc(jobOffersTable.lastSeenAt), desc(jobOffersTable.fetchedAt))
-      .limit(specificOfferIds?.length ? specificOfferIds.length : (explicitLimit ?? limit));
+    try {
+      return await this.db
+        .select({
+          id: jobOffersTable.id,
+          title: jobOffersTable.title,
+          company: jobOffersTable.company,
+          location: jobOffersTable.location,
+          salary: jobOffersTable.salary,
+          employmentType: jobOffersTable.employmentType,
+          description: jobOffersTable.description,
+          requirements: jobOffersTable.requirements,
+          details: jobOffersTable.details,
+          lastSeenAt: jobOffersTable.lastSeenAt,
+        })
+        .from(jobOffersTable)
+        .where(and(...conditions))
+        .orderBy(desc(jobOffersTable.lastSeenAt), desc(jobOffersTable.fetchedAt))
+        .limit(specificOfferIds?.length ? specificOfferIds.length : (explicitLimit ?? limit));
+    } catch (error) {
+      this.logger.warn(
+        {
+          source,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Catalog candidate offer query degraded to empty result',
+      );
+      return [];
+    }
   }
 
   private async countCatalogMatchesForProfile(profile: CandidateProfile, source: 'PRACUJ_PL', limit: number) {

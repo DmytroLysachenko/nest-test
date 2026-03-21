@@ -2156,6 +2156,101 @@ describe('JobSourcesService', () => {
     expect(updateWhere).toHaveBeenCalledTimes(2);
   });
 
+  it('aggregates source health quality, classified outcomes, and failure rollups', async () => {
+    const now = new Date('2026-03-21T12:00:00.000Z');
+    jest.spyOn(Date, 'now').mockReturnValue(now.getTime());
+
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            {
+              source: 'PRACUJ_PL',
+              status: 'COMPLETED',
+              failureType: null,
+              classifiedOutcome: 'success',
+              sourceQuality: 'healthy',
+              createdAt: new Date('2026-03-21T10:00:00.000Z'),
+              lastHeartbeatAt: null,
+            },
+            {
+              source: 'PRACUJ_PL',
+              status: 'COMPLETED',
+              failureType: null,
+              classifiedOutcome: 'partial_success',
+              sourceQuality: 'degraded',
+              createdAt: new Date('2026-03-21T10:10:00.000Z'),
+              lastHeartbeatAt: null,
+            },
+            {
+              source: 'PRACUJ_PL',
+              status: 'COMPLETED',
+              failureType: null,
+              classifiedOutcome: 'detail_parse_gap',
+              sourceQuality: 'degraded',
+              createdAt: new Date('2026-03-21T10:20:00.000Z'),
+              lastHeartbeatAt: null,
+            },
+            {
+              source: 'PRACUJ_PL',
+              status: 'COMPLETED',
+              failureType: null,
+              classifiedOutcome: 'filters_exhausted',
+              sourceQuality: 'empty',
+              createdAt: new Date('2026-03-21T10:30:00.000Z'),
+              lastHeartbeatAt: null,
+            },
+            {
+              source: 'PRACUJ_PL',
+              status: 'FAILED',
+              failureType: 'network',
+              classifiedOutcome: 'failed:network',
+              sourceQuality: 'failed',
+              createdAt: new Date('2026-03-21T11:00:00.000Z'),
+              lastHeartbeatAt: null,
+            },
+            {
+              source: 'PRACUJ_PL',
+              status: 'RUNNING',
+              failureType: null,
+              classifiedOutcome: null,
+              sourceQuality: null,
+              createdAt: new Date('2026-03-21T11:30:00.000Z'),
+              lastHeartbeatAt: new Date('2026-03-21T11:40:00.000Z'),
+            },
+          ]),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const result = await service.getSourceHealth('user-20', 72);
+
+    expect(result.windowHours).toBe(72);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      source: 'PRACUJ_PL',
+      totalRuns: 6,
+      completedRuns: 4,
+      failedRuns: 1,
+      successRate: 0.6667,
+      networkFailures: 1,
+      degradedRuns: 2,
+      emptyRuns: 1,
+      failedQualityRuns: 1,
+      partialSuccessRuns: 1,
+      filtersExhaustedRuns: 1,
+      detailParseGapRuns: 1,
+      latestRunStatus: 'RUNNING',
+    });
+  });
+
   it('rejects retry when run is not failed', async () => {
     const db = {
       update: jest.fn().mockReturnValue({

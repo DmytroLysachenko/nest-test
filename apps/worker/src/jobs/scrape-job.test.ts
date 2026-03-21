@@ -6,6 +6,7 @@ import { classifyScrapeOutcome } from '@repo/db';
 import {
   assessNormalizedJobs,
   buildScrapeCallbackPayload,
+  resolveScrapeCompletionDiagnostics,
   computeCallbackPayloadHash,
   computeNormalizedJobContentHash,
   buildWorkerCallbackSignaturePayload,
@@ -319,4 +320,43 @@ test('classifyScrapeOutcome distinguishes partial, empty, blocked, and callback 
     }),
     'callback_rejected',
   );
+});
+
+test('resolveScrapeCompletionDiagnostics marks partial blocked runs as degraded partial success', () => {
+  const result = resolveScrapeCompletionDiagnostics({
+    sanitizedCount: 3,
+    jobLinkCount: 8,
+    blockedUrlCount: 3,
+    hadZeroOffersStep: false,
+    rejectedOfferCount: 0,
+  });
+
+  assert.equal(result.blockedRate, 0.375);
+  assert.equal(result.resultKind, 'blocked');
+  assert.equal(result.emptyReason, null);
+  assert.equal(result.sourceQuality, 'degraded');
+});
+
+test('resolveScrapeCompletionDiagnostics distinguishes detail parse gaps from source blocking', () => {
+  const parseGap = resolveScrapeCompletionDiagnostics({
+    sanitizedCount: 0,
+    jobLinkCount: 6,
+    blockedUrlCount: 1,
+    hadZeroOffersStep: false,
+    rejectedOfferCount: 0,
+  });
+  const blocked = resolveScrapeCompletionDiagnostics({
+    sanitizedCount: 0,
+    jobLinkCount: 6,
+    blockedUrlCount: 6,
+    hadZeroOffersStep: false,
+    rejectedOfferCount: 0,
+  });
+
+  assert.equal(parseGap.resultKind, 'empty');
+  assert.equal(parseGap.emptyReason, 'detail_parse_gap');
+  assert.equal(parseGap.sourceQuality, 'degraded');
+  assert.equal(blocked.resultKind, 'blocked');
+  assert.equal(blocked.emptyReason, null);
+  assert.equal(blocked.sourceQuality, 'degraded');
 });

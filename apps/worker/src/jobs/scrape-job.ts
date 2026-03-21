@@ -64,6 +64,13 @@ type CallbackPayload = {
 };
 
 export type ScrapeFailureType = 'validation' | 'network' | 'parse' | 'callback' | 'timeout' | 'unknown';
+type CompletionDiagnosticsInput = {
+  sanitizedCount: number;
+  jobLinkCount: number;
+  blockedUrlCount: number;
+  hadZeroOffersStep: boolean;
+  rejectedOfferCount: number;
+};
 
 const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const toError = (error: unknown) => (error instanceof Error ? error : new Error('Unknown error'));
@@ -124,6 +131,73 @@ export const computeNormalizedJobContentHash = (
       }),
     )
     .digest('hex');
+
+export const resolveScrapeCompletionDiagnostics = ({
+  sanitizedCount,
+  jobLinkCount,
+  blockedUrlCount,
+  hadZeroOffersStep,
+  rejectedOfferCount,
+}: CompletionDiagnosticsInput): {
+  blockedRate: number;
+  resultKind: ScrapeResultKind;
+  emptyReason: ScrapeEmptyReason | null;
+  sourceQuality: ScrapeSourceQuality;
+} => {
+  const blockedRate = jobLinkCount > 0 ? Number((blockedUrlCount / jobLinkCount).toFixed(4)) : 0;
+
+  if (sanitizedCount > 0) {
+    if (blockedRate >= 0.3) {
+      return {
+        blockedRate,
+        resultKind: 'blocked',
+        emptyReason: null,
+        sourceQuality: 'degraded',
+      };
+    }
+
+    return {
+      blockedRate,
+      resultKind: 'healthy',
+      emptyReason: null,
+      sourceQuality: blockedUrlCount > 0 || rejectedOfferCount > 0 ? 'degraded' : 'healthy',
+    };
+  }
+
+  if (hadZeroOffersStep) {
+    return {
+      blockedRate,
+      resultKind: 'empty',
+      emptyReason: 'filters_exhausted',
+      sourceQuality: 'empty',
+    };
+  }
+
+  if (jobLinkCount === 0) {
+    return {
+      blockedRate,
+      resultKind: 'empty',
+      emptyReason: 'no_listings',
+      sourceQuality: 'empty',
+    };
+  }
+
+  if (blockedUrlCount === jobLinkCount || blockedRate >= 0.5) {
+    return {
+      blockedRate,
+      resultKind: 'blocked',
+      emptyReason: null,
+      sourceQuality: 'degraded',
+    };
+  }
+
+  return {
+    blockedRate,
+    resultKind: 'empty',
+    emptyReason: 'detail_parse_gap',
+    sourceQuality: 'degraded',
+  };
+};
 
 const canonicalOfferKey = (job: Pick<NormalizedJob, 'sourceId' | 'url'>) => {
   const sourceId = normalizeString(job.sourceId);
@@ -847,34 +921,15 @@ export const runScrapeJob = async (
         dedupedInRunCount,
       },
     );
-    const blockedRate =
-      aggregatedJobLinks.size > 0 ? Number((aggregatedBlockedUrls.length / aggregatedJobLinks.size).toFixed(4)) : 0;
+    const { blockedRate, resultKind, emptyReason, sourceQuality } = resolveScrapeCompletionDiagnostics({
+      sanitizedCount: sanitizedJobs.length,
+      jobLinkCount: aggregatedJobLinks.size,
+      blockedUrlCount: aggregatedBlockedUrls.length,
+      hadZeroOffersStep,
+      rejectedOfferCount: assessedJobs.rejectedOfferCount,
+    });
     const finalPolicy =
       adaptiveDelayApplied > 0 ? `adaptive-delay:${adaptiveDetailDelayMs ?? options.detailDelayMs ?? 0}` : 'default';
-    const resultKind: ScrapeResultKind =
-      sanitizedJobs.length > 0
-        ? blockedRate >= 0.3
-          ? 'blocked'
-          : 'healthy'
-        : aggregatedJobLinks.size === 0
-          ? 'empty'
-          : 'blocked';
-    const emptyReason: ScrapeEmptyReason | null =
-      sanitizedJobs.length > 0
-        ? null
-        : hadZeroOffersStep
-          ? 'filters_exhausted'
-          : aggregatedJobLinks.size === 0
-            ? 'no_listings'
-            : 'detail_parse_gap';
-    const sourceQuality: ScrapeSourceQuality =
-      sanitizedJobs.length > 0
-        ? blockedRate >= 0.3
-          ? 'degraded'
-          : 'healthy'
-        : aggregatedJobLinks.size === 0
-          ? 'empty'
-          : 'degraded';
     const classifiedOutcome = classifyScrapeOutcome({
       status: 'COMPLETED',
       resultKind,

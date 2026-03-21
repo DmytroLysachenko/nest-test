@@ -23,6 +23,18 @@ class JobSourceHealthItemResponse {
   callbackFailures!: number;
 
   @ApiProperty()
+  networkFailures!: number;
+
+  @ApiProperty()
+  parseFailures!: number;
+
+  @ApiProperty()
+  validationFailures!: number;
+
+  @ApiProperty()
+  unknownFailures!: number;
+
+  @ApiProperty()
   staleHeartbeatRuns!: number;
 
   @ApiProperty({ nullable: true })
@@ -30,6 +42,30 @@ class JobSourceHealthItemResponse {
 
   @ApiProperty({ nullable: true })
   latestRunStatus!: string | null;
+
+  @ApiProperty()
+  degradedRuns!: number;
+
+  @ApiProperty()
+  emptyRuns!: number;
+
+  @ApiProperty()
+  failedQualityRuns!: number;
+
+  @ApiProperty()
+  partialSuccessRuns!: number;
+
+  @ApiProperty()
+  blockedOutcomeRuns!: number;
+
+  @ApiProperty()
+  listingEmptyRuns!: number;
+
+  @ApiProperty()
+  filtersExhaustedRuns!: number;
+
+  @ApiProperty()
+  detailParseGapRuns!: number;
 }
 
 export class JobSourceHealthResponse {
