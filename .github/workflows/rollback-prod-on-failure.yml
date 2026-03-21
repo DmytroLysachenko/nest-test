@@ -93,6 +93,14 @@ jobs:
           test -n "${GCP_PROJECT_ID}" || (echo "Missing vars.GCP_PROJECT_ID" && exit 1)
           test -n "${GCP_REGION}" || (echo "Missing vars.GCP_REGION" && exit 1)
 
+          resolve_revision_image() {
+            local revision="$1"
+            gcloud run revisions describe "$revision" \
+              --project="${GCP_PROJECT_ID}" \
+              --region="${GCP_REGION}" \
+              --format='value(spec.containers[0].image)' 2>/dev/null || true
+          }
+
           rollback_one() {
             local service="$1"
             local enabled="$2"
@@ -118,6 +126,10 @@ jobs:
 
             local current="${revisions[0]}"
             local previous="${revisions[1]}"
+            local current_image
+            local previous_image
+            current_image="$(resolve_revision_image "${current}")"
+            previous_image="$(resolve_revision_image "${previous}")"
 
             echo "Rolling back ${service} from ${current} to ${previous}"
             gcloud run services update-traffic "${service}" \
@@ -126,7 +138,7 @@ jobs:
               --to-revisions="${previous}=100" \
               >/dev/null
 
-            echo "{\"service\":\"${service}\",\"rolledBackTo\":\"${previous}\",\"from\":\"${current}\"}" >> rollback-summary.ndjson
+            echo "{\"releaseSha\":\"${RELEASE_SHA}\",\"rolledBackAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"service\":\"${service}\",\"fromRevision\":\"${current}\",\"fromImage\":\"${current_image}\",\"rolledBackToRevision\":\"${previous}\",\"rolledBackToImage\":\"${previous_image}\"}" >> rollback-summary.ndjson
           }
 
           : > rollback-summary.ndjson

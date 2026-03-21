@@ -22,11 +22,18 @@ import { Card } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
 import { ConfirmActionDialog } from '@/shared/ui/confirm-action-dialog';
 import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
+import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
 
 export const ProfileManagementPage = () => {
   const router = useRouter();
   const auth = useRequireAuth();
-  const { summary, latestCareerProfile, latestProfileInput, documents: sharedDocuments } = usePrivateDashboardData();
+  const {
+    summary,
+    latestCareerProfile,
+    latestProfileInput,
+    documents: sharedDocuments,
+    isBootstrapping,
+  } = usePrivateDashboardData();
   const setLastVisitedSection = useAppUiStore((state) => state.setLastVisitedSection);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -70,6 +77,28 @@ export const ProfileManagementPage = () => {
       <WorkspaceSplashState
         title="Opening Profile Studio"
         subtitle="Restoring your profile inputs, ready documents, and active profile version..."
+      />
+    );
+  }
+
+  if (isBootstrapping || !summary) {
+    return (
+      <WorkspaceSplashState
+        title="Opening Profile Studio"
+        subtitle="Restoring your profile inputs, ready documents, and active profile version..."
+      />
+    );
+  }
+
+  if (summary.workflow.needsOnboarding) {
+    return (
+      <WorkflowRouteBlock
+        summary={summary}
+        route="profile"
+        title="Profile Studio is locked"
+        fallbackDescription="Complete the required setup steps before editing your active profile workflow."
+        fallbackActionLabel="Open dashboard"
+        onNavigate={(href) => router.push(href)}
       />
     );
   }

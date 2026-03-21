@@ -23,9 +23,10 @@ import { JobOffersModule } from '@/features/job-offers/job-offers.module';
 import { OnboardingDraftsModule } from '@/features/onboarding-drafts/onboarding-drafts.module';
 import { WorkspaceModule } from '@/features/workspace/workspace.module';
 import { OpsModule } from '@/features/ops/ops.module';
-import { RolesGuard } from '@/common/guards';
+import { AuthorizationGuard } from '@/common/guards';
 import { ApiRequestEventsService } from '@/common/observability/api-request-events.service';
 import { ApiWarningEventInterceptor } from '@/common/interceptor/api-warning-event.interceptor';
+import { AuthorizationModule } from '@/common/authorization/authorization.module';
 
 import type { Env } from '@/config/env';
 
@@ -72,6 +73,7 @@ import type { Env } from '@/config/env';
     }),
     LoggerModule,
     DrizzleModule,
+    AuthorizationModule,
     HealthModule,
     AuthModule,
     NodeMailerModule,
@@ -90,7 +92,7 @@ import type { Env } from '@/config/env';
   providers: [
     {
       provide: APP_GUARD,
-      useClass: RolesGuard,
+      useClass: AuthorizationGuard,
     },
     {
       provide: APP_GUARD,

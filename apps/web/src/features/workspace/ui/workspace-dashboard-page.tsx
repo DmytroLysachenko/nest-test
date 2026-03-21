@@ -248,6 +248,55 @@ export const WorkspaceDashboardPage = () => {
         </Card>
 
         <div className="space-y-5">
+          <Card title="Today's Focus" description="Server-driven focus lanes for the next notebook session.">
+            {dashboard.isFocusLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="bg-surface-muted h-14 animate-pulse rounded-lg" />
+                ))}
+              </div>
+            ) : dashboard.focusError ? (
+              <div className="border-app-danger-border bg-app-danger-soft space-y-2 rounded-xl border p-3">
+                <p className="text-app-danger text-sm">{dashboard.focusError}</p>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="h-9"
+                  onClick={() => {
+                    void dashboard.refetchFocus();
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : dashboard.focusGroups.length ? (
+              <div className="space-y-3">
+                {dashboard.focusGroups
+                  .filter((group) => group.count > 0)
+                  .slice(0, 5)
+                  .map((group) => (
+                    <Link
+                      key={group.key}
+                      href={group.href}
+                      className="app-muted-panel block transition-transform hover:-translate-y-0.5"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-text-strong text-sm font-semibold">{group.label}</p>
+                        <span className="app-badge">{group.count}</span>
+                      </div>
+                      <p className="text-text-soft mt-2 text-sm leading-6">{group.description}</p>
+                    </Link>
+                  ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={<Inbox className="h-8 w-8" />}
+                title="No focus lanes waiting"
+                description="Your notebook does not have any urgent focus groups right now."
+              />
+            )}
+          </Card>
+
           <Card title="Current Run Snapshot" description="A compact view of scrape and schedule state.">
             <div className="space-y-3">
               <StatRow

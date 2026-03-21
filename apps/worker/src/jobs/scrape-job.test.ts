@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { classifyScrapeOutcome } from '@repo/db';
+
 import {
   assessNormalizedJobs,
   buildScrapeCallbackPayload,
+  resolveScrapeCompletionDiagnostics,
   computeCallbackPayloadHash,
   computeNormalizedJobContentHash,
   buildWorkerCallbackSignaturePayload,
@@ -282,4 +285,78 @@ test('computeCallbackRetryDelayMs applies bounded jitter', () => {
   assert.equal(computeCallbackRetryDelayMs(2, 1000, 10_000, 0.2, 0), 1600);
   assert.equal(computeCallbackRetryDelayMs(2, 1000, 10_000, 0.2, 1), 2400);
   assert.equal(computeCallbackRetryDelayMs(2, 1000, 10_000, 0.2, 0.5), 2000);
+});
+
+test('classifyScrapeOutcome distinguishes partial, empty, blocked, and callback failures', () => {
+  assert.equal(
+    classifyScrapeOutcome({
+      status: 'COMPLETED',
+      resultKind: 'blocked',
+      scrapedCount: 3,
+    }),
+    'partial_success',
+  );
+  assert.equal(
+    classifyScrapeOutcome({
+      status: 'COMPLETED',
+      resultKind: 'blocked',
+      scrapedCount: 0,
+    }),
+    'blocked_by_source',
+  );
+  assert.equal(
+    classifyScrapeOutcome({
+      status: 'COMPLETED',
+      resultKind: 'empty',
+      emptyReason: 'filters_exhausted',
+      scrapedCount: 0,
+    }),
+    'filters_exhausted',
+  );
+  assert.equal(
+    classifyScrapeOutcome({
+      status: 'FAILED',
+      failureType: 'callback',
+    }),
+    'callback_rejected',
+  );
+});
+
+test('resolveScrapeCompletionDiagnostics marks partial blocked runs as degraded partial success', () => {
+  const result = resolveScrapeCompletionDiagnostics({
+    sanitizedCount: 3,
+    jobLinkCount: 8,
+    blockedUrlCount: 3,
+    hadZeroOffersStep: false,
+    rejectedOfferCount: 0,
+  });
+
+  assert.equal(result.blockedRate, 0.375);
+  assert.equal(result.resultKind, 'blocked');
+  assert.equal(result.emptyReason, null);
+  assert.equal(result.sourceQuality, 'degraded');
+});
+
+test('resolveScrapeCompletionDiagnostics distinguishes detail parse gaps from source blocking', () => {
+  const parseGap = resolveScrapeCompletionDiagnostics({
+    sanitizedCount: 0,
+    jobLinkCount: 6,
+    blockedUrlCount: 1,
+    hadZeroOffersStep: false,
+    rejectedOfferCount: 0,
+  });
+  const blocked = resolveScrapeCompletionDiagnostics({
+    sanitizedCount: 0,
+    jobLinkCount: 6,
+    blockedUrlCount: 6,
+    hadZeroOffersStep: false,
+    rejectedOfferCount: 0,
+  });
+
+  assert.equal(parseGap.resultKind, 'empty');
+  assert.equal(parseGap.emptyReason, 'detail_parse_gap');
+  assert.equal(parseGap.sourceQuality, 'degraded');
+  assert.equal(blocked.resultKind, 'blocked');
+  assert.equal(blocked.emptyReason, null);
+  assert.equal(blocked.sourceQuality, 'degraded');
 });

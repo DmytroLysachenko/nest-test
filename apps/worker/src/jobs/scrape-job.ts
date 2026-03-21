@@ -1,13 +1,23 @@
 import { createHash, createHmac, randomUUID } from 'crypto';
 
+import { classifyScrapeOutcome } from '@repo/db';
+
 import { persistDeadLetter } from './callback-dead-letter';
 import { resolveOutboundAuthorizationHeader } from './oidc-auth';
 import { relaxPracujFiltersOnce } from './pracuj-filter-relaxation';
 import { resolvePipeline, runPipeline } from './scrape-pipelines';
+import { appendScrapeExecutionEvent } from '../db/scrape-execution-events';
 import { saveOutput } from '../output/save-output';
 import { loadFreshOfferUrls } from '../db/fresh-offers';
 
-import type { PracujSourceKind, ScrapeFilters } from '@repo/db';
+import type {
+  ScrapeClassifiedOutcome,
+  PracujSourceKind,
+  ScrapeEmptyReason,
+  ScrapeFilters,
+  ScrapeResultKind,
+  ScrapeSourceQuality,
+} from '@repo/db';
 import type { Logger } from 'pino';
 import type { ScrapeSourceJob } from '../types/jobs';
 import type { DetailFetchDiagnostics, ListingJobSummary, NormalizedJob, ParsedJob, RawPage } from '../sources/types';
@@ -46,13 +56,21 @@ type CallbackPayload = {
     adaptiveDelayApplied?: number;
     blockedRate?: number;
     finalPolicy?: string;
-    resultKind?: 'healthy' | 'empty' | 'blocked' | 'failed';
-    emptyReason?: 'filters_exhausted' | 'no_listings' | 'detail_parse_gap' | null;
-    sourceQuality?: 'healthy' | 'degraded' | 'empty' | 'failed';
+    resultKind?: ScrapeResultKind;
+    emptyReason?: ScrapeEmptyReason | null;
+    sourceQuality?: ScrapeSourceQuality;
+    classifiedOutcome?: ScrapeClassifiedOutcome;
   };
 };
 
 export type ScrapeFailureType = 'validation' | 'network' | 'parse' | 'callback' | 'timeout' | 'unknown';
+type CompletionDiagnosticsInput = {
+  sanitizedCount: number;
+  jobLinkCount: number;
+  blockedUrlCount: number;
+  hadZeroOffersStep: boolean;
+  rejectedOfferCount: number;
+};
 
 const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const toError = (error: unknown) => (error instanceof Error ? error : new Error('Unknown error'));
@@ -113,6 +131,73 @@ export const computeNormalizedJobContentHash = (
       }),
     )
     .digest('hex');
+
+export const resolveScrapeCompletionDiagnostics = ({
+  sanitizedCount,
+  jobLinkCount,
+  blockedUrlCount,
+  hadZeroOffersStep,
+  rejectedOfferCount,
+}: CompletionDiagnosticsInput): {
+  blockedRate: number;
+  resultKind: ScrapeResultKind;
+  emptyReason: ScrapeEmptyReason | null;
+  sourceQuality: ScrapeSourceQuality;
+} => {
+  const blockedRate = jobLinkCount > 0 ? Number((blockedUrlCount / jobLinkCount).toFixed(4)) : 0;
+
+  if (sanitizedCount > 0) {
+    if (blockedRate >= 0.3) {
+      return {
+        blockedRate,
+        resultKind: 'blocked',
+        emptyReason: null,
+        sourceQuality: 'degraded',
+      };
+    }
+
+    return {
+      blockedRate,
+      resultKind: 'healthy',
+      emptyReason: null,
+      sourceQuality: blockedUrlCount > 0 || rejectedOfferCount > 0 ? 'degraded' : 'healthy',
+    };
+  }
+
+  if (hadZeroOffersStep) {
+    return {
+      blockedRate,
+      resultKind: 'empty',
+      emptyReason: 'filters_exhausted',
+      sourceQuality: 'empty',
+    };
+  }
+
+  if (jobLinkCount === 0) {
+    return {
+      blockedRate,
+      resultKind: 'empty',
+      emptyReason: 'no_listings',
+      sourceQuality: 'empty',
+    };
+  }
+
+  if (blockedUrlCount === jobLinkCount || blockedRate >= 0.5) {
+    return {
+      blockedRate,
+      resultKind: 'blocked',
+      emptyReason: null,
+      sourceQuality: 'degraded',
+    };
+  }
+
+  return {
+    blockedRate,
+    resultKind: 'empty',
+    emptyReason: 'detail_parse_gap',
+    sourceQuality: 'degraded',
+  };
+};
 
 const canonicalOfferKey = (job: Pick<NormalizedJob, 'sourceId' | 'url'>) => {
   const sourceId = normalizeString(job.sourceId);
@@ -357,10 +442,20 @@ const notifyCallback = async (
     retryMaxDelayMs: number;
     retryJitterPct: number;
     deadLetterDir?: string;
+    onRejected?: (input: { attempt: number; statusCode?: number; error: string }) => Promise<void>;
+    onRetryScheduled?: (input: {
+      attempt: number;
+      nextAttempt: number;
+      delayMs: number;
+      error: string;
+    }) => Promise<void>;
+    onAccepted?: (input: { attempt: number; statusCode: number; durationMs: number }) => Promise<void>;
+    onDeadLettered?: (input: { attempts: number; error: string }) => Promise<void>;
   },
   logger: Logger,
 ) => {
   let lastError: unknown;
+  const callbackStartedAt = Date.now();
   for (let attempt = 1; attempt <= options.retryAttempts; attempt += 1) {
     try {
       const authorization = await resolveOutboundAuthorizationHeader(token, oidcAudience);
@@ -382,6 +477,11 @@ const notifyCallback = async (
       if (!response.ok) {
         const text = await response.text();
         lastError = new Error(`Callback rejected (${response.status}): ${text}`);
+        await options.onRejected?.({
+          attempt,
+          statusCode: response.status,
+          error: text || `HTTP ${response.status}`,
+        });
         logger.warn(
           {
             requestId,
@@ -394,6 +494,11 @@ const notifyCallback = async (
           'Callback rejected',
         );
       } else {
+        await options.onAccepted?.({
+          attempt,
+          statusCode: response.status,
+          durationMs: Date.now() - callbackStartedAt,
+        });
         logger.info(
           {
             requestId,
@@ -408,6 +513,10 @@ const notifyCallback = async (
       }
     } catch (error) {
       lastError = error;
+      await options.onRejected?.({
+        attempt,
+        error: error instanceof Error ? error.message : String(error),
+      });
       logger.warn(
         {
           requestId,
@@ -420,9 +529,19 @@ const notifyCallback = async (
       );
     }
     if (attempt < options.retryAttempts) {
-      await sleep(
-        computeCallbackRetryDelayMs(attempt, options.retryBackoffMs, options.retryMaxDelayMs, options.retryJitterPct),
+      const delayMs = computeCallbackRetryDelayMs(
+        attempt,
+        options.retryBackoffMs,
+        options.retryMaxDelayMs,
+        options.retryJitterPct,
       );
+      await options.onRetryScheduled?.({
+        attempt,
+        nextAttempt: attempt + 1,
+        delayMs,
+        error: lastError instanceof Error ? lastError.message : 'Unknown callback failure',
+      });
+      await sleep(delayMs);
     }
   }
 
@@ -438,6 +557,10 @@ const notifyCallback = async (
     options.deadLetterDir,
     logger,
   );
+  await options.onDeadLettered?.({
+    attempts: options.retryAttempts,
+    error: lastError instanceof Error ? lastError.message : 'Unknown callback failure',
+  });
   logger.error(
     {
       requestId,
@@ -529,6 +652,40 @@ export const runScrapeJob = async (
     let attemptsExecuted = 0;
     let adaptiveDetailDelayMs = options.detailDelayMs;
     let adaptiveDelayApplied = 0;
+    const emitExecutionEvent = async (
+      stage: string,
+      status: 'info' | 'success' | 'warning' | 'failed',
+      message: string,
+      code?: string,
+      meta?: Record<string, unknown>,
+    ) => {
+      await appendScrapeExecutionEvent(options.databaseUrl, {
+        sourceRunId,
+        traceId,
+        requestId: payload.requestId,
+        stage,
+        status,
+        code,
+        message,
+        meta,
+      }).catch((error) => {
+        logger.warn(
+          {
+            sourceRunId,
+            traceId,
+            stage,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'Failed to persist scrape execution audit event',
+        );
+      });
+    };
+
+    await emitExecutionEvent('scrape_start', 'info', 'Scrape job started', 'SCRAPE_STARTED', {
+      source: payload.source,
+      listingUrl,
+      requestedLimit: payload.limit ?? null,
+    });
 
     const emitHeartbeat = async (
       phase: 'listing_fetch' | 'detail_fetch' | 'normalize' | 'callback',
@@ -601,6 +758,17 @@ export const runScrapeJob = async (
     for (let attempt = 1; attempt <= maxRelaxationAttempts; attempt += 1) {
       attemptsExecuted = attempt;
       if (attempt > 1 && relaxReason) {
+        await emitExecutionEvent(
+          'filter_relaxation',
+          'warning',
+          'Retrying scrape with relaxed filters',
+          'FILTER_RELAXED',
+          {
+            attempt,
+            relaxReason,
+            activeFilters,
+          },
+        );
         logger.info(
           {
             requestId: payload.requestId,
@@ -642,7 +810,15 @@ export const runScrapeJob = async (
         },
       });
 
+      const listingFetchStartedAt = Date.now();
       const { crawlResult, parsedJobs, normalized } = await Promise.race([pipelinePromise, timeoutPromiseTemplate]);
+      await emitExecutionEvent('listing_fetch', 'success', 'Listing and detail fetch completed', 'LISTING_FETCH_OK', {
+        attempt,
+        pagesVisited: crawlResult.pages.length,
+        jobLinksDiscovered: crawlResult.jobLinks.length,
+        blockedPages: crawlResult.blockedUrls.length,
+        durationMs: Date.now() - listingFetchStartedAt,
+      });
       await emitHeartbeat(
         'detail_fetch',
         attempt,
@@ -733,6 +909,34 @@ export const runScrapeJob = async (
       true,
       { dedupedInRunCount },
     );
+    await emitExecutionEvent(
+      'normalization',
+      assessedJobs.rejectedOfferCount > 0 ? 'warning' : 'success',
+      'Normalization completed',
+      'NORMALIZATION_COMPLETED',
+      {
+        acceptedOfferCount: assessedJobs.acceptedOfferCount,
+        rejectedOfferCount: assessedJobs.rejectedOfferCount,
+        rejectedOfferReasons: assessedJobs.rejectedOfferReasons,
+        dedupedInRunCount,
+      },
+    );
+    const { blockedRate, resultKind, emptyReason, sourceQuality } = resolveScrapeCompletionDiagnostics({
+      sanitizedCount: sanitizedJobs.length,
+      jobLinkCount: aggregatedJobLinks.size,
+      blockedUrlCount: aggregatedBlockedUrls.length,
+      hadZeroOffersStep,
+      rejectedOfferCount: assessedJobs.rejectedOfferCount,
+    });
+    const finalPolicy =
+      adaptiveDelayApplied > 0 ? `adaptive-delay:${adaptiveDetailDelayMs ?? options.detailDelayMs ?? 0}` : 'default';
+    const classifiedOutcome = classifyScrapeOutcome({
+      status: 'COMPLETED',
+      resultKind,
+      emptyReason,
+      scrapedCount: sanitizedJobs.length,
+    });
+    const normalizationStartedAt = Date.now();
     const outputPath = await saveOutput(
       {
         source: payload.source,
@@ -754,34 +958,6 @@ export const runScrapeJob = async (
     );
 
     if (callbackUrl) {
-      const blockedRate =
-        aggregatedJobLinks.size > 0 ? Number((aggregatedBlockedUrls.length / aggregatedJobLinks.size).toFixed(4)) : 0;
-      const finalPolicy =
-        adaptiveDelayApplied > 0 ? `adaptive-delay:${adaptiveDetailDelayMs ?? options.detailDelayMs ?? 0}` : 'default';
-      const resultKind =
-        sanitizedJobs.length > 0
-          ? blockedRate >= 0.3
-            ? 'blocked'
-            : 'healthy'
-          : aggregatedJobLinks.size === 0
-            ? 'empty'
-            : 'blocked';
-      const emptyReason =
-        sanitizedJobs.length > 0
-          ? null
-          : hadZeroOffersStep
-            ? 'filters_exhausted'
-            : aggregatedJobLinks.size === 0
-              ? 'no_listings'
-              : 'detail_parse_gap';
-      const sourceQuality =
-        sanitizedJobs.length > 0
-          ? blockedRate >= 0.3
-            ? 'degraded'
-            : 'healthy'
-          : aggregatedJobLinks.size === 0
-            ? 'empty'
-            : 'degraded';
       const emittedAt = new Date().toISOString();
       const callbackBasePayload = buildScrapeCallbackPayload({
         eventId: callbackEventId,
@@ -822,6 +998,7 @@ export const runScrapeJob = async (
           resultKind,
           emptyReason,
           sourceQuality,
+          classifiedOutcome,
         },
       });
       const callbackPayload = {
@@ -850,6 +1027,58 @@ export const runScrapeJob = async (
           retryMaxDelayMs: options.callbackRetryMaxDelayMs ?? 10000,
           retryJitterPct: options.callbackRetryJitterPct ?? 0.2,
           deadLetterDir: options.callbackDeadLetterDir,
+          onRejected: async ({ attempt, statusCode, error }) => {
+            await emitExecutionEvent(
+              'callback_dispatch',
+              'warning',
+              'Callback delivery attempt was rejected',
+              'CALLBACK_REJECTED',
+              {
+                attempt,
+                statusCode: statusCode ?? null,
+                error,
+              },
+            );
+          },
+          onRetryScheduled: async ({ attempt, nextAttempt, delayMs, error }) => {
+            await emitExecutionEvent(
+              'callback_retry',
+              'warning',
+              'Callback retry scheduled',
+              'CALLBACK_RETRY_SCHEDULED',
+              {
+                attempt,
+                nextAttempt,
+                delayMs,
+                error,
+              },
+            );
+          },
+          onAccepted: async ({ attempt, statusCode, durationMs }) => {
+            await emitExecutionEvent('callback_dispatch', 'success', 'Callback accepted by API', 'CALLBACK_ACCEPTED', {
+              attempt,
+              statusCode,
+              durationMs,
+              totalFound: aggregatedJobLinks.size,
+              scrapedCount: sanitizedJobs.length,
+              resultKind,
+              emptyReason,
+              sourceQuality,
+              classifiedOutcome,
+            });
+          },
+          onDeadLettered: async ({ attempts, error }) => {
+            await emitExecutionEvent(
+              'callback_dead_letter',
+              'failed',
+              'Callback moved to dead letter after retries',
+              'CALLBACK_DEAD_LETTERED',
+              {
+                attempts,
+                error,
+              },
+            );
+          },
         },
         logger,
       );
@@ -874,6 +1103,16 @@ export const runScrapeJob = async (
       },
       'Scrape completed',
     );
+    await emitExecutionEvent('scrape_complete', 'success', 'Scrape completed successfully', 'SCRAPE_COMPLETED', {
+      totalFound: aggregatedJobLinks.size,
+      scrapedCount: sanitizedJobs.length,
+      blockedPages: aggregatedBlockedUrls.length,
+      ignoredRecommendedLinks: aggregatedRecommendedLinks.size,
+      outputPath,
+      durationMs: Date.now() - startedAt,
+      normalizationDurationMs: Date.now() - normalizationStartedAt,
+      classifiedOutcome,
+    });
 
     return {
       count: sanitizedJobs.length,
@@ -890,6 +1129,12 @@ export const runScrapeJob = async (
     const callbackSigningSecret = options.callbackSigningSecret;
     if (callbackUrl) {
       const emittedAt = new Date().toISOString();
+      const classifiedOutcome = classifyScrapeOutcome({
+        status: 'FAILED',
+        failureType,
+        resultKind: 'failed',
+        scrapedCount: 0,
+      });
       const failedPayload = buildScrapeCallbackPayload({
         eventId: callbackEventId,
         source: payload.source,
@@ -923,6 +1168,7 @@ export const runScrapeJob = async (
           resultKind: 'failed',
           emptyReason: null,
           sourceQuality: 'failed',
+          classifiedOutcome,
         },
       });
       await notifyCallback(
@@ -941,10 +1187,100 @@ export const runScrapeJob = async (
           retryMaxDelayMs: options.callbackRetryMaxDelayMs ?? 10000,
           retryJitterPct: options.callbackRetryJitterPct ?? 0.2,
           deadLetterDir: options.callbackDeadLetterDir,
+          onRejected: async ({ attempt, statusCode, error }) => {
+            await appendScrapeExecutionEvent(options.databaseUrl, {
+              sourceRunId,
+              traceId,
+              requestId: payload.requestId,
+              stage: 'callback_dispatch',
+              status: 'warning',
+              code: 'CALLBACK_REJECTED',
+              message: 'Failure callback delivery attempt was rejected',
+              meta: {
+                attempt,
+                statusCode: statusCode ?? null,
+                error,
+              },
+            });
+          },
+          onRetryScheduled: async ({ attempt, nextAttempt, delayMs, error }) => {
+            await appendScrapeExecutionEvent(options.databaseUrl, {
+              sourceRunId,
+              traceId,
+              requestId: payload.requestId,
+              stage: 'callback_retry',
+              status: 'warning',
+              code: 'CALLBACK_RETRY_SCHEDULED',
+              message: 'Failure callback retry scheduled',
+              meta: {
+                attempt,
+                nextAttempt,
+                delayMs,
+                error,
+              },
+            });
+          },
+          onAccepted: async ({ attempt, statusCode, durationMs }) => {
+            await appendScrapeExecutionEvent(options.databaseUrl, {
+              sourceRunId,
+              traceId,
+              requestId: payload.requestId,
+              stage: 'callback_dispatch',
+              status: 'success',
+              code: 'CALLBACK_ACCEPTED',
+              message: 'Failure callback accepted by API',
+              meta: {
+                attempt,
+                statusCode,
+                durationMs,
+                classifiedOutcome,
+              },
+            });
+          },
+          onDeadLettered: async ({ attempts, error }) => {
+            await appendScrapeExecutionEvent(options.databaseUrl, {
+              sourceRunId,
+              traceId,
+              requestId: payload.requestId,
+              stage: 'callback_dead_letter',
+              status: 'failed',
+              code: 'CALLBACK_DEAD_LETTERED',
+              message: 'Failure callback moved to dead letter after retries',
+              meta: {
+                attempts,
+                error,
+                classifiedOutcome,
+              },
+            });
+          },
         },
         logger,
       );
     }
+
+    await appendScrapeExecutionEvent(options.databaseUrl, {
+      sourceRunId,
+      traceId,
+      requestId: payload.requestId,
+      stage: 'scrape_failure',
+      status: 'failed',
+      code: `WORKER_${failureType.toUpperCase()}`,
+      message: errorMessage,
+      meta: {
+        failureType,
+        listingUrl,
+        durationMs: Date.now() - startedAt,
+      },
+    }).catch((auditError) => {
+      logger.warn(
+        {
+          sourceRunId,
+          traceId,
+          error: auditError instanceof Error ? auditError.message : String(auditError),
+        },
+        'Failed to persist scrape failure audit event',
+      );
+    });
 
     logger.error(
       {

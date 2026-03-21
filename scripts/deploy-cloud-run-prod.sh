@@ -99,6 +99,22 @@ resolve_service_sha() {
     --format='value(spec.template.spec.containers[0].image)' 2>/dev/null | rev | cut -d: -f1 | rev || echo ""
 }
 
+resolve_service_revision() {
+  local service="$1"
+  gcloud run services describe "$service" \
+    --project="$GCP_PROJECT_ID" \
+    --region="$GCP_REGION" \
+    --format='value(status.latestReadyRevisionName)' 2>/dev/null || true
+}
+
+resolve_service_image() {
+  local service="$1"
+  gcloud run services describe "$service" \
+    --project="$GCP_PROJECT_ID" \
+    --region="$GCP_REGION" \
+    --format='value(spec.template.spec.containers[0].image)' 2>/dev/null || true
+}
+
 upsert_scheduler_job() {
   local job_name="$1"
   local schedule="$2"
@@ -209,6 +225,7 @@ AUTH_OTP_THROTTLE_LIMIT="${AUTH_OTP_THROTTLE_LIMIT:-3}"
 WEB_QUERY_STALE_TIME_MS="${WEB_QUERY_STALE_TIME_MS:-30000}"
 WEB_QUERY_REFETCH_ON_WINDOW_FOCUS="${WEB_QUERY_REFETCH_ON_WINDOW_FOCUS:-false}"
 WEB_QUERY_DIAGNOSTICS_REFETCH_MS="${WEB_QUERY_DIAGNOSTICS_REFETCH_MS:-60000}"
+DEPLOY_METADATA_FILE="${DEPLOY_METADATA_FILE:-deployment-release-metadata.json}"
 
 # DEFAULT SCHEDULES: Dramatically reduced to save budget and allow 0-scaling
 SCHEDULER_JOB_NAME="${SCHEDULER_JOB_NAME:-job-seek-schedule-trigger}"
@@ -266,6 +283,12 @@ API_URL="$(resolve_service_url "$GCP_API_SERVICE")"
 WORKER_URL="$(resolve_service_url "$GCP_WORKER_SERVICE")"
 WEB_URL="$(resolve_service_url "$GCP_WEB_SERVICE")"
 WEB_URLS_CSV="$(resolve_service_urls_csv "$GCP_WEB_SERVICE")"
+API_PREVIOUS_REVISION="$(resolve_service_revision "$GCP_API_SERVICE")"
+WORKER_PREVIOUS_REVISION="$(resolve_service_revision "$GCP_WORKER_SERVICE")"
+WEB_PREVIOUS_REVISION="$(resolve_service_revision "$GCP_WEB_SERVICE")"
+API_PREVIOUS_IMAGE="$(resolve_service_image "$GCP_API_SERVICE")"
+WORKER_PREVIOUS_IMAGE="$(resolve_service_image "$GCP_WORKER_SERVICE")"
+WEB_PREVIOUS_IMAGE="$(resolve_service_image "$GCP_WEB_SERVICE")"
 API_CALLBACK_URL="${GCP_API_BASE_URL:-$API_URL}"
 if [[ -n "$API_CALLBACK_URL" ]]; then
   API_CALLBACK_URL="${API_CALLBACK_URL%/}/api/job-sources/complete"
@@ -458,4 +481,65 @@ echo "API_URL=${API_URL}"
 echo "WORKER_URL=${WORKER_URL}"
 echo "WEB_URL=${WEB_URL}"
 
-VERIFY_API="$DEPLOY_API" VERIFY_WORKER="$DEPLOY_WORKER" VERIFY_WEB="$DEPLOY_WEB" API_BASE_URL="$API_URL" WORKER_BASE_URL="$WORKER_URL" WEB_BASE_URL="$WEB_URL" ./scripts/verify-deployment.sh
+API_REVISION="$(resolve_service_revision "$GCP_API_SERVICE")"
+WORKER_REVISION="$(resolve_service_revision "$GCP_WORKER_SERVICE")"
+WEB_REVISION="$(resolve_service_revision "$GCP_WEB_SERVICE")"
+API_IMAGE="$(resolve_service_image "$GCP_API_SERVICE")"
+WORKER_IMAGE="$(resolve_service_image "$GCP_WORKER_SERVICE")"
+WEB_IMAGE="$(resolve_service_image "$GCP_WEB_SERVICE")"
+DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+cat > "$DEPLOY_METADATA_FILE" <<JSON
+{
+  "releaseSha": "${RELEASE_SHA}",
+  "deployedAt": "${DEPLOYED_AT}",
+  "api": {
+    "enabled": ${DEPLOY_API},
+    "service": "${GCP_API_SERVICE}",
+    "url": "${API_URL}",
+    "previousRevision": "${API_PREVIOUS_REVISION}",
+    "previousImage": "${API_PREVIOUS_IMAGE}",
+    "revision": "${API_REVISION}",
+    "image": "${API_IMAGE}"
+  },
+  "worker": {
+    "enabled": ${DEPLOY_WORKER},
+    "service": "${GCP_WORKER_SERVICE}",
+    "url": "${WORKER_URL}",
+    "previousRevision": "${WORKER_PREVIOUS_REVISION}",
+    "previousImage": "${WORKER_PREVIOUS_IMAGE}",
+    "revision": "${WORKER_REVISION}",
+    "image": "${WORKER_IMAGE}"
+  },
+  "web": {
+    "enabled": ${DEPLOY_WEB},
+    "service": "${GCP_WEB_SERVICE}",
+    "url": "${WEB_URL}",
+    "previousRevision": "${WEB_PREVIOUS_REVISION}",
+    "previousImage": "${WEB_PREVIOUS_IMAGE}",
+    "revision": "${WEB_REVISION}",
+    "image": "${WEB_IMAGE}"
+  }
+}
+JSON
+
+VERIFY_API="$DEPLOY_API" \
+VERIFY_WORKER="$DEPLOY_WORKER" \
+VERIFY_WEB="$DEPLOY_WEB" \
+RELEASE_SHA="$RELEASE_SHA" \
+API_BASE_URL="$API_URL" \
+WORKER_BASE_URL="$WORKER_URL" \
+WEB_BASE_URL="$WEB_URL" \
+API_SERVICE_NAME="$GCP_API_SERVICE" \
+WORKER_SERVICE_NAME="$GCP_WORKER_SERVICE" \
+WEB_SERVICE_NAME="$GCP_WEB_SERVICE" \
+API_DEPLOYED_URL="$API_URL" \
+WORKER_DEPLOYED_URL="$WORKER_URL" \
+WEB_DEPLOYED_URL="$WEB_URL" \
+API_DEPLOYED_REVISION="$API_REVISION" \
+WORKER_DEPLOYED_REVISION="$WORKER_REVISION" \
+WEB_DEPLOYED_REVISION="$WEB_REVISION" \
+API_DEPLOYED_IMAGE="$API_IMAGE" \
+WORKER_DEPLOYED_IMAGE="$WORKER_IMAGE" \
+WEB_DEPLOYED_IMAGE="$WEB_IMAGE" \
+./scripts/verify-deployment.sh

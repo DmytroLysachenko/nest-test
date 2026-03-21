@@ -225,6 +225,13 @@
       "when": 1773666000000,
       "tag": "0031_job_offer_catalog_and_rematch",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1773853200000,
+      "tag": "0032_scrape_execution_audit_and_rbac",
+      "breakpoints": true
     }
   ]
 }

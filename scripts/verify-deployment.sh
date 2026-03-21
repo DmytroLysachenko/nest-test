@@ -11,6 +11,7 @@ require_var() {
 
 VERIFY_RETRIES="${VERIFY_RETRIES:-12}"
 VERIFY_DELAY_SEC="${VERIFY_DELAY_SEC:-5}"
+VERIFIED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 API_REASON=""
 WORKER_REASON=""
@@ -138,9 +139,35 @@ fi
 SUMMARY_FILE="${VERIFY_SUMMARY_FILE:-deployment-verify-summary.json}"
 cat > "$SUMMARY_FILE" <<JSON
 {
-  "api": { "enabled": ${VERIFY_API}, "ok": ${API_OK}, "reason": "$(printf "%s" "$API_REASON")" },
-  "worker": { "enabled": ${VERIFY_WORKER}, "ok": ${WORKER_OK}, "reason": "$(printf "%s" "$WORKER_REASON")" },
-  "web": { "enabled": ${VERIFY_WEB}, "ok": ${WEB_OK}, "reason": "$(printf "%s" "$WEB_REASON")" }
+  "releaseSha": "$(printf "%s" "${RELEASE_SHA:-}")",
+  "verifiedAt": "${VERIFIED_AT}",
+  "api": {
+    "enabled": ${VERIFY_API},
+    "ok": ${API_OK},
+    "reason": "$(printf "%s" "$API_REASON")",
+    "service": "$(printf "%s" "${API_SERVICE_NAME:-}")",
+    "url": "$(printf "%s" "${API_DEPLOYED_URL:-${API_BASE_URL}}")",
+    "revision": "$(printf "%s" "${API_DEPLOYED_REVISION:-}")",
+    "image": "$(printf "%s" "${API_DEPLOYED_IMAGE:-}")"
+  },
+  "worker": {
+    "enabled": ${VERIFY_WORKER},
+    "ok": ${WORKER_OK},
+    "reason": "$(printf "%s" "$WORKER_REASON")",
+    "service": "$(printf "%s" "${WORKER_SERVICE_NAME:-}")",
+    "url": "$(printf "%s" "${WORKER_DEPLOYED_URL:-${WORKER_BASE_URL}}")",
+    "revision": "$(printf "%s" "${WORKER_DEPLOYED_REVISION:-}")",
+    "image": "$(printf "%s" "${WORKER_DEPLOYED_IMAGE:-}")"
+  },
+  "web": {
+    "enabled": ${VERIFY_WEB},
+    "ok": ${WEB_OK},
+    "reason": "$(printf "%s" "$WEB_REASON")",
+    "service": "$(printf "%s" "${WEB_SERVICE_NAME:-}")",
+    "url": "$(printf "%s" "${WEB_DEPLOYED_URL:-${WEB_BASE_URL}}")",
+    "revision": "$(printf "%s" "${WEB_DEPLOYED_REVISION:-}")",
+    "image": "$(printf "%s" "${WEB_DEPLOYED_IMAGE:-}")"
+  }
 }
 JSON
 

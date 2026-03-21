@@ -114,11 +114,19 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
               id: 'ujo-1',
               jobOfferId: 'offer-1',
               sourceRunId: 'run-1',
-              status: 'NEW',
+              status: 'APPLIED',
               matchScore: 62,
               rankingScore: 62,
+              followUpState: 'due',
               explanationTags: ['hard_constraints_ok', 'seniority_match', 'skill_partial'],
               matchMeta: { summary: 'Good backend match' },
+              pipelineMeta: {
+                followUpAt: '2026-02-03T09:30:00.000Z',
+                nextStep: 'Send follow-up email',
+                followUpNote: 'Mention portfolio refresh and API design case study.',
+                applicationUrl: 'https://example.com/application/123',
+                contactName: 'Ava Recruiter',
+              },
               notes: null,
               tags: ['backend'],
               statusHistory: [{ status: 'NEW', changedAt: '2026-02-01T00:00:00.000Z' }],
@@ -275,6 +283,65 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
     });
   });
 
+  await page.route('**/api/job-offers/focus', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          groups: [
+            {
+              key: 'follow-up-due',
+              label: 'Follow-up due',
+              description: 'Handle overdue follow-ups before widening the funnel.',
+              href: '/notebook?focus=followUpDue',
+              count: 1,
+              items: [
+                {
+                  id: 'ujo-1',
+                  title: 'Backend Developer',
+                  company: 'Test Company',
+                  location: 'Gdynia',
+                  matchScore: 62,
+                  followUpState: 'due',
+                },
+              ],
+            },
+            {
+              key: 'applied-active',
+              label: 'Applied pipeline',
+              description: 'Keep active applications moving with interview prep and next-step tracking.',
+              href: '/notebook?focus=applied',
+              count: 1,
+              items: [],
+            },
+          ],
+        },
+      }),
+    });
+  });
+
+  await page.route('**/api/job-offers/pipeline/bulk-follow-up', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          updated: 1,
+          summary: {
+            due: 0,
+            upcoming: 1,
+            none: 0,
+            noteApplied: true,
+            nextStepApplied: true,
+          },
+        },
+      }),
+    });
+  });
+
   await page.route('**/api/job-sources/schedule', async (route) => {
     await route.fulfill({
       status: 200,
@@ -312,6 +379,16 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
     .getByRole('button', { name: /Backend Developer/ })
     .first()
     .click();
+
+  await expect(page.getByText('Action plan')).toBeVisible();
+  await expect(page.getByText('Next step: Send follow-up email').first()).toBeVisible();
+
+  await page.getByLabel('Select Backend Developer').check();
+  await page.getByLabel('Bulk next step').fill('Prepare recruiter follow-up');
+  await page.getByLabel('Bulk follow-up note').fill('Share updated portfolio link');
+  const bulkFollowUpRequest = page.waitForRequest('**/api/job-offers/pipeline/bulk-follow-up');
+  await page.getByRole('button', { name: 'Save bulk follow-up' }).click();
+  await bulkFollowUpRequest;
 
   const statusRequest = page.waitForRequest('**/api/job-offers/ujo-1/status');
   await page.getByRole('button', { name: 'SAVED' }).first().click();

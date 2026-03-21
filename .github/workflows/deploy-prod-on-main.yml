@@ -306,3 +306,10 @@ jobs:
           name: deploy-verify-summary
           path: deployment-verify-summary.json
           if-no-files-found: warn
+      - name: Upload deployment release metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-release-metadata
+          path: deployment-release-metadata.json
+          if-no-files-found: warn

@@ -59,6 +59,66 @@ function Invoke-WithRetry {
   }
 }
 
+function Get-RetryDelaySeconds {
+  param(
+    [Parameter(Mandatory = $false)]$Response,
+    [int]$DefaultSeconds = 65
+  )
+
+  if ($null -eq $Response) {
+    return $DefaultSeconds
+  }
+
+  try {
+    $retryAfter = $Response.Headers['Retry-After']
+    if ($retryAfter -is [System.Array]) {
+      $retryAfter = $retryAfter[0]
+    }
+    if (-not [string]::IsNullOrWhiteSpace([string]$retryAfter)) {
+      $parsedSeconds = 0
+      if ([int]::TryParse([string]$retryAfter, [ref]$parsedSeconds) -and $parsedSeconds -gt 0) {
+        return $parsedSeconds
+      }
+    }
+  } catch {
+  }
+
+  return $DefaultSeconds
+}
+
+function Invoke-WebRequestWithRateLimitRetry {
+  param(
+    [Parameter(Mandatory = $true)][scriptblock]$Action,
+    [Parameter(Mandatory = $true)][string]$Context,
+    [int]$Attempts = 3,
+    [int]$DefaultDelaySeconds = 65
+  )
+
+  for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+    try {
+      return & $Action
+    } catch {
+      $response = $_.Exception.Response
+      $statusCode = $null
+      if ($response) {
+        try {
+          $statusCode = [int]$response.StatusCode
+        } catch {
+          $statusCode = $null
+        }
+      }
+
+      if ($statusCode -ne 429 -or $attempt -ge $Attempts) {
+        throw
+      }
+
+      $delaySeconds = Get-RetryDelaySeconds -Response $response -DefaultSeconds $DefaultDelaySeconds
+      Write-Host "$Context was rate limited on attempt $attempt/$Attempts. Retrying in $delaySeconds seconds..."
+      Start-Sleep -Seconds $delaySeconds
+    }
+  }
+}
+
 function Wait-ForHealthyEndpoint {
   param(
     [Parameter(Mandatory = $true)][string]$Uri,
@@ -80,8 +140,281 @@ function Wait-ForHealthyEndpoint {
   throw "$Context did not become healthy within $TimeoutSeconds seconds. uri=$Uri"
 }
 
+function Test-HealthyEndpoint {
+  param(
+    [Parameter(Mandatory = $true)][string]$Uri
+  )
+
+  try {
+    $response = Invoke-WebRequest -Uri $Uri -UseBasicParsing -TimeoutSec 10
+    return [int]$response.StatusCode -eq 200
+  } catch {
+    return $false
+  }
+}
+
+function Get-UriPort {
+  param(
+    [Parameter(Mandatory = $true)][string]$Uri
+  )
+
+  $parsed = [System.Uri]$Uri
+  return $parsed.Port
+}
+
+function Test-PortListening {
+  param(
+    [Parameter(Mandatory = $true)][int]$Port
+  )
+
+  try {
+    return $null -ne (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop | Select-Object -First 1)
+  } catch {
+    return $false
+  }
+}
+
+function Start-ManagedService {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][string]$Command,
+    [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+    [Parameter(Mandatory = $true)][string]$LogDirectory
+  )
+
+  if (-not (Test-Path $LogDirectory)) {
+    New-Item -ItemType Directory -Path $LogDirectory -Force | Out-Null
+  }
+
+  $logPath = Join-Path $LogDirectory "$Name.log"
+  if (Test-Path $logPath) {
+    Remove-Item $logPath -Force
+  }
+
+  $shellPath = (Get-Process -Id $PID).Path
+  $escapedLogPath = $logPath.Replace("'", "''")
+  $wrappedCommand = "& { $Command } *>> '$escapedLogPath'"
+
+  $process = Start-Process `
+    -FilePath $shellPath `
+    -ArgumentList @('-NoProfile', '-Command', $wrappedCommand) `
+    -WorkingDirectory $WorkingDirectory `
+    -PassThru
+
+  return @{
+    Name = $Name
+    LogPath = $logPath
+    Process = $process
+  }
+}
+
+function Build-BaseUrl {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][int]$Port
+  )
+
+  if ($Name -eq 'api' -or $Name -eq 'worker') {
+    return "http://localhost:$Port"
+  }
+
+  return "http://localhost:$Port"
+}
+
+function Stop-RepoServiceProcesses {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][string]$RepoRoot
+  )
+
+  $normalizedRepoRoot = $RepoRoot.Replace('\', '/')
+  $patterns = switch ($Name) {
+    'api' { @('--filter api', 'apps/api', '@nestjs/cli') }
+    'worker' { @('--filter worker', 'apps/worker', 'tsx watch src/index.ts') }
+    'web' { @('--filter web', 'apps/web', 'next/dist/bin/next') }
+    default { @() }
+  }
+
+  if (Get-Command Get-CimInstance -ErrorAction SilentlyContinue) {
+    $processes = Get-CimInstance Win32_Process | Where-Object {
+      $commandLine = $_.CommandLine
+      if ([string]::IsNullOrWhiteSpace($commandLine)) {
+        return $false
+      }
+      $normalizedCommandLine = $commandLine.Replace('\', '/')
+      if ($normalizedCommandLine -notlike "*$normalizedRepoRoot*") {
+        return $false
+      }
+      foreach ($pattern in $patterns) {
+        if ($normalizedCommandLine -like "*$pattern*") {
+          return $true
+        }
+      }
+      return $false
+    } | Select-Object @{ Name = 'ProcessId'; Expression = { $_.ProcessId } }
+  } else {
+    $processes = @()
+    $psOutput = & ps -eo pid=,args= 2>$null
+    foreach ($line in $psOutput) {
+      $trimmed = [string]$line
+      if ([string]::IsNullOrWhiteSpace($trimmed)) {
+        continue
+      }
+      $match = [regex]::Match($trimmed, '^\s*(\d+)\s+(.*)$')
+      if (-not $match.Success) {
+        continue
+      }
+      $processId = [int]$match.Groups[1].Value
+      $commandLine = $match.Groups[2].Value
+      $normalizedCommandLine = $commandLine.Replace('\', '/')
+      if ($normalizedCommandLine -notlike "*$normalizedRepoRoot*") {
+        continue
+      }
+      $isMatch = $false
+      foreach ($pattern in $patterns) {
+        if ($normalizedCommandLine -like "*$pattern*") {
+          $isMatch = $true
+          break
+        }
+      }
+      if ($isMatch) {
+        $processes += [pscustomobject]@{ ProcessId = $processId }
+      }
+    }
+  }
+
+  foreach ($process in $processes) {
+    try {
+      Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
+      Write-Host "Stopped stale repo-owned $Name process pid=$($process.ProcessId)."
+    } catch {
+      Write-Warning "Failed to stop stale repo-owned $Name process pid=$($process.ProcessId): $($_.Exception.Message)"
+    }
+  }
+}
+
+function Stop-ManagedServices {
+  param(
+    [Parameter(Mandatory = $true)][System.Collections.IEnumerable]$Services
+  )
+
+  foreach ($service in $Services) {
+    if ($null -eq $service.Process) {
+      continue
+    }
+
+    try {
+      if (-not $service.Process.HasExited) {
+        Stop-Process -Id $service.Process.Id -Force -ErrorAction Stop
+      }
+    } catch {
+      Write-Warning "Failed to stop managed service '$($service.Name)': $($_.Exception.Message)"
+    }
+  }
+}
+
+function Show-ManagedServiceLogs {
+  param(
+    [Parameter(Mandatory = $true)][System.Collections.IEnumerable]$Services
+  )
+
+  foreach ($service in $Services) {
+    if (-not (Test-Path $service.LogPath)) {
+      continue
+    }
+
+    Write-Host "---- $($service.Name) log tail ----"
+    Get-Content $service.LogPath -Tail 80
+  }
+}
+
+function Ensure-LocalSmokeServices {
+  param(
+    [Parameter(Mandatory = $true)][string]$ApiBaseUrl,
+    [Parameter(Mandatory = $true)][string]$WorkerBaseUrl,
+    [Parameter(Mandatory = $true)][string]$WebBaseUrl,
+    [Parameter(Mandatory = $true)][string]$RepoRoot
+  )
+
+  $managed = @()
+  $logDirectory = Join-Path $RepoRoot '.tmp-test-logs\smoke-managed'
+  $resolvedApiBaseUrl = $ApiBaseUrl
+  $resolvedWorkerBaseUrl = $WorkerBaseUrl
+  $resolvedWebBaseUrl = $WebBaseUrl
+
+  $serviceDefinitions = @(
+    @{
+      Name = 'api'
+      BaseUrl = $ApiBaseUrl
+      HealthPath = '/health'
+      FallbackPort = 3100
+      CommandTemplate = {
+        param([int]$Port)
+        "`$env:HOST='0.0.0.0'; `$env:PORT='$Port'; `$env:WORKER_TASK_URL='http://localhost:4101/tasks'; `$env:WORKER_CALLBACK_URL='http://localhost:$Port/api/job-sources/complete'; pnpm --filter api dev"
+      }
+    },
+    @{
+      Name = 'worker'
+      BaseUrl = $WorkerBaseUrl
+      HealthPath = '/health'
+      FallbackPort = 4101
+      CommandTemplate = { param([int]$Port) "`$env:PORT='$Port'; `$env:WORKER_PORT='$Port'; pnpm --filter worker dev" }
+    },
+    @{
+      Name = 'web'
+      BaseUrl = $WebBaseUrl
+      HealthPath = '/health'
+      FallbackPort = 3102
+      CommandTemplate = { param([int]$Port) "pnpm --filter web exec next dev --port $Port --hostname localhost" }
+    }
+  )
+
+  foreach ($definition in $serviceDefinitions) {
+    $fallbackPort = $definition.FallbackPort
+    $targetBaseUrl = Build-BaseUrl -Name $definition.Name -Port $fallbackPort
+    $targetHealthUri = "$($targetBaseUrl.TrimEnd('/'))$($definition.HealthPath)"
+    Stop-RepoServiceProcesses -Name $definition.Name -RepoRoot $RepoRoot
+    Start-Sleep -Seconds 2
+    if ($definition.Name -eq 'web') {
+      $webLockPath = Join-Path $RepoRoot 'apps/web/.next/dev/lock'
+      if (Test-Path $webLockPath) {
+        Remove-Item $webLockPath -Force -ErrorAction SilentlyContinue
+      }
+    }
+    if (Test-HealthyEndpoint -Uri $targetHealthUri) {
+      Write-Host "Reusing dedicated smoke $($definition.Name) service at $targetBaseUrl."
+    } elseif (Test-PortListening -Port $fallbackPort) {
+      throw "Dedicated smoke port $fallbackPort for $($definition.Name) is occupied by another unhealthy service."
+    } else {
+      Write-Host "Starting local $($definition.Name) smoke service on dedicated port $fallbackPort."
+      $managed += Start-ManagedService `
+        -Name $definition.Name `
+        -Command (& $definition.CommandTemplate $fallbackPort) `
+        -WorkingDirectory $RepoRoot `
+        -LogDirectory $logDirectory
+    }
+
+    if ($definition.Name -eq 'api') {
+      $resolvedApiBaseUrl = $targetBaseUrl
+    } elseif ($definition.Name -eq 'worker') {
+      $resolvedWorkerBaseUrl = $targetBaseUrl
+    } else {
+      $resolvedWebBaseUrl = $targetBaseUrl
+    }
+  }
+
+  return @{
+    Managed = $managed
+    ApiBaseUrl = $resolvedApiBaseUrl
+    WorkerBaseUrl = $resolvedWorkerBaseUrl
+    WebBaseUrl = $resolvedWebBaseUrl
+  }
+}
+
 try {
 Write-Host '== E2E Smoke =='
+
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
 $apiBaseUrl = (Get-EnvOrDefault -Name 'API_BASE_URL' -Default 'http://localhost:3000').TrimEnd('/')
 $workerBaseUrl = (Get-EnvOrDefault -Name 'WORKER_BASE_URL' -Default 'http://localhost:4001').TrimEnd('/')
@@ -92,7 +425,10 @@ $skipSeedRaw = Get-EnvOrDefault -Name 'SMOKE_SKIP_SEED' -Default ''
 $skipSeed = @('1', 'true', 'yes') -contains $skipSeedRaw.ToLower()
 $forceCallbackRaw = Get-EnvOrDefault -Name 'SMOKE_FORCE_CALLBACK' -Default ''
 $forceCallback = @('1', 'true', 'yes') -contains $forceCallbackRaw.ToLower()
+$autoStartRaw = Get-EnvOrDefault -Name 'SMOKE_AUTOSTART' -Default 'true'
+$autoStart = @('1', 'true', 'yes') -contains $autoStartRaw.ToLower()
 $workerCallbackToken = Get-EnvOrDefault -Name 'WORKER_CALLBACK_TOKEN' -Default ''
+$managedServices = @()
 
 if (-not $skipSeed) {
   Write-Host '1) Seeding minimal fixture data...'
@@ -102,6 +438,25 @@ if (-not $skipSeed) {
   }
 } else {
   Write-Host '1) Skipping fixture seeding (SMOKE_SKIP_SEED=true)...'
+}
+
+if (
+  $autoStart -and
+  $apiBaseUrl -eq 'http://localhost:3000' -and
+  $workerBaseUrl -eq 'http://localhost:4001' -and
+  $webBaseUrl -eq 'http://localhost:3002'
+) {
+  Write-Host '1.5) Ensuring local smoke services are running...'
+  $stage = 'autostart-services'
+  $autostartResult = Ensure-LocalSmokeServices `
+    -ApiBaseUrl $apiBaseUrl `
+    -WorkerBaseUrl $workerBaseUrl `
+    -WebBaseUrl $webBaseUrl `
+    -RepoRoot $repoRoot
+  $managedServices = $autostartResult.Managed
+  $apiBaseUrl = $autostartResult.ApiBaseUrl
+  $workerBaseUrl = $autostartResult.WorkerBaseUrl
+  $webBaseUrl = $autostartResult.WebBaseUrl
 }
 
 Write-Host '2) Checking service health endpoints...'
@@ -442,7 +797,9 @@ $scrapeHeaders = @{
   'x-request-id' = "smoke-$([Guid]::NewGuid().ToString())"
 }
 
-$scrape = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/scrape" -Method Post -Headers $scrapeHeaders -ContentType 'application/json' -Body $scrapeBody -UseBasicParsing -TimeoutSec 45
+$scrape = Invoke-WebRequestWithRateLimitRetry -Context 'Enqueue scrape' -Attempts 2 -DefaultDelaySeconds 65 -Action {
+  Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/scrape" -Method Post -Headers $scrapeHeaders -ContentType 'application/json' -Body $scrapeBody -UseBasicParsing -TimeoutSec 45
+}
 Assert-StatusCode -Actual $scrape.StatusCode -Allowed @(200, 201, 202) -Context 'Enqueue scrape'
 
 $scrapePayload = $scrape.Content | ConvertFrom-Json
@@ -551,6 +908,18 @@ $notebookSummaryPayload = $notebookSummary.Content | ConvertFrom-Json
 if ($null -eq $notebookSummaryPayload.data.unscored -or $null -eq $notebookSummaryPayload.data.buckets) {
   throw 'Notebook summary payload missing unscored or buckets.'
 }
+if ($null -eq $notebookSummaryPayload.data.quickActions -or $notebookSummaryPayload.data.quickActions.Count -lt 3) {
+  throw 'Notebook summary payload missing expected quickActions.'
+}
+
+Write-Host '12.06) Verifying notebook focus endpoint...'
+$stage = 'notebook-focus'
+$notebookFocus = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/focus" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $notebookFocus.StatusCode -Allowed @(200) -Context 'Get notebook focus queues'
+$notebookFocusPayload = $notebookFocus.Content | ConvertFrom-Json
+if ($null -eq $notebookFocusPayload.data.groups -or $notebookFocusPayload.data.groups.Count -lt 3) {
+  throw 'Notebook focus payload missing expected groups.'
+}
 
 Write-Host '12.1) Verifying scrape diagnostics endpoint...'
 $stage = 'verify-scrape-diagnostics'
@@ -615,6 +984,18 @@ Assert-StatusCode -Actual $statusUpdate.StatusCode -Allowed @(200) -Context 'Upd
 $metaUpdate = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/$offerId/meta" -Method Patch -Headers $authHeaders -ContentType 'application/json' -Body (@{ notes = 'smoke-note'; tags = @('smoke','backend') } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $metaUpdate.StatusCode -Allowed @(200) -Context 'Update job offer meta'
 
+$bulkFollowUp = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/pipeline/bulk-follow-up" -Method Post -Headers $authHeaders -ContentType 'application/json' -Body (@{
+  ids = @($offerId)
+  followUpAt = (Get-Date).AddDays(2).ToString('o')
+  nextStep = 'Send recruiter follow-up'
+  note = 'Mention updated portfolio'
+} | ConvertTo-Json) -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $bulkFollowUp.StatusCode -Allowed @(200, 201) -Context 'Bulk update job offer follow-up'
+$bulkFollowUpPayload = $bulkFollowUp.Content | ConvertFrom-Json
+if ($bulkFollowUpPayload.data.updated -lt 1) {
+  throw 'Bulk follow-up update did not update any offers.'
+}
+
 $history = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/$offerId/history" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $history.StatusCode -Allowed @(200) -Context 'Get job offer history'
 $historyPayload = $history.Content | ConvertFrom-Json
@@ -622,7 +1003,9 @@ if (-not $historyPayload.data.statusHistory) {
   throw 'Status history payload missing'
 }
 
-$score = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/$offerId/score" -Method Post -Headers $authHeaders -ContentType 'application/json' -Body (@{ minScore = 0 } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 45
+$score = Invoke-WebRequestWithRateLimitRetry -Context 'Score user job offer' -Attempts 2 -DefaultDelaySeconds 65 -Action {
+  Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/$offerId/score" -Method Post -Headers $authHeaders -ContentType 'application/json' -Body (@{ minScore = 0 } | ConvertTo-Json) -UseBasicParsing -TimeoutSec 45
+}
 Assert-StatusCode -Actual $score.StatusCode -Allowed @(200, 201) -Context 'Score job offer'
 $scorePayload = $score.Content | ConvertFrom-Json
 if ($null -eq $scorePayload.data.score) {
@@ -648,8 +1031,15 @@ if ([string]::IsNullOrWhiteSpace($scheduledTriggerPayload.data.sourceRunId)) {
 
 Write-Host "Smoke test passed. sourceRunId=$sourceRunId offers=$($matched.Count) matchId=$matchId"
 } catch {
+  if ($managedServices.Count -gt 0) {
+    Show-ManagedServiceLogs -Services $managedServices
+  }
   Write-Host "Smoke test failed at stage: $stage" -ForegroundColor Red
   throw
+} finally {
+  if ($managedServices.Count -gt 0) {
+    Stop-ManagedServices -Services $managedServices
+  }
 }
 
 

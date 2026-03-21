@@ -172,12 +172,16 @@ Most useful endpoints:
 
 - `GET /api/ops/support/overview`
 - `GET /api/ops/support/scrape-runs/:id`
+- `GET /api/ops/support/scrape-runs/:id/forensics`
+- `GET /api/ops/support/scrape-runs/:id/forensics/export.csv`
 - `GET /api/ops/support/users/:id`
 - `GET /api/ops/support/correlate`
 - `GET /api/ops/support/schedule-events`
 - `GET /api/ops/metrics`
 - `GET /api/ops/scrape/callback-events`
 - `GET /api/ops/api-request-events`
+- `GET /api/ops/authorization-events`
+- `GET /api/ops/authorization-events/export.csv`
 - `POST /api/ops/scrape/callbacks/replay`
 - `POST /api/ops/scrape/runs/:id/reconcile`
 - `POST /api/ops/reconcile-stale-runs`
@@ -186,6 +190,7 @@ Use them for:
 
 - incident bundles without direct DB access
 - callback event inspection
+- csv export of forensic timelines and access-control incidents
 - stale run reconciliation
 - support-grade summary views
 
@@ -198,6 +203,7 @@ Useful when reproducing with a real user session:
 - `GET /api/job-sources/runs/:id`
 - `GET /api/job-sources/runs/:id/diagnostics`
 - `GET /api/job-sources/runs/:id/events`
+- `GET /api/job-sources/runs/:id/forensics`
 - `GET /api/job-sources/runs/diagnostics/summary`
 - `GET /api/job-sources/sources/health`
 - `POST /api/job-sources/runs/:id/retry`

@@ -26,6 +26,7 @@ export type UserDto = {
   id: string;
   email: string;
   role?: string;
+  permissions?: string[];
   lastLoginAt?: string | null;
   isActive?: boolean;
   deletedAt?: string | null;
@@ -389,7 +390,19 @@ export type JobSourceHealthDto = {
     successRate: number;
     timeoutFailures: number;
     callbackFailures: number;
+    networkFailures: number;
+    parseFailures: number;
+    validationFailures: number;
+    unknownFailures: number;
     staleHeartbeatRuns: number;
+    degradedRuns: number;
+    emptyRuns: number;
+    failedQualityRuns: number;
+    partialSuccessRuns: number;
+    blockedOutcomeRuns: number;
+    listingEmptyRuns: number;
+    filtersExhaustedRuns: number;
+    detailParseGapRuns: number;
     latestRunAt: string | null;
     latestRunStatus: string | null;
   }>;
@@ -644,6 +657,8 @@ export type JobOfferFocusDto = {
   groups: Array<{
     key: string;
     label: string;
+    description: string;
+    href: string;
     count: number;
     items: Array<{
       id: string;
@@ -716,6 +731,29 @@ export type ApiRequestEventsListDto = {
     statusCode: number;
     count: number;
   }>;
+};
+
+export type AuthorizationEventDto = {
+  id: string;
+  userId: string | null;
+  role: string | null;
+  permission: string | null;
+  resource: string | null;
+  action: string;
+  outcome: string;
+  requestId: string | null;
+  method: string | null;
+  path: string | null;
+  reason: string | null;
+  meta: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type AuthorizationEventsListDto = {
+  items: AuthorizationEventDto[];
+  limit: number;
+  offset: number;
+  total: number;
 };
 
 export type SupportOverviewDto = {
@@ -808,7 +846,60 @@ export type SupportOverviewDto = {
       message: string;
       createdAt: string;
     }>;
+    authorizationEvents: AuthorizationEventDto[];
   };
+  stageFailures?: Array<{
+    stage: string;
+    status: string;
+    count: number;
+  }>;
+};
+
+export type SupportScrapeForensicsDto = {
+  run: {
+    id: string;
+    traceId: string;
+    status: string;
+    failureType: string | null;
+    error: string | null;
+    createdAt: string;
+  };
+  stageSummary: Record<string, { total: number; failed: number; warning: number }>;
+  executionEvents: Array<{
+    id: string;
+    sourceRunId: string;
+    traceId: string | null;
+    requestId: string | null;
+    stage: string;
+    status: string;
+    code: string | null;
+    message: string;
+    meta: Record<string, unknown> | null;
+    createdAt: string;
+  }>;
+  runEvents: Array<{
+    id: string;
+    sourceRunId: string;
+    traceId: string;
+    eventType: string;
+    severity: string;
+    requestId: string | null;
+    phase: string | null;
+    attemptNo: number | null;
+    code: string | null;
+    message: string;
+    meta: Record<string, unknown> | null;
+    createdAt: string;
+  }>;
+  callbackEvents: Array<{
+    id: string;
+    eventId: string;
+    status: string;
+    requestId: string | null;
+    attemptNo: number | null;
+    receivedAt: string;
+    payloadSummary: Record<string, unknown> | null;
+  }>;
 };
 
 export type SupportScrapeIncidentDto = {

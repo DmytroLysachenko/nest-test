@@ -64,6 +64,19 @@ export const NotebookOffersListCard = ({
       (bulkFollowUpAt.trim().length > 0 || bulkNextStep.trim().length > 0 || bulkNote.trim().length > 0),
     [bulkFollowUpAt, bulkNextStep, bulkNote, selectedOfferIds.length],
   );
+  const getFollowUpTone = (followUpState?: JobOfferListItemDto['followUpState']) => {
+    if (followUpState === 'due') {
+      return 'border-app-danger-border bg-app-danger-soft text-app-danger';
+    }
+    if (followUpState === 'upcoming') {
+      return 'border-app-warning-border bg-app-warning-soft text-app-warning';
+    }
+    return '';
+  };
+  const getPipelineValue = (offer: JobOfferListItemDto, key: 'nextStep' | 'followUpNote') => {
+    const value = offer.pipelineMeta?.[key];
+    return typeof value === 'string' ? value.trim() : '';
+  };
 
   return (
     <Card title="Offers" description="Filtered notebook results">
@@ -199,7 +212,9 @@ export const NotebookOffersListCard = ({
                   <span className="app-badge">rank: {offer.rankingScore}</span>
                 ) : null}
                 {offer.followUpState && offer.followUpState !== 'none' ? (
-                  <span className="app-badge">follow-up: {offer.followUpState}</span>
+                  <span className={`app-badge ${getFollowUpTone(offer.followUpState)}`}>
+                    follow-up: {offer.followUpState}
+                  </span>
                 ) : null}
                 {offer.sourceRunId ? <span className="app-badge">run: {offer.sourceRunId.slice(0, 8)}</span> : null}
                 {(offer.explanationTags ?? []).slice(0, 3).map((tag) => (
@@ -208,6 +223,16 @@ export const NotebookOffersListCard = ({
                   </span>
                 ))}
               </div>
+              {(getPipelineValue(offer, 'nextStep') || getPipelineValue(offer, 'followUpNote')) && (
+                <div className="border-border/50 bg-surface-muted/60 mt-3 rounded-2xl border px-3 py-2.5 text-xs">
+                  {getPipelineValue(offer, 'nextStep') ? (
+                    <p className="text-text-strong font-medium">Next step: {getPipelineValue(offer, 'nextStep')}</p>
+                  ) : null}
+                  {getPipelineValue(offer, 'followUpNote') ? (
+                    <p className="text-text-soft mt-1 line-clamp-2">{getPipelineValue(offer, 'followUpNote')}</p>
+                  ) : null}
+                </div>
+              )}
             </article>
           ))
         ) : (

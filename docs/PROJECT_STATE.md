@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-03-14
+Last updated: 2026-03-21
 
 ## Milestone Progress Snapshot
 
@@ -74,6 +74,8 @@ Last updated: 2026-03-14
   - source health summary
   - support overview, scrape incident bundle, user incident bundle, and correlation lookup
   - dead-letter replay and stale-run reconcile controls
+  - DB-backed scrape execution audit trail and forensic timeline endpoint
+  - permission-based ops access control backed by persisted role-permission mappings
 
 ## Backend and Platform Progress By Area
 
@@ -84,7 +86,8 @@ Last updated: 2026-03-14
   - support-facing read models now provide LLM-friendly incident bundles instead of forcing raw endpoint composition
 - Worker
   - scrape lifecycle visibility is materially stronger
-  - diagnostics now distinguish degraded/empty/blocked outcomes
+  - diagnostics now distinguish degraded/empty/blocked/partial outcomes
+  - source-specific alias normalization is now deterministic for contract type, work mode, and seniority fields
   - callback envelope is replay-safe and increasingly support-friendly
 - Web
   - major move from panel-heavy internal tooling toward guided product workflow
@@ -93,8 +96,9 @@ Last updated: 2026-03-14
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields
 - CI/CD and smoke
   - split verify/smoke gates exist
-  - release candidate and manual production promotion exist
-  - smoke is broader, but still depends on local services actually being started
+- release candidate and manual production promotion exist
+- deployment workflows now emit machine-readable release metadata with resolved revisions/images
+- smoke now auto-starts dedicated local services, repairs stale fixture scrape runs, and tolerates rate-limit windows during polling
 
 ## Key Technical Decisions Active in Code
 
@@ -119,6 +123,7 @@ Last updated: 2026-03-14
 - Production support now has a read-only local toolkit (`tools/support`) that combines support endpoints with allowlisted Neon queries into one incident bundle.
 - Scrape runs expose aggregated diagnostics summary endpoint (`/job-sources/runs/diagnostics/summary`).
 - Scrape runs expose per-run event timeline endpoint (`GET /api/job-sources/runs/:id/events`).
+- Scrape runs now also expose a DB-backed forensic audit timeline endpoint (`GET /api/job-sources/runs/:id/forensics`).
 - Scrape diagnostics summary now supports optional timeline buckets (`hour` / `day`) and short-lived in-memory response cache.
 - Scrape runs now persist deterministic lifecycle fields (`failure_type`, `finalized_at`, `retry_of_run_id`, `retry_count`).
 - API lazily reconciles stale `PENDING/RUNNING` runs to terminal timeout failures.
@@ -148,6 +153,15 @@ Last updated: 2026-03-14
 - Ops now exposes callback event listing, worker dead-letter replay trigger, and stale run reconcile endpoint.
 - Ops now exposes token-protected bulk stale-run reconcile endpoint (`POST /api/ops/reconcile-stale-runs`) for scheduler automation.
 - Ops support overview now includes recent schedule execution failures, and admins can list schedule events directly through `GET /api/ops/support/schedule-events`.
+- Ops support overview now degrades partial sections safely instead of failing the whole bundle when one support query errors.
+- Worker now persists DB-backed scrape execution events (`scrape_execution_events`) for task ingress, listing fetch, normalization, callback dispatch, and terminal failures.
+- Worker scrape execution audit now also records callback retry scheduling, dead-letter moves, and dead-letter replay attempts/outcomes.
+- Ops now exposes scrape forensic drill-down via `GET /api/ops/support/scrape-runs/:id/forensics`.
+- Auth/runtime access control now resolves permissions from persisted `roles`, `permissions`, and `role_permissions` tables instead of relying only on inline role checks.
+- Ops now exposes authorization audit listing via `GET /api/ops/authorization-events`.
+- Ops now exposes CSV export for scrape forensics and authorization audit listings to support incident handoff.
+- Admins can inspect and update user roles through `GET /api/user/admin/users/:id/role` and `PUT /api/user/admin/users/:id/role`.
+- Scrape runs now persist normalized outcome fields directly on `job_source_runs` (`classified_outcome`, `empty_reason`, `source_quality`) so dashboards and support flows do not depend only on callback payload parsing.
 - Admin ops endpoints are now skip-throttled and the web ops page uses the compact support overview bundle instead of several parallel diagnostics queries.
 - Job matching now persists explanation metadata on each scored match (`job_matches.match_meta`) and exposes audit export endpoints.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
@@ -200,11 +214,16 @@ Last updated: 2026-03-14
 - Admin ops now supports callback event CSV export and a private web ops console.
 - Admin ops console now also exposes persisted API warning/error request events for support triage without direct DB access.
 - Worker diagnostics now classify empty/degraded/blocked outcomes with explicit `resultKind`, `emptyReason`, and `sourceQuality` fields.
+- Worker normalization now canonicalizes source aliases for employment type, work mode, and seniority before persistence/callback emission.
+- Job-source health summary now includes outcome/failure rollups (`networkFailures`, `parseFailures`, `degradedRuns`, `partialSuccessRuns`, `blockedOutcomeRuns`, `filtersExhaustedRuns`, `detailParseGapRuns`).
 - Documents now support authenticated extraction recovery endpoints (`POST /api/documents/:id/retry-extraction`, `POST /api/documents/retry-failed`) with audit events.
 - Document retry responses now return explicit recovery outcome summaries so the UI can report what was recovered and what still needs attention.
 - Job-source UX now exposes authenticated scrape preflight (`GET /api/job-sources/preflight`) and user-triggered schedule enqueue (`POST /api/job-sources/schedule/trigger-now`).
 - Scrape preflight now returns user-facing blocker/warning details, guidance text, and schedule context in addition to raw readiness booleans.
 - Local e2e fixture seeding now uses retry/backoff and smoke waits for service health before workflow assertions.
+- Local e2e fixture seeding now also resets stale fixture `PENDING`/`RUNNING` scrape runs so smoke starts from a deterministic state.
+- Release candidate, deploy-on-main, and manual promotion workflows now upload machine-readable release metadata and verification artifacts containing resolved service revision/image details.
+- Rollback workflow summary now records rollback source/target revisions and images for auditability.
 
 ## Data Model Highlights
 
@@ -266,7 +285,7 @@ Last updated: 2026-03-14
 
 ## Highest-Value Remaining Gaps
 
-- Local and CI smoke is more robust, but full startup orchestration is still not self-contained.
+- Local smoke is now self-starting for API/worker/web, but CI/local orchestration still depends on host Docker/Postgres availability.
 - Worker queue remains in-memory, so crash resilience is below production-grade background-job expectations.
 - Scraper quality is still heavily tied to one source and its DOM behavior.
 - Notebook productivity is better, but there is not yet a full follow-up/reminder or pipeline automation layer.

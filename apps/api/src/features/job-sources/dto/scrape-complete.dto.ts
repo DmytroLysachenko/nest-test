@@ -17,6 +17,21 @@ import {
 
 const SCRAPE_COMPLETE_STATUS = ['COMPLETED', 'FAILED'] as const;
 const SCRAPE_FAILURE_TYPES = ['timeout', 'network', 'validation', 'parse', 'callback', 'unknown'] as const;
+const SCRAPE_CLASSIFIED_OUTCOMES = [
+  'success',
+  'partial_success',
+  'blocked_by_source',
+  'listing_empty',
+  'filters_exhausted',
+  'detail_parse_gap',
+  'failed:timeout',
+  'failed:network',
+  'failed:validation',
+  'failed:parse',
+  'failed:callback',
+  'failed:unknown',
+  'worker_timeout',
+] as const;
 
 class ScrapeResultJobDto {
   @ApiPropertyOptional()
@@ -193,6 +208,11 @@ class ScrapeRunDiagnosticsDto {
   @IsOptional()
   @IsIn(['healthy', 'degraded', 'empty', 'failed'])
   sourceQuality?: 'healthy' | 'degraded' | 'empty' | 'failed';
+
+  @ApiPropertyOptional({ enum: SCRAPE_CLASSIFIED_OUTCOMES })
+  @IsOptional()
+  @IsIn(SCRAPE_CLASSIFIED_OUTCOMES)
+  classifiedOutcome?: (typeof SCRAPE_CLASSIFIED_OUTCOMES)[number];
 }
 
 export class ScrapeCompleteDto {

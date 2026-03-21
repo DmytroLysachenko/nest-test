@@ -10,7 +10,7 @@ import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { HeroHeader, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
 import { GuidancePanel } from '@/shared/ui/guidance-panels';
-import { WorkflowBlockedState } from '@/shared/ui/workflow-blocked-state';
+import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
 
 export const WorkspaceActivityBoardPage = () => {
   const auth = useRequireAuth();
@@ -38,19 +38,16 @@ export const WorkspaceActivityBoardPage = () => {
   }
 
   if (summary.workflow.needsOnboarding) {
-    const primaryBlocker =
-      summary.blockerDetails?.find((blocker) => blocker.blockedRoutes.includes('notebook')) ??
-      summary.blockerDetails?.[0];
-
     return (
-      <WorkflowBlockedState
+      <WorkflowRouteBlock
+        summary={summary}
+        route="notebook"
         title="Activity board unlocks after setup"
-        description={primaryBlocker?.description ?? 'Complete onboarding before using activity tracking surfaces.'}
-        actionLabel={primaryBlocker?.ctaLabel ?? 'Open dashboard'}
-        onAction={() => {
-          window.location.href = primaryBlocker?.href ?? '/';
+        fallbackDescription="Complete onboarding before using activity tracking surfaces."
+        fallbackActionLabel="Open dashboard"
+        onNavigate={(href) => {
+          window.location.assign(href);
         }}
-        breakdown={summary.readinessBreakdown}
       />
     );
   }

@@ -1,9 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
-import { exportCallbackEventsCsv, getSupportOverview } from '@/features/ops/api/ops-api';
+import { exportCallbackEventsCsv, getSupportOverview, getSupportScrapeForensics } from '@/features/ops/api/ops-api';
 import { PageErrorState, PageLoadingState } from '@/shared/ui/async-states';
 import { Card } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
@@ -14,6 +15,8 @@ import { HeroHeader, MetricCard, SectionHeader, StatusPill } from '@/shared/ui/d
 
 export const OpsPage = () => {
   const auth = useRequireAuth();
+  const canReadOps = Boolean(auth.user?.permissions?.includes('ops.read'));
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
   const downloadCsv = async (request: (token: string) => Promise<string>, fileName: string) => {
     if (!auth.token) {
@@ -34,7 +37,24 @@ export const OpsPage = () => {
       token: auth.token,
       queryKey: queryKeys.ops.supportOverview(auth.token, 72),
       queryFn: (token) => getSupportOverview(token, 72),
-      enabled: Boolean(auth.token && auth.user?.role === 'admin'),
+      enabled: Boolean(auth.token && canReadOps),
+      staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
+      gcTime: QUERY_GC_TIME.DEFAULT,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    }),
+  );
+  const runForensicsQuery = useQuery(
+    buildAuthedQueryOptions({
+      token: auth.token,
+      queryKey: ['ops', 'run-forensics', selectedRunId],
+      queryFn: (token) => {
+        if (!selectedRunId) {
+          throw new Error('Run id is required');
+        }
+        return getSupportScrapeForensics(token, selectedRunId);
+      },
+      enabled: Boolean(auth.token && canReadOps && selectedRunId),
       staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
       gcTime: QUERY_GC_TIME.DEFAULT,
       refetchOnWindowFocus: false,
@@ -46,8 +66,10 @@ export const OpsPage = () => {
     return <PageLoadingState title="Loading ops workspace" subtitle="Checking admin session and support telemetry." />;
   }
 
-  if (auth.user?.role !== 'admin') {
-    return <PageErrorState title="Admin access required" message="This area is limited to admin sessions." />;
+  if (!canReadOps) {
+    return (
+      <PageErrorState title="Ops access required" message="This area is limited to sessions with ops permissions." />
+    );
   }
 
   if (supportOverviewQuery.isLoading) {
@@ -195,6 +217,26 @@ export const OpsPage = () => {
         </Card>
       </div>
 
+      {overview.stageFailures?.length ? (
+        <Card
+          title="Stage Failure Hotspots"
+          description="DB-backed execution audit counts by worker stage, useful when callback or schedule failures do not explain the run state."
+        >
+          <div className="space-y-3 text-sm">
+            {overview.stageFailures.map((item) => (
+              <div key={`${item.stage}:${item.status}`} className="flex items-center justify-between gap-3">
+                <span className="text-text-soft">
+                  {item.stage}
+                  {' | '}
+                  {item.status}
+                </span>
+                <span className="text-text-strong font-medium">{item.count}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
+
       <div className="grid gap-5 xl:grid-cols-3">
         <Card
           title="Recent failed runs"
@@ -203,7 +245,14 @@ export const OpsPage = () => {
           <div className="space-y-3">
             {overview.recentFailures.scrapeRuns.length ? (
               overview.recentFailures.scrapeRuns.map((run) => (
-                <div key={run.id} className="app-muted-panel">
+                <button
+                  key={run.id}
+                  type="button"
+                  className="app-muted-panel w-full text-left"
+                  onClick={() => {
+                    setSelectedRunId(run.id);
+                  }}
+                >
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-text-strong font-medium">{run.id.slice(0, 8)}</p>
@@ -212,7 +261,7 @@ export const OpsPage = () => {
                     <StatusPill value={run.failureType ?? 'unknown'} tone="danger" />
                   </div>
                   <p className="text-text-soft mt-2 text-sm">{run.error ?? 'No error message recorded.'}</p>
-                </div>
+                </button>
               ))
             ) : (
               <div className="app-muted-panel text-text-soft">No failed scrape runs recorded in this window.</div>
@@ -302,6 +351,69 @@ export const OpsPage = () => {
           )}
         </div>
       </Card>
+
+      <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        <Card
+          title="Recent Permission Denials"
+          description="Authorization audit entries for denied admin/support actions."
+        >
+          <div className="space-y-3">
+            {overview.recentFailures.authorizationEvents.length ? (
+              overview.recentFailures.authorizationEvents.map((event) => (
+                <div key={event.id} className="app-muted-panel">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-text-strong font-medium">{event.permission ?? 'unknown-permission'}</p>
+                      <p className="text-text-soft text-xs">{new Date(event.createdAt).toLocaleString()}</p>
+                    </div>
+                    <StatusPill value={event.outcome} tone="danger" />
+                  </div>
+                  <p className="text-text-soft mt-2 text-sm">{event.reason ?? 'Permission check denied.'}</p>
+                </div>
+              ))
+            ) : (
+              <div className="app-muted-panel text-text-soft">No recent permission denials recorded.</div>
+            )}
+          </div>
+        </Card>
+
+        <Card
+          title="Run Forensics"
+          description="Select a failed run to inspect worker execution stages, callback trail, and API timeline."
+        >
+          {!selectedRunId ? (
+            <div className="app-muted-panel text-text-soft">Select a failed run to load forensic detail.</div>
+          ) : runForensicsQuery.isLoading ? (
+            <div className="app-muted-panel text-text-soft">Loading forensic detail.</div>
+          ) : runForensicsQuery.isError || !runForensicsQuery.data ? (
+            <div className="app-muted-panel text-text-soft">Unable to load forensic detail for the selected run.</div>
+          ) : (
+            <div className="space-y-3">
+              <div className="app-muted-panel">
+                <p className="text-text-strong font-medium">{runForensicsQuery.data.run.id}</p>
+                <p className="text-text-soft mt-1 text-sm">
+                  {runForensicsQuery.data.run.failureType ?? runForensicsQuery.data.run.status}
+                </p>
+              </div>
+              <div className="space-y-2 text-sm">
+                {Object.entries(runForensicsQuery.data.stageSummary).map(([stage, summary]) => (
+                  <div key={stage} className="flex items-center justify-between gap-3">
+                    <span className="text-text-soft">{stage}</span>
+                    <span className="text-text-strong font-medium">
+                      {summary.total} total / {summary.failed} failed
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="app-muted-panel text-text-soft text-sm">
+                Callback events: {runForensicsQuery.data.callbackEvents.length}
+                {' | '}
+                Execution events: {runForensicsQuery.data.executionEvents.length}
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
     </main>
   );
 };

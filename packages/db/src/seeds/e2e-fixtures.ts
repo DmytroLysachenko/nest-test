@@ -1,10 +1,10 @@
 import * as argon2 from 'argon2';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { config } from 'dotenv';
 import { Pool } from 'pg';
 
-import { careerProfilesTable, profileInputsTable, usersTable } from '../schema';
+import { careerProfilesTable, jobSourceRunsTable, profileInputsTable, usersTable } from '../schema';
 
 config();
 
@@ -84,11 +84,24 @@ const ensureUser = async (fixture: FixtureUser) => {
     .limit(1)
     .then((rows) => rows[0]);
 
+  const hashedPassword = await argon2.hash(fixture.password);
+
   if (existing) {
-    return existing;
+    const [updated] = await db
+      .update(usersTable)
+      .set({
+        password: hashedPassword,
+        role: fixture.role,
+        isEmailVerified: true,
+        isActive: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(usersTable.id, existing.id))
+      .returning();
+
+    return updated ?? existing;
   }
 
-  const hashedPassword = await argon2.hash(fixture.password);
   const [created] = await db
     .insert(usersTable)
     .values({
@@ -360,11 +373,27 @@ const ensureActiveCareerProfile = async (userId: string, profileInputId: string,
   return created;
 };
 
+const finalizeActiveScrapeRuns = async (userId: string) => {
+  await db
+    .update(jobSourceRunsTable)
+    .set({
+      status: 'FAILED',
+      failureType: 'unknown',
+      classifiedOutcome: 'failed:unknown',
+      sourceQuality: 'failed',
+      error: '[smoke-seed] stale fixture run reset before smoke execution',
+      finalizedAt: new Date(),
+      completedAt: new Date(),
+    })
+    .where(and(eq(jobSourceRunsTable.userId, userId), inArray(jobSourceRunsTable.status, ['PENDING', 'RUNNING'])));
+};
+
 async function seedE2EFixtures() {
   console.log('Seeding e2e fixtures...');
 
   for (const fixture of fixtures) {
     const user = await withRetry(`ensureUser(${fixture.email})`, () => ensureUser(fixture));
+    await withRetry(`finalizeActiveScrapeRuns(${fixture.email})`, () => finalizeActiveScrapeRuns(user.id));
     const profileInput = await withRetry(`ensureProfileInput(${fixture.email})`, () =>
       ensureProfileInput(user.id, fixture),
     );

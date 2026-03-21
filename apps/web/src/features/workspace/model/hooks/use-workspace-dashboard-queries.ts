@@ -2,12 +2,12 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { getJobOffersPreview, listJobOffers } from '@/features/job-offers/api/job-offers-api';
+import { getJobOfferFocus, getJobOffersPreview, listJobOffers } from '@/features/job-offers/api/job-offers-api';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
 import { mutableQueryPreset } from '@/shared/lib/query/query-option-presets';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
-import type { JobOffersListDto } from '@/shared/types/api';
+import type { JobOfferFocusDto, JobOffersListDto } from '@/shared/types/api';
 
 export const useWorkspaceDashboardQueries = (token: string | null) => {
   const offersQuery = useQuery(
@@ -20,7 +20,17 @@ export const useWorkspaceDashboardQueries = (token: string | null) => {
     }),
   );
 
+  const focusQuery = useQuery(
+    buildAuthedQueryOptions<JobOfferFocusDto>({
+      token,
+      queryKey: queryKeys.jobOffers.focus(token),
+      queryFn: getJobOfferFocus,
+      ...mutableQueryPreset(),
+    }),
+  );
+
   return {
     offersQuery,
+    focusQuery,
   };
 };

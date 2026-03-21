@@ -1,6 +1,6 @@
 # Sprint Plan
 
-Last updated: 2026-03-09
+Last updated: 2026-03-21
 
 This document translates the current roadmap into implementation-oriented sprint slices. It is intentionally more detailed than `docs/ROADMAP.md` and should be updated whenever priorities or dependencies shift materially.
 
@@ -101,10 +101,9 @@ Reduce time from “offers exist” to “user made progress on real application
 
 ### Remaining Follow-On Work
 
-- Add bulk follow-up date assignment and batch next-step editing.
-- Surface focus-queue actions directly from dashboard cards into notebook filtered views.
-- Add overdue follow-up emphasis in pipeline view and mobile layouts.
-- Extend smoke coverage to assert focus queue and follow-up summary contracts.
+- Add bulk next-step editing beyond follow-up updates.
+- Continue refining dashboard-to-notebook focus deep-link ergonomics.
+- Expand long-tail notebook mobile polish after the current follow-up emphasis changes.
 
 ## Sprint 3: Scraper Quality and Source Reliability
 
@@ -138,6 +137,16 @@ Improve confidence that scrape runs either produce useful results or fail with c
 - Degraded source behavior is distinguishable from user filter emptiness.
 - Source-health summaries show actionable quality signals rather than only run counts.
 - Worker and API tests cover new normalization/failure-classification edges.
+
+### Status
+
+- Shipped:
+  - deterministic source alias normalization for contract/work-mode/seniority
+  - richer blocked/degraded/empty/partial classification
+  - expanded source-health rollups
+  - worker + API regression coverage for these edges
+- Remaining:
+  - more source-specific parser hardening as additional adapters land
 
 ## Sprint 4: Durable Async Execution and Background Workflow Safety
 
@@ -195,6 +204,16 @@ Make local setup, CI smoke, and production promotion reliable enough that operat
 - `pnpm smoke:e2e` fails for real product regressions, not routine startup timing issues.
 - Post-deploy verification exercises the newest user-critical flows.
 - Release promotion and rollback steps are explicit and documented.
+
+### Status
+
+- Shipped:
+  - smoke now starts dedicated local services, clears stale fixture scrape runs, and retries rate-limited workflow steps
+  - auth/bootstrap and ops-path local smoke failures were hardened away
+  - release candidate / deploy / promote workflows now emit release metadata artifacts
+  - rollback summary now captures from/to revisions and images
+- Remaining:
+  - broader alerting-friendly operational metrics and production rollback rehearsal
 
 ## Sprint 6: Product Maturity and Multi-Source Expansion Readiness
 

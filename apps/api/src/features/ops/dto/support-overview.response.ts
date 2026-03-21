@@ -127,6 +127,35 @@ class SupportRecentScheduleExecutionFailureResponse {
   createdAt!: string;
 }
 
+class SupportRecentAuthorizationEventResponse {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty({ nullable: true })
+  userId!: string | null;
+
+  @ApiProperty({ nullable: true })
+  role!: string | null;
+
+  @ApiProperty({ nullable: true })
+  permission!: string | null;
+
+  @ApiProperty()
+  action!: string;
+
+  @ApiProperty()
+  outcome!: string;
+
+  @ApiProperty({ nullable: true })
+  reason!: string | null;
+
+  @ApiProperty({ nullable: true })
+  requestId!: string | null;
+
+  @ApiProperty()
+  createdAt!: string;
+}
+
 class SupportRecentFailuresResponse {
   @ApiProperty({ type: [SupportRecentScrapeFailureResponse] })
   scrapeRuns!: SupportRecentScrapeFailureResponse[];
@@ -139,6 +168,20 @@ class SupportRecentFailuresResponse {
 
   @ApiProperty({ type: [SupportRecentScheduleExecutionFailureResponse] })
   scheduleExecutions!: SupportRecentScheduleExecutionFailureResponse[];
+
+  @ApiProperty({ type: [SupportRecentAuthorizationEventResponse] })
+  authorizationEvents!: SupportRecentAuthorizationEventResponse[];
+}
+
+class SupportStageFailureResponse {
+  @ApiProperty()
+  stage!: string;
+
+  @ApiProperty()
+  status!: string;
+
+  @ApiProperty()
+  count!: number;
 }
 
 export class SupportOverviewResponse {
@@ -153,4 +196,7 @@ export class SupportOverviewResponse {
 
   @ApiProperty({ type: SupportRecentFailuresResponse })
   recentFailures!: SupportRecentFailuresResponse;
+
+  @ApiProperty({ type: [SupportStageFailureResponse], required: false })
+  stageFailures?: SupportStageFailureResponse[];
 }

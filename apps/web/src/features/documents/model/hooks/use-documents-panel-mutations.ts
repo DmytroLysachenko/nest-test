@@ -24,6 +24,7 @@ type UseDocumentsPanelMutationsArgs = {
   setStatus: (value: string | null) => void;
   setError: (value: string | null) => void;
   setRecoverySummary: (value: string | null) => void;
+  setLastRecoveredDocumentId: (value: string | null) => void;
 };
 
 export const useDocumentsPanelMutations = ({
@@ -34,6 +35,7 @@ export const useDocumentsPanelMutations = ({
   setStatus,
   setError,
   setRecoverySummary,
+  setLastRecoveredDocumentId,
 }: UseDocumentsPanelMutationsArgs) => {
   const { syncDocuments } = useDataSync(token);
   const resolveMimeType = (file: File) => {
@@ -60,6 +62,7 @@ export const useDocumentsPanelMutations = ({
 
       setSelectedDocumentId(uploadData.document.id);
       setRecoverySummary(null);
+      setLastRecoveredDocumentId(null);
       setActiveStage('upload');
       await uploadFileToSignedUrl(uploadData.uploadUrl, selectedFile, mimeType);
       setActiveStage('confirm');
@@ -73,6 +76,7 @@ export const useDocumentsPanelMutations = ({
       await extractDocument(token, documentId);
       setStatus('Extraction completed.');
       setRecoverySummary(null);
+      setLastRecoveredDocumentId(documentId);
       setActiveStage('idle');
       syncDocuments();
       toastSuccess('Document uploaded and extracted');
@@ -83,6 +87,7 @@ export const useDocumentsPanelMutations = ({
       setActiveStage('idle');
       setStatus(null);
       setRecoverySummary(null);
+      setLastRecoveredDocumentId(null);
       toastError(message);
     },
   });
@@ -94,6 +99,7 @@ export const useDocumentsPanelMutations = ({
       setStatus(result.retry.message);
       setRecoverySummary(result.retry.message);
       setSelectedDocumentId(result.document.id);
+      setLastRecoveredDocumentId(result.document.id);
       toastSuccess('Extraction retried');
     },
     onError: (error) => {
@@ -106,6 +112,7 @@ export const useDocumentsPanelMutations = ({
     onSuccess: (result) => {
       syncDocuments();
       setRecoverySummary(result.message);
+      setLastRecoveredDocumentId(null);
       toastSuccess(result.message);
     },
     onError: (error) => {
@@ -118,6 +125,7 @@ export const useDocumentsPanelMutations = ({
     onSuccess: () => {
       syncDocuments();
       setSelectedDocumentId(null);
+      setLastRecoveredDocumentId(null);
       toastSuccess('Document removed');
     },
     onError: (error) => {
