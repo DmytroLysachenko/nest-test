@@ -227,10 +227,11 @@ function Stop-RepoServiceProcesses {
     [Parameter(Mandatory = $true)][string]$RepoRoot
   )
 
+  $normalizedRepoRoot = $RepoRoot.Replace('\', '/')
   $patterns = switch ($Name) {
-    'api' { @('--filter api', 'apps\api', '@nestjs\cli') }
-    'worker' { @('--filter worker', 'apps\worker', 'tsx watch src/index.ts') }
-    'web' { @('--filter web', 'apps\web', 'next\dist\bin\next') }
+    'api' { @('--filter api', 'apps/api', '@nestjs/cli') }
+    'worker' { @('--filter worker', 'apps/worker', 'tsx watch src/index.ts') }
+    'web' { @('--filter web', 'apps/web', 'next/dist/bin/next') }
     default { @() }
   }
 
@@ -240,11 +241,12 @@ function Stop-RepoServiceProcesses {
       if ([string]::IsNullOrWhiteSpace($commandLine)) {
         return $false
       }
-      if ($commandLine -notlike "*$RepoRoot*") {
+      $normalizedCommandLine = $commandLine.Replace('\', '/')
+      if ($normalizedCommandLine -notlike "*$normalizedRepoRoot*") {
         return $false
       }
       foreach ($pattern in $patterns) {
-        if ($commandLine -like "*$pattern*") {
+        if ($normalizedCommandLine -like "*$pattern*") {
           return $true
         }
       }
@@ -264,12 +266,13 @@ function Stop-RepoServiceProcesses {
       }
       $processId = [int]$match.Groups[1].Value
       $commandLine = $match.Groups[2].Value
-      if ($commandLine -notlike "*$RepoRoot*") {
+      $normalizedCommandLine = $commandLine.Replace('\', '/')
+      if ($normalizedCommandLine -notlike "*$normalizedRepoRoot*") {
         continue
       }
       $isMatch = $false
       foreach ($pattern in $patterns) {
-        if ($commandLine -like "*$pattern*") {
+        if ($normalizedCommandLine -like "*$pattern*") {
           $isMatch = $true
           break
         }
@@ -372,6 +375,12 @@ function Ensure-LocalSmokeServices {
     $targetHealthUri = "$($targetBaseUrl.TrimEnd('/'))$($definition.HealthPath)"
     Stop-RepoServiceProcesses -Name $definition.Name -RepoRoot $RepoRoot
     Start-Sleep -Seconds 2
+    if ($definition.Name -eq 'web') {
+      $webLockPath = Join-Path $RepoRoot 'apps/web/.next/dev/lock'
+      if (Test-Path $webLockPath) {
+        Remove-Item $webLockPath -Force -ErrorAction SilentlyContinue
+      }
+    }
     if (Test-HealthyEndpoint -Uri $targetHealthUri) {
       Write-Host "Reusing dedicated smoke $($definition.Name) service at $targetBaseUrl."
     } elseif (Test-PortListening -Port $fallbackPort) {
