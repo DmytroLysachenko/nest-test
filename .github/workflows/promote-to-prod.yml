@@ -79,9 +79,81 @@ jobs:
             --region="${{ vars.GCP_REGION }}" \
             --image="${IMAGE_BASE}/web:${{ inputs.release_sha }}" \
             --platform=managed
+      - name: Capture promotion deployment metadata
+        run: |
+          resolve_revision() {
+            gcloud run services describe "$1" \
+              --project="${{ vars.GCP_PROJECT_ID }}" \
+              --region="${{ vars.GCP_REGION }}" \
+              --format='value(status.latestReadyRevisionName)'
+          }
+          resolve_image() {
+            gcloud run services describe "$1" \
+              --project="${{ vars.GCP_PROJECT_ID }}" \
+              --region="${{ vars.GCP_REGION }}" \
+              --format='value(spec.template.spec.containers[0].image)'
+          }
+          resolve_url() {
+            gcloud run services describe "$1" \
+              --project="${{ vars.GCP_PROJECT_ID }}" \
+              --region="${{ vars.GCP_REGION }}" \
+              --format='value(status.url)'
+          }
+
+          API_REVISION="$(resolve_revision "${{ vars.GCP_API_SERVICE }}")"
+          WORKER_REVISION="$(resolve_revision "${{ vars.GCP_WORKER_SERVICE }}")"
+          WEB_REVISION="$(resolve_revision "${{ vars.GCP_WEB_SERVICE }}")"
+          API_IMAGE="$(resolve_image "${{ vars.GCP_API_SERVICE }}")"
+          WORKER_IMAGE="$(resolve_image "${{ vars.GCP_WORKER_SERVICE }}")"
+          WEB_IMAGE="$(resolve_image "${{ vars.GCP_WEB_SERVICE }}")"
+          API_URL="$(resolve_url "${{ vars.GCP_API_SERVICE }}")"
+          WORKER_URL="$(resolve_url "${{ vars.GCP_WORKER_SERVICE }}")"
+          WEB_URL="$(resolve_url "${{ vars.GCP_WEB_SERVICE }}")"
+          DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          cat > promote-release-metadata.json <<JSON
+          {
+            "releaseSha": "${{ inputs.release_sha }}",
+            "deployedAt": "${DEPLOYED_AT}",
+            "api": {
+              "service": "${{ vars.GCP_API_SERVICE }}",
+              "url": "${API_URL}",
+              "revision": "${API_REVISION}",
+              "image": "${API_IMAGE}"
+            },
+            "worker": {
+              "service": "${{ vars.GCP_WORKER_SERVICE }}",
+              "url": "${WORKER_URL}",
+              "revision": "${WORKER_REVISION}",
+              "image": "${WORKER_IMAGE}"
+            },
+            "web": {
+              "service": "${{ vars.GCP_WEB_SERVICE }}",
+              "url": "${WEB_URL}",
+              "revision": "${WEB_REVISION}",
+              "image": "${WEB_IMAGE}"
+            }
+          }
+JSON
+
+          {
+            echo "API_SERVICE_NAME=${{ vars.GCP_API_SERVICE }}"
+            echo "WORKER_SERVICE_NAME=${{ vars.GCP_WORKER_SERVICE }}"
+            echo "WEB_SERVICE_NAME=${{ vars.GCP_WEB_SERVICE }}"
+            echo "API_DEPLOYED_URL=${API_URL}"
+            echo "WORKER_DEPLOYED_URL=${WORKER_URL}"
+            echo "WEB_DEPLOYED_URL=${WEB_URL}"
+            echo "API_DEPLOYED_REVISION=${API_REVISION}"
+            echo "WORKER_DEPLOYED_REVISION=${WORKER_REVISION}"
+            echo "WEB_DEPLOYED_REVISION=${WEB_REVISION}"
+            echo "API_DEPLOYED_IMAGE=${API_IMAGE}"
+            echo "WORKER_DEPLOYED_IMAGE=${WORKER_IMAGE}"
+            echo "WEB_DEPLOYED_IMAGE=${WEB_IMAGE}"
+          } >> "${GITHUB_ENV}"
       - name: Post-deploy verify
         run: |
           chmod +x ./scripts/verify-deployment.sh
+          RELEASE_SHA="${{ inputs.release_sha }}" \
           API_BASE_URL="${{ vars.GCP_API_BASE_URL }}" \
           WORKER_BASE_URL="${{ vars.GCP_WORKER_BASE_URL }}" \
           WEB_BASE_URL="${{ vars.GCP_WEB_BASE_URL }}" \
@@ -94,4 +166,11 @@ jobs:
         with:
           name: promote-verify-summary
           path: promote-verify-summary.json
+          if-no-files-found: warn
+      - name: Upload promotion release metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: promote-release-metadata
+          path: promote-release-metadata.json
           if-no-files-found: warn

@@ -64,12 +64,25 @@ jobs:
           mkdir -p .release
           echo "ref=${GITHUB_REF}" > .release/metadata.txt
           echo "sha=${GITHUB_SHA}" >> .release/metadata.txt
+          echo "release_tag=${GITHUB_REF_NAME}" >> .release/metadata.txt
           echo "created_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> .release/metadata.txt
           echo "api_image=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/api:${{ github.sha }}" >> .release/metadata.txt
           echo "worker_image=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/worker:${{ github.sha }}" >> .release/metadata.txt
           echo "web_image=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/web:${{ github.sha }}" >> .release/metadata.txt
+          cat > .release/metadata.json <<JSON
+          {
+            "ref": "${GITHUB_REF}",
+            "releaseTag": "${GITHUB_REF_NAME}",
+            "sha": "${GITHUB_SHA}",
+            "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "apiImage": "${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/api:${{ github.sha }}",
+            "workerImage": "${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/worker:${{ github.sha }}",
+            "webImage": "${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/web:${{ github.sha }}"
+          }
+JSON
       - uses: actions/upload-artifact@v4
         with:
           name: release-candidate-${{ github.sha }}
           path: |
             .release/metadata.txt
+            .release/metadata.json
