@@ -685,6 +685,7 @@ export const runScrapeJob = async (
       source: payload.source,
       listingUrl,
       requestedLimit: payload.limit ?? null,
+      databaseAuditEnabled: Boolean(options.databaseUrl),
     });
 
     const emitHeartbeat = async (
@@ -788,8 +789,14 @@ export const runScrapeJob = async (
         aggregatedJobLinks.size,
         aggregatedNormalized.length,
       );
-
       const remaining = Math.max(1, requestedLimit - collectedKeys.size);
+      await emitExecutionEvent('listing_fetch', 'info', 'Listing fetch attempt started', 'LISTING_FETCH_STARTED', {
+        attempt,
+        listingUrl: attemptListingUrl,
+        remaining,
+      });
+
+      const listingFetchStartedAt = Date.now();
       const pipelinePromise = runPipeline(payload.source, {
         headless: options.headless,
         listingUrl: attemptListingUrl,
@@ -807,11 +814,57 @@ export const runScrapeJob = async (
           skipUrls,
           skipResolver: (urls: string[]) =>
             loadFreshOfferUrls(options.databaseUrl, 'PRACUJ_PL', urls, options.detailCacheHours ?? 24),
+          onProgress: async ({ stage, meta }) => {
+            const eventCodeByStage: Record<string, string> = {
+              listing_browser_launch_started: 'LISTING_BROWSER_LAUNCH_STARTED',
+              listing_browser_launch_completed: 'LISTING_BROWSER_LAUNCH_COMPLETED',
+              listing_navigation_started: 'LISTING_NAVIGATION_STARTED',
+              listing_navigation_completed: 'LISTING_NAVIGATION_COMPLETED',
+              listing_navigation_retry: 'LISTING_NAVIGATION_RETRY',
+              listing_ready_timeout: 'LISTING_READY_TIMEOUT',
+              detail_navigation_started: 'DETAIL_NAVIGATION_STARTED',
+              detail_navigation_completed: 'DETAIL_NAVIGATION_COMPLETED',
+              detail_navigation_failed: 'DETAIL_NAVIGATION_FAILED',
+            };
+            const statusByStage: Record<string, 'info' | 'success' | 'warning' | 'failed'> = {
+              listing_browser_launch_started: 'info',
+              listing_browser_launch_completed: 'success',
+              listing_navigation_started: 'info',
+              listing_navigation_completed: 'success',
+              listing_navigation_retry: 'warning',
+              listing_ready_timeout: 'warning',
+              detail_navigation_started: 'info',
+              detail_navigation_completed: 'success',
+              detail_navigation_failed: 'warning',
+            };
+            await emitExecutionEvent(
+              'listing_progress',
+              statusByStage[stage] ?? 'info',
+              stage,
+              eventCodeByStage[stage],
+              {
+                attempt,
+                ...(meta ?? {}),
+              },
+            );
+          },
         },
       });
 
-      const listingFetchStartedAt = Date.now();
-      const { crawlResult, parsedJobs, normalized } = await Promise.race([pipelinePromise, timeoutPromiseTemplate]);
+      let crawlResult: Awaited<typeof pipelinePromise>['crawlResult'];
+      let parsedJobs: Awaited<typeof pipelinePromise>['parsedJobs'];
+      let normalized: Awaited<typeof pipelinePromise>['normalized'];
+      try {
+        ({ crawlResult, parsedJobs, normalized } = await Promise.race([pipelinePromise, timeoutPromiseTemplate]));
+      } catch (error) {
+        await emitExecutionEvent('listing_fetch', 'failed', 'Listing fetch attempt failed', 'LISTING_FETCH_FAILED', {
+          attempt,
+          listingUrl: attemptListingUrl,
+          durationMs: Date.now() - listingFetchStartedAt,
+          error: error instanceof Error ? error.message : 'Unknown listing fetch failure',
+        });
+        throw error;
+      }
       await emitExecutionEvent('listing_fetch', 'success', 'Listing and detail fetch completed', 'LISTING_FETCH_OK', {
         attempt,
         pagesVisited: crawlResult.pages.length,

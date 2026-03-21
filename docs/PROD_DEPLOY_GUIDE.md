@@ -74,6 +74,7 @@ Required core values:
    - `TASKS_LOCATION=<REGION>`
    - `TASKS_QUEUE=worker-scrape`
    - `TASKS_URL=https://<worker-url>/tasks`
+   - `DATABASE_URL=<same production database>`
 3. Web:
    - `NODE_ENV=production`
    - `NEXT_PUBLIC_API_URL=https://<api-url>/api`

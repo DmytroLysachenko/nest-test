@@ -5,6 +5,12 @@ import { createTaskServer } from './http/task-server';
 const env = loadEnv();
 const logger = createLogger(env);
 
+if (!env.DATABASE_URL) {
+  logger.warn(
+    'Worker DATABASE_URL is not configured; scrape execution events and fresh-offer cache lookups are disabled',
+  );
+}
+
 const server = createTaskServer(env, logger);
 const cloudRunPort = Number(process.env.PORT);
 const listenPort = Number.isFinite(cloudRunPort) && cloudRunPort > 0 ? cloudRunPort : env.WORKER_PORT;

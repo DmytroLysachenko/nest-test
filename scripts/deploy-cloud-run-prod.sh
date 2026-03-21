@@ -431,7 +431,7 @@ if [[ "$DEPLOY_WORKER" == "true" ]]; then
     --max-instances=2 \
     --cpu=1 \
     --memory=1Gi \
-    --set-secrets="TASKS_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest" \
+    --set-secrets="DATABASE_URL=app-database-url:latest,TASKS_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest" \
     --set-env-vars="^|^NODE_ENV=production|WORKER_ALLOWED_ORIGINS=${WORKER_ALLOWED_ORIGINS}|QUEUE_PROVIDER=cloud-tasks|TASKS_PROJECT_ID=${GCP_PROJECT_ID}|TASKS_LOCATION=${GCP_REGION}|TASKS_QUEUE=${WORKER_TASKS_QUEUE}|TASKS_URL=${WORKER_TASK_URL}|WORKER_CALLBACK_URL=${API_URL}/api/job-sources/complete|PLAYWRIGHT_HEADLESS=true|WORKER_MAX_CONCURRENT_TASKS=1|WORKER_MAX_QUEUE_SIZE=20|WORKER_TASK_TIMEOUT_MS=180000" \
     >/dev/null
 fi

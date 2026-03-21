@@ -14,6 +14,26 @@ import type { DetailFetchDiagnostics, ListingJobSummary, RawPage } from '../type
 
 chromium.use(stealth());
 
+const BROWSER_LAUNCH_TIMEOUT_MS = 30_000;
+const PAGE_NAVIGATION_TIMEOUT_MS = 45_000;
+const PAGE_READY_TIMEOUT_MS = 15_000;
+
+type CrawlProgressEvent = {
+  stage:
+    | 'listing_browser_launch_started'
+    | 'listing_browser_launch_completed'
+    | 'listing_navigation_started'
+    | 'listing_navigation_completed'
+    | 'listing_navigation_retry'
+    | 'listing_ready_timeout'
+    | 'detail_navigation_started'
+    | 'detail_navigation_completed'
+    | 'detail_navigation_failed';
+  meta?: Record<string, unknown>;
+};
+
+type CrawlProgressReporter = (event: CrawlProgressEvent) => Promise<void> | void;
+
 const toAbsoluteUrl = (href: string) => {
   try {
     const url = new URL(href);
@@ -281,7 +301,7 @@ const acceptCookieBanner = async (page: Page, logger?: Logger) => {
 };
 
 const loadJobPage = async (page: Page, url: string, delayMs: number, humanize: boolean, logger?: Logger) => {
-  const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
+  const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: PAGE_NAVIGATION_TIMEOUT_MS });
   await acceptCookieBanner(page, logger);
   await page.waitForSelector('[data-test="offer-title"], h1', { timeout: 8000 }).catch(() => undefined);
   if (humanize) {
@@ -296,6 +316,82 @@ const loadJobPage = async (page: Page, url: string, delayMs: number, humanize: b
     status: response?.status(),
     finalUrl: page.url(),
     title,
+  };
+};
+
+const emitProgress = async (reporter: CrawlProgressReporter | undefined, event: CrawlProgressEvent) => {
+  if (!reporter) {
+    return;
+  }
+  await reporter(event);
+};
+
+const loadListingPage = async (
+  page: Page,
+  url: string,
+  delayMs: number,
+  logger?: Logger,
+  reporter?: CrawlProgressReporter,
+  attempt = 1,
+) => {
+  await emitProgress(reporter, {
+    stage: 'listing_navigation_started',
+    meta: { url, attempt },
+  });
+  const navigationStartedAt = Date.now();
+  const response = await page.goto(url, {
+    waitUntil: 'domcontentloaded',
+    timeout: PAGE_NAVIGATION_TIMEOUT_MS,
+  });
+  await acceptCookieBanner(page, logger);
+  await page.waitForTimeout(delayMs);
+
+  const hasNextData = await page.evaluate(() => Boolean(document.querySelector('#__NEXT_DATA__')));
+  const readyState = await page
+    .waitForFunction(
+      () =>
+        document.querySelectorAll('a[href*=",oferta,"]').length > 0 ||
+        Boolean(document.querySelector('#__NEXT_DATA__')) ||
+        Boolean(document.querySelector('[data-test="zero-offers-section"]')),
+      { timeout: PAGE_READY_TIMEOUT_MS },
+    )
+    .then(() => 'ready')
+    .catch(() => 'timed_out');
+
+  if (readyState === 'timed_out') {
+    await emitProgress(reporter, {
+      stage: 'listing_ready_timeout',
+      meta: { url, attempt, timeoutMs: PAGE_READY_TIMEOUT_MS },
+    });
+  }
+
+  const html = await page.content();
+  const title = await page.title();
+  const finalUrl = page.url();
+  const domSignals = extractListingDomSignalsFromHtml(html);
+  await emitProgress(reporter, {
+    stage: 'listing_navigation_completed',
+    meta: {
+      url,
+      attempt,
+      status: response?.status() ?? null,
+      finalUrl,
+      durationMs: Date.now() - navigationStartedAt,
+      hasNextData,
+      primaryLinkCount: domSignals.primaryLinks.length,
+      recommendedLinkCount: domSignals.recommendedLinks.length,
+      hasZeroOffers: domSignals.hasZeroOffers,
+      title,
+    },
+  });
+
+  return {
+    response,
+    hasNextData,
+    html,
+    title,
+    finalUrl,
+    domSignals,
   };
 };
 
@@ -315,6 +411,7 @@ export const crawlPracujPl = async (
     profileDir?: string;
     skipUrls?: Set<string>;
     skipResolver?: (urls: string[]) => Promise<Set<string>>;
+    onProgress?: CrawlProgressReporter;
   },
 ): Promise<{
   pages: RawPage[];
@@ -328,7 +425,15 @@ export const crawlPracujPl = async (
   detailDiagnostics: DetailFetchDiagnostics[];
 }> => {
   const profileDir = options?.profileDir;
-  const browser = profileDir ? null : await chromium.launch({ headless });
+  await emitProgress(options?.onProgress, {
+    stage: 'listing_browser_launch_started',
+    meta: { profileDir: Boolean(profileDir) },
+  });
+  const browser = profileDir ? null : await chromium.launch({ headless, timeout: BROWSER_LAUNCH_TIMEOUT_MS });
+  await emitProgress(options?.onProgress, {
+    stage: 'listing_browser_launch_completed',
+    meta: { profileDir: Boolean(profileDir) },
+  });
   const listingDelayMs = options?.listingDelayMs ?? 1500;
   const listingCooldownMs = options?.listingCooldownMs ?? 0;
   const detailDelayMs = options?.detailDelayMs ?? 2000;
@@ -340,6 +445,7 @@ export const crawlPracujPl = async (
     const context = profileDir
       ? await chromium.launchPersistentContext(profileDir, {
           headless,
+          timeout: BROWSER_LAUNCH_TIMEOUT_MS,
           userAgent:
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
           locale: 'pl-PL',
@@ -351,25 +457,46 @@ export const crawlPracujPl = async (
           locale: 'pl-PL',
           timezoneId: 'Europe/Warsaw',
         });
-    const page = await context.newPage();
-    const response = await page.goto(listingUrl, { waitUntil: 'domcontentloaded' });
+    context.setDefaultNavigationTimeout(PAGE_NAVIGATION_TIMEOUT_MS);
+    context.setDefaultTimeout(PAGE_NAVIGATION_TIMEOUT_MS);
+    let page = await context.newPage();
+    let listingAttempt = 1;
+    let listingLoad = await loadListingPage(
+      page,
+      listingUrl,
+      listingDelayMs,
+      logger,
+      options?.onProgress,
+      listingAttempt,
+    );
 
-    const status = response?.status();
-    const finalUrl = page.url();
-    await acceptCookieBanner(page, logger);
-    await page.waitForTimeout(listingDelayMs);
+    if (
+      !listingLoad.domSignals.hasZeroOffers &&
+      listingLoad.domSignals.primaryLinks.length === 0 &&
+      !listingLoad.hasNextData &&
+      !isBlockedPage(listingLoad.html)
+    ) {
+      listingAttempt += 1;
+      await emitProgress(options?.onProgress, {
+        stage: 'listing_navigation_retry',
+        meta: { url: listingUrl, attempt: listingAttempt, reason: 'no_links_or_next_data' },
+      });
+      await page.close();
+      page = await context.newPage();
+      listingLoad = await loadListingPage(
+        page,
+        listingUrl,
+        Math.max(listingDelayMs, 3000),
+        logger,
+        options?.onProgress,
+        listingAttempt,
+      );
+    }
 
-    const hasNextData = await page.evaluate(() => Boolean(document.querySelector('#__NEXT_DATA__')));
-    await page
-      .waitForFunction(
-        () =>
-          document.querySelectorAll('a[href*=",oferta,"]').length > 0 ||
-          Boolean(document.querySelector('#__NEXT_DATA__')),
-        { timeout: 5000 },
-      )
-      .catch(() => undefined);
-
-    const html = await page.content();
+    const status = listingLoad.response?.status();
+    const finalUrl = listingLoad.finalUrl;
+    const hasNextData = listingLoad.hasNextData;
+    const html = listingLoad.html;
     const listingData = extractNextDataJson(html);
     const listingSummaries = listingData ? extractListingSummaries(listingData) : [];
     logger?.info(
@@ -379,13 +506,13 @@ export const crawlPracujPl = async (
         status,
         htmlLength: html.length,
         hasNextData,
-        title: await page.title(),
+        title: listingLoad.title,
         listingSummaries: listingSummaries.length,
       },
       'Listing page loaded',
     );
 
-    const domLinks = extractListingDomSignalsFromHtml(html);
+    const domLinks = listingLoad.domSignals;
     logger?.info(
       {
         primaryCount: domLinks.primaryLinks.length,
@@ -461,6 +588,10 @@ export const crawlPracujPl = async (
     for (const url of detailTargets) {
       const jobPage = await context.newPage();
       try {
+        await emitProgress(options?.onProgress, {
+          stage: 'detail_navigation_started',
+          meta: { url },
+        });
         let result = await loadJobPage(jobPage, url, detailDelayMs, detailHumanize, logger);
         let blocked = isBlockedPage(result.html);
         let expired = isExpiredPage(result.html);
@@ -499,11 +630,28 @@ export const crawlPracujPl = async (
         } else {
           pages.push({ url, html: result.html, isExpired: expired });
         }
+        await emitProgress(options?.onProgress, {
+          stage: 'detail_navigation_completed',
+          meta: {
+            url,
+            finalUrl: result.finalUrl,
+            status: result.status ?? null,
+            blocked,
+            expired,
+          },
+        });
       } catch (error) {
         detailDiagnostics.push({
           url,
           attempt: 1,
           error: error instanceof Error ? error.message : 'Unknown error',
+        });
+        await emitProgress(options?.onProgress, {
+          stage: 'detail_navigation_failed',
+          meta: {
+            url,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
         });
         logger?.error({ url, error }, 'Failed to load detail page');
       }
