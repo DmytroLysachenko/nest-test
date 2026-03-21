@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-03-09
+Last updated: 2026-03-21
 
 ## Product Direction
 
@@ -18,13 +18,13 @@ The current direction is to finish turning the repo from a technically capable i
 2. Matching quality tuning (score calibration, stricter seniority/constraints behavior).
    - Status: in progress (capped approx penalties + explore recency weighting shipped; threshold tuning ongoing).
 3. Scraper quality hardening and source-specific reliability.
-   - Status: in progress (callback attempt ordering + payload hash validation + deterministic offer identity key + ops replay/reconcile endpoints added).
+   - Status: in progress (callback attempt ordering + payload hash validation + deterministic offer identity key + ops replay/reconcile endpoints added; worker alias normalization and blocked/degraded/partial classification tightened; source-health rollups expanded).
 4. CI quality gates (API/worker/web tests + smoke on protected branches).
    - Status: in progress (split verify/smoke workflows implemented; protected-branch policy enforcement pending repo settings).
 5. Reliability guardrails for scrape intake + admin ops visibility.
    - Status: in progress (per-user scrape backpressure + admin metrics endpoint + explicit run-state transition guards + enqueue idempotency + retry-depth cap + catalog-first rematch + source-health automation backoff implemented; user preflight + schedule trigger-now now exposed in product UI/API).
 6. Staging/production deployment pipeline with rollback automation.
-   - Status: in progress (release-candidate image build/push + manual Cloud Run promotion + post-deploy verification implemented; rollback automation pending).
+   - Status: in progress (release-candidate image build/push + manual Cloud Run promotion + post-deploy verification implemented; release/rollback artifacts now include revision/image metadata; traffic rollback automation exists and needs production proving).
 7. Request-budget guardrails (API throttling + FE query traffic controls).
    - Status: completed (env-driven global API throttle and frontend query refetch/stale controls shipped).
 8. Authentication hardening and OAuth onboarding.
@@ -56,6 +56,7 @@ The current direction is to finish turning the repo from a technically capable i
    - alerting
    - trace correlation across API/worker callbacks
 4. Full rollback automation for staging/production deployment pipeline.
+   - Status: partially implemented (traffic rollback workflow exists; promotion evidence and rollback artifacts are now richer, but production rehearsal/alert integration is still outstanding).
 
 ## Delivery Themes For Upcoming Sprints
 

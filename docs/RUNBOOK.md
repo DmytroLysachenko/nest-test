@@ -139,6 +139,7 @@ Canonical environment inventory:
    - `pnpm smoke:e2e`
    - Optional deterministic mode for CI/external-source instability: `SMOKE_FORCE_CALLBACK=true pnpm smoke:e2e`
    - Optional worker no-op accept mode (useful in CI): `WORKER_SMOKE_ACCEPT_ONLY=true`
+   - Smoke now starts dedicated local API/worker/web processes on fallback ports and resets stale fixture scrape runs during seed.
 
 ## Local Git Gates
 
@@ -254,8 +255,12 @@ For exact variable-level mapping and secret sources, use:
    - `git push origin rc-YYYYMMDD-01`
 3. Wait for `Release Candidate / build-and-validate` to publish images.
 4. Run `Promote To Prod` with full 40-char release SHA.
-5. Validate health via workflow post-deploy verify.
-6. Run smoke against deployed URLs:
+5. Download and inspect workflow artifacts:
+   - `release-candidate-<sha>` metadata
+   - `promote-release-metadata`
+   - `promote-verify-summary`
+6. Validate health via workflow post-deploy verify.
+7. Run smoke against deployed URLs:
    - `API_BASE_URL=<api-url> WORKER_BASE_URL=<worker-url> WEB_BASE_URL=<web-url> SMOKE_SKIP_SEED=true pnpm smoke:e2e`
 
 ## Web Entry Routes
@@ -338,7 +343,7 @@ For exact variable-level mapping and secret sources, use:
    - `GET /api/ops/support/overview`
    - `GET /api/ops/support/schedule-events?userId=<user-id>`
    - `GET /api/ops/support/users/:id`
-4. `pnpm smoke:e2e` now waits for `/health` endpoints, but local API/worker/web processes still need to be started before the readiness probes can succeed.
+4. `pnpm smoke:e2e` now waits for `/health` endpoints and auto-starts dedicated local API/worker/web processes when needed.
 5. Admin ops endpoints are skip-throttled and the web ops page should use `GET /api/ops/support/overview` as its primary payload instead of parallel polling.
 6. If local tests hit throttling, reduce request rate or wait for throttle window reset.
 7. If document uploads fail in FE:
@@ -353,6 +358,10 @@ For exact variable-level mapping and secret sources, use:
    - preflight warning `source-health-backoff`
    - `GET /api/ops/catalog/summary`
    - recent `job_source_runs.failure_type` distribution in support bundle output
+10. For production deploy/rollback evidence, retain these workflow artifacts with incident notes:
+   - `deployment-release-metadata` or `promote-release-metadata`
+   - `deploy-verify-summary` or `promote-verify-summary`
+   - `rollback-summary`
 8. If career-profile generation fails with an AI provider error:
    - check API `/health` for `required_tables`
    - confirm `GEMINI_MODEL` is not a retired `gemini-1.5-*` value

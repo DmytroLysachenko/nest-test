@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-03-14
+Last updated: 2026-03-21
 
 ## Milestone Progress Snapshot
 
@@ -86,7 +86,8 @@ Last updated: 2026-03-14
   - support-facing read models now provide LLM-friendly incident bundles instead of forcing raw endpoint composition
 - Worker
   - scrape lifecycle visibility is materially stronger
-  - diagnostics now distinguish degraded/empty/blocked outcomes
+  - diagnostics now distinguish degraded/empty/blocked/partial outcomes
+  - source-specific alias normalization is now deterministic for contract type, work mode, and seniority fields
   - callback envelope is replay-safe and increasingly support-friendly
 - Web
   - major move from panel-heavy internal tooling toward guided product workflow
@@ -95,8 +96,9 @@ Last updated: 2026-03-14
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields
 - CI/CD and smoke
   - split verify/smoke gates exist
-  - release candidate and manual production promotion exist
-  - smoke is broader, but still depends on local services actually being started
+- release candidate and manual production promotion exist
+- deployment workflows now emit machine-readable release metadata with resolved revisions/images
+- smoke now auto-starts dedicated local services, repairs stale fixture scrape runs, and tolerates rate-limit windows during polling
 
 ## Key Technical Decisions Active in Code
 
@@ -212,11 +214,16 @@ Last updated: 2026-03-14
 - Admin ops now supports callback event CSV export and a private web ops console.
 - Admin ops console now also exposes persisted API warning/error request events for support triage without direct DB access.
 - Worker diagnostics now classify empty/degraded/blocked outcomes with explicit `resultKind`, `emptyReason`, and `sourceQuality` fields.
+- Worker normalization now canonicalizes source aliases for employment type, work mode, and seniority before persistence/callback emission.
+- Job-source health summary now includes outcome/failure rollups (`networkFailures`, `parseFailures`, `degradedRuns`, `partialSuccessRuns`, `blockedOutcomeRuns`, `filtersExhaustedRuns`, `detailParseGapRuns`).
 - Documents now support authenticated extraction recovery endpoints (`POST /api/documents/:id/retry-extraction`, `POST /api/documents/retry-failed`) with audit events.
 - Document retry responses now return explicit recovery outcome summaries so the UI can report what was recovered and what still needs attention.
 - Job-source UX now exposes authenticated scrape preflight (`GET /api/job-sources/preflight`) and user-triggered schedule enqueue (`POST /api/job-sources/schedule/trigger-now`).
 - Scrape preflight now returns user-facing blocker/warning details, guidance text, and schedule context in addition to raw readiness booleans.
 - Local e2e fixture seeding now uses retry/backoff and smoke waits for service health before workflow assertions.
+- Local e2e fixture seeding now also resets stale fixture `PENDING`/`RUNNING` scrape runs so smoke starts from a deterministic state.
+- Release candidate, deploy-on-main, and manual promotion workflows now upload machine-readable release metadata and verification artifacts containing resolved service revision/image details.
+- Rollback workflow summary now records rollback source/target revisions and images for auditability.
 
 ## Data Model Highlights
 
@@ -278,7 +285,7 @@ Last updated: 2026-03-14
 
 ## Highest-Value Remaining Gaps
 
-- Local and CI smoke is more robust, but full startup orchestration is still not self-contained.
+- Local smoke is now self-starting for API/worker/web, but CI/local orchestration still depends on host Docker/Postgres availability.
 - Worker queue remains in-memory, so crash resilience is below production-grade background-job expectations.
 - Scraper quality is still heavily tied to one source and its DOM behavior.
 - Notebook productivity is better, but there is not yet a full follow-up/reminder or pipeline automation layer.
