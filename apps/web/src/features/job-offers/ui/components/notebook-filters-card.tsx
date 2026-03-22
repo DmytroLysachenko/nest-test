@@ -42,6 +42,7 @@ type NotebookFiltersCardProps = {
   hasSavedPreset: boolean;
   activeFilters: Array<{ key: string; label: string; onClear: () => void }>;
   total: number;
+  hiddenByModeCount?: number;
   listUpdatedAt: number | null | undefined;
   onEnqueueProfileScrape: () => void;
   enqueueStatus: 'idle' | 'pending' | 'success' | 'error';
@@ -73,6 +74,7 @@ export const NotebookFiltersCard = ({
   hasSavedPreset,
   activeFilters,
   total,
+  hiddenByModeCount = 0,
   listUpdatedAt,
   onEnqueueProfileScrape,
   enqueueStatus,
@@ -197,6 +199,9 @@ export const NotebookFiltersCard = ({
       <div className="flex items-center gap-4">
         <div className="text-right">
           <p className="text-text-strong text-sm font-semibold">{total} matches</p>
+          {mode === 'strict' && hiddenByModeCount > 0 ? (
+            <p className="text-app-warning text-xs">{hiddenByModeCount} hidden by strict mode</p>
+          ) : null}
           <DataFreshnessBadge updatedAt={listUpdatedAt} />
         </div>
       </div>

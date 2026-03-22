@@ -85,6 +85,7 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
         hasSavedPreset={Boolean(notebook.savedPreset)}
         activeFilters={notebook.activeFilters}
         total={notebook.listQuery.data?.total ?? 0}
+        hiddenByModeCount={notebook.listQuery.data?.hiddenByModeCount ?? 0}
         listUpdatedAt={notebook.listQuery.dataUpdatedAt}
         isBusy={notebook.isBusy}
         summary={notebook.notebookSummary ?? null}
