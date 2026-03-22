@@ -195,7 +195,7 @@ export const normalizePracujPl = (jobs: ParsedJob[], source = 'pracuj-pl'): Norm
     location: normalizeText(job.location),
     description: job.description.trim(),
     url: job.url,
-    tags: [],
+    tags: job.tags?.map((item) => item.trim()).filter(Boolean) ?? [],
     salary: normalizeText(job.salary),
     employmentType: canonicalizeContractType(job.employmentType),
     requirements: job.requirements?.map((item) => item.trim()).filter(Boolean) ?? [],

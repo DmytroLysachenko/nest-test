@@ -5,6 +5,7 @@ import { parsePracujPl } from '../sources/pracuj-pl/parse';
 import { buildPracujListingUrl } from '../sources/pracuj-pl/url-builder';
 
 import type { ScrapeSourceJob } from '../types/jobs';
+import type { ListingJobSummary, ParsedJob } from '../sources/types';
 
 export type ScrapePipelineId = 'pracuj-pl' | 'pracuj-pl-it' | 'pracuj-pl-general';
 
@@ -43,6 +44,29 @@ export const resolvePipeline = (source: string): PipelineDefinition => {
   throw new Error(`Unknown source: ${source}`);
 };
 
+const isHighConfidenceListingSummary = (summary: ListingJobSummary) =>
+  Boolean(
+    summary.url &&
+    summary.title?.trim() &&
+    (summary.description?.trim() || summary.sourceId?.trim() || summary.company?.trim() || summary.details),
+  );
+
+export const buildSalvagedListingJobs = (summaries: ListingJobSummary[]): ParsedJob[] =>
+  summaries.filter(isHighConfidenceListingSummary).map((summary) => ({
+    title: summary.title!.trim(),
+    company: summary.company,
+    location: summary.location,
+    description:
+      summary.description?.trim() ||
+      `Recovered from listing summary for ${summary.title!.trim()}${summary.company ? ` at ${summary.company}` : ''}.`,
+    url: summary.url,
+    salary: summary.salary,
+    sourceId: summary.sourceId,
+    requirements: [],
+    tags: ['listing-salvage', 'degraded-source'],
+    details: summary.details,
+  }));
+
 export const runPipeline = async (
   source: string,
   input: {
@@ -60,17 +84,7 @@ export const runPipeline = async (
       ? parsePracujPl(crawlResult.pages)
       : input.options?.listingOnly
         ? []
-        : crawlResult.listingSummaries.map((summary) => ({
-            title: summary.title ?? 'Unknown title',
-            company: summary.company,
-            location: summary.location,
-            description: summary.description ?? 'Listing summary only',
-            url: summary.url,
-            salary: summary.salary,
-            sourceId: summary.sourceId,
-            requirements: [],
-            details: summary.details,
-          }));
+        : buildSalvagedListingJobs(crawlResult.listingSummaries);
   const normalized = normalizePracujPl(parsedJobs, pipeline.normalizeSource);
 
   return {
