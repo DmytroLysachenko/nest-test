@@ -72,11 +72,20 @@ type CompletionDiagnosticsInput = {
   rejectedOfferCount: number;
 };
 
+const MAX_CALLBACK_ERROR_LENGTH = 1000;
+
 const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const toError = (error: unknown) => (error instanceof Error ? error : new Error('Unknown error'));
 const normalizeString = (value: string | null | undefined) => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+};
+
+const truncateForCallbackError = (value: string, maxLength = MAX_CALLBACK_ERROR_LENGTH) => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, Math.max(0, maxLength - 3))}...`;
 };
 
 const sanitizeStringArray = (value: string[] | undefined) =>
@@ -1198,7 +1207,7 @@ export const runScrapeJob = async (
         emittedAt,
         listingUrl,
         status: 'FAILED',
-        error: `[${failureType}] ${errorMessage}`,
+        error: truncateForCallbackError(`[${failureType}] ${errorMessage}`),
         failureType,
         failureCode: `WORKER_${failureType.toUpperCase()}`,
         diagnostics: {
