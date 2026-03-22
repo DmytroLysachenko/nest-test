@@ -60,6 +60,14 @@ class ScrapeRunDiagnosticsPayloadResponse {
   @ApiProperty({ nullable: true })
   classifiedOutcome!: string | null;
 
+  @ApiProperty({ nullable: true, type: Object })
+  transportSummary!: {
+    listingTransport: 'http' | 'browser' | 'http->browser' | 'unknown';
+    browserFallbackUsed: boolean;
+    browserLaunchSucceeded: boolean;
+    fallbackReasons: string[];
+  } | null;
+
   @ApiProperty({ type: ScrapeRunDiagnosticsStatsResponse })
   stats!: ScrapeRunDiagnosticsStatsResponse;
 }

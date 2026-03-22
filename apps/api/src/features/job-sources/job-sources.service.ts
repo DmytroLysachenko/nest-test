@@ -2516,12 +2516,19 @@ export class JobSourcesService {
     }
 
     const diagnostics = (parsedPayload?.diagnostics as Record<string, unknown> | undefined) ?? {};
-    let executionEvents: Array<{ stage: string; status: string }> = [];
+    let executionEvents: Array<{
+      stage: string;
+      status: string;
+      code: string | null;
+      meta: unknown;
+    }> = [];
     try {
       executionEvents = await this.db
         .select({
           stage: scrapeExecutionEventsTable.stage,
           status: scrapeExecutionEventsTable.status,
+          code: scrapeExecutionEventsTable.code,
+          meta: scrapeExecutionEventsTable.meta,
         })
         .from(scrapeExecutionEventsTable)
         .where(eq(scrapeExecutionEventsTable.sourceRunId, runId));
@@ -2544,6 +2551,53 @@ export class JobSourcesService {
         }, new Map())
         .values(),
     );
+    const transportSummary = (() => {
+      const fallbackReasons = Array.from(
+        new Set(
+          executionEvents
+            .filter((event) => event.code === 'LISTING_FALLBACK_TRIGGERED')
+            .map((event) => {
+              const meta =
+                event.meta && typeof event.meta === 'object' && !Array.isArray(event.meta)
+                  ? (event.meta as Record<string, unknown>)
+                  : null;
+              const reason = meta?.reason;
+              return typeof reason === 'string' && reason.trim().length > 0 ? reason.trim() : null;
+            })
+            .filter((item): item is string => Boolean(item)),
+        ),
+      );
+      const httpCompleted = executionEvents.some((event) => event.code === 'LISTING_HTTP_FETCH_COMPLETED');
+      const fallbackTriggered = executionEvents.some((event) => event.code === 'LISTING_FALLBACK_TRIGGERED');
+      const browserNavigationCompleted = executionEvents.some(
+        (event) => event.code === 'LISTING_BROWSER_NAVIGATION_COMPLETED',
+      );
+      const browserLaunchCompleted = executionEvents.some((event) => event.code === 'LISTING_BROWSER_LAUNCH_COMPLETED');
+
+      const listingTransport: 'http' | 'browser' | 'http->browser' | 'unknown' = fallbackTriggered
+        ? 'http->browser'
+        : browserNavigationCompleted
+          ? 'browser'
+          : httpCompleted
+            ? 'http'
+            : 'unknown';
+
+      if (
+        listingTransport === 'unknown' &&
+        !fallbackTriggered &&
+        !browserLaunchCompleted &&
+        fallbackReasons.length === 0
+      ) {
+        return null;
+      }
+
+      return {
+        listingTransport,
+        browserFallbackUsed: fallbackTriggered || browserNavigationCompleted || browserLaunchCompleted,
+        browserLaunchSucceeded: browserLaunchCompleted,
+        fallbackReasons,
+      };
+    })();
     const classifiedOutcome =
       normalizeString(run.classifiedOutcome) ??
       normalizeString(String(diagnostics.resultKind ?? '')) ??
@@ -2584,6 +2638,7 @@ export class JobSourcesService {
           normalizeScrapeSourceQuality(String(diagnostics.sourceQuality ?? '')) ??
           normalizeScrapeSourceQuality(run.sourceQuality),
         classifiedOutcome,
+        transportSummary,
         stats: {
           totalFound: run.totalFound ?? null,
           scrapedCount: run.scrapedCount ?? null,

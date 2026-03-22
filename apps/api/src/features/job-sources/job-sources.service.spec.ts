@@ -1704,6 +1704,59 @@ describe('JobSourcesService', () => {
               }),
             }),
           }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([
+              {
+                total: 1,
+                latestReceivedAt: new Date('2026-02-21T00:01:00.000Z'),
+              },
+            ]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  then: (cb: (rows: unknown[]) => unknown) =>
+                    Promise.resolve(
+                      cb([
+                        {
+                          createdAt: new Date('2026-02-21T00:02:00.000Z'),
+                          code: 'CALLBACK_ACCEPTED',
+                        },
+                      ]),
+                    ),
+                }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([
+              {
+                stage: 'listing_progress',
+                status: 'warning',
+                code: 'LISTING_FALLBACK_TRIGGERED',
+                meta: { reason: 'http_blocked' },
+              },
+              {
+                stage: 'listing_progress',
+                status: 'success',
+                code: 'LISTING_BROWSER_LAUNCH_COMPLETED',
+                meta: {},
+              },
+              {
+                stage: 'listing_progress',
+                status: 'success',
+                code: 'LISTING_BROWSER_NAVIGATION_COMPLETED',
+                meta: {},
+              },
+            ]),
+          }),
         }),
       update: jest.fn(),
       insert: jest.fn(),
@@ -1716,6 +1769,12 @@ describe('JobSourcesService', () => {
     expect(diagnostics.diagnostics.relaxationTrail).toEqual(['drop.keyword']);
     expect(diagnostics.diagnostics.hadZeroOffersStep).toBe(true);
     expect(diagnostics.diagnostics.stats.jobLinksDiscovered).toBe(12);
+    expect(diagnostics.diagnostics.transportSummary).toEqual({
+      listingTransport: 'http->browser',
+      browserFallbackUsed: true,
+      browserLaunchSucceeded: true,
+      fallbackReasons: ['http_blocked'],
+    });
   });
 
   it('returns aggregated diagnostics summary for recent runs', async () => {
