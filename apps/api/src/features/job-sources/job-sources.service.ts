@@ -1685,19 +1685,19 @@ export class JobSourcesService {
       failureCode: null,
       error: null,
     });
+    const completedOutcome = this.resolveCompletedCallbackOutcome({
+      diagnostics: this.toNullableRecord(dto.diagnostics) ?? null,
+      scrapedCount,
+      totalFound,
+    });
     await this.transitionRunStatus(run.id, statusForCompletion, 'COMPLETED', {
       scrapedCount,
       totalFound,
       error: null,
       failureType: null,
-      classifiedOutcome: this.resolveClassifiedOutcome({
-        status: 'COMPLETED',
-        failureType: null,
-        diagnostics: this.toNullableRecord(dto.diagnostics) ?? null,
-        scrapedCount,
-      }),
-      emptyReason: normalizeScrapeEmptyReason(dto.diagnostics?.emptyReason ?? null),
-      sourceQuality: normalizeScrapeSourceQuality(dto.diagnostics?.sourceQuality ?? null) ?? 'healthy',
+      classifiedOutcome: completedOutcome.classifiedOutcome,
+      emptyReason: completedOutcome.emptyReason,
+      sourceQuality: completedOutcome.sourceQuality,
       finalizedAt,
       completedAt: finalizedAt,
     });
@@ -2086,6 +2086,44 @@ export class JobSourcesService {
         matchedOffers: matchedCount,
         userInsertedOffers: insertedCount,
       },
+    };
+  }
+
+  private resolveCompletedCallbackOutcome(input: {
+    diagnostics: Record<string, unknown> | null;
+    scrapedCount: number;
+    totalFound: number | null;
+  }) {
+    const diagnostics = input.diagnostics ?? {};
+    const derivedDiagnostics =
+      Object.keys(diagnostics).length > 0
+        ? diagnostics
+        : input.scrapedCount > 0
+          ? ({ resultKind: 'healthy' } satisfies Record<string, unknown>)
+          : (input.totalFound ?? 0) > 0
+            ? ({ resultKind: 'empty', emptyReason: 'detail_parse_gap' } satisfies Record<string, unknown>)
+            : ({ resultKind: 'empty', emptyReason: 'no_listings' } satisfies Record<string, unknown>);
+
+    const emptyReason =
+      normalizeScrapeEmptyReason(String(derivedDiagnostics.emptyReason ?? '')) ??
+      ((input.scrapedCount ?? 0) === 0 && (input.totalFound ?? 0) > 0 ? 'detail_parse_gap' : null);
+    const sourceQuality =
+      normalizeScrapeSourceQuality(String(derivedDiagnostics.sourceQuality ?? '')) ??
+      (input.scrapedCount > 0
+        ? ('healthy' as const)
+        : emptyReason === 'detail_parse_gap'
+          ? ('degraded' as const)
+          : ('empty' as const));
+
+    return {
+      classifiedOutcome: this.resolveClassifiedOutcome({
+        status: 'COMPLETED',
+        failureType: null,
+        diagnostics: derivedDiagnostics,
+        scrapedCount: input.scrapedCount,
+      }),
+      emptyReason,
+      sourceQuality,
     };
   }
 

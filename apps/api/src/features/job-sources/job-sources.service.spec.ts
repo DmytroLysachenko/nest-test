@@ -1987,6 +1987,63 @@ describe('JobSourcesService', () => {
     expect(appendRunEvent).not.toHaveBeenCalled();
   });
 
+  it('classifies completed zero-job callbacks with discovered listings as degraded parse gaps', async () => {
+    const updateSet = jest.fn().mockReturnValue({
+      where: jest.fn().mockResolvedValue(undefined),
+    });
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-complete-gap-1',
+                      source: 'PRACUJ_PL',
+                      userId: 'user-gap-1',
+                      careerProfileId: 'profile-gap-1',
+                      status: 'RUNNING',
+                      totalFound: null,
+                      scrapedCount: null,
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({
+        set: updateSet,
+      }),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const result = await service.completeScrape({
+      sourceRunId: 'run-complete-gap-1',
+      status: 'COMPLETED',
+      scrapedCount: 0,
+      totalFound: 3,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'COMPLETED',
+      inserted: 0,
+      totalOffers: 0,
+      idempotent: true,
+    });
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        classifiedOutcome: 'detail_parse_gap',
+        emptyReason: 'detail_parse_gap',
+        sourceQuality: 'degraded',
+      }),
+    );
+  });
+
   it('promotes pending run to running before completed callback finalization', async () => {
     const db = {
       select: jest.fn().mockReturnValue({
