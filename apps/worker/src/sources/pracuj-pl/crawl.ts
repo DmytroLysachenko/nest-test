@@ -29,6 +29,7 @@ const PLAYWRIGHT_LAUNCH_ARGS = [
   '--no-first-run',
   '--no-zygote',
 ];
+const BROWSER_LAUNCH_RETRY_DELAY_MS = 2_000;
 const DEFAULT_BROWSER_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
@@ -42,6 +43,7 @@ type CrawlProgressEvent = {
     | 'listing_browser_launch_started'
     | 'listing_browser_launch_completed'
     | 'listing_browser_launch_failed'
+    | 'listing_browser_launch_retry'
     | 'listing_browser_navigation_started'
     | 'listing_browser_navigation_completed'
     | 'listing_browser_navigation_failed'
@@ -532,57 +534,80 @@ const createBrowserSession = async (
     },
   });
 
-  try {
-    const browser = profileDir ? null : await chromium.launch(launchOptions);
-    const context = profileDir
-      ? await chromium.launchPersistentContext(profileDir, {
-          ...launchOptions,
-          userAgent: DEFAULT_BROWSER_USER_AGENT,
-          locale: 'pl-PL',
-          timezoneId: 'Europe/Warsaw',
-        })
-      : await browser.newContext({
-          userAgent: DEFAULT_BROWSER_USER_AGENT,
-          locale: 'pl-PL',
-          timezoneId: 'Europe/Warsaw',
-          extraHTTPHeaders: DEFAULT_HEADERS,
-        });
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const browser = profileDir ? null : await chromium.launch(launchOptions);
+      const context = profileDir
+        ? await chromium.launchPersistentContext(profileDir, {
+            ...launchOptions,
+            userAgent: DEFAULT_BROWSER_USER_AGENT,
+            locale: 'pl-PL',
+            timezoneId: 'Europe/Warsaw',
+          })
+        : await browser.newContext({
+            userAgent: DEFAULT_BROWSER_USER_AGENT,
+            locale: 'pl-PL',
+            timezoneId: 'Europe/Warsaw',
+            extraHTTPHeaders: DEFAULT_HEADERS,
+          });
 
-    context.setDefaultNavigationTimeout(PAGE_NAVIGATION_TIMEOUT_MS);
-    context.setDefaultTimeout(PAGE_NAVIGATION_TIMEOUT_MS);
+      context.setDefaultNavigationTimeout(PAGE_NAVIGATION_TIMEOUT_MS);
+      context.setDefaultTimeout(PAGE_NAVIGATION_TIMEOUT_MS);
 
-    if (cookies.length) {
-      try {
-        await context.addCookies(cookies.map((cookie) => toPlaywrightCookie(cookie)));
-      } catch (error) {
-        logger?.warn({ error }, 'Failed to apply cookies to browser context');
+      if (cookies.length) {
+        try {
+          await context.addCookies(cookies.map((cookie) => toPlaywrightCookie(cookie)));
+        } catch (error) {
+          logger?.warn({ error }, 'Failed to apply cookies to browser context');
+        }
       }
+
+      await emitProgress(reporter, {
+        stage: 'listing_browser_launch_completed',
+        meta: {
+          channel: PLAYWRIGHT_BROWSER_CHANNEL,
+          headless,
+          profileDir: Boolean(profileDir),
+          durationMs: Date.now() - startedAt,
+          args: PLAYWRIGHT_LAUNCH_ARGS,
+          attempt,
+        },
+      });
+
+      return { browser, context } satisfies BrowserSession;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown browser launch error';
+      if (attempt < 2) {
+        await emitProgress(reporter, {
+          stage: 'listing_browser_launch_retry',
+          meta: {
+            channel: PLAYWRIGHT_BROWSER_CHANNEL,
+            attempt,
+            nextAttempt: attempt + 1,
+            delayMs: BROWSER_LAUNCH_RETRY_DELAY_MS,
+            error: errorMessage,
+            args: PLAYWRIGHT_LAUNCH_ARGS,
+          },
+        });
+        await sleep(BROWSER_LAUNCH_RETRY_DELAY_MS);
+        continue;
+      }
+
+      await emitProgress(reporter, {
+        stage: 'listing_browser_launch_failed',
+        meta: {
+          channel: PLAYWRIGHT_BROWSER_CHANNEL,
+          error: errorMessage,
+          durationMs: Date.now() - startedAt,
+          args: PLAYWRIGHT_LAUNCH_ARGS,
+          attempt,
+        },
+      });
+      throw error;
     }
-
-    await emitProgress(reporter, {
-      stage: 'listing_browser_launch_completed',
-      meta: {
-        channel: PLAYWRIGHT_BROWSER_CHANNEL,
-        headless,
-        profileDir: Boolean(profileDir),
-        durationMs: Date.now() - startedAt,
-        args: PLAYWRIGHT_LAUNCH_ARGS,
-      },
-    });
-
-    return { browser, context } satisfies BrowserSession;
-  } catch (error) {
-    await emitProgress(reporter, {
-      stage: 'listing_browser_launch_failed',
-      meta: {
-        channel: PLAYWRIGHT_BROWSER_CHANNEL,
-        error: error instanceof Error ? error.message : 'Unknown browser launch error',
-        durationMs: Date.now() - startedAt,
-        args: PLAYWRIGHT_LAUNCH_ARGS,
-      },
-    });
-    throw error;
   }
+
+  throw new Error('Browser launch failed after retries');
 };
 
 const closeBrowserSession = async (session: BrowserSession | null, logger?: Logger) => {
