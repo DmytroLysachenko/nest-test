@@ -129,6 +129,7 @@ Canonical environment inventory:
    - `pnpm --filter api test -- --runInBand`
 2. Worker tests:
    - `pnpm --filter worker test`
+   - `pnpm --filter worker browser:probe`
 3. Web checks:
    - `pnpm --filter web check-types`
    - `pnpm --filter web test`
@@ -339,30 +340,39 @@ For exact variable-level mapping and secret sources, use:
    - `GET /api/job-sources/runs/:id/diagnostics`
    - `GET /api/job-sources/runs/:id/events`
    - then correlate the same `traceId` across API, worker, and DB support bundle output
+   - `transportSummary` in diagnostics now shows whether the run stayed on HTTP, escalated to browser fallback, whether browser launch succeeded, and the fallback reasons that triggered escalation
 3. For scheduler-specific failures, inspect:
    - `GET /api/ops/support/overview`
    - `GET /api/ops/support/schedule-events?userId=<user-id>`
    - `GET /api/ops/support/users/:id`
 4. `pnpm smoke:e2e` now waits for `/health` endpoints and auto-starts dedicated local API/worker/web processes when needed.
 5. Admin ops endpoints are skip-throttled and the web ops page should use `GET /api/ops/support/overview` as its primary payload instead of parallel polling.
-6. If local tests hit throttling, reduce request rate or wait for throttle window reset.
+6. Internal worker endpoints for scrape completion, heartbeat, and schedule trigger are also throttle-exempt. New `429` responses there usually mean stale deploy/runtime drift rather than expected protection.
+7. If local tests hit throttling, reduce request rate or wait for throttle window reset.
+8. To reproduce Chromium startup issues before deploying, run the browser bootstrap probe in the same Linux/containerized worker environment first:
+   - `pnpm --filter worker browser:probe`
+   - optional startup probe: `WORKER_BROWSER_PROBE_ON_START=true`
+   - prefer local worker Docker/container repro before debugging host-Windows behavior
+9. If the notebook is empty after a completed scrape, check the notebook response metadata before blaming the scraper:
+   - `hiddenByModeCount > 0` means offers exist but strict mode filtered them out
+   - `job_source_runs.progress.userInsertedOffers` shows how many notebook rows were linked for that run
 7. If document uploads fail in FE:
    - check `GET /api/documents/upload-health`
    - inspect `GET /api/documents/:id/events` timeline for failure stage and error code
    - correlate with API `traceId` in `logs/error.log`
-8. For scrape incidents, check shared-catalog health before forcing another worker run:
+10. For scrape incidents, check shared-catalog health before forcing another worker run:
    - `GET /api/ops/catalog/summary`
    - `POST /api/ops/catalog/rematch/users/:id`
    - if fresh accepted offers already exist, prefer rematch over another scrape
-9. If automated scrapes stop firing, inspect source-health pause state before changing scheduler config:
+11. If automated scrapes stop firing, inspect source-health pause state before changing scheduler config:
    - preflight warning `source-health-backoff`
    - `GET /api/ops/catalog/summary`
    - recent `job_source_runs.failure_type` distribution in support bundle output
-10. For production deploy/rollback evidence, retain these workflow artifacts with incident notes:
+12. For production deploy/rollback evidence, retain these workflow artifacts with incident notes:
    - `deployment-release-metadata` or `promote-release-metadata`
    - `deploy-verify-summary` or `promote-verify-summary`
    - `rollback-summary`
-8. If career-profile generation fails with an AI provider error:
+13. If career-profile generation fails with an AI provider error:
    - check API `/health` for `required_tables`
    - confirm `GEMINI_MODEL` is not a retired `gemini-1.5-*` value
    - confirm `GCP_LOCATION` and Vertex project access match the runtime environment
