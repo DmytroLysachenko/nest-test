@@ -1951,17 +1951,30 @@ export class JobSourcesService {
       now.getTime() - run.lastHeartbeatAt.getTime() < HEARTBEAT_EVENT_DEDUP_WINDOW_MS;
 
     const resolvedStatus = run.status === 'PENDING' ? 'RUNNING' : (run.status as RunStatus);
-    await this.db
-      .update(jobSourceRunsTable)
-      .set({
-        status: resolvedStatus,
-        error: null,
-        failureType: null,
-        finalizedAt: null,
-        lastHeartbeatAt: now,
-        progress,
-      })
-      .where(eq(jobSourceRunsTable.id, run.id));
+    const nextRunUpdate: {
+      status?: RunStatus;
+      error?: string | null;
+      failureType?: string | null;
+      finalizedAt?: Date | null;
+      lastHeartbeatAt: Date;
+      progress?: Record<string, unknown>;
+    } = {
+      lastHeartbeatAt: now,
+    };
+    if (run.status === 'PENDING') {
+      nextRunUpdate.status = resolvedStatus;
+      nextRunUpdate.error = null;
+      nextRunUpdate.failureType = null;
+      nextRunUpdate.finalizedAt = null;
+      nextRunUpdate.progress = progress;
+    } else if (!suppressHeartbeatEvent) {
+      nextRunUpdate.status = resolvedStatus;
+      nextRunUpdate.error = null;
+      nextRunUpdate.failureType = null;
+      nextRunUpdate.finalizedAt = null;
+      nextRunUpdate.progress = progress;
+    }
+    await this.db.update(jobSourceRunsTable).set(nextRunUpdate).where(eq(jobSourceRunsTable.id, run.id));
 
     if (!suppressHeartbeatEvent) {
       await this.appendRunEvent({

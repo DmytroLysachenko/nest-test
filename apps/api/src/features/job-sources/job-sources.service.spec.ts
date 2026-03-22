@@ -1960,6 +1960,9 @@ describe('JobSourcesService', () => {
     const appendRunEvent = jest
       .spyOn(JobSourcesService.prototype as any, 'appendRunEvent')
       .mockResolvedValue(undefined);
+    const updateSet = jest.fn().mockReturnValue({
+      where: jest.fn().mockResolvedValue(undefined),
+    });
     const db = {
       select: jest.fn().mockReturnValue({
         from: jest.fn().mockReturnValue({
@@ -1989,9 +1992,7 @@ describe('JobSourcesService', () => {
         }),
       }),
       update: jest.fn().mockReturnValue({
-        set: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValue(undefined),
-        }),
+        set: updateSet,
       }),
       insert: jest.fn(),
     } as any;
@@ -2013,6 +2014,12 @@ describe('JobSourcesService', () => {
       deduped: true,
     });
     expect(db.update).toHaveBeenCalledTimes(1);
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastHeartbeatAt: expect.any(Date),
+      }),
+    );
+    expect(updateSet.mock.calls[0]?.[0]).not.toHaveProperty('progress');
     expect(appendRunEvent).not.toHaveBeenCalled();
   });
 
