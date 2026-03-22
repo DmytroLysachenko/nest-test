@@ -21,9 +21,12 @@ const SCRAPE_CLASSIFIED_OUTCOMES = [
   'success',
   'partial_success',
   'blocked_by_source',
+  'source_http_blocked',
   'listing_empty',
   'filters_exhausted',
   'detail_parse_gap',
+  'browser_bootstrap_failed',
+  'browser_navigation_failed',
   'failed:timeout',
   'failed:network',
   'failed:validation',
@@ -213,6 +216,14 @@ class ScrapeRunDiagnosticsDto {
   @IsOptional()
   @IsIn(SCRAPE_CLASSIFIED_OUTCOMES)
   classifiedOutcome?: (typeof SCRAPE_CLASSIFIED_OUTCOMES)[number];
+
+  @ApiPropertyOptional({
+    enum: ['source_http_blocked', 'browser_bootstrap_failed', 'browser_navigation_failed'],
+    nullable: true,
+  })
+  @IsOptional()
+  @IsIn(['source_http_blocked', 'browser_bootstrap_failed', 'browser_navigation_failed'])
+  failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed';
 }
 
 export class ScrapeCompleteDto {

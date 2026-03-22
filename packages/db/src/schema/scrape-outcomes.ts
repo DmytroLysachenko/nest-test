@@ -16,11 +16,14 @@ export const SCRAPE_CLASSIFIED_OUTCOMES = [
   'success',
   'partial_success',
   'blocked_by_source',
+  'source_http_blocked',
   'listing_empty',
   'filters_exhausted',
   'detail_parse_gap',
   'callback_rejected',
   'worker_timeout',
+  'browser_bootstrap_failed',
+  'browser_navigation_failed',
   'failed:validation',
   'failed:network',
   'failed:parse',
@@ -66,10 +69,12 @@ export const classifyScrapeOutcome = (input: {
   resultKind?: string | null;
   emptyReason?: string | null;
   scrapedCount?: number | null;
+  failureReason?: string | null;
 }): ScrapeClassifiedOutcome => {
   const resultKind = normalizeScrapeResultKind(input.resultKind);
   const emptyReason = normalizeScrapeEmptyReason(input.emptyReason);
   const scrapedCount = Math.max(0, Number(input.scrapedCount ?? 0));
+  const failureReason = normalizeString(input.failureReason);
 
   if (input.status === 'COMPLETED') {
     if (scrapedCount > 0) {
@@ -77,6 +82,9 @@ export const classifyScrapeOutcome = (input: {
     }
 
     if (resultKind === 'blocked') {
+      if (failureReason === 'source_http_blocked') {
+        return 'source_http_blocked';
+      }
       return 'blocked_by_source';
     }
     if (emptyReason === 'filters_exhausted') {
@@ -93,6 +101,15 @@ export const classifyScrapeOutcome = (input: {
   }
   if (input.failureType === 'timeout') {
     return 'worker_timeout';
+  }
+  if (failureReason === 'browser_bootstrap_failed') {
+    return 'browser_bootstrap_failed';
+  }
+  if (failureReason === 'browser_navigation_failed') {
+    return 'browser_navigation_failed';
+  }
+  if (failureReason === 'source_http_blocked') {
+    return 'source_http_blocked';
   }
   if (input.failureType === 'validation') {
     return 'failed:validation';

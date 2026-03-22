@@ -60,6 +60,7 @@ type CallbackPayload = {
     emptyReason?: ScrapeEmptyReason | null;
     sourceQuality?: ScrapeSourceQuality;
     classifiedOutcome?: ScrapeClassifiedOutcome;
+    failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed';
   };
 };
 
@@ -343,6 +344,25 @@ export const classifyScrapeError = (error: unknown): ScrapeFailureType => {
   }
 
   return 'unknown';
+};
+
+export const classifyScrapeFailureReason = (
+  error: unknown,
+): 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed' | null => {
+  const normalized = toError(error);
+  const message = normalized.message.toLowerCase();
+
+  if (message.includes('browsertype.launch') || message.includes('browser launch')) {
+    return 'browser_bootstrap_failed';
+  }
+  if (message.includes('just a moment') || message.includes('cf_chl') || message.includes('cloudflare')) {
+    return 'source_http_blocked';
+  }
+  if (message.includes('navigation') || message.includes('page.goto')) {
+    return 'browser_navigation_failed';
+  }
+
+  return null;
 };
 
 export const buildWorkerCallbackSignaturePayload = (
@@ -1207,6 +1227,7 @@ export const runScrapeJob = async (
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown scrape failure';
     const failureType = classifyScrapeError(error);
+    const failureReason = classifyScrapeFailureReason(error);
     const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
     const callbackToken = payload.callbackToken ?? options.callbackToken;
     const callbackOidcAudience = options.callbackOidcAudience;
@@ -1218,6 +1239,7 @@ export const runScrapeJob = async (
         failureType,
         resultKind: 'failed',
         scrapedCount: 0,
+        failureReason,
       });
       const failedPayload = buildScrapeCallbackPayload({
         eventId: callbackEventId,
@@ -1253,6 +1275,7 @@ export const runScrapeJob = async (
           emptyReason: null,
           sourceQuality: 'failed',
           classifiedOutcome,
+          failureReason,
         },
       });
       await notifyCallback(

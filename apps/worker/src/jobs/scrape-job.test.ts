@@ -11,6 +11,7 @@ import {
   computeNormalizedJobContentHash,
   buildWorkerCallbackSignaturePayload,
   classifyScrapeError,
+  classifyScrapeFailureReason,
   computeCallbackRetryDelayMs,
   sanitizeCallbackJobs,
 } from './scrape-job';
@@ -130,6 +131,18 @@ test('classifyScrapeError maps callback errors', () => {
 
 test('classifyScrapeError maps network errors', () => {
   assert.equal(classifyScrapeError(new Error('Cloudflare blocked request')), 'network');
+});
+
+test('classifyScrapeFailureReason maps browser bootstrap and navigation failures', () => {
+  assert.equal(
+    classifyScrapeFailureReason(new Error('browserType.launch: Timeout 60000ms exceeded')),
+    'browser_bootstrap_failed',
+  );
+  assert.equal(classifyScrapeFailureReason(new Error('Cloudflare Just a moment...')), 'source_http_blocked');
+  assert.equal(
+    classifyScrapeFailureReason(new Error('page.goto: Navigation timeout exceeded')),
+    'browser_navigation_failed',
+  );
 });
 
 test('sanitizeCallbackJobs removes invalid entries and deduplicates by canonical identity', () => {
@@ -319,6 +332,14 @@ test('classifyScrapeOutcome distinguishes partial, empty, blocked, and callback 
       failureType: 'callback',
     }),
     'callback_rejected',
+  );
+  assert.equal(
+    classifyScrapeOutcome({
+      status: 'FAILED',
+      failureType: 'network',
+      failureReason: 'browser_bootstrap_failed',
+    }),
+    'browser_bootstrap_failed',
   );
 });
 

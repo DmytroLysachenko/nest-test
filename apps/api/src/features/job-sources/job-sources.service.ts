@@ -2073,6 +2073,7 @@ export class JobSourcesService {
       resultKind: normalizeScrapeResultKind(input.diagnostics?.resultKind as string | null | undefined),
       emptyReason: normalizeScrapeEmptyReason(input.diagnostics?.emptyReason as string | null | undefined),
       scrapedCount: input.scrapedCount ?? 0,
+      failureReason: typeof input.diagnostics?.failureReason === 'string' ? input.diagnostics.failureReason : undefined,
     });
   }
 
