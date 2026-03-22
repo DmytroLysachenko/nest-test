@@ -98,6 +98,12 @@ type ScheduleEventInput = {
   meta?: Record<string, unknown> | null;
   createdAt?: Date;
 };
+type ExecutionEventSnapshot = {
+  stage: string;
+  status: string;
+  code: string | null;
+  meta: unknown;
+};
 type CallbackEventRegisterResult =
   | { accepted: true; payloadHash: string; attemptNo: number; emittedAt: Date | null }
   | {
@@ -2143,6 +2149,116 @@ export class JobSourcesService {
     };
   }
 
+  private extractEventMeta(meta: unknown) {
+    if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
+      return null;
+    }
+    return meta as Record<string, unknown>;
+  }
+
+  private buildTransportSummary(executionEvents: ExecutionEventSnapshot[]) {
+    const fallbackReasons = Array.from(
+      new Set(
+        executionEvents
+          .filter((event) => event.code === 'LISTING_FALLBACK_TRIGGERED')
+          .map((event) => {
+            const reason = this.extractEventMeta(event.meta)?.reason;
+            return typeof reason === 'string' && reason.trim().length > 0 ? reason.trim() : null;
+          })
+          .filter((item): item is string => Boolean(item)),
+      ),
+    );
+    const httpCompleted = executionEvents.some((event) => event.code === 'LISTING_HTTP_FETCH_COMPLETED');
+    const fallbackTriggered = executionEvents.some((event) => event.code === 'LISTING_FALLBACK_TRIGGERED');
+    const browserNavigationCompleted = executionEvents.some(
+      (event) => event.code === 'LISTING_BROWSER_NAVIGATION_COMPLETED',
+    );
+    const browserLaunchCompleted = executionEvents.some((event) => event.code === 'LISTING_BROWSER_LAUNCH_COMPLETED');
+
+    const listingTransport: 'http' | 'browser' | 'http->browser' | 'unknown' = fallbackTriggered
+      ? 'http->browser'
+      : browserNavigationCompleted
+        ? 'browser'
+        : httpCompleted
+          ? 'http'
+          : 'unknown';
+
+    if (
+      listingTransport === 'unknown' &&
+      !fallbackTriggered &&
+      !browserLaunchCompleted &&
+      fallbackReasons.length === 0
+    ) {
+      return null;
+    }
+
+    return {
+      listingTransport,
+      browserFallbackUsed: fallbackTriggered || browserNavigationCompleted || browserLaunchCompleted,
+      browserLaunchSucceeded: browserLaunchCompleted,
+      fallbackReasons,
+    };
+  }
+
+  private buildBrowserSummary(executionEvents: ExecutionEventSnapshot[]) {
+    const launchStartedEvents = executionEvents.filter((event) => event.code === 'LISTING_BROWSER_LAUNCH_STARTED');
+    const launchRetryEvents = executionEvents.filter((event) => event.code === 'LISTING_BROWSER_LAUNCH_RETRY');
+    const launchCompletedEvent = executionEvents.find((event) => event.code === 'LISTING_BROWSER_LAUNCH_COMPLETED');
+    const launchFailedEvent = executionEvents.find((event) => event.code === 'LISTING_BROWSER_LAUNCH_FAILED');
+    const readyTimeoutEvent = executionEvents.find((event) => event.code === 'LISTING_BROWSER_READY_TIMEOUT');
+    const navigationCompletedEvent = executionEvents.find(
+      (event) => event.code === 'LISTING_BROWSER_NAVIGATION_COMPLETED',
+    );
+    const navigationFailedEvent = executionEvents.find((event) => event.code === 'LISTING_BROWSER_NAVIGATION_FAILED');
+
+    const terminalEvent = launchFailedEvent ?? readyTimeoutEvent ?? navigationFailedEvent ?? null;
+    const launchMeta = this.extractEventMeta(launchCompletedEvent?.meta ?? launchStartedEvents[0]?.meta ?? null);
+    const terminalMeta = this.extractEventMeta(terminalEvent?.meta ?? null);
+    const launchArgs = Array.isArray(launchMeta?.args)
+      ? launchMeta.args.filter((item): item is string => typeof item === 'string')
+      : [];
+    const launchDurationMs =
+      typeof launchMeta?.durationMs === 'number'
+        ? launchMeta.durationMs
+        : typeof terminalMeta?.durationMs === 'number'
+          ? terminalMeta.durationMs
+          : null;
+    const channel =
+      typeof launchMeta?.channel === 'string'
+        ? launchMeta.channel
+        : typeof terminalMeta?.channel === 'string'
+          ? terminalMeta.channel
+          : null;
+    const failureReason =
+      typeof terminalMeta?.error === 'string' ? terminalMeta.error : readyTimeoutEvent ? 'browser_ready_timeout' : null;
+
+    if (
+      launchStartedEvents.length === 0 &&
+      launchRetryEvents.length === 0 &&
+      !launchCompletedEvent &&
+      !terminalEvent &&
+      !navigationCompletedEvent
+    ) {
+      return null;
+    }
+
+    return {
+      launchAttempts: Math.max(
+        launchStartedEvents.length,
+        launchRetryEvents.length +
+          (launchStartedEvents.length > 0 || launchCompletedEvent || launchFailedEvent ? 1 : 0),
+      ),
+      launchRetries: launchRetryEvents.length,
+      launchDurationMs,
+      launchArgs,
+      channel,
+      launchSucceeded: Boolean(launchCompletedEvent),
+      readyTimedOut: Boolean(readyTimeoutEvent),
+      navigationSucceeded: Boolean(navigationCompletedEvent),
+      failureReason,
+    };
+  }
+
   private async updateImmediateCompletedRun(input: {
     runId: string;
     totalFound: number;
@@ -2638,53 +2754,8 @@ export class JobSourcesService {
         }, new Map())
         .values(),
     );
-    const transportSummary = (() => {
-      const fallbackReasons = Array.from(
-        new Set(
-          executionEvents
-            .filter((event) => event.code === 'LISTING_FALLBACK_TRIGGERED')
-            .map((event) => {
-              const meta =
-                event.meta && typeof event.meta === 'object' && !Array.isArray(event.meta)
-                  ? (event.meta as Record<string, unknown>)
-                  : null;
-              const reason = meta?.reason;
-              return typeof reason === 'string' && reason.trim().length > 0 ? reason.trim() : null;
-            })
-            .filter((item): item is string => Boolean(item)),
-        ),
-      );
-      const httpCompleted = executionEvents.some((event) => event.code === 'LISTING_HTTP_FETCH_COMPLETED');
-      const fallbackTriggered = executionEvents.some((event) => event.code === 'LISTING_FALLBACK_TRIGGERED');
-      const browserNavigationCompleted = executionEvents.some(
-        (event) => event.code === 'LISTING_BROWSER_NAVIGATION_COMPLETED',
-      );
-      const browserLaunchCompleted = executionEvents.some((event) => event.code === 'LISTING_BROWSER_LAUNCH_COMPLETED');
-
-      const listingTransport: 'http' | 'browser' | 'http->browser' | 'unknown' = fallbackTriggered
-        ? 'http->browser'
-        : browserNavigationCompleted
-          ? 'browser'
-          : httpCompleted
-            ? 'http'
-            : 'unknown';
-
-      if (
-        listingTransport === 'unknown' &&
-        !fallbackTriggered &&
-        !browserLaunchCompleted &&
-        fallbackReasons.length === 0
-      ) {
-        return null;
-      }
-
-      return {
-        listingTransport,
-        browserFallbackUsed: fallbackTriggered || browserNavigationCompleted || browserLaunchCompleted,
-        browserLaunchSucceeded: browserLaunchCompleted,
-        fallbackReasons,
-      };
-    })();
+    const transportSummary = this.buildTransportSummary(executionEvents);
+    const browserSummary = this.buildBrowserSummary(executionEvents);
     const classifiedOutcome =
       normalizeString(run.classifiedOutcome) ??
       normalizeString(String(diagnostics.resultKind ?? '')) ??
@@ -2726,6 +2797,7 @@ export class JobSourcesService {
           normalizeScrapeSourceQuality(run.sourceQuality),
         classifiedOutcome,
         transportSummary,
+        browserSummary,
         stats: {
           totalFound: run.totalFound ?? null,
           scrapedCount: run.scrapedCount ?? null,

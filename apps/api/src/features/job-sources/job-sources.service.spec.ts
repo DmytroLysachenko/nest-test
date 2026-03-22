@@ -1786,6 +1786,17 @@ describe('JobSourcesService', () => {
       browserLaunchSucceeded: true,
       fallbackReasons: ['http_blocked'],
     });
+    expect(diagnostics.diagnostics.browserSummary).toEqual({
+      launchAttempts: 1,
+      launchRetries: 0,
+      launchDurationMs: null,
+      launchArgs: [],
+      channel: null,
+      launchSucceeded: true,
+      readyTimedOut: false,
+      navigationSucceeded: true,
+      failureReason: null,
+    });
   });
 
   it('returns aggregated diagnostics summary for recent runs', async () => {

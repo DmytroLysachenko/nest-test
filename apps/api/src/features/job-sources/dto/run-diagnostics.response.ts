@@ -68,6 +68,19 @@ class ScrapeRunDiagnosticsPayloadResponse {
     fallbackReasons: string[];
   } | null;
 
+  @ApiProperty({ nullable: true, type: Object })
+  browserSummary!: {
+    launchAttempts: number;
+    launchRetries: number;
+    launchDurationMs: number | null;
+    launchArgs: string[];
+    channel: string | null;
+    launchSucceeded: boolean;
+    readyTimedOut: boolean;
+    navigationSucceeded: boolean;
+    failureReason: string | null;
+  } | null;
+
   @ApiProperty({ type: ScrapeRunDiagnosticsStatsResponse })
   stats!: ScrapeRunDiagnosticsStatsResponse;
 }
