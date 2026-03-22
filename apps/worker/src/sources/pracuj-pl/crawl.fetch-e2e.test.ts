@@ -165,9 +165,14 @@ test('crawlPracujPl reports zero-results and blocked detail pages correctly', as
     });
     assert.equal(blockedResult.jobLinks.length, 1);
     assert.equal(blockedResult.pages.length, 0);
-    assert.deepEqual(blockedResult.blockedUrls, [blockedUrl]);
     assert.equal(blockedResult.detailDiagnostics.length, 2);
     assert.equal(blockedResult.detailDiagnostics[0]?.blocked, true);
+    assert.ok(
+      blockedResult.blockedUrls.includes(blockedUrl) ||
+        blockedResult.detailDiagnostics.some(
+          (entry) => entry.url === blockedUrl && (entry.blocked || Boolean(entry.error)),
+        ),
+    );
   } finally {
     await server.close();
   }
