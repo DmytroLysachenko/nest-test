@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
-import { Throttle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -127,6 +127,7 @@ export class JobSourcesController {
 
   @Post('complete')
   @Public()
+  @SkipThrottle()
   @ApiOperation({ summary: 'Worker callback for completed scrape runs' })
   async completeScrape(
     @Headers('authorization') authorization: string | undefined,
@@ -170,6 +171,7 @@ export class JobSourcesController {
 
   @Post('runs/:id/heartbeat')
   @Public()
+  @SkipThrottle()
   @ApiOperation({ summary: 'Worker heartbeat callback for active scrape runs' })
   async heartbeat(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -184,6 +186,7 @@ export class JobSourcesController {
 
   @Post('schedule/trigger')
   @Public()
+  @SkipThrottle()
   @ApiOperation({ summary: 'Internal scheduler trigger for enabled scrape schedules' })
   async triggerSchedules(
     @Headers('authorization') authorization: string | undefined,
