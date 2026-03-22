@@ -1327,6 +1327,7 @@ export class JobSourcesService {
         scrapedCount: jobSourceRunsTable.scrapedCount,
         startedAt: jobSourceRunsTable.startedAt,
         failureType: jobSourceRunsTable.failureType,
+        progress: jobSourceRunsTable.progress,
       })
       .from(jobSourceRunsTable)
       .where(eq(jobSourceRunsTable.id, dto.sourceRunId))
@@ -1743,6 +1744,21 @@ export class JobSourcesService {
           totalCandidateCount: offers.length,
           matchedCount: 0,
         };
+    await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        progress: {
+          ...(((run.progress as Record<string, unknown> | null) ?? {}) as Record<string, unknown>),
+          totalFound,
+          scrapedCount,
+          candidateOffers: offers.length,
+          matchedOffers: inserted.matchedCount,
+          userInsertedOffers: inserted.insertedCount,
+          callbackAcceptedAt: finalizedAt.toISOString(),
+          updatedAt: finalizedAt.toISOString(),
+        },
+      })
+      .where(eq(jobSourceRunsTable.id, run.id));
 
     this.logger.log(
       {

@@ -1075,6 +1075,9 @@ describe('JobSourcesService', () => {
   });
 
   it('handles completed callback and inserts new user offers', async () => {
+    const updateSet = jest.fn().mockReturnValue({
+      where: jest.fn().mockResolvedValue(undefined),
+    });
     const db = {
       select: jest
         .fn()
@@ -1105,9 +1108,7 @@ describe('JobSourcesService', () => {
           }),
         }),
       update: jest.fn().mockReturnValue({
-        set: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValue(undefined),
-        }),
+        set: updateSet,
       }),
       insert: jest.fn().mockImplementation((table) => {
         if (table !== userJobOffersTable) {
@@ -1147,6 +1148,16 @@ describe('JobSourcesService', () => {
       totalOffers: 1,
       idempotent: false,
     });
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        progress: expect.objectContaining({
+          candidateOffers: 1,
+          matchedOffers: 1,
+          userInsertedOffers: 1,
+          callbackAcceptedAt: expect.any(String),
+        }),
+      }),
+    );
   });
 
   it('upserts job_offers when completed callback contains jobs payload', async () => {
