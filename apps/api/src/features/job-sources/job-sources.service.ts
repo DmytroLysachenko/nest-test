@@ -293,6 +293,7 @@ const DEFAULT_CATALOG_REMATCH_MIN_SCORE = 60;
 const DEFAULT_SCRAPE_SOURCE_FAILURE_WINDOW_RUNS = 5;
 const DEFAULT_SCRAPE_SOURCE_FAILURE_THRESHOLD = 3;
 const DEFAULT_SCRAPE_SOURCE_AUTOMATION_BACKOFF_MINUTES = 30;
+const HEARTBEAT_EVENT_DEDUP_WINDOW_MS = 15_000;
 
 const parseSchedule = (
   cron: string,
@@ -1821,6 +1822,8 @@ export class JobSourcesService {
         id: jobSourceRunsTable.id,
         traceId: jobSourceRunsTable.traceId,
         status: jobSourceRunsTable.status,
+        progress: jobSourceRunsTable.progress,
+        lastHeartbeatAt: jobSourceRunsTable.lastHeartbeatAt,
       })
       .from(jobSourceRunsTable)
       .where(eq(jobSourceRunsTable.id, runId))
@@ -1845,6 +1848,33 @@ export class JobSourcesService {
       meta: dto.meta ?? null,
       updatedAt: now.toISOString(),
     };
+    const previousProgress =
+      run.progress && typeof run.progress === 'object' && !Array.isArray(run.progress)
+        ? (run.progress as Record<string, unknown>)
+        : null;
+    const previousComparable = previousProgress
+      ? {
+          phase: previousProgress.phase ?? null,
+          attempt: previousProgress.attempt ?? null,
+          pagesVisited: previousProgress.pagesVisited ?? 0,
+          jobLinksDiscovered: previousProgress.jobLinksDiscovered ?? 0,
+          normalizedOffers: previousProgress.normalizedOffers ?? 0,
+          meta: previousProgress.meta ?? null,
+        }
+      : null;
+    const nextComparable = {
+      phase: progress.phase,
+      attempt: progress.attempt,
+      pagesVisited: progress.pagesVisited,
+      jobLinksDiscovered: progress.jobLinksDiscovered,
+      normalizedOffers: progress.normalizedOffers,
+      meta: progress.meta,
+    };
+    const suppressHeartbeatEvent =
+      previousComparable &&
+      stableJson(previousComparable) === stableJson(nextComparable) &&
+      run.lastHeartbeatAt instanceof Date &&
+      now.getTime() - run.lastHeartbeatAt.getTime() < HEARTBEAT_EVENT_DEDUP_WINDOW_MS;
 
     const resolvedStatus = run.status === 'PENDING' ? 'RUNNING' : (run.status as RunStatus);
     await this.db
@@ -1859,26 +1889,29 @@ export class JobSourcesService {
       })
       .where(eq(jobSourceRunsTable.id, run.id));
 
-    await this.appendRunEvent({
-      sourceRunId: run.id,
-      traceId: run.traceId,
-      eventType: 'heartbeat_received',
-      requestId,
-      phase: dto.phase ?? null,
-      attemptNo: dto.attempt ?? null,
-      message: 'Worker heartbeat accepted for active scrape run.',
-      meta: {
-        pagesVisited: dto.pagesVisited ?? 0,
-        jobLinksDiscovered: dto.jobLinksDiscovered ?? 0,
-        normalizedOffers: dto.normalizedOffers ?? 0,
-        progressMeta: dto.meta ?? null,
-      },
-    });
+    if (!suppressHeartbeatEvent) {
+      await this.appendRunEvent({
+        sourceRunId: run.id,
+        traceId: run.traceId,
+        eventType: 'heartbeat_received',
+        requestId,
+        phase: dto.phase ?? null,
+        attemptNo: dto.attempt ?? null,
+        message: 'Worker heartbeat accepted for active scrape run.',
+        meta: {
+          pagesVisited: dto.pagesVisited ?? 0,
+          jobLinksDiscovered: dto.jobLinksDiscovered ?? 0,
+          normalizedOffers: dto.normalizedOffers ?? 0,
+          progressMeta: dto.meta ?? null,
+        },
+      });
+    }
 
     return {
       ok: true,
       status: resolvedStatus,
       heartbeatAt: now.toISOString(),
+      deduped: suppressHeartbeatEvent,
     };
   }
 

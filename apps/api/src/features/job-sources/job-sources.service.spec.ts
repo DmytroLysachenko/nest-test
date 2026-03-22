@@ -1893,6 +1893,8 @@ describe('JobSourcesService', () => {
                     {
                       id: 'run-heartbeat-1',
                       status: 'PENDING',
+                      progress: null,
+                      lastHeartbeatAt: null,
                     },
                   ]),
                 ),
@@ -1923,6 +1925,66 @@ describe('JobSourcesService', () => {
       status: 'RUNNING',
     });
     expect(db.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('dedupes identical worker heartbeat events inside the coalescing window', async () => {
+    const appendRunEvent = jest
+      .spyOn(JobSourcesService.prototype as any, 'appendRunEvent')
+      .mockResolvedValue(undefined);
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-heartbeat-2',
+                      traceId: 'trace-heartbeat-2',
+                      status: 'RUNNING',
+                      progress: {
+                        phase: 'detail_fetch',
+                        attempt: 1,
+                        pagesVisited: 2,
+                        jobLinksDiscovered: 8,
+                        normalizedOffers: 1,
+                        meta: { stage: 'detail_http_fetch_started' },
+                      },
+                      lastHeartbeatAt: new Date(Date.now() - 5_000),
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const result = await service.heartbeatRun('run-heartbeat-2', {
+      runId: 'worker-run-2',
+      phase: 'detail_fetch',
+      attempt: 1,
+      pagesVisited: 2,
+      jobLinksDiscovered: 8,
+      normalizedOffers: 1,
+      meta: { stage: 'detail_http_fetch_started' },
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'RUNNING',
+      deduped: true,
+    });
+    expect(db.update).toHaveBeenCalledTimes(1);
+    expect(appendRunEvent).not.toHaveBeenCalled();
   });
 
   it('promotes pending run to running before completed callback finalization', async () => {
