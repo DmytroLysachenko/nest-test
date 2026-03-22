@@ -1449,6 +1449,19 @@ export class JobSourcesService {
         emittedAt: callbackEmittedAt?.toISOString() ?? null,
       },
     });
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'callback_accepted',
+      requestId,
+      attemptNo: callbackAttemptNo,
+      code: dto.status ?? 'COMPLETED',
+      message: 'Worker callback was accepted and passed idempotency validation.',
+      meta: {
+        eventId: callbackEventId,
+        payloadHash: callbackPayloadHash,
+      },
+    });
 
     const scrapedCount =
       (sanitizedJobs.length ? sanitizedJobs.length : undefined) ??
@@ -1710,6 +1723,15 @@ export class JobSourcesService {
     });
 
     if (!run.userId || !run.careerProfileId) {
+      await this.appendRunEvent({
+        sourceRunId: run.id,
+        traceId: run.traceId,
+        eventType: 'user_link_skipped',
+        requestId,
+        attemptNo: callbackAttemptNo,
+        severity: 'warning',
+        message: 'Notebook linking skipped because the run is missing user or career profile context.',
+      });
       return {
         ok: true,
         status: 'COMPLETED',
@@ -1725,6 +1747,19 @@ export class JobSourcesService {
       .where(eq(jobOffersTable.runId, run.id));
 
     if (!offers.length) {
+      await this.appendRunEvent({
+        sourceRunId: run.id,
+        traceId: run.traceId,
+        eventType: 'catalog_candidates_empty',
+        requestId,
+        attemptNo: callbackAttemptNo,
+        severity: 'warning',
+        message: 'Scrape callback completed but produced no persisted catalog candidates for notebook linking.',
+        meta: {
+          totalFound,
+          scrapedCount,
+        },
+      });
       return {
         ok: true,
         status: 'COMPLETED',
@@ -1735,6 +1770,18 @@ export class JobSourcesService {
     }
 
     const profileContext = await this.getCareerProfileContext(run.userId, run.careerProfileId);
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'user_link_started',
+      requestId,
+      attemptNo: callbackAttemptNo,
+      message: 'Linking persisted catalog offers into the user notebook.',
+      meta: {
+        candidateOffers: offers.length,
+        origin: 'SCRAPE',
+      },
+    });
     const inserted = profileContext.profile
       ? await this.linkCatalogOffersToUser({
           userId: run.userId,
