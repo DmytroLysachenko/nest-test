@@ -244,11 +244,19 @@ export const NotebookOffersListCard = ({
           <div className="space-y-3">
             <EmptyState
               icon={<Inbox className="h-8 w-8" />}
-              title={mode === 'strict' && hiddenByModeCount > 0 ? 'Offers hidden by strict mode' : 'No offers found'}
+              title={
+                mode === 'strict' && hiddenByModeCount > 0
+                  ? 'Offers hidden by strict mode'
+                  : degradedResultCount > 0
+                    ? 'Only degraded-source offers are available'
+                    : 'No offers found'
+              }
               description={
                 mode === 'strict' && hiddenByModeCount > 0
                   ? `${hiddenByModeCount} offer${hiddenByModeCount === 1 ? '' : 's'} matched your notebook, but strict mode filtered them out because they violate hard constraints.`
-                  : 'Try relaxing filters or switch mode to explore to discover more opportunities.'
+                  : degradedResultCount > 0
+                    ? `${degradedResultCount} offer${degradedResultCount === 1 ? '' : 's'} came from listing-level salvage because source detail pages were incomplete. Review them in approx or explore mode after a fresh scrape.`
+                    : 'Try relaxing filters or switch mode to explore to discover more opportunities.'
               }
             />
             <div className="app-muted-panel text-sm">
@@ -260,6 +268,12 @@ export const NotebookOffersListCard = ({
                   {hiddenByModeCount > 0
                     ? ' to review near matches that were hidden by hard constraints.'
                     : ' to allow near matches.'}
+                </p>
+              ) : null}
+              {degradedResultCount > 0 ? (
+                <p className="text-text-soft mt-1">
+                  Degraded-source offers mean the scrape found promising listings, but detail pages were partially
+                  blocked or incomplete.
                 </p>
               ) : null}
               {mode === 'approx' ? (
