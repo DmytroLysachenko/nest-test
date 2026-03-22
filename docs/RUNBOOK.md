@@ -130,6 +130,11 @@ Canonical environment inventory:
 2. Worker tests:
    - `pnpm --filter worker test`
    - `pnpm --filter worker browser:probe`
+   - Container-first browser probe:
+     ```bash
+     docker build -f apps/worker/Dockerfile -t nest-test-worker .
+     docker run --rm nest-test-worker pnpm --filter worker browser:probe
+     ```
 3. Web checks:
    - `pnpm --filter web check-types`
    - `pnpm --filter web test`
@@ -179,6 +184,26 @@ Canonical environment inventory:
    - no Playwright e2e
    - no UX gate
 3. CI ran broader validation than local push checks, so regressions surfaced only after push.
+
+## Scrape Incident Matrix
+
+Use run diagnostics and events before reading raw service logs.
+
+1. `transportSummary.httpBlockedCount > 0` and `browserSummary.successfulLaunches > 0`
+   - HTTP path was challenged, browser fallback recovered.
+   - Expected result: run may still complete normally.
+2. `transportSummary.httpBlockedCount > 0` and `browserSummary.failedLaunches > 0`
+   - Source challenge plus browser bootstrap/runtime issue.
+   - Check worker browser probe and Cloud Run revision/runtime drift.
+3. `classifiedOutcome=detail_parse_gap` or `sourceQuality=degraded`
+   - Listing succeeded but detail parsing/fetching was incomplete.
+   - Notebook may still show degraded-source offers.
+4. `progress.userInsertedOffers = 0` and notebook `hiddenByModeCount > 0`
+   - Offers exist, but strict notebook mode hides them.
+   - Switch to `approx` or `explore` for verification.
+5. `sourceHealth.paused = true`
+   - Automation is under backoff due to repeated source failures.
+   - Manual runs remain the preferred debugging path.
 
 ## Hook Bypass Policy
 

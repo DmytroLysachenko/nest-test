@@ -49,6 +49,7 @@ Primary runtime endpoints:
 7. Replay dead letters or retry failed runs only after the root cause is understood.
 8. Read run diagnostics before assuming the scraper failed:
    - `transportSummary` shows HTTP vs browser fallback path and fallback reasons
+   - `browserSummary` shows browser launch attempts, successes, failures, and last failure reason
    - `progress.userInsertedOffers` shows whether notebook rows were linked even when the UI looks empty in strict mode
 
 ## Fast Checks
@@ -168,6 +169,21 @@ Use it for:
 - wrong env values on live services
 - confirming browser bootstrap probe output after deploys
 
+### Browser Probe Workflow
+
+When browser fallback fails in production, reproduce in a prod-like Linux container before changing scraper logic.
+
+```bash
+docker build -f apps/worker/Dockerfile -t nest-test-worker .
+docker run --rm nest-test-worker pnpm --filter worker browser:probe
+```
+
+Use this to answer:
+
+- does Chromium launch at all in the worker image
+- does it reach blank-page readiness
+- is the failure a browser bootstrap problem or a page/source problem
+
 ### 3. API Ops Endpoints
 
 Use these when you have an authenticated admin/support token.
@@ -222,6 +238,7 @@ Use them for:
 - checking if the run ever moved beyond `PENDING`
 - understanding filter normalization and source diagnostics
 - seeing whether the run stayed on HTTP or escalated to browser fallback through `transportSummary`
+- confirming whether browser fallback failed at bootstrap through `browserSummary`
 
 ### 5. Worker Dead-Letter Recovery
 
