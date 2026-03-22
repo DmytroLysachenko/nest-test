@@ -6,6 +6,15 @@ import type { Logger } from 'pino';
 chromium.use(stealth());
 
 const BROWSER_PROBE_TIMEOUT_MS = 45_000;
+const BROWSER_PROBE_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-gpu',
+  '--disable-features=site-per-process,Translate,BackForwardCache',
+  '--no-first-run',
+  '--no-zygote',
+];
 
 export const runBrowserProbe = async (logger?: Logger) => {
   const startedAt = Date.now();
@@ -13,6 +22,7 @@ export const runBrowserProbe = async (logger?: Logger) => {
     channel: 'chromium',
     headless: true,
     timeout: BROWSER_PROBE_TIMEOUT_MS,
+    args: BROWSER_PROBE_ARGS,
   });
 
   try {
@@ -32,6 +42,7 @@ export const runBrowserProbe = async (logger?: Logger) => {
     const result = {
       channel: 'chromium',
       timeoutMs: BROWSER_PROBE_TIMEOUT_MS,
+      args: BROWSER_PROBE_ARGS,
       title: title ?? null,
       launchDurationMs: Date.now() - startedAt,
       navigationDurationMs: Date.now() - navigationStartedAt,

@@ -20,6 +20,15 @@ const BROWSER_LAUNCH_TIMEOUT_MS = 60_000;
 const PAGE_NAVIGATION_TIMEOUT_MS = 45_000;
 const PAGE_READY_TIMEOUT_MS = 15_000;
 const PLAYWRIGHT_BROWSER_CHANNEL = 'chromium';
+const PLAYWRIGHT_LAUNCH_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-gpu',
+  '--disable-features=site-per-process,Translate,BackForwardCache',
+  '--no-first-run',
+  '--no-zygote',
+];
 const DEFAULT_BROWSER_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
@@ -510,6 +519,7 @@ const createBrowserSession = async (
     channel: PLAYWRIGHT_BROWSER_CHANNEL,
     headless,
     timeout: BROWSER_LAUNCH_TIMEOUT_MS,
+    args: PLAYWRIGHT_LAUNCH_ARGS,
   } as const;
   await emitProgress(reporter, {
     stage: 'listing_browser_launch_started',
@@ -518,6 +528,7 @@ const createBrowserSession = async (
       headless,
       profileDir: Boolean(profileDir),
       timeoutMs: BROWSER_LAUNCH_TIMEOUT_MS,
+      args: PLAYWRIGHT_LAUNCH_ARGS,
     },
   });
 
@@ -555,6 +566,7 @@ const createBrowserSession = async (
         headless,
         profileDir: Boolean(profileDir),
         durationMs: Date.now() - startedAt,
+        args: PLAYWRIGHT_LAUNCH_ARGS,
       },
     });
 
@@ -566,6 +578,7 @@ const createBrowserSession = async (
         channel: PLAYWRIGHT_BROWSER_CHANNEL,
         error: error instanceof Error ? error.message : 'Unknown browser launch error',
         durationMs: Date.now() - startedAt,
+        args: PLAYWRIGHT_LAUNCH_ARGS,
       },
     });
     throw error;
