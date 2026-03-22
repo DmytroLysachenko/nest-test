@@ -7,6 +7,10 @@ type TaskOptions = Parameters<typeof handleTask>[2];
 type QueueItem = {
   task: TaskEnvelope;
   enqueuedAt: number;
+  completion?: {
+    resolve: (value: unknown) => void;
+    reject: (reason?: unknown) => void;
+  };
 };
 
 export class TaskRunner {
@@ -22,6 +26,25 @@ export class TaskRunner {
   ) {}
 
   enqueue(task: TaskEnvelope) {
+    return this.enqueueInternal(task);
+  }
+
+  enqueueAndWait(task: TaskEnvelope) {
+    return new Promise<unknown>((resolve, reject) => {
+      const accepted = this.enqueueInternal(task, { resolve, reject });
+      if (!accepted) {
+        reject(new Error('Queue is full'));
+      }
+    });
+  }
+
+  private enqueueInternal(
+    task: TaskEnvelope,
+    completion?: {
+      resolve: (value: unknown) => void;
+      reject: (reason?: unknown) => void;
+    },
+  ) {
     if (this.queue.length >= this.maxQueueSize) {
       this.logger.warn(
         {
@@ -37,7 +60,7 @@ export class TaskRunner {
       return false;
     }
 
-    this.queue.push({ task, enqueuedAt: Date.now() });
+    this.queue.push({ task, enqueuedAt: Date.now(), completion });
     this.logger.info(
       {
         taskName: task.name,
@@ -68,7 +91,11 @@ export class TaskRunner {
       }
       this.active += 1;
       this.run(next)
+        .then((result) => {
+          next.completion?.resolve(result);
+        })
         .catch((error) => {
+          next.completion?.reject(error);
           this.logger.error({ error }, 'Task execution failed');
         })
         .finally(() => {

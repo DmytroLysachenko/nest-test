@@ -325,22 +325,49 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         return;
       }
 
-      const accepted = runner.enqueue(task);
-      if (!accepted) {
-        sendJson(res, 429, {
-          ok: false,
-          status: 'rejected',
-          reason: 'Queue is full',
+      try {
+        await runner.enqueueAndWait(task);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'Queue is full') {
+          sendJson(res, 429, {
+            ok: false,
+            status: 'rejected',
+            reason: 'Queue is full',
+            queueProvider: env.QUEUE_PROVIDER,
+            requestId,
+            queue: runner.getStats(),
+          });
+          return;
+        }
+
+        logger.warn(
+          {
+            requestId,
+            queueProvider: env.QUEUE_PROVIDER,
+            taskName: task.name,
+            runId: task.payload.runId ?? null,
+            sourceRunId: task.payload.sourceRunId ?? null,
+            error: formatError(error),
+          },
+          'Task execution finished with failure after acceptance',
+        );
+
+        sendJson(res, 200, {
+          ok: true,
+          status: 'completed',
+          outcome: 'failed',
           queueProvider: env.QUEUE_PROVIDER,
           requestId,
-          queue: runner.getStats(),
+          runId: task.payload.runId ?? null,
+          sourceRunId: task.payload.sourceRunId ?? null,
         });
         return;
       }
 
-      sendJson(res, 202, {
+      sendJson(res, 200, {
         ok: true,
-        status: 'accepted',
+        status: 'completed',
+        outcome: 'succeeded',
         queueProvider: env.QUEUE_PROVIDER,
         requestId,
         runId: task.payload.runId ?? null,
@@ -348,7 +375,10 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
       });
     } catch (error) {
       if (error instanceof Error && error.message.includes('Request body too large')) {
-        sendJson(res, 413, { error: error.message, requestId });
+        sendJson(res, 413, {
+          error: error.message,
+          requestId,
+        });
         return;
       }
       logger.error({ requestId, error: formatError(error) }, 'Task processing failed');
