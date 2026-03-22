@@ -85,6 +85,7 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
         hasSavedPreset={Boolean(notebook.savedPreset)}
         activeFilters={notebook.activeFilters}
         total={notebook.listQuery.data?.total ?? 0}
+        hiddenByModeCount={notebook.listQuery.data?.hiddenByModeCount ?? 0}
         listUpdatedAt={notebook.listQuery.dataUpdatedAt}
         isBusy={notebook.isBusy}
         summary={notebook.notebookSummary ?? null}
@@ -117,6 +118,8 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
           ) : (
             <NotebookOffersListCard
               offers={notebook.listQuery.data?.items ?? []}
+              hiddenByModeCount={notebook.listQuery.data?.hiddenByModeCount ?? 0}
+              degradedResultCount={notebook.listQuery.data?.degradedResultCount ?? 0}
               selectedId={notebook.selectedId}
               selectedOfferIds={notebook.selectedOfferIds}
               isBusy={notebook.isBusy}

@@ -59,6 +59,7 @@ export type ParsedJob = {
   employmentType?: string;
   sourceId?: string;
   requirements?: string[];
+  tags?: string[];
   details?: JobDetails;
   isExpired?: boolean;
 };

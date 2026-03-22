@@ -98,6 +98,12 @@ type ScheduleEventInput = {
   meta?: Record<string, unknown> | null;
   createdAt?: Date;
 };
+type ExecutionEventSnapshot = {
+  stage: string;
+  status: string;
+  code: string | null;
+  meta: unknown;
+};
 type CallbackEventRegisterResult =
   | { accepted: true; payloadHash: string; attemptNo: number; emittedAt: Date | null }
   | {
@@ -293,6 +299,7 @@ const DEFAULT_CATALOG_REMATCH_MIN_SCORE = 60;
 const DEFAULT_SCRAPE_SOURCE_FAILURE_WINDOW_RUNS = 5;
 const DEFAULT_SCRAPE_SOURCE_FAILURE_THRESHOLD = 3;
 const DEFAULT_SCRAPE_SOURCE_AUTOMATION_BACKOFF_MINUTES = 30;
+const HEARTBEAT_EVENT_DEDUP_WINDOW_MS = 15_000;
 
 const parseSchedule = (
   cron: string,
@@ -503,12 +510,14 @@ export class JobSourcesService {
             pausedUntil: sourceBackoff.pausedUntil?.toISOString() ?? null,
             recentFailures: sourceBackoff.failureCount,
             windowRuns: sourceBackoff.windowRuns,
+            dominantFailureReasons: sourceBackoff.dominantFailureReasons,
           }
         : {
             paused: false,
             pausedUntil: null,
             recentFailures: sourceBackoff.failureCount,
             windowRuns: sourceBackoff.windowRuns,
+            dominantFailureReasons: sourceBackoff.dominantFailureReasons,
           },
     };
   }
@@ -1326,6 +1335,7 @@ export class JobSourcesService {
         scrapedCount: jobSourceRunsTable.scrapedCount,
         startedAt: jobSourceRunsTable.startedAt,
         failureType: jobSourceRunsTable.failureType,
+        progress: jobSourceRunsTable.progress,
       })
       .from(jobSourceRunsTable)
       .where(eq(jobSourceRunsTable.id, dto.sourceRunId))
@@ -1439,6 +1449,19 @@ export class JobSourcesService {
         eventId: callbackEventId,
         payloadHash: callbackPayloadHash,
         emittedAt: callbackEmittedAt?.toISOString() ?? null,
+      },
+    });
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'callback_accepted',
+      requestId,
+      attemptNo: callbackAttemptNo,
+      code: dto.status ?? 'COMPLETED',
+      message: 'Worker callback was accepted and passed idempotency validation.',
+      meta: {
+        eventId: callbackEventId,
+        payloadHash: callbackPayloadHash,
       },
     });
 
@@ -1557,7 +1580,7 @@ export class JobSourcesService {
         details: job.details ?? null,
         contentHash: this.computeCatalogContentHash(job),
         qualityState: ACCEPTED_QUALITY_STATE,
-        qualityReason: null,
+        qualityReason: job.tags?.includes('listing-salvage') ? 'listing_salvage' : null,
         isExpired: job.isExpired ?? false,
         expiresAt: job.isExpired ? now : null,
         lastFullScrapeAt: now,
@@ -1635,7 +1658,10 @@ export class JobSourcesService {
               WHEN ${excludedColumn(cols.isExpired)} = TRUE THEN ${jobOffersTable.qualityState}
               ELSE ${excludedColumn(cols.qualityState)}
             END`,
-            qualityReason: sql`coalesce(${excludedColumn(cols.qualityReason)}, ${jobOffersTable.qualityReason})`,
+            qualityReason: sql`CASE
+              WHEN ${excludedColumn(cols.qualityReason)} IS NOT NULL THEN ${excludedColumn(cols.qualityReason)}
+              ELSE ${jobOffersTable.qualityReason}
+            END`,
             firstSeenAt: sql`least(${jobOffersTable.firstSeenAt}, ${excludedColumn(cols.firstSeenAt)})`,
             lastSeenAt: excludedColumn(cols.lastSeenAt),
             fetchedAt: now,
@@ -1684,24 +1710,33 @@ export class JobSourcesService {
       failureCode: null,
       error: null,
     });
+    const completedOutcome = this.resolveCompletedCallbackOutcome({
+      diagnostics: this.toNullableRecord(dto.diagnostics) ?? null,
+      scrapedCount,
+      totalFound,
+    });
     await this.transitionRunStatus(run.id, statusForCompletion, 'COMPLETED', {
       scrapedCount,
       totalFound,
       error: null,
       failureType: null,
-      classifiedOutcome: this.resolveClassifiedOutcome({
-        status: 'COMPLETED',
-        failureType: null,
-        diagnostics: this.toNullableRecord(dto.diagnostics) ?? null,
-        scrapedCount,
-      }),
-      emptyReason: normalizeScrapeEmptyReason(dto.diagnostics?.emptyReason ?? null),
-      sourceQuality: normalizeScrapeSourceQuality(dto.diagnostics?.sourceQuality ?? null) ?? 'healthy',
+      classifiedOutcome: completedOutcome.classifiedOutcome,
+      emptyReason: completedOutcome.emptyReason,
+      sourceQuality: completedOutcome.sourceQuality,
       finalizedAt,
       completedAt: finalizedAt,
     });
 
     if (!run.userId || !run.careerProfileId) {
+      await this.appendRunEvent({
+        sourceRunId: run.id,
+        traceId: run.traceId,
+        eventType: 'user_link_skipped',
+        requestId,
+        attemptNo: callbackAttemptNo,
+        severity: 'warning',
+        message: 'Notebook linking skipped because the run is missing user or career profile context.',
+      });
       return {
         ok: true,
         status: 'COMPLETED',
@@ -1717,6 +1752,19 @@ export class JobSourcesService {
       .where(eq(jobOffersTable.runId, run.id));
 
     if (!offers.length) {
+      await this.appendRunEvent({
+        sourceRunId: run.id,
+        traceId: run.traceId,
+        eventType: 'catalog_candidates_empty',
+        requestId,
+        attemptNo: callbackAttemptNo,
+        severity: 'warning',
+        message: 'Scrape callback completed but produced no persisted catalog candidates for notebook linking.',
+        meta: {
+          totalFound,
+          scrapedCount,
+        },
+      });
       return {
         ok: true,
         status: 'COMPLETED',
@@ -1727,6 +1775,18 @@ export class JobSourcesService {
     }
 
     const profileContext = await this.getCareerProfileContext(run.userId, run.careerProfileId);
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'user_link_started',
+      requestId,
+      attemptNo: callbackAttemptNo,
+      message: 'Linking persisted catalog offers into the user notebook.',
+      meta: {
+        candidateOffers: offers.length,
+        origin: 'SCRAPE',
+      },
+    });
     const inserted = profileContext.profile
       ? await this.linkCatalogOffersToUser({
           userId: run.userId,
@@ -1742,6 +1802,21 @@ export class JobSourcesService {
           totalCandidateCount: offers.length,
           matchedCount: 0,
         };
+    await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        progress: {
+          ...(((run.progress as Record<string, unknown> | null) ?? {}) as Record<string, unknown>),
+          totalFound,
+          scrapedCount,
+          candidateOffers: offers.length,
+          matchedOffers: inserted.matchedCount,
+          userInsertedOffers: inserted.insertedCount,
+          callbackAcceptedAt: finalizedAt.toISOString(),
+          updatedAt: finalizedAt.toISOString(),
+        },
+      })
+      .where(eq(jobSourceRunsTable.id, run.id));
 
     this.logger.log(
       {
@@ -1821,6 +1896,8 @@ export class JobSourcesService {
         id: jobSourceRunsTable.id,
         traceId: jobSourceRunsTable.traceId,
         status: jobSourceRunsTable.status,
+        progress: jobSourceRunsTable.progress,
+        lastHeartbeatAt: jobSourceRunsTable.lastHeartbeatAt,
       })
       .from(jobSourceRunsTable)
       .where(eq(jobSourceRunsTable.id, runId))
@@ -1845,40 +1922,83 @@ export class JobSourcesService {
       meta: dto.meta ?? null,
       updatedAt: now.toISOString(),
     };
+    const previousProgress =
+      run.progress && typeof run.progress === 'object' && !Array.isArray(run.progress)
+        ? (run.progress as Record<string, unknown>)
+        : null;
+    const previousComparable = previousProgress
+      ? {
+          phase: previousProgress.phase ?? null,
+          attempt: previousProgress.attempt ?? null,
+          pagesVisited: previousProgress.pagesVisited ?? 0,
+          jobLinksDiscovered: previousProgress.jobLinksDiscovered ?? 0,
+          normalizedOffers: previousProgress.normalizedOffers ?? 0,
+          meta: previousProgress.meta ?? null,
+        }
+      : null;
+    const nextComparable = {
+      phase: progress.phase,
+      attempt: progress.attempt,
+      pagesVisited: progress.pagesVisited,
+      jobLinksDiscovered: progress.jobLinksDiscovered,
+      normalizedOffers: progress.normalizedOffers,
+      meta: progress.meta,
+    };
+    const suppressHeartbeatEvent =
+      previousComparable &&
+      stableJson(previousComparable) === stableJson(nextComparable) &&
+      run.lastHeartbeatAt instanceof Date &&
+      now.getTime() - run.lastHeartbeatAt.getTime() < HEARTBEAT_EVENT_DEDUP_WINDOW_MS;
 
     const resolvedStatus = run.status === 'PENDING' ? 'RUNNING' : (run.status as RunStatus);
-    await this.db
-      .update(jobSourceRunsTable)
-      .set({
-        status: resolvedStatus,
-        error: null,
-        failureType: null,
-        finalizedAt: null,
-        lastHeartbeatAt: now,
-        progress,
-      })
-      .where(eq(jobSourceRunsTable.id, run.id));
+    const nextRunUpdate: {
+      status?: RunStatus;
+      error?: string | null;
+      failureType?: string | null;
+      finalizedAt?: Date | null;
+      lastHeartbeatAt: Date;
+      progress?: Record<string, unknown>;
+    } = {
+      lastHeartbeatAt: now,
+    };
+    if (run.status === 'PENDING') {
+      nextRunUpdate.status = resolvedStatus;
+      nextRunUpdate.error = null;
+      nextRunUpdate.failureType = null;
+      nextRunUpdate.finalizedAt = null;
+      nextRunUpdate.progress = progress;
+    } else if (!suppressHeartbeatEvent) {
+      nextRunUpdate.status = resolvedStatus;
+      nextRunUpdate.error = null;
+      nextRunUpdate.failureType = null;
+      nextRunUpdate.finalizedAt = null;
+      nextRunUpdate.progress = progress;
+    }
+    await this.db.update(jobSourceRunsTable).set(nextRunUpdate).where(eq(jobSourceRunsTable.id, run.id));
 
-    await this.appendRunEvent({
-      sourceRunId: run.id,
-      traceId: run.traceId,
-      eventType: 'heartbeat_received',
-      requestId,
-      phase: dto.phase ?? null,
-      attemptNo: dto.attempt ?? null,
-      message: 'Worker heartbeat accepted for active scrape run.',
-      meta: {
-        pagesVisited: dto.pagesVisited ?? 0,
-        jobLinksDiscovered: dto.jobLinksDiscovered ?? 0,
-        normalizedOffers: dto.normalizedOffers ?? 0,
-        progressMeta: dto.meta ?? null,
-      },
-    });
+    if (!suppressHeartbeatEvent) {
+      await this.appendRunEvent({
+        sourceRunId: run.id,
+        traceId: run.traceId,
+        eventType: 'heartbeat_received',
+        requestId,
+        phase: dto.phase ?? null,
+        attemptNo: dto.attempt ?? null,
+        message: 'Worker heartbeat accepted for active scrape run.',
+        meta: {
+          pagesVisited: dto.pagesVisited ?? 0,
+          jobLinksDiscovered: dto.jobLinksDiscovered ?? 0,
+          normalizedOffers: dto.normalizedOffers ?? 0,
+          progressMeta: dto.meta ?? null,
+        },
+      });
+    }
 
     return {
       ok: true,
       status: resolvedStatus,
       heartbeatAt: now.toISOString(),
+      deduped: suppressHeartbeatEvent,
     };
   }
 
@@ -2018,7 +2138,211 @@ export class JobSourcesService {
       resultKind: normalizeScrapeResultKind(input.diagnostics?.resultKind as string | null | undefined),
       emptyReason: normalizeScrapeEmptyReason(input.diagnostics?.emptyReason as string | null | undefined),
       scrapedCount: input.scrapedCount ?? 0,
+      failureReason: typeof input.diagnostics?.failureReason === 'string' ? input.diagnostics.failureReason : undefined,
     });
+  }
+
+  private resolveImmediateCompletedOutcome(input: { totalFound: number; matchedCount: number; insertedCount: number }) {
+    const totalFound = Math.max(0, input.totalFound);
+    const matchedCount = Math.max(0, input.matchedCount);
+    const insertedCount = Math.max(0, input.insertedCount);
+    const diagnostics: Record<string, unknown> =
+      totalFound === 0
+        ? { resultKind: 'empty', emptyReason: 'no_listings' }
+        : matchedCount === 0
+          ? { resultKind: 'empty', emptyReason: 'filters_exhausted' }
+          : { resultKind: 'healthy' };
+
+    const classifiedOutcome =
+      totalFound > 0 && matchedCount > 0
+        ? 'success'
+        : this.resolveClassifiedOutcome({
+            status: 'COMPLETED',
+            failureType: null,
+            diagnostics,
+            scrapedCount: insertedCount,
+          });
+
+    return {
+      classifiedOutcome,
+      emptyReason: normalizeScrapeEmptyReason(
+        typeof diagnostics.emptyReason === 'string' ? diagnostics.emptyReason : null,
+      ),
+      sourceQuality: totalFound === 0 || matchedCount === 0 ? ('empty' as const) : ('healthy' as const),
+      progress: {
+        totalFound,
+        matchedOffers: matchedCount,
+        userInsertedOffers: insertedCount,
+      },
+    };
+  }
+
+  private resolveCompletedCallbackOutcome(input: {
+    diagnostics: Record<string, unknown> | null;
+    scrapedCount: number;
+    totalFound: number | null;
+  }) {
+    const diagnostics = input.diagnostics ?? {};
+    const derivedDiagnostics =
+      Object.keys(diagnostics).length > 0
+        ? diagnostics
+        : input.scrapedCount > 0
+          ? ({ resultKind: 'healthy' } satisfies Record<string, unknown>)
+          : (input.totalFound ?? 0) > 0
+            ? ({ resultKind: 'empty', emptyReason: 'detail_parse_gap' } satisfies Record<string, unknown>)
+            : ({ resultKind: 'empty', emptyReason: 'no_listings' } satisfies Record<string, unknown>);
+
+    const emptyReason =
+      normalizeScrapeEmptyReason(String(derivedDiagnostics.emptyReason ?? '')) ??
+      ((input.scrapedCount ?? 0) === 0 && (input.totalFound ?? 0) > 0 ? 'detail_parse_gap' : null);
+    const sourceQuality =
+      normalizeScrapeSourceQuality(String(derivedDiagnostics.sourceQuality ?? '')) ??
+      (input.scrapedCount > 0
+        ? ('healthy' as const)
+        : emptyReason === 'detail_parse_gap'
+          ? ('degraded' as const)
+          : ('empty' as const));
+
+    return {
+      classifiedOutcome: this.resolveClassifiedOutcome({
+        status: 'COMPLETED',
+        failureType: null,
+        diagnostics: derivedDiagnostics,
+        scrapedCount: input.scrapedCount,
+      }),
+      emptyReason,
+      sourceQuality,
+    };
+  }
+
+  private extractEventMeta(meta: unknown) {
+    if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
+      return null;
+    }
+    return meta as Record<string, unknown>;
+  }
+
+  private buildTransportSummary(executionEvents: ExecutionEventSnapshot[]) {
+    const fallbackReasons = Array.from(
+      new Set(
+        executionEvents
+          .filter((event) => event.code === 'LISTING_FALLBACK_TRIGGERED')
+          .map((event) => {
+            const reason = this.extractEventMeta(event.meta)?.reason;
+            return typeof reason === 'string' && reason.trim().length > 0 ? reason.trim() : null;
+          })
+          .filter((item): item is string => Boolean(item)),
+      ),
+    );
+    const httpCompleted = executionEvents.some((event) => event.code === 'LISTING_HTTP_FETCH_COMPLETED');
+    const fallbackTriggered = executionEvents.some((event) => event.code === 'LISTING_FALLBACK_TRIGGERED');
+    const browserNavigationCompleted = executionEvents.some(
+      (event) => event.code === 'LISTING_BROWSER_NAVIGATION_COMPLETED',
+    );
+    const browserLaunchCompleted = executionEvents.some((event) => event.code === 'LISTING_BROWSER_LAUNCH_COMPLETED');
+
+    const listingTransport: 'http' | 'browser' | 'http->browser' | 'unknown' = fallbackTriggered
+      ? 'http->browser'
+      : browserNavigationCompleted
+        ? 'browser'
+        : httpCompleted
+          ? 'http'
+          : 'unknown';
+
+    if (
+      listingTransport === 'unknown' &&
+      !fallbackTriggered &&
+      !browserLaunchCompleted &&
+      fallbackReasons.length === 0
+    ) {
+      return null;
+    }
+
+    return {
+      listingTransport,
+      browserFallbackUsed: fallbackTriggered || browserNavigationCompleted || browserLaunchCompleted,
+      browserLaunchSucceeded: browserLaunchCompleted,
+      fallbackReasons,
+    };
+  }
+
+  private buildBrowserSummary(executionEvents: ExecutionEventSnapshot[]) {
+    const launchStartedEvents = executionEvents.filter((event) => event.code === 'LISTING_BROWSER_LAUNCH_STARTED');
+    const launchRetryEvents = executionEvents.filter((event) => event.code === 'LISTING_BROWSER_LAUNCH_RETRY');
+    const launchCompletedEvent = executionEvents.find((event) => event.code === 'LISTING_BROWSER_LAUNCH_COMPLETED');
+    const launchFailedEvent = executionEvents.find((event) => event.code === 'LISTING_BROWSER_LAUNCH_FAILED');
+    const readyTimeoutEvent = executionEvents.find((event) => event.code === 'LISTING_BROWSER_READY_TIMEOUT');
+    const navigationCompletedEvent = executionEvents.find(
+      (event) => event.code === 'LISTING_BROWSER_NAVIGATION_COMPLETED',
+    );
+    const navigationFailedEvent = executionEvents.find((event) => event.code === 'LISTING_BROWSER_NAVIGATION_FAILED');
+
+    const terminalEvent = launchFailedEvent ?? readyTimeoutEvent ?? navigationFailedEvent ?? null;
+    const launchMeta = this.extractEventMeta(launchCompletedEvent?.meta ?? launchStartedEvents[0]?.meta ?? null);
+    const terminalMeta = this.extractEventMeta(terminalEvent?.meta ?? null);
+    const launchArgs = Array.isArray(launchMeta?.args)
+      ? launchMeta.args.filter((item): item is string => typeof item === 'string')
+      : [];
+    const launchDurationMs =
+      typeof launchMeta?.durationMs === 'number'
+        ? launchMeta.durationMs
+        : typeof terminalMeta?.durationMs === 'number'
+          ? terminalMeta.durationMs
+          : null;
+    const channel =
+      typeof launchMeta?.channel === 'string'
+        ? launchMeta.channel
+        : typeof terminalMeta?.channel === 'string'
+          ? terminalMeta.channel
+          : null;
+    const failureReason =
+      typeof terminalMeta?.error === 'string' ? terminalMeta.error : readyTimeoutEvent ? 'browser_ready_timeout' : null;
+
+    if (
+      launchStartedEvents.length === 0 &&
+      launchRetryEvents.length === 0 &&
+      !launchCompletedEvent &&
+      !terminalEvent &&
+      !navigationCompletedEvent
+    ) {
+      return null;
+    }
+
+    return {
+      launchAttempts: Math.max(
+        launchStartedEvents.length,
+        launchRetryEvents.length +
+          (launchStartedEvents.length > 0 || launchCompletedEvent || launchFailedEvent ? 1 : 0),
+      ),
+      launchRetries: launchRetryEvents.length,
+      launchDurationMs,
+      launchArgs,
+      channel,
+      launchSucceeded: Boolean(launchCompletedEvent),
+      readyTimedOut: Boolean(readyTimeoutEvent),
+      navigationSucceeded: Boolean(navigationCompletedEvent),
+      failureReason,
+    };
+  }
+
+  private async updateImmediateCompletedRun(input: {
+    runId: string;
+    totalFound: number;
+    matchedCount: number;
+    insertedCount: number;
+  }) {
+    const outcome = this.resolveImmediateCompletedOutcome(input);
+    await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        totalFound: input.totalFound,
+        scrapedCount: input.insertedCount,
+        classifiedOutcome: outcome.classifiedOutcome,
+        emptyReason: outcome.emptyReason,
+        sourceQuality: outcome.sourceQuality,
+        progress: outcome.progress,
+      })
+      .where(eq(jobSourceRunsTable.id, input.runId));
   }
 
   private async appendRunEvent(input: RunEventInput) {
@@ -2461,12 +2785,19 @@ export class JobSourcesService {
     }
 
     const diagnostics = (parsedPayload?.diagnostics as Record<string, unknown> | undefined) ?? {};
-    let executionEvents: Array<{ stage: string; status: string }> = [];
+    let executionEvents: Array<{
+      stage: string;
+      status: string;
+      code: string | null;
+      meta: unknown;
+    }> = [];
     try {
       executionEvents = await this.db
         .select({
           stage: scrapeExecutionEventsTable.stage,
           status: scrapeExecutionEventsTable.status,
+          code: scrapeExecutionEventsTable.code,
+          meta: scrapeExecutionEventsTable.meta,
         })
         .from(scrapeExecutionEventsTable)
         .where(eq(scrapeExecutionEventsTable.sourceRunId, runId));
@@ -2489,6 +2820,8 @@ export class JobSourcesService {
         }, new Map())
         .values(),
     );
+    const transportSummary = this.buildTransportSummary(executionEvents);
+    const browserSummary = this.buildBrowserSummary(executionEvents);
     const classifiedOutcome =
       normalizeString(run.classifiedOutcome) ??
       normalizeString(String(diagnostics.resultKind ?? '')) ??
@@ -2529,6 +2862,8 @@ export class JobSourcesService {
           normalizeScrapeSourceQuality(String(diagnostics.sourceQuality ?? '')) ??
           normalizeScrapeSourceQuality(run.sourceQuality),
         classifiedOutcome,
+        transportSummary,
+        browserSummary,
         stats: {
           totalFound: run.totalFound ?? null,
           scrapedCount: run.scrapedCount ?? null,
@@ -2918,6 +3253,12 @@ export class JobSourcesService {
           totalCandidateCount: offers.length,
           matchedCount: 0,
         };
+    await this.updateImmediateCompletedRun({
+      runId: reuseRun.id,
+      totalFound: offers.length,
+      matchedCount: inserted.matchedCount,
+      insertedCount: inserted.insertedCount,
+    });
 
     await this.appendRunEvent({
       sourceRunId: reuseRun.id,
@@ -3205,6 +3546,12 @@ export class JobSourcesService {
       origin: 'CATALOG_REMATCH',
       limit: requestedLimit,
     });
+    await this.updateImmediateCompletedRun({
+      runId: run.id,
+      totalFound: matchedCount,
+      matchedCount: linked.matchedCount,
+      insertedCount: linked.insertedCount,
+    });
 
     await this.appendRunEvent({
       sourceRunId: run.id,
@@ -3261,6 +3608,7 @@ export class JobSourcesService {
       .select({
         status: jobSourceRunsTable.status,
         failureType: jobSourceRunsTable.failureType,
+        classifiedOutcome: jobSourceRunsTable.classifiedOutcome,
         finalizedAt: jobSourceRunsTable.finalizedAt,
         completedAt: jobSourceRunsTable.completedAt,
       })
@@ -3272,6 +3620,22 @@ export class JobSourcesService {
     const failedRuns = recentRuns.filter(
       (run) => run.status === 'FAILED' && ['timeout', 'network', 'parse', 'callback'].includes(run.failureType ?? ''),
     );
+    const dominantFailureReasons = Array.from(
+      recentRuns.reduce<Map<string, number>>((acc, run) => {
+        const reason =
+          normalizeString(run.classifiedOutcome) ??
+          normalizeString(run.failureType) ??
+          (run.status === 'FAILED' ? 'failed:unknown' : null);
+        if (!reason) {
+          return acc;
+        }
+        acc.set(reason, (acc.get(reason) ?? 0) + 1);
+        return acc;
+      }, new Map()),
+    )
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 3)
+      .map(([reason]) => reason);
     const latestFailure = failedRuns[0] ?? null;
     const referenceTime = latestFailure?.finalizedAt ?? latestFailure?.completedAt ?? null;
     const pausedUntil = referenceTime ? new Date(referenceTime.getTime() + backoffMinutes * 60 * 1000) : null;
@@ -3281,6 +3645,7 @@ export class JobSourcesService {
       failureCount: failedRuns.length,
       windowRuns: recentRuns.length,
       pausedUntil,
+      dominantFailureReasons,
     };
   }
 

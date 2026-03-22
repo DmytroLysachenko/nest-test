@@ -4,6 +4,7 @@
   "description": "Job ingestion and scraping worker",
   "private": true,
   "scripts": {
+    "browser:probe": "tsx src/probes/browser-probe.ts",
     "build": "tsup",
     "callbacks:replay": "tsx src/jobs/replay-dead-letters.ts",
     "dev": "tsx watch src/index.ts",

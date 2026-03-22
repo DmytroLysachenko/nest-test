@@ -1,6 +1,7 @@
 import { createLogger } from './config/logger';
 import { loadEnv } from './config/env';
 import { createTaskServer } from './http/task-server';
+import { runBrowserProbe } from './probes/browser-probe';
 
 const env = loadEnv();
 const logger = createLogger(env);
@@ -9,6 +10,16 @@ if (!env.DATABASE_URL) {
   logger.warn(
     'Worker DATABASE_URL is not configured; scrape execution events and fresh-offer cache lookups are disabled',
   );
+}
+
+if (env.WORKER_BROWSER_PROBE_ON_START) {
+  runBrowserProbe(logger)
+    .then((result) => {
+      logger.info(result, 'Worker browser probe completed');
+    })
+    .catch((error) => {
+      logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Worker browser probe failed');
+    });
 }
 
 const server = createTaskServer(env, logger);

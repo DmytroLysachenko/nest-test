@@ -700,9 +700,9 @@ describe('JobSourcesService', () => {
     jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
       active: false,
       pausedUntil: null,
-      failedRuns: 0,
-      totalRunsConsidered: 0,
-      recentFailureTypes: [],
+      failureCount: 0,
+      windowRuns: 0,
+      dominantFailureReasons: ['success'],
     });
 
     const result = await service.getPreflight('user-1', { limit: 20 });
@@ -715,6 +715,13 @@ describe('JobSourcesService', () => {
       ]),
     );
     expect(result.guidance).toContain('Review the warnings below');
+    expect(result.sourceHealth).toEqual({
+      paused: false,
+      pausedUntil: null,
+      recentFailures: 0,
+      windowRuns: 0,
+      dominantFailureReasons: ['success'],
+    });
     expect(result.schedule).toEqual(
       expect.objectContaining({
         enabled: true,
@@ -802,9 +809,9 @@ describe('JobSourcesService', () => {
     jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
       active: true,
       pausedUntil: new Date('2026-03-16T11:00:00.000Z'),
-      failedRuns: 3,
-      totalRunsConsidered: 5,
-      recentFailureTypes: ['parse', 'network', 'callback'],
+      failureCount: 3,
+      windowRuns: 5,
+      dominantFailureReasons: ['browser_bootstrap_failed', 'failed:network', 'failed:parse'],
     });
 
     await expect(
@@ -1075,6 +1082,9 @@ describe('JobSourcesService', () => {
   });
 
   it('handles completed callback and inserts new user offers', async () => {
+    const updateSet = jest.fn().mockReturnValue({
+      where: jest.fn().mockResolvedValue(undefined),
+    });
     const db = {
       select: jest
         .fn()
@@ -1105,9 +1115,7 @@ describe('JobSourcesService', () => {
           }),
         }),
       update: jest.fn().mockReturnValue({
-        set: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValue(undefined),
-        }),
+        set: updateSet,
       }),
       insert: jest.fn().mockImplementation((table) => {
         if (table !== userJobOffersTable) {
@@ -1147,6 +1155,16 @@ describe('JobSourcesService', () => {
       totalOffers: 1,
       idempotent: false,
     });
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        progress: expect.objectContaining({
+          candidateOffers: 1,
+          matchedOffers: 1,
+          userInsertedOffers: 1,
+          callbackAcceptedAt: expect.any(String),
+        }),
+      }),
+    );
   });
 
   it('upserts job_offers when completed callback contains jobs payload', async () => {
@@ -1704,6 +1722,59 @@ describe('JobSourcesService', () => {
               }),
             }),
           }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([
+              {
+                total: 1,
+                latestReceivedAt: new Date('2026-02-21T00:01:00.000Z'),
+              },
+            ]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  then: (cb: (rows: unknown[]) => unknown) =>
+                    Promise.resolve(
+                      cb([
+                        {
+                          createdAt: new Date('2026-02-21T00:02:00.000Z'),
+                          code: 'CALLBACK_ACCEPTED',
+                        },
+                      ]),
+                    ),
+                }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([
+              {
+                stage: 'listing_progress',
+                status: 'warning',
+                code: 'LISTING_FALLBACK_TRIGGERED',
+                meta: { reason: 'http_blocked' },
+              },
+              {
+                stage: 'listing_progress',
+                status: 'success',
+                code: 'LISTING_BROWSER_LAUNCH_COMPLETED',
+                meta: {},
+              },
+              {
+                stage: 'listing_progress',
+                status: 'success',
+                code: 'LISTING_BROWSER_NAVIGATION_COMPLETED',
+                meta: {},
+              },
+            ]),
+          }),
         }),
       update: jest.fn(),
       insert: jest.fn(),
@@ -1716,6 +1787,23 @@ describe('JobSourcesService', () => {
     expect(diagnostics.diagnostics.relaxationTrail).toEqual(['drop.keyword']);
     expect(diagnostics.diagnostics.hadZeroOffersStep).toBe(true);
     expect(diagnostics.diagnostics.stats.jobLinksDiscovered).toBe(12);
+    expect(diagnostics.diagnostics.transportSummary).toEqual({
+      listingTransport: 'http->browser',
+      browserFallbackUsed: true,
+      browserLaunchSucceeded: true,
+      fallbackReasons: ['http_blocked'],
+    });
+    expect(diagnostics.diagnostics.browserSummary).toEqual({
+      launchAttempts: 1,
+      launchRetries: 0,
+      launchDurationMs: null,
+      launchArgs: [],
+      channel: null,
+      launchSucceeded: true,
+      readyTimedOut: false,
+      navigationSucceeded: true,
+      failureReason: null,
+    });
   });
 
   it('returns aggregated diagnostics summary for recent runs', async () => {
@@ -1834,6 +1922,8 @@ describe('JobSourcesService', () => {
                     {
                       id: 'run-heartbeat-1',
                       status: 'PENDING',
+                      progress: null,
+                      lastHeartbeatAt: null,
                     },
                   ]),
                 ),
@@ -1864,6 +1954,130 @@ describe('JobSourcesService', () => {
       status: 'RUNNING',
     });
     expect(db.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('dedupes identical worker heartbeat events inside the coalescing window', async () => {
+    const appendRunEvent = jest
+      .spyOn(JobSourcesService.prototype as any, 'appendRunEvent')
+      .mockResolvedValue(undefined);
+    const updateSet = jest.fn().mockReturnValue({
+      where: jest.fn().mockResolvedValue(undefined),
+    });
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-heartbeat-2',
+                      traceId: 'trace-heartbeat-2',
+                      status: 'RUNNING',
+                      progress: {
+                        phase: 'detail_fetch',
+                        attempt: 1,
+                        pagesVisited: 2,
+                        jobLinksDiscovered: 8,
+                        normalizedOffers: 1,
+                        meta: { stage: 'detail_http_fetch_started' },
+                      },
+                      lastHeartbeatAt: new Date(Date.now() - 5_000),
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({
+        set: updateSet,
+      }),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const result = await service.heartbeatRun('run-heartbeat-2', {
+      runId: 'worker-run-2',
+      phase: 'detail_fetch',
+      attempt: 1,
+      pagesVisited: 2,
+      jobLinksDiscovered: 8,
+      normalizedOffers: 1,
+      meta: { stage: 'detail_http_fetch_started' },
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'RUNNING',
+      deduped: true,
+    });
+    expect(db.update).toHaveBeenCalledTimes(1);
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastHeartbeatAt: expect.any(Date),
+      }),
+    );
+    expect(updateSet.mock.calls[0]?.[0]).not.toHaveProperty('progress');
+    expect(appendRunEvent).not.toHaveBeenCalled();
+  });
+
+  it('classifies completed zero-job callbacks with discovered listings as degraded parse gaps', async () => {
+    const updateSet = jest.fn().mockReturnValue({
+      where: jest.fn().mockResolvedValue(undefined),
+    });
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-complete-gap-1',
+                      source: 'PRACUJ_PL',
+                      userId: 'user-gap-1',
+                      careerProfileId: 'profile-gap-1',
+                      status: 'RUNNING',
+                      totalFound: null,
+                      scrapedCount: null,
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({
+        set: updateSet,
+      }),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const result = await service.completeScrape({
+      sourceRunId: 'run-complete-gap-1',
+      status: 'COMPLETED',
+      scrapedCount: 0,
+      totalFound: 3,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'COMPLETED',
+      inserted: 0,
+      totalOffers: 0,
+      idempotent: true,
+    });
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        classifiedOutcome: 'detail_parse_gap',
+        emptyReason: 'detail_parse_gap',
+        sourceQuality: 'degraded',
+      }),
+    );
   });
 
   it('promotes pending run to running before completed callback finalization', async () => {
@@ -2119,6 +2333,72 @@ describe('JobSourcesService', () => {
       totalCandidateCount: 1,
       matchedCount: 1,
     });
+  });
+
+  it('writes coherent outcome metadata for catalog rematch runs', async () => {
+    const updateWhere = jest.fn().mockResolvedValue(undefined);
+    const updateSet = jest.fn().mockReturnValue({ where: updateWhere });
+    const db = {
+      select: jest.fn(),
+      insert: jest.fn().mockImplementation((table) => {
+        if (table === jobSourceRunsTable) {
+          return {
+            values: jest.fn().mockReturnValue({
+              returning: jest.fn().mockResolvedValue([
+                {
+                  id: 'run-rematch-1',
+                  traceId: 'trace-rematch-1',
+                  createdAt: new Date('2026-03-22T15:00:00.000Z'),
+                },
+              ]),
+            }),
+          };
+        }
+        return {
+          values: jest.fn().mockResolvedValue(undefined),
+        };
+      }),
+      update: jest.fn().mockReturnValue({
+        set: updateSet,
+      }),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'getCareerProfileContext').mockResolvedValue({
+      careerProfileId: 'profile-rematch-1',
+      profile: candidateProfileFixture,
+    });
+    jest.spyOn(service as any, 'countCatalogMatchesForProfile').mockResolvedValue(2);
+    jest.spyOn(service as any, 'linkCatalogOffersToUser').mockResolvedValue({
+      insertedCount: 0,
+      totalCandidateCount: 2,
+      matchedCount: 2,
+    });
+    jest.spyOn(service as any, 'appendRunEvent').mockResolvedValue(undefined);
+
+    const result = await service.rematchCatalogForUser('user-1', 'profile-rematch-1', 20);
+
+    expect(result).toMatchObject({
+      ok: true,
+      sourceRunId: 'run-rematch-1',
+      inserted: 0,
+      totalOffers: 2,
+      matchedOffers: 2,
+      status: 'reused',
+    });
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        totalFound: 2,
+        scrapedCount: 0,
+        classifiedOutcome: 'success',
+        sourceQuality: 'healthy',
+        progress: expect.objectContaining({
+          totalFound: 2,
+          matchedOffers: 2,
+          userInsertedOffers: 0,
+        }),
+      }),
+    );
   });
 
   it('marks stale pending/running runs as failed before listing', async () => {

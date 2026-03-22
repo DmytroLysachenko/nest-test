@@ -60,6 +60,7 @@ type CallbackPayload = {
     emptyReason?: ScrapeEmptyReason | null;
     sourceQuality?: ScrapeSourceQuality;
     classifiedOutcome?: ScrapeClassifiedOutcome;
+    failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed';
   };
 };
 
@@ -343,6 +344,25 @@ export const classifyScrapeError = (error: unknown): ScrapeFailureType => {
   }
 
   return 'unknown';
+};
+
+export const classifyScrapeFailureReason = (
+  error: unknown,
+): 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed' | null => {
+  const normalized = toError(error);
+  const message = normalized.message.toLowerCase();
+
+  if (message.includes('browsertype.launch') || message.includes('browser launch')) {
+    return 'browser_bootstrap_failed';
+  }
+  if (message.includes('just a moment') || message.includes('cf_chl') || message.includes('cloudflare')) {
+    return 'source_http_blocked';
+  }
+  if (message.includes('navigation') || message.includes('page.goto')) {
+    return 'browser_navigation_failed';
+  }
+
+  return null;
 };
 
 export const buildWorkerCallbackSignaturePayload = (
@@ -833,6 +853,7 @@ export const runScrapeJob = async (
               listing_browser_launch_started: 'LISTING_BROWSER_LAUNCH_STARTED',
               listing_browser_launch_completed: 'LISTING_BROWSER_LAUNCH_COMPLETED',
               listing_browser_launch_failed: 'LISTING_BROWSER_LAUNCH_FAILED',
+              listing_browser_launch_retry: 'LISTING_BROWSER_LAUNCH_RETRY',
               listing_browser_navigation_started: 'LISTING_BROWSER_NAVIGATION_STARTED',
               listing_browser_navigation_completed: 'LISTING_BROWSER_NAVIGATION_COMPLETED',
               listing_browser_navigation_failed: 'LISTING_BROWSER_NAVIGATION_FAILED',
@@ -854,6 +875,7 @@ export const runScrapeJob = async (
               listing_browser_launch_started: 'info',
               listing_browser_launch_completed: 'success',
               listing_browser_launch_failed: 'failed',
+              listing_browser_launch_retry: 'warning',
               listing_browser_navigation_started: 'info',
               listing_browser_navigation_completed: 'success',
               listing_browser_navigation_failed: 'failed',
@@ -1205,6 +1227,7 @@ export const runScrapeJob = async (
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown scrape failure';
     const failureType = classifyScrapeError(error);
+    const failureReason = classifyScrapeFailureReason(error);
     const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
     const callbackToken = payload.callbackToken ?? options.callbackToken;
     const callbackOidcAudience = options.callbackOidcAudience;
@@ -1216,6 +1239,7 @@ export const runScrapeJob = async (
         failureType,
         resultKind: 'failed',
         scrapedCount: 0,
+        failureReason,
       });
       const failedPayload = buildScrapeCallbackPayload({
         eventId: callbackEventId,
@@ -1251,6 +1275,7 @@ export const runScrapeJob = async (
           emptyReason: null,
           sourceQuality: 'failed',
           classifiedOutcome,
+          failureReason,
         },
       });
       await notifyCallback(

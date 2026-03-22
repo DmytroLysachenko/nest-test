@@ -125,6 +125,7 @@ export class JobOffersService {
         description: jobOffersTable.description,
         requirements: jobOffersTable.requirements,
         details: jobOffersTable.details,
+        qualityReason: jobOffersTable.qualityReason,
         createdAt: jobOffersTable.fetchedAt,
       })
       .from(userJobOffersTable)
@@ -135,7 +136,7 @@ export class JobOffersService {
       .offset(fetchOffset);
 
     const followUpNow = new Date();
-    const filteredRankedItems = items
+    const modeEligibleItems = items
       .map((item) => {
         const ranking = computeNotebookOfferRanking(
           {
@@ -153,6 +154,7 @@ export class JobOffersService {
           followUpState: resolveFollowUpState(item.status, item.pipelineMeta, followUpNow),
           __createdAtMs: new Date(item.createdAt).getTime(),
           __include: ranking.include,
+          __isDegradedSource: item.qualityReason === 'listing_salvage',
         };
       })
       .filter((item) => {
@@ -170,7 +172,9 @@ export class JobOffersService {
           (item.status === 'NEW' || item.status === 'SEEN') &&
           new Date(item.lastStatusAt ?? item.createdAt) < staleCutoff
         );
-      })
+      });
+
+    const filteredRankedItems = modeEligibleItems
       .filter((item) => item.__include)
       .sort((a, b) => {
         if (mode === 'explore') {
@@ -203,6 +207,8 @@ export class JobOffersService {
       items: rankedItems,
       total: filteredRankedItems.length,
       mode,
+      hiddenByModeCount: modeEligibleItems.length - filteredRankedItems.length,
+      degradedResultCount: filteredRankedItems.filter((item) => item.__isDegradedSource).length,
       rankingMeta: {
         mode,
         tuning: this.rankingTuning,

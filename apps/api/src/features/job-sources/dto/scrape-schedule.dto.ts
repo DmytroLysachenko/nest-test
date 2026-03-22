@@ -52,6 +52,23 @@ class ScrapePreflightScheduleDto {
   lastRunStatus!: string | null;
 }
 
+class ScrapePreflightSourceHealthDto {
+  @ApiProperty()
+  paused!: boolean;
+
+  @ApiPropertyOptional()
+  pausedUntil!: string | null;
+
+  @ApiProperty()
+  recentFailures!: number;
+
+  @ApiProperty()
+  windowRuns!: number;
+
+  @ApiProperty({ type: [String] })
+  dominantFailureReasons!: string[];
+}
+
 export class UpdateScrapeScheduleDto {
   @ApiProperty()
   @Type(() => Boolean)
@@ -163,4 +180,7 @@ export class ScrapePreflightResponseDto {
 
   @ApiProperty({ type: ScrapePreflightScheduleDto })
   schedule!: ScrapePreflightScheduleDto;
+
+  @ApiProperty({ type: ScrapePreflightSourceHealthDto })
+  sourceHealth!: ScrapePreflightSourceHealthDto;
 }

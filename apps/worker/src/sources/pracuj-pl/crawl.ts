@@ -8,6 +8,7 @@ import stealth from 'puppeteer-extra-plugin-stealth';
 
 import { defaultListingUrl, PRACUJ_DOMAIN, PRACUJ_JOB_PATH } from './constants';
 import { extractListingSummaries } from './listing';
+import { computeRetryDelayMs } from '../../jobs/retry-policy';
 
 import type { Logger } from 'pino';
 import type { DetailFetchDiagnostics, ListingJobSummary, RawPage } from '../types';
@@ -20,6 +21,17 @@ const BROWSER_LAUNCH_TIMEOUT_MS = 60_000;
 const PAGE_NAVIGATION_TIMEOUT_MS = 45_000;
 const PAGE_READY_TIMEOUT_MS = 15_000;
 const PLAYWRIGHT_BROWSER_CHANNEL = 'chromium';
+const PLAYWRIGHT_LAUNCH_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-gpu',
+  '--disable-features=site-per-process,Translate,BackForwardCache',
+  '--no-first-run',
+  '--no-zygote',
+];
+const BROWSER_LAUNCH_RETRY_DELAY_MS = 2_000;
+const BROWSER_LAUNCH_RETRY_MAX_DELAY_MS = 5_000;
 const DEFAULT_BROWSER_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
@@ -33,6 +45,7 @@ type CrawlProgressEvent = {
     | 'listing_browser_launch_started'
     | 'listing_browser_launch_completed'
     | 'listing_browser_launch_failed'
+    | 'listing_browser_launch_retry'
     | 'listing_browser_navigation_started'
     | 'listing_browser_navigation_completed'
     | 'listing_browser_navigation_failed'
@@ -510,6 +523,7 @@ const createBrowserSession = async (
     channel: PLAYWRIGHT_BROWSER_CHANNEL,
     headless,
     timeout: BROWSER_LAUNCH_TIMEOUT_MS,
+    args: PLAYWRIGHT_LAUNCH_ARGS,
   } as const;
   await emitProgress(reporter, {
     stage: 'listing_browser_launch_started',
@@ -518,58 +532,84 @@ const createBrowserSession = async (
       headless,
       profileDir: Boolean(profileDir),
       timeoutMs: BROWSER_LAUNCH_TIMEOUT_MS,
+      args: PLAYWRIGHT_LAUNCH_ARGS,
     },
   });
 
-  try {
-    const browser = profileDir ? null : await chromium.launch(launchOptions);
-    const context = profileDir
-      ? await chromium.launchPersistentContext(profileDir, {
-          ...launchOptions,
-          userAgent: DEFAULT_BROWSER_USER_AGENT,
-          locale: 'pl-PL',
-          timezoneId: 'Europe/Warsaw',
-        })
-      : await browser.newContext({
-          userAgent: DEFAULT_BROWSER_USER_AGENT,
-          locale: 'pl-PL',
-          timezoneId: 'Europe/Warsaw',
-          extraHTTPHeaders: DEFAULT_HEADERS,
-        });
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const browser = profileDir ? null : await chromium.launch(launchOptions);
+      const context = profileDir
+        ? await chromium.launchPersistentContext(profileDir, {
+            ...launchOptions,
+            userAgent: DEFAULT_BROWSER_USER_AGENT,
+            locale: 'pl-PL',
+            timezoneId: 'Europe/Warsaw',
+          })
+        : await browser.newContext({
+            userAgent: DEFAULT_BROWSER_USER_AGENT,
+            locale: 'pl-PL',
+            timezoneId: 'Europe/Warsaw',
+            extraHTTPHeaders: DEFAULT_HEADERS,
+          });
 
-    context.setDefaultNavigationTimeout(PAGE_NAVIGATION_TIMEOUT_MS);
-    context.setDefaultTimeout(PAGE_NAVIGATION_TIMEOUT_MS);
+      context.setDefaultNavigationTimeout(PAGE_NAVIGATION_TIMEOUT_MS);
+      context.setDefaultTimeout(PAGE_NAVIGATION_TIMEOUT_MS);
 
-    if (cookies.length) {
-      try {
-        await context.addCookies(cookies.map((cookie) => toPlaywrightCookie(cookie)));
-      } catch (error) {
-        logger?.warn({ error }, 'Failed to apply cookies to browser context');
+      if (cookies.length) {
+        try {
+          await context.addCookies(cookies.map((cookie) => toPlaywrightCookie(cookie)));
+        } catch (error) {
+          logger?.warn({ error }, 'Failed to apply cookies to browser context');
+        }
       }
+
+      await emitProgress(reporter, {
+        stage: 'listing_browser_launch_completed',
+        meta: {
+          channel: PLAYWRIGHT_BROWSER_CHANNEL,
+          headless,
+          profileDir: Boolean(profileDir),
+          durationMs: Date.now() - startedAt,
+          args: PLAYWRIGHT_LAUNCH_ARGS,
+          attempt,
+        },
+      });
+
+      return { browser, context } satisfies BrowserSession;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown browser launch error';
+      if (attempt < 2) {
+        await emitProgress(reporter, {
+          stage: 'listing_browser_launch_retry',
+          meta: {
+            channel: PLAYWRIGHT_BROWSER_CHANNEL,
+            attempt,
+            nextAttempt: attempt + 1,
+            delayMs: BROWSER_LAUNCH_RETRY_DELAY_MS,
+            error: errorMessage,
+            args: PLAYWRIGHT_LAUNCH_ARGS,
+          },
+        });
+        await sleep(computeRetryDelayMs(attempt, BROWSER_LAUNCH_RETRY_DELAY_MS, BROWSER_LAUNCH_RETRY_MAX_DELAY_MS));
+        continue;
+      }
+
+      await emitProgress(reporter, {
+        stage: 'listing_browser_launch_failed',
+        meta: {
+          channel: PLAYWRIGHT_BROWSER_CHANNEL,
+          error: errorMessage,
+          durationMs: Date.now() - startedAt,
+          args: PLAYWRIGHT_LAUNCH_ARGS,
+          attempt,
+        },
+      });
+      throw error;
     }
-
-    await emitProgress(reporter, {
-      stage: 'listing_browser_launch_completed',
-      meta: {
-        channel: PLAYWRIGHT_BROWSER_CHANNEL,
-        headless,
-        profileDir: Boolean(profileDir),
-        durationMs: Date.now() - startedAt,
-      },
-    });
-
-    return { browser, context } satisfies BrowserSession;
-  } catch (error) {
-    await emitProgress(reporter, {
-      stage: 'listing_browser_launch_failed',
-      meta: {
-        channel: PLAYWRIGHT_BROWSER_CHANNEL,
-        error: error instanceof Error ? error.message : 'Unknown browser launch error',
-        durationMs: Date.now() - startedAt,
-      },
-    });
-    throw error;
   }
+
+  throw new Error('Browser launch failed after retries');
 };
 
 const closeBrowserSession = async (session: BrowserSession | null, logger?: Logger) => {
@@ -933,7 +973,7 @@ export const crawlPracujPl = async (
         stage: 'listing_http_fetch_retry',
         meta: { url: listingUrl, attempt: listingAttempt, reason: 'no_links_or_next_data' },
       });
-      await sleep(Math.max(listingDelayMs, 1000));
+      await sleep(computeRetryDelayMs(listingAttempt, Math.max(listingDelayMs, 1000), HTTP_RETRY_TIMEOUT_MS));
       listingLoad = await loadListingPageHttp(
         listingUrl,
         HTTP_RETRY_TIMEOUT_MS,

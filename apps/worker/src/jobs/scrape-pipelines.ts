@@ -3,8 +3,10 @@ import { crawlPracujPl } from '../sources/pracuj-pl/crawl';
 import { normalizePracujPl } from '../sources/pracuj-pl/normalize';
 import { parsePracujPl } from '../sources/pracuj-pl/parse';
 import { buildPracujListingUrl } from '../sources/pracuj-pl/url-builder';
+import { resolveTransportPolicy } from './transport-policy';
 
 import type { ScrapeSourceJob } from '../types/jobs';
+import type { ListingJobSummary, ParsedJob } from '../sources/types';
 
 export type ScrapePipelineId = 'pracuj-pl' | 'pracuj-pl-it' | 'pracuj-pl-general';
 
@@ -13,6 +15,7 @@ type PipelineDefinition = {
   defaultListingUrl: string;
   buildListingUrl: (filters: NonNullable<ScrapeSourceJob['filters']>) => string;
   normalizeSource: string;
+  transportPolicy: ReturnType<typeof resolveTransportPolicy>;
 };
 
 const pipelines: Record<ScrapePipelineId, PipelineDefinition> = {
@@ -21,18 +24,21 @@ const pipelines: Record<ScrapePipelineId, PipelineDefinition> = {
     defaultListingUrl,
     buildListingUrl: (filters) => buildPracujListingUrl(filters, 'pracuj-pl'),
     normalizeSource: 'pracuj-pl',
+    transportPolicy: resolveTransportPolicy('pracuj-pl'),
   },
   'pracuj-pl-it': {
     id: 'pracuj-pl-it',
     defaultListingUrl,
     buildListingUrl: (filters) => buildPracujListingUrl(filters, 'pracuj-pl-it'),
     normalizeSource: 'pracuj-pl-it',
+    transportPolicy: resolveTransportPolicy('pracuj-pl-it'),
   },
   'pracuj-pl-general': {
     id: 'pracuj-pl-general',
     defaultListingUrl: defaultGeneralListingUrl,
     buildListingUrl: (filters) => buildPracujListingUrl(filters, 'pracuj-pl-general'),
     normalizeSource: 'pracuj-pl-general',
+    transportPolicy: resolveTransportPolicy('pracuj-pl-general'),
   },
 };
 
@@ -42,6 +48,29 @@ export const resolvePipeline = (source: string): PipelineDefinition => {
   }
   throw new Error(`Unknown source: ${source}`);
 };
+
+const isHighConfidenceListingSummary = (summary: ListingJobSummary) =>
+  Boolean(
+    summary.url &&
+    summary.title?.trim() &&
+    (summary.description?.trim() || summary.sourceId?.trim() || summary.company?.trim() || summary.details),
+  );
+
+export const buildSalvagedListingJobs = (summaries: ListingJobSummary[]): ParsedJob[] =>
+  summaries.filter(isHighConfidenceListingSummary).map((summary) => ({
+    title: summary.title!.trim(),
+    company: summary.company,
+    location: summary.location,
+    description:
+      summary.description?.trim() ||
+      `Recovered from listing summary for ${summary.title!.trim()}${summary.company ? ` at ${summary.company}` : ''}.`,
+    url: summary.url,
+    salary: summary.salary,
+    sourceId: summary.sourceId,
+    requirements: [],
+    tags: ['listing-salvage', 'degraded-source'],
+    details: summary.details,
+  }));
 
 export const runPipeline = async (
   source: string,
@@ -60,17 +89,7 @@ export const runPipeline = async (
       ? parsePracujPl(crawlResult.pages)
       : input.options?.listingOnly
         ? []
-        : crawlResult.listingSummaries.map((summary) => ({
-            title: summary.title ?? 'Unknown title',
-            company: summary.company,
-            location: summary.location,
-            description: summary.description ?? 'Listing summary only',
-            url: summary.url,
-            salary: summary.salary,
-            sourceId: summary.sourceId,
-            requirements: [],
-            details: summary.details,
-          }));
+        : buildSalvagedListingJobs(crawlResult.listingSummaries);
   const normalized = normalizePracujPl(parsedJobs, pipeline.normalizeSource);
 
   return {

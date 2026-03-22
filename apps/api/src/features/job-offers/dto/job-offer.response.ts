@@ -97,6 +97,12 @@ export class JobOfferListResponse {
 
   @ApiProperty({ enum: ['strict', 'approx', 'explore'] })
   mode!: 'strict' | 'approx' | 'explore';
+
+  @ApiProperty()
+  hiddenByModeCount!: number;
+
+  @ApiProperty()
+  degradedResultCount!: number;
 }
 
 class JobOfferSummaryBucket {

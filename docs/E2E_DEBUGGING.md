@@ -47,6 +47,10 @@ Primary runtime endpoints:
 5. Pull API request/error events for the same correlation ids.
 6. Query DB-backed support tables if API surfaces are incomplete.
 7. Replay dead letters or retry failed runs only after the root cause is understood.
+8. Read run diagnostics before assuming the scraper failed:
+   - `transportSummary` shows HTTP vs browser fallback path and fallback reasons
+   - `browserSummary` shows browser launch attempts, successes, failures, and last failure reason
+   - `progress.userInsertedOffers` shows whether notebook rows were linked even when the UI looks empty in strict mode
 
 ## Fast Checks
 
@@ -163,6 +167,22 @@ Use it for:
 - dead-letter writes
 - revision drift after deploy
 - wrong env values on live services
+- confirming browser bootstrap probe output after deploys
+
+### Browser Probe Workflow
+
+When browser fallback fails in production, reproduce in a prod-like Linux container before changing scraper logic.
+
+```bash
+docker build -f apps/worker/Dockerfile -t nest-test-worker .
+docker run --rm nest-test-worker pnpm --filter worker browser:probe
+```
+
+Use this to answer:
+
+- does Chromium launch at all in the worker image
+- does it reach blank-page readiness
+- is the failure a browser bootstrap problem or a page/source problem
 
 ### 3. API Ops Endpoints
 
@@ -217,6 +237,8 @@ Use them for:
 - confirming whether the API accepted the scrape
 - checking if the run ever moved beyond `PENDING`
 - understanding filter normalization and source diagnostics
+- seeing whether the run stayed on HTTP or escalated to browser fallback through `transportSummary`
+- confirming whether browser fallback failed at bootstrap through `browserSummary`
 
 ### 5. Worker Dead-Letter Recovery
 
@@ -334,6 +356,7 @@ Interpretation:
 
 - usually frontend polling or repeated support queries
 - not usually the root cause of worker callback failures
+- internal worker scrape callbacks and heartbeats are now throttle-exempt, so fresh `429` responses there usually indicate runtime drift or an old revision
 
 ### Fresh catalog but no new worker run
 
@@ -381,8 +404,12 @@ Observed on March 16, 2026:
 4. Confirm API saw the callback request id.
 5. If API did not see it, inspect callback URL generation and deployed service env.
 6. If API did see it, inspect `api_request_events` and API request logs.
-7. Check whether fresh accepted catalog inventory already covers the user need before triggering another scrape.
-8. Only then decide between rematch, replay, retry, reconcile, or redeploy.
+7. If the failure involves browser fallback, run `pnpm --filter worker browser:probe` in the closest Linux/containerized environment before changing scraper logic.
+8. Check whether fresh accepted catalog inventory already covers the user need before triggering another scrape.
+9. If the notebook is empty, inspect strict-mode visibility:
+   - `hiddenByModeCount > 0` means offers were ingested but filtered by notebook mode
+   - `progress.userInsertedOffers` confirms whether the callback linked notebook rows
+10. Only then decide between rematch, replay, retry, reconcile, or redeploy.
 
 ## Safe Recovery Actions
 
