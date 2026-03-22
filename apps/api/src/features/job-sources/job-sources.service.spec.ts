@@ -2121,6 +2121,72 @@ describe('JobSourcesService', () => {
     });
   });
 
+  it('writes coherent outcome metadata for catalog rematch runs', async () => {
+    const updateWhere = jest.fn().mockResolvedValue(undefined);
+    const updateSet = jest.fn().mockReturnValue({ where: updateWhere });
+    const db = {
+      select: jest.fn(),
+      insert: jest.fn().mockImplementation((table) => {
+        if (table === jobSourceRunsTable) {
+          return {
+            values: jest.fn().mockReturnValue({
+              returning: jest.fn().mockResolvedValue([
+                {
+                  id: 'run-rematch-1',
+                  traceId: 'trace-rematch-1',
+                  createdAt: new Date('2026-03-22T15:00:00.000Z'),
+                },
+              ]),
+            }),
+          };
+        }
+        return {
+          values: jest.fn().mockResolvedValue(undefined),
+        };
+      }),
+      update: jest.fn().mockReturnValue({
+        set: updateSet,
+      }),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'getCareerProfileContext').mockResolvedValue({
+      careerProfileId: 'profile-rematch-1',
+      profile: candidateProfileFixture,
+    });
+    jest.spyOn(service as any, 'countCatalogMatchesForProfile').mockResolvedValue(2);
+    jest.spyOn(service as any, 'linkCatalogOffersToUser').mockResolvedValue({
+      insertedCount: 0,
+      totalCandidateCount: 2,
+      matchedCount: 2,
+    });
+    jest.spyOn(service as any, 'appendRunEvent').mockResolvedValue(undefined);
+
+    const result = await service.rematchCatalogForUser('user-1', 'profile-rematch-1', 20);
+
+    expect(result).toMatchObject({
+      ok: true,
+      sourceRunId: 'run-rematch-1',
+      inserted: 0,
+      totalOffers: 2,
+      matchedOffers: 2,
+      status: 'reused',
+    });
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        totalFound: 2,
+        scrapedCount: 0,
+        classifiedOutcome: 'success',
+        sourceQuality: 'healthy',
+        progress: expect.objectContaining({
+          totalFound: 2,
+          matchedOffers: 2,
+          userInsertedOffers: 0,
+        }),
+      }),
+    );
+  });
+
   it('marks stale pending/running runs as failed before listing', async () => {
     const updateWhere = jest.fn().mockResolvedValue(undefined);
     const db = {

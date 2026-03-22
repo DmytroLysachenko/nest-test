@@ -135,7 +135,7 @@ export class JobOffersService {
       .offset(fetchOffset);
 
     const followUpNow = new Date();
-    const filteredRankedItems = items
+    const modeEligibleItems = items
       .map((item) => {
         const ranking = computeNotebookOfferRanking(
           {
@@ -170,7 +170,9 @@ export class JobOffersService {
           (item.status === 'NEW' || item.status === 'SEEN') &&
           new Date(item.lastStatusAt ?? item.createdAt) < staleCutoff
         );
-      })
+      });
+
+    const filteredRankedItems = modeEligibleItems
       .filter((item) => item.__include)
       .sort((a, b) => {
         if (mode === 'explore') {
@@ -203,6 +205,7 @@ export class JobOffersService {
       items: rankedItems,
       total: filteredRankedItems.length,
       mode,
+      hiddenByModeCount: modeEligibleItems.length - filteredRankedItems.length,
       rankingMeta: {
         mode,
         tuning: this.rankingTuning,

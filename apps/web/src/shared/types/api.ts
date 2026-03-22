@@ -615,6 +615,7 @@ export type JobOffersListDto = {
   items: JobOfferListItemDto[];
   total: number;
   mode: 'strict' | 'approx' | 'explore';
+  hiddenByModeCount: number;
   rankingMeta?: {
     mode: 'strict' | 'approx' | 'explore';
     tuning: {

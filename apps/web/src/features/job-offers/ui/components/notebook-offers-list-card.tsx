@@ -13,6 +13,7 @@ import type { JobOfferListItemDto, JobOfferStatus } from '@/shared/types/api';
 
 type NotebookOffersListCardProps = {
   offers: JobOfferListItemDto[];
+  hiddenByModeCount: number;
   selectedId: string | null;
   selectedOfferIds: string[];
   isBusy: boolean;
@@ -38,6 +39,7 @@ type NotebookOffersListCardProps = {
 
 export const NotebookOffersListCard = ({
   offers,
+  hiddenByModeCount,
   selectedId,
   selectedOfferIds,
   isBusy,
@@ -239,14 +241,22 @@ export const NotebookOffersListCard = ({
           <div className="space-y-3">
             <EmptyState
               icon={<Inbox className="h-8 w-8" />}
-              title="No offers found"
-              description="Try relaxing filters or switch mode to explore to discover more opportunities."
+              title={mode === 'strict' && hiddenByModeCount > 0 ? 'Offers hidden by strict mode' : 'No offers found'}
+              description={
+                mode === 'strict' && hiddenByModeCount > 0
+                  ? `${hiddenByModeCount} offer${hiddenByModeCount === 1 ? '' : 's'} matched your notebook, but strict mode filtered them out because they violate hard constraints.`
+                  : 'Try relaxing filters or switch mode to explore to discover more opportunities.'
+              }
             />
             <div className="app-muted-panel text-sm">
               <p className="text-text-strong font-medium">Suggested next step</p>
               {mode === 'strict' ? (
                 <p className="text-text-soft mt-1">
-                  You are in strict mode. Switch to <span className="font-medium">approx</span> to allow near matches.
+                  {hiddenByModeCount > 0 ? 'Switch to ' : 'You are in strict mode. Switch to '}
+                  <span className="font-medium">approx</span>
+                  {hiddenByModeCount > 0
+                    ? ' to review near matches that were hidden by hard constraints.'
+                    : ' to allow near matches.'}
                 </p>
               ) : null}
               {mode === 'approx' ? (

@@ -2021,6 +2021,61 @@ export class JobSourcesService {
     });
   }
 
+  private resolveImmediateCompletedOutcome(input: { totalFound: number; matchedCount: number; insertedCount: number }) {
+    const totalFound = Math.max(0, input.totalFound);
+    const matchedCount = Math.max(0, input.matchedCount);
+    const insertedCount = Math.max(0, input.insertedCount);
+    const diagnostics: Record<string, unknown> =
+      totalFound === 0
+        ? { resultKind: 'empty', emptyReason: 'no_listings' }
+        : matchedCount === 0
+          ? { resultKind: 'empty', emptyReason: 'filters_exhausted' }
+          : { resultKind: 'healthy' };
+
+    const classifiedOutcome =
+      totalFound > 0 && matchedCount > 0
+        ? 'success'
+        : this.resolveClassifiedOutcome({
+            status: 'COMPLETED',
+            failureType: null,
+            diagnostics,
+            scrapedCount: insertedCount,
+          });
+
+    return {
+      classifiedOutcome,
+      emptyReason: normalizeScrapeEmptyReason(
+        typeof diagnostics.emptyReason === 'string' ? diagnostics.emptyReason : null,
+      ),
+      sourceQuality: totalFound === 0 || matchedCount === 0 ? ('empty' as const) : ('healthy' as const),
+      progress: {
+        totalFound,
+        matchedOffers: matchedCount,
+        userInsertedOffers: insertedCount,
+      },
+    };
+  }
+
+  private async updateImmediateCompletedRun(input: {
+    runId: string;
+    totalFound: number;
+    matchedCount: number;
+    insertedCount: number;
+  }) {
+    const outcome = this.resolveImmediateCompletedOutcome(input);
+    await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        totalFound: input.totalFound,
+        scrapedCount: input.insertedCount,
+        classifiedOutcome: outcome.classifiedOutcome,
+        emptyReason: outcome.emptyReason,
+        sourceQuality: outcome.sourceQuality,
+        progress: outcome.progress,
+      })
+      .where(eq(jobSourceRunsTable.id, input.runId));
+  }
+
   private async appendRunEvent(input: RunEventInput) {
     try {
       await this.db.insert(jobSourceRunEventsTable).values({
@@ -2918,6 +2973,12 @@ export class JobSourcesService {
           totalCandidateCount: offers.length,
           matchedCount: 0,
         };
+    await this.updateImmediateCompletedRun({
+      runId: reuseRun.id,
+      totalFound: offers.length,
+      matchedCount: inserted.matchedCount,
+      insertedCount: inserted.insertedCount,
+    });
 
     await this.appendRunEvent({
       sourceRunId: reuseRun.id,
@@ -3204,6 +3265,12 @@ export class JobSourcesService {
       profile: profileContext.profile,
       origin: 'CATALOG_REMATCH',
       limit: requestedLimit,
+    });
+    await this.updateImmediateCompletedRun({
+      runId: run.id,
+      totalFound: matchedCount,
+      matchedCount: linked.matchedCount,
+      insertedCount: linked.insertedCount,
     });
 
     await this.appendRunEvent({

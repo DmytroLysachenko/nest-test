@@ -117,6 +117,7 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
           ) : (
             <NotebookOffersListCard
               offers={notebook.listQuery.data?.items ?? []}
+              hiddenByModeCount={notebook.listQuery.data?.hiddenByModeCount ?? 0}
               selectedId={notebook.selectedId}
               selectedOfferIds={notebook.selectedOfferIds}
               isBusy={notebook.isBusy}
