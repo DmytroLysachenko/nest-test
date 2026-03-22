@@ -700,9 +700,9 @@ describe('JobSourcesService', () => {
     jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
       active: false,
       pausedUntil: null,
-      failedRuns: 0,
-      totalRunsConsidered: 0,
-      recentFailureTypes: [],
+      failureCount: 0,
+      windowRuns: 0,
+      dominantFailureReasons: ['success'],
     });
 
     const result = await service.getPreflight('user-1', { limit: 20 });
@@ -715,6 +715,13 @@ describe('JobSourcesService', () => {
       ]),
     );
     expect(result.guidance).toContain('Review the warnings below');
+    expect(result.sourceHealth).toEqual({
+      paused: false,
+      pausedUntil: null,
+      recentFailures: 0,
+      windowRuns: 0,
+      dominantFailureReasons: ['success'],
+    });
     expect(result.schedule).toEqual(
       expect.objectContaining({
         enabled: true,
@@ -802,9 +809,9 @@ describe('JobSourcesService', () => {
     jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
       active: true,
       pausedUntil: new Date('2026-03-16T11:00:00.000Z'),
-      failedRuns: 3,
-      totalRunsConsidered: 5,
-      recentFailureTypes: ['parse', 'network', 'callback'],
+      failureCount: 3,
+      windowRuns: 5,
+      dominantFailureReasons: ['browser_bootstrap_failed', 'failed:network', 'failed:parse'],
     });
 
     await expect(

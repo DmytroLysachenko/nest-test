@@ -510,12 +510,14 @@ export class JobSourcesService {
             pausedUntil: sourceBackoff.pausedUntil?.toISOString() ?? null,
             recentFailures: sourceBackoff.failureCount,
             windowRuns: sourceBackoff.windowRuns,
+            dominantFailureReasons: sourceBackoff.dominantFailureReasons,
           }
         : {
             paused: false,
             pausedUntil: null,
             recentFailures: sourceBackoff.failureCount,
             windowRuns: sourceBackoff.windowRuns,
+            dominantFailureReasons: sourceBackoff.dominantFailureReasons,
           },
     };
   }
@@ -3590,6 +3592,7 @@ export class JobSourcesService {
       .select({
         status: jobSourceRunsTable.status,
         failureType: jobSourceRunsTable.failureType,
+        classifiedOutcome: jobSourceRunsTable.classifiedOutcome,
         finalizedAt: jobSourceRunsTable.finalizedAt,
         completedAt: jobSourceRunsTable.completedAt,
       })
@@ -3601,6 +3604,22 @@ export class JobSourcesService {
     const failedRuns = recentRuns.filter(
       (run) => run.status === 'FAILED' && ['timeout', 'network', 'parse', 'callback'].includes(run.failureType ?? ''),
     );
+    const dominantFailureReasons = Array.from(
+      recentRuns.reduce<Map<string, number>>((acc, run) => {
+        const reason =
+          normalizeString(run.classifiedOutcome) ??
+          normalizeString(run.failureType) ??
+          (run.status === 'FAILED' ? 'failed:unknown' : null);
+        if (!reason) {
+          return acc;
+        }
+        acc.set(reason, (acc.get(reason) ?? 0) + 1);
+        return acc;
+      }, new Map()),
+    )
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 3)
+      .map(([reason]) => reason);
     const latestFailure = failedRuns[0] ?? null;
     const referenceTime = latestFailure?.finalizedAt ?? latestFailure?.completedAt ?? null;
     const pausedUntil = referenceTime ? new Date(referenceTime.getTime() + backoffMinutes * 60 * 1000) : null;
@@ -3610,6 +3629,7 @@ export class JobSourcesService {
       failureCount: failedRuns.length,
       windowRuns: recentRuns.length,
       pausedUntil,
+      dominantFailureReasons,
     };
   }
 
