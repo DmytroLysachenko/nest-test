@@ -525,6 +525,7 @@ describe('JobOffersService', () => {
     expect(result.items).toEqual([]);
     expect(result.total).toBe(0);
     expect(result.hiddenByModeCount).toBe(1);
+    expect(result.degradedResultCount).toBe(0);
     expect(result.mode).toBe('strict');
   });
 

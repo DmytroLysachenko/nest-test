@@ -1580,7 +1580,7 @@ export class JobSourcesService {
         details: job.details ?? null,
         contentHash: this.computeCatalogContentHash(job),
         qualityState: ACCEPTED_QUALITY_STATE,
-        qualityReason: null,
+        qualityReason: job.tags?.includes('listing-salvage') ? 'listing_salvage' : null,
         isExpired: job.isExpired ?? false,
         expiresAt: job.isExpired ? now : null,
         lastFullScrapeAt: now,
@@ -1658,7 +1658,10 @@ export class JobSourcesService {
               WHEN ${excludedColumn(cols.isExpired)} = TRUE THEN ${jobOffersTable.qualityState}
               ELSE ${excludedColumn(cols.qualityState)}
             END`,
-            qualityReason: sql`coalesce(${excludedColumn(cols.qualityReason)}, ${jobOffersTable.qualityReason})`,
+            qualityReason: sql`CASE
+              WHEN ${excludedColumn(cols.qualityReason)} IS NOT NULL THEN ${excludedColumn(cols.qualityReason)}
+              ELSE ${jobOffersTable.qualityReason}
+            END`,
             firstSeenAt: sql`least(${jobOffersTable.firstSeenAt}, ${excludedColumn(cols.firstSeenAt)})`,
             lastSeenAt: excludedColumn(cols.lastSeenAt),
             fetchedAt: now,

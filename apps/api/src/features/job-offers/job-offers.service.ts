@@ -125,6 +125,7 @@ export class JobOffersService {
         description: jobOffersTable.description,
         requirements: jobOffersTable.requirements,
         details: jobOffersTable.details,
+        qualityReason: jobOffersTable.qualityReason,
         createdAt: jobOffersTable.fetchedAt,
       })
       .from(userJobOffersTable)
@@ -153,6 +154,7 @@ export class JobOffersService {
           followUpState: resolveFollowUpState(item.status, item.pipelineMeta, followUpNow),
           __createdAtMs: new Date(item.createdAt).getTime(),
           __include: ranking.include,
+          __isDegradedSource: item.qualityReason === 'listing_salvage',
         };
       })
       .filter((item) => {
@@ -206,6 +208,7 @@ export class JobOffersService {
       total: filteredRankedItems.length,
       mode,
       hiddenByModeCount: modeEligibleItems.length - filteredRankedItems.length,
+      degradedResultCount: filteredRankedItems.filter((item) => item.__isDegradedSource).length,
       rankingMeta: {
         mode,
         tuning: this.rankingTuning,

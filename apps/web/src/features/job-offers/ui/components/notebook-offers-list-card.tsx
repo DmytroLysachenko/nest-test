@@ -14,6 +14,7 @@ import type { JobOfferListItemDto, JobOfferStatus } from '@/shared/types/api';
 type NotebookOffersListCardProps = {
   offers: JobOfferListItemDto[];
   hiddenByModeCount: number;
+  degradedResultCount: number;
   selectedId: string | null;
   selectedOfferIds: string[];
   isBusy: boolean;
@@ -40,6 +41,7 @@ type NotebookOffersListCardProps = {
 export const NotebookOffersListCard = ({
   offers,
   hiddenByModeCount,
+  degradedResultCount,
   selectedId,
   selectedOfferIds,
   isBusy,
@@ -96,6 +98,7 @@ export const NotebookOffersListCard = ({
           Clear selection
         </Button>
         <span className="app-badge">{selectedOfferIds.length} selected</span>
+        {degradedResultCount > 0 ? <span className="app-badge">degraded source: {degradedResultCount}</span> : null}
         <div className="ml-auto flex flex-wrap gap-2">
           <Button
             type="button"

@@ -100,6 +100,9 @@ export class JobOfferListResponse {
 
   @ApiProperty()
   hiddenByModeCount!: number;
+
+  @ApiProperty()
+  degradedResultCount!: number;
 }
 
 class JobOfferSummaryBucket {
