@@ -8,6 +8,7 @@ import stealth from 'puppeteer-extra-plugin-stealth';
 
 import { defaultListingUrl, PRACUJ_DOMAIN, PRACUJ_JOB_PATH } from './constants';
 import { extractListingSummaries } from './listing';
+import { computeRetryDelayMs } from '../../jobs/retry-policy';
 
 import type { Logger } from 'pino';
 import type { DetailFetchDiagnostics, ListingJobSummary, RawPage } from '../types';
@@ -30,6 +31,7 @@ const PLAYWRIGHT_LAUNCH_ARGS = [
   '--no-zygote',
 ];
 const BROWSER_LAUNCH_RETRY_DELAY_MS = 2_000;
+const BROWSER_LAUNCH_RETRY_MAX_DELAY_MS = 5_000;
 const DEFAULT_BROWSER_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
@@ -589,7 +591,7 @@ const createBrowserSession = async (
             args: PLAYWRIGHT_LAUNCH_ARGS,
           },
         });
-        await sleep(BROWSER_LAUNCH_RETRY_DELAY_MS);
+        await sleep(computeRetryDelayMs(attempt, BROWSER_LAUNCH_RETRY_DELAY_MS, BROWSER_LAUNCH_RETRY_MAX_DELAY_MS));
         continue;
       }
 
@@ -971,7 +973,7 @@ export const crawlPracujPl = async (
         stage: 'listing_http_fetch_retry',
         meta: { url: listingUrl, attempt: listingAttempt, reason: 'no_links_or_next_data' },
       });
-      await sleep(Math.max(listingDelayMs, 1000));
+      await sleep(computeRetryDelayMs(listingAttempt, Math.max(listingDelayMs, 1000), HTTP_RETRY_TIMEOUT_MS));
       listingLoad = await loadListingPageHttp(
         listingUrl,
         HTTP_RETRY_TIMEOUT_MS,

@@ -3,6 +3,7 @@ import { crawlPracujPl } from '../sources/pracuj-pl/crawl';
 import { normalizePracujPl } from '../sources/pracuj-pl/normalize';
 import { parsePracujPl } from '../sources/pracuj-pl/parse';
 import { buildPracujListingUrl } from '../sources/pracuj-pl/url-builder';
+import { resolveTransportPolicy } from './transport-policy';
 
 import type { ScrapeSourceJob } from '../types/jobs';
 import type { ListingJobSummary, ParsedJob } from '../sources/types';
@@ -14,6 +15,7 @@ type PipelineDefinition = {
   defaultListingUrl: string;
   buildListingUrl: (filters: NonNullable<ScrapeSourceJob['filters']>) => string;
   normalizeSource: string;
+  transportPolicy: ReturnType<typeof resolveTransportPolicy>;
 };
 
 const pipelines: Record<ScrapePipelineId, PipelineDefinition> = {
@@ -22,18 +24,21 @@ const pipelines: Record<ScrapePipelineId, PipelineDefinition> = {
     defaultListingUrl,
     buildListingUrl: (filters) => buildPracujListingUrl(filters, 'pracuj-pl'),
     normalizeSource: 'pracuj-pl',
+    transportPolicy: resolveTransportPolicy('pracuj-pl'),
   },
   'pracuj-pl-it': {
     id: 'pracuj-pl-it',
     defaultListingUrl,
     buildListingUrl: (filters) => buildPracujListingUrl(filters, 'pracuj-pl-it'),
     normalizeSource: 'pracuj-pl-it',
+    transportPolicy: resolveTransportPolicy('pracuj-pl-it'),
   },
   'pracuj-pl-general': {
     id: 'pracuj-pl-general',
     defaultListingUrl: defaultGeneralListingUrl,
     buildListingUrl: (filters) => buildPracujListingUrl(filters, 'pracuj-pl-general'),
     normalizeSource: 'pracuj-pl-general',
+    transportPolicy: resolveTransportPolicy('pracuj-pl-general'),
   },
 };
 
