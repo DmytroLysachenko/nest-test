@@ -226,6 +226,10 @@ WEB_QUERY_STALE_TIME_MS="${WEB_QUERY_STALE_TIME_MS:-30000}"
 WEB_QUERY_REFETCH_ON_WINDOW_FOCUS="${WEB_QUERY_REFETCH_ON_WINDOW_FOCUS:-false}"
 WEB_QUERY_DIAGNOSTICS_REFETCH_MS="${WEB_QUERY_DIAGNOSTICS_REFETCH_MS:-60000}"
 DEPLOY_METADATA_FILE="${DEPLOY_METADATA_FILE:-deployment-release-metadata.json}"
+WORKER_CPU="${WORKER_CPU:-1}"
+WORKER_MEMORY="${WORKER_MEMORY:-2Gi}"
+WORKER_MAX_INSTANCES="${WORKER_MAX_INSTANCES:-2}"
+WORKER_MIN_INSTANCES="${WORKER_MIN_INSTANCES:-0}"
 
 # DEFAULT SCHEDULES: Dramatically reduced to save budget and allow 0-scaling
 SCHEDULER_JOB_NAME="${SCHEDULER_JOB_NAME:-job-seek-schedule-trigger}"
@@ -312,10 +316,10 @@ if [[ "$DEPLOY_WORKER" == "true" ]]; then
       --image="${IMAGE_BASE}/worker:${RELEASE_SHA}" \
       --allow-unauthenticated \
       --service-account="$WORKER_RUNTIME_SA" \
-      --min-instances=0 \
-      --max-instances=2 \
-      --cpu=1 \
-      --memory=1Gi \
+      --min-instances="${WORKER_MIN_INSTANCES}" \
+      --max-instances="${WORKER_MAX_INSTANCES}" \
+      --cpu="${WORKER_CPU}" \
+      --memory="${WORKER_MEMORY}" \
       --set-secrets="TASKS_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest" \
       --set-env-vars="^|^NODE_ENV=production|WORKER_ALLOWED_ORIGINS=${WORKER_ALLOWED_ORIGINS}|QUEUE_PROVIDER=cloud-tasks|TASKS_PROJECT_ID=${GCP_PROJECT_ID}|TASKS_LOCATION=${GCP_REGION}|TASKS_QUEUE=${WORKER_TASKS_QUEUE}|TASKS_URL=${WORKER_TASK_URL}|PLAYWRIGHT_HEADLESS=true|WORKER_MAX_CONCURRENT_TASKS=1|WORKER_MAX_QUEUE_SIZE=20|WORKER_TASK_TIMEOUT_MS=180000" \
       >/dev/null
@@ -427,10 +431,10 @@ if [[ "$DEPLOY_WORKER" == "true" ]]; then
     --image="${IMAGE_BASE}/worker:${RELEASE_SHA}" \
     --allow-unauthenticated \
     --service-account="$WORKER_RUNTIME_SA" \
-    --min-instances=0 \
-    --max-instances=2 \
-    --cpu=1 \
-    --memory=1Gi \
+    --min-instances="${WORKER_MIN_INSTANCES}" \
+    --max-instances="${WORKER_MAX_INSTANCES}" \
+    --cpu="${WORKER_CPU}" \
+    --memory="${WORKER_MEMORY}" \
     --set-secrets="DATABASE_URL=app-database-url:latest,TASKS_AUTH_TOKEN=app-worker-shared-token:latest,WORKER_CALLBACK_TOKEN=app-worker-callback-token:latest" \
     --set-env-vars="^|^NODE_ENV=production|WORKER_ALLOWED_ORIGINS=${WORKER_ALLOWED_ORIGINS}|QUEUE_PROVIDER=cloud-tasks|TASKS_PROJECT_ID=${GCP_PROJECT_ID}|TASKS_LOCATION=${GCP_REGION}|TASKS_QUEUE=${WORKER_TASKS_QUEUE}|TASKS_URL=${WORKER_TASK_URL}|WORKER_CALLBACK_URL=${API_URL}/api/job-sources/complete|PLAYWRIGHT_HEADLESS=true|WORKER_MAX_CONCURRENT_TASKS=1|WORKER_MAX_QUEUE_SIZE=20|WORKER_TASK_TIMEOUT_MS=180000" \
     >/dev/null
