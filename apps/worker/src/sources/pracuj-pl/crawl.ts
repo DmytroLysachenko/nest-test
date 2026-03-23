@@ -125,6 +125,15 @@ const normalizeJobUrl = (value: string) => {
   }
 };
 
+const buildJobIdentity = (value: string) => {
+  try {
+    const url = new URL(value);
+    return `${url.pathname.replace(/\/+$/, '')}`.toLowerCase();
+  } catch {
+    return value.trim().toLowerCase();
+  }
+};
+
 const swapHost = (value: string, host?: string) => {
   if (!host) {
     return value;
@@ -160,6 +169,58 @@ const extractJobLinks = (hrefs: string[]) => {
     .filter((value): value is string => Boolean(value));
 
   return Array.from(new Set(urls));
+};
+
+const buildListingSummaryScore = (summary: ListingJobSummary) => {
+  let score = 0;
+  if (summary.salary?.trim()) {
+    score += 5;
+  }
+  if (summary.description?.trim()) {
+    score += 4;
+  }
+  if (summary.company?.trim()) {
+    score += 2;
+  }
+  if (summary.location?.trim()) {
+    score += 1;
+  }
+  if (summary.isRemote) {
+    score += 2;
+  }
+  if (summary.details?.technologies?.all?.length) {
+    score += 3;
+  }
+  if (summary.details?.requirements?.all?.length) {
+    score += 3;
+  }
+  if (summary.details?.positionLevels?.length) {
+    score += 2;
+  }
+  if (summary.details?.workModes?.length) {
+    score += 2;
+  }
+  return score;
+};
+
+const prioritizeDetailTargets = (targets: string[], summaries: ListingJobSummary[]) => {
+  const summaryScoreByUrl = new Map<string, number>();
+  for (const summary of summaries) {
+    const identity = buildJobIdentity(summary.url);
+    if (!identity) {
+      continue;
+    }
+    summaryScoreByUrl.set(identity, buildListingSummaryScore(summary));
+  }
+
+  return [...targets].sort((left, right) => {
+    const leftScore = summaryScoreByUrl.get(buildJobIdentity(left)) ?? 0;
+    const rightScore = summaryScoreByUrl.get(buildJobIdentity(right)) ?? 0;
+    if (leftScore !== rightScore) {
+      return rightScore - leftScore;
+    }
+    return left.localeCompare(right);
+  });
 };
 
 export const extractListingDomSignalsFromHtml = (html: string) => {
@@ -1081,7 +1142,10 @@ export const crawlPracujPl = async (
     const localSkipUrls = options?.skipUrls ?? new Set<string>();
     const resolvedSkipUrls = options?.skipResolver ? await options.skipResolver(normalizedLinks) : new Set<string>();
     const skipUrls = new Set<string>([...localSkipUrls, ...resolvedSkipUrls]);
-    const detailTargetsAll = normalizedLinks.filter((url) => !skipUrls.has(url));
+    const detailTargetsAll = prioritizeDetailTargets(
+      normalizedLinks.filter((url) => !skipUrls.has(url)),
+      listingSummaries,
+    );
     const detailBudget = options?.detailBudget ? Math.max(1, options.detailBudget) : null;
     const detailTargets = detailBudget ? detailTargetsAll.slice(0, detailBudget) : detailTargetsAll;
     if (skipUrls.size) {

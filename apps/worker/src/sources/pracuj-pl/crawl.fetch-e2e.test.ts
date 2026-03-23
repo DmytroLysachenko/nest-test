@@ -213,3 +213,41 @@ test('crawlPracujPl respects detail budget and reports stop reason', async () =>
     await server.close();
   }
 });
+
+test('crawlPracujPl prioritizes richer listing summaries when detail budget is limited', async () => {
+  const server = await startFixtureServer({
+    '/praca': {
+      html: `
+        <html>
+          <body>
+            <section data-test="section-offers">
+              <a href="https://www.pracuj.pl/praca/lean-offer,oferta,1001">Lean</a>
+              <a href="https://www.pracuj.pl/praca/rich-offer,oferta,1002">Rich</a>
+            </section>
+            <script id="__NEXT_DATA__" type="application/json">
+              {"props":{"pageProps":{"cards":[
+                {"offerUrl":"https://www.pracuj.pl/praca/lean-offer,oferta,1001","jobTitle":"Lean","company":"A"},
+                {"offerUrl":"https://www.pracuj.pl/praca/rich-offer,oferta,1002","jobTitle":"Rich","company":"B","salaryDisplayText":"20k","jobDescription":"Detailed summary","isRemoteWorkAllowed":true,"technologies":["TypeScript","React"],"workModes":["remote"]}
+              ]}}}
+            </script>
+          </body>
+        </html>
+      `,
+    },
+    '/praca/lean-offer,oferta,1001': { html: '<html><body><h1>Lean</h1></body></html>' },
+    '/praca/rich-offer,oferta,1002': { html: '<html><body><h1>Rich</h1></body></html>' },
+  });
+
+  try {
+    const result = await crawlPracujPl(true, `${server.baseUrl}/praca`, 10, undefined, {
+      detailHost: server.baseUrl,
+      detailBudget: 1,
+    });
+
+    assert.equal(result.pages.length, 1);
+    assert.match(result.pages[0]?.html ?? '', /Rich/);
+    assert.equal(result.detailAttemptedCount, 1);
+  } finally {
+    await server.close();
+  }
+});
