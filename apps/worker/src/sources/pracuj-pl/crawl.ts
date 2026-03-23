@@ -921,6 +921,7 @@ export const crawlPracujPl = async (
     skipUrls?: Set<string>;
     skipResolver?: (urls: string[]) => Promise<Set<string>>;
     onProgress?: CrawlProgressReporter;
+    detailBudget?: number;
   },
 ): Promise<{
   pages: RawPage[];
@@ -932,6 +933,9 @@ export const crawlPracujPl = async (
   listingData: unknown;
   listingSummaries: ListingJobSummary[];
   detailDiagnostics: DetailFetchDiagnostics[];
+  detailAttemptedCount: number;
+  detailBudget: number | null;
+  detailStopReason: 'completed' | 'budget_reached' | 'source_degraded';
 }> => {
   const listingDelayMs = options?.listingDelayMs ?? 1500;
   const listingCooldownMs = options?.listingCooldownMs ?? 0;
@@ -1077,7 +1081,9 @@ export const crawlPracujPl = async (
     const localSkipUrls = options?.skipUrls ?? new Set<string>();
     const resolvedSkipUrls = options?.skipResolver ? await options.skipResolver(normalizedLinks) : new Set<string>();
     const skipUrls = new Set<string>([...localSkipUrls, ...resolvedSkipUrls]);
-    const detailTargets = normalizedLinks.filter((url) => !skipUrls.has(url));
+    const detailTargetsAll = normalizedLinks.filter((url) => !skipUrls.has(url));
+    const detailBudget = options?.detailBudget ? Math.max(1, options.detailBudget) : null;
+    const detailTargets = detailBudget ? detailTargetsAll.slice(0, detailBudget) : detailTargetsAll;
     if (skipUrls.size) {
       logger?.info(
         { skipped: skipUrls.size, total: normalizedLinks.length },
@@ -1099,6 +1105,9 @@ export const crawlPracujPl = async (
         listingData,
         listingSummaries,
         detailDiagnostics,
+        detailAttemptedCount: 0,
+        detailBudget,
+        detailStopReason: 'completed',
       };
     }
 
@@ -1106,6 +1115,8 @@ export const crawlPracujPl = async (
       await sleep(listingCooldownMs + randomBetween(500, 1500));
     }
 
+    let detailStopReason: 'completed' | 'budget_reached' | 'source_degraded' =
+      detailBudget !== null && detailTargetsAll.length > detailTargets.length ? 'budget_reached' : 'completed';
     for (const url of detailTargets) {
       let fallbackReason: string | null = null;
       try {
@@ -1290,6 +1301,9 @@ export const crawlPracujPl = async (
     if (blockedUrls.length) {
       logger?.warn({ count: blockedUrls.length }, 'Blocked job pages detected after all attempts');
     }
+    if (detailTargets.length > 0 && blockedUrls.length === detailTargets.length && pages.length === 0) {
+      detailStopReason = 'source_degraded';
+    }
 
     return {
       pages,
@@ -1301,6 +1315,9 @@ export const crawlPracujPl = async (
       listingData,
       listingSummaries,
       detailDiagnostics,
+      detailAttemptedCount: detailTargets.length,
+      detailBudget,
+      detailStopReason,
     };
   } finally {
     await closeBrowserSession(browserSession, logger);

@@ -177,3 +177,39 @@ test('crawlPracujPl reports zero-results and blocked detail pages correctly', as
     await server.close();
   }
 });
+
+test('crawlPracujPl respects detail budget and reports stop reason', async () => {
+  const server = await startFixtureServer({
+    '/praca': {
+      html: `
+        <html>
+          <body>
+            <section data-test="section-offers">
+              <a href="https://www.pracuj.pl/praca/offer-a,oferta,1001">A</a>
+              <a href="https://www.pracuj.pl/praca/offer-b,oferta,1002">B</a>
+              <a href="https://www.pracuj.pl/praca/offer-c,oferta,1003">C</a>
+            </section>
+          </body>
+        </html>
+      `,
+    },
+    '/praca/offer-a,oferta,1001': { html: '<html><body><h1>A</h1></body></html>' },
+    '/praca/offer-b,oferta,1002': { html: '<html><body><h1>B</h1></body></html>' },
+    '/praca/offer-c,oferta,1003': { html: '<html><body><h1>C</h1></body></html>' },
+  });
+
+  try {
+    const result = await crawlPracujPl(true, `${server.baseUrl}/praca`, 10, undefined, {
+      detailHost: server.baseUrl,
+      detailBudget: 2,
+    });
+
+    assert.equal(result.jobLinks.length, 3);
+    assert.equal(result.detailAttemptedCount, 2);
+    assert.equal(result.detailBudget, 2);
+    assert.equal(result.detailStopReason, 'budget_reached');
+    assert.equal(result.pages.length, 2);
+  } finally {
+    await server.close();
+  }
+});

@@ -62,6 +62,9 @@ type CallbackPayload = {
     sourceQuality?: ScrapeSourceQuality;
     classifiedOutcome?: ScrapeClassifiedOutcome;
     failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed';
+    detailAttemptedCount?: number;
+    detailBudget?: number | null;
+    detailStopReason?: 'completed' | 'budget_reached' | 'source_degraded';
     queryPlan?: {
       targetMin: number;
       targetMax: number;
@@ -807,6 +810,9 @@ export const runScrapeJob = async (
     let relaxReason: string | null = null;
     const relaxationTrail: string[] = [];
     let hadZeroOffersStep = false;
+    let totalDetailAttemptedCount = 0;
+    let lastDetailBudget: number | null = null;
+    let lastDetailStopReason: 'completed' | 'budget_reached' | 'source_degraded' = 'completed';
     const targetWindow = payload.adaptiveQueryWindow ?? { min: 20, max: 40 };
     let queryPlan: {
       targetMin: number;
@@ -963,6 +969,10 @@ export const runScrapeJob = async (
           detailCookiesPath: options.detailCookiesPath,
           detailHumanize: options.detailHumanize,
           profileDir: options.profileDir,
+          detailBudget:
+            attempt === 1
+              ? Math.max(requestedLimit, Math.min(targetWindow.max, Math.max(targetWindow.min, requestedLimit * 2)))
+              : undefined,
           skipUrls,
           skipResolver: (urls: string[]) =>
             loadFreshOfferUrls(options.databaseUrl, 'PRACUJ_PL', urls, options.detailCacheHours ?? 24),
@@ -1044,6 +1054,8 @@ export const runScrapeJob = async (
         pagesVisited: crawlResult.pages.length,
         jobLinksDiscovered: crawlResult.jobLinks.length,
         blockedPages: crawlResult.blockedUrls.length,
+        detailAttemptedCount: crawlResult.detailAttemptedCount,
+        detailStopReason: crawlResult.detailStopReason,
         durationMs: Date.now() - listingFetchStartedAt,
       });
       await emitHeartbeat(
@@ -1056,6 +1068,9 @@ export const runScrapeJob = async (
       listingHtml = crawlResult.listingHtml;
       listingData = crawlResult.listingData;
       listingSummaries = crawlResult.listingSummaries;
+      totalDetailAttemptedCount += crawlResult.detailAttemptedCount;
+      lastDetailBudget = crawlResult.detailBudget;
+      lastDetailStopReason = crawlResult.detailStopReason;
       crawlResult.jobLinks.forEach((url) => aggregatedJobLinks.add(url));
       crawlResult.recommendedJobLinks.forEach((url) => aggregatedRecommendedLinks.add(url));
       crawlResult.blockedUrls.forEach((url) => aggregatedBlockedUrls.push(url));
@@ -1224,6 +1239,9 @@ export const runScrapeJob = async (
             aggregatedJobLinks.size - aggregatedPages.length - aggregatedBlockedUrls.length,
           ),
           blockedPages: aggregatedBlockedUrls.length,
+          detailAttemptedCount: totalDetailAttemptedCount,
+          detailBudget: lastDetailBudget,
+          detailStopReason: lastDetailStopReason,
           hadZeroOffersStep,
           attemptCount: attemptsExecuted,
           adaptiveDelayApplied,
