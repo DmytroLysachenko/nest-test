@@ -60,6 +60,8 @@
   --color-surface: var(--surface);
   --color-surface-muted: var(--surface-muted);
   --color-surface-elevated: var(--surface-elevated);
+  --color-surface-rail: var(--surface-rail);
+  --color-surface-ghost: var(--surface-ghost);
   --color-text-strong: var(--text-strong);
   --color-text-soft: var(--text-soft);
   --color-app-success: var(--app-success);
