@@ -3405,7 +3405,7 @@ export class JobSourcesService {
     const minScore =
       this.configService.get('CATALOG_REMATCH_MIN_SCORE', { infer: true }) ?? DEFAULT_CATALOG_REMATCH_MIN_SCORE;
     const now = new Date();
-    const includeAllScrapeCandidates = input.origin === 'SCRAPE';
+    const includeAllScrapeCandidates = input.origin === 'SCRAPE' || input.origin === 'DB_REUSE';
     const candidates = await this.loadCatalogCandidateOffers(input.source, input.specificOfferIds, input.limit);
     if (!candidates.length) {
       return { insertedCount: 0, totalCandidateCount: 0, matchedCount: 0 };
