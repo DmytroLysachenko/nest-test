@@ -300,8 +300,6 @@ const DEFAULT_SCRAPE_SOURCE_FAILURE_WINDOW_RUNS = 5;
 const DEFAULT_SCRAPE_SOURCE_FAILURE_THRESHOLD = 3;
 const DEFAULT_SCRAPE_SOURCE_AUTOMATION_BACKOFF_MINUTES = 30;
 const HEARTBEAT_EVENT_DEDUP_WINDOW_MS = 15_000;
-const DEFAULT_ADAPTIVE_QUERY_TARGET_MIN = 20;
-const DEFAULT_ADAPTIVE_QUERY_TARGET_MAX = 40;
 
 const parseSchedule = (
   cron: string,
@@ -346,6 +344,12 @@ export class JobSourcesService {
   private readonly enqueueIdempotencyWindow = new Map<string, number>();
   private readonly cloudTasksClient = new CloudTasksClient();
   private enqueueSuppressedCount = 0;
+
+  private resolveAdaptiveQueryWindow() {
+    const min = this.configService.get('SCRAPE_ADAPTIVE_QUERY_TARGET_MIN', { infer: true });
+    const max = this.configService.get('SCRAPE_ADAPTIVE_QUERY_TARGET_MAX', { infer: true });
+    return { min, max };
+  }
 
   constructor(
     private readonly configService: ConfigService<Env, true>,
@@ -1058,10 +1062,7 @@ export class JobSourcesService {
         careerProfileId,
         filters: normalizedFilters,
         matchingFilters: normalizedMatchingFilters,
-        adaptiveQueryWindow: {
-          min: DEFAULT_ADAPTIVE_QUERY_TARGET_MIN,
-          max: DEFAULT_ADAPTIVE_QUERY_TARGET_MAX,
-        },
+        adaptiveQueryWindow: this.resolveAdaptiveQueryWindow(),
       };
       const serializedPayload = JSON.stringify(workerPayload);
       const maxPayloadBytes = this.configService.get('WORKER_TASK_MAX_PAYLOAD_BYTES', { infer: true });
