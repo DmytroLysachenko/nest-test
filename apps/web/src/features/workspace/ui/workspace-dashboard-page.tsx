@@ -13,7 +13,15 @@ import {
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { DataTableShell, HeroHeader, MetricCard, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
+import {
+  DataTableShell,
+  EditorialPanel,
+  HeroHeader,
+  MetricCard,
+  StatRow,
+  StatusPill,
+  UtilityRail,
+} from '@/shared/ui/dashboard-primitives';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { GuidancePanel, JourneySteps } from '@/shared/ui/guidance-panels';
 import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
@@ -91,38 +99,72 @@ export const WorkspaceDashboardPage = () => {
         }
       />
 
-      <GuidancePanel
-        eyebrow="What to do next"
-        title={nextAction.title}
-        description={nextAction.description}
-        tone={nextAction.priority === 'critical' ? 'warning' : 'info'}
-        actionLabel="Open recommended flow"
-        onAction={() => {
-          window.location.href = nextAction.href;
-        }}
-      >
-        <div className="grid gap-3 md:grid-cols-3">
-          <Link href="/planning" className="app-glass-panel block p-4 transition-transform hover:-translate-y-0.5">
-            <p className="text-text-soft text-xs uppercase tracking-[0.14em]">Planning</p>
-            <p className="text-text-strong mt-2 text-lg font-semibold">Run now or schedule</p>
-            <p className="text-text-soft mt-2 text-sm leading-6">{scrapeSetupHint}</p>
-          </Link>
-          <Link href="/notebook" className="app-glass-panel block p-4 transition-transform hover:-translate-y-0.5">
-            <p className="text-text-soft text-xs uppercase tracking-[0.14em]">Notebook</p>
-            <p className="text-text-strong mt-2 text-lg font-semibold">{summary.offers.followUpDue} follow-ups due</p>
-            <p className="text-text-soft mt-2 text-sm leading-6">
-              Triage due follow-ups and strict-top matches before opening broader discovery modes.
-            </p>
-          </Link>
-          <Link href="/activity" className="app-glass-panel block p-4 transition-transform hover:-translate-y-0.5">
-            <p className="text-text-soft text-xs uppercase tracking-[0.14em]">Activity board</p>
-            <p className="text-text-strong mt-2 text-lg font-semibold">{health.readinessScore}% readiness</p>
-            <p className="text-text-soft mt-2 text-sm leading-6">
-              Scan blockers, timeline updates, and quick-focus lanes without crowding the main dashboard.
-            </p>
-          </Link>
-        </div>
-      </GuidancePanel>
+      <section className="app-editorial-section">
+        <EditorialPanel
+          eyebrow="What to do next"
+          title={nextAction.title}
+          description={nextAction.description}
+          action={
+            <Button
+              type="button"
+              onClick={() => {
+                window.location.href = nextAction.href;
+              }}
+            >
+              Open recommended flow
+            </Button>
+          }
+        >
+          <div className="grid gap-3 md:grid-cols-3">
+            <Link href="/planning" className="app-glass-panel block p-4 transition-transform hover:-translate-y-0.5">
+              <p className="text-text-soft text-xs uppercase tracking-[0.14em]">Planning</p>
+              <p className="text-text-strong mt-2 text-lg font-semibold">Run now or schedule</p>
+              <p className="text-text-soft mt-2 text-sm leading-6">{scrapeSetupHint}</p>
+            </Link>
+            <Link href="/notebook" className="app-glass-panel block p-4 transition-transform hover:-translate-y-0.5">
+              <p className="text-text-soft text-xs uppercase tracking-[0.14em]">Notebook</p>
+              <p className="text-text-strong mt-2 text-lg font-semibold">{summary.offers.followUpDue} follow-ups due</p>
+              <p className="text-text-soft mt-2 text-sm leading-6">
+                Triage due follow-ups and strict-top matches before opening broader discovery modes.
+              </p>
+            </Link>
+            <Link href="/activity" className="app-glass-panel block p-4 transition-transform hover:-translate-y-0.5">
+              <p className="text-text-soft text-xs uppercase tracking-[0.14em]">Activity board</p>
+              <p className="text-text-strong mt-2 text-lg font-semibold">{health.readinessScore}% readiness</p>
+              <p className="text-text-soft mt-2 text-sm leading-6">
+                Scan blockers, timeline updates, and quick-focus lanes without crowding the main dashboard.
+              </p>
+            </Link>
+          </div>
+        </EditorialPanel>
+
+        <UtilityRail
+          title="Overview rail"
+          description="Keep the dashboard focused on direction, not every operational detail."
+        >
+          <div className="space-y-3">
+            <div className="app-inset-stack">
+              <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Last run</p>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <p className="text-text-strong text-base font-semibold">{latestRunStatus}</p>
+                <StatusPill value={latestRunStatus} tone={getWorkspaceRunStatusTone(summary.scrape.lastRunStatus)} />
+              </div>
+            </div>
+            <div className="app-inset-stack">
+              <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Primary blocker</p>
+              <p className="text-text-strong mt-2 text-sm font-medium">
+                {health.blockers.length ? health.blockers.join(', ') : 'Workspace unblocked'}
+              </p>
+            </div>
+            <div className="app-inset-stack">
+              <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Operator note</p>
+              <p className="text-text-soft mt-2 text-sm leading-6">
+                Use Planning for deliberate sourcing changes. Use Notebook for triage. Keep this page for orientation.
+              </p>
+            </div>
+          </div>
+        </UtilityRail>
+      </section>
 
       <div className="app-grid-cards">
         <MetricCard
@@ -217,8 +259,12 @@ export const WorkspaceDashboardPage = () => {
 
       <WorkflowRecoveryPanel blockers={summary.blockerDetails ?? []} />
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-        <Card title="Job Search Funnel" description="Visual breakdown of your application stages.">
+      <section className="app-editorial-section">
+        <EditorialPanel
+          eyebrow="Funnel"
+          title="Job Search Funnel"
+          description="See where the search narrows from discovered leads into active opportunities."
+        >
           <div className="space-y-4 pt-2">
             {[
               { label: 'Leads Found', value: summary.offers.total, color: 'bg-primary/20' },
@@ -245,9 +291,12 @@ export const WorkspaceDashboardPage = () => {
               );
             })}
           </div>
-        </Card>
+        </EditorialPanel>
 
-        <div className="space-y-5">
+        <UtilityRail
+          title="Focus lane"
+          description="Short operational blocks that tell you what deserves the next session."
+        >
           <Card title="Today's Focus" description="Server-driven focus lanes for the next notebook session.">
             {dashboard.isFocusLoading ? (
               <div className="space-y-2">
@@ -347,7 +396,7 @@ export const WorkspaceDashboardPage = () => {
               ))}
             </div>
           </Card>
-        </div>
+        </UtilityRail>
       </section>
 
       <DataTableShell title="Recent Offers" description="Quick preview of top offers from your notebook.">
@@ -383,9 +432,9 @@ export const WorkspaceDashboardPage = () => {
             </thead>
             <tbody>
               {offers.map((offer) => (
-                <tr key={offer.id} className="border-border/60 border-t align-top">
+                <tr key={offer.id} className="align-top">
                   <td className="py-3 pr-3">
-                    <div>
+                    <div className="app-inset-stack">
                       <p className="text-text-strong font-medium">{offer.title}</p>
                       <p className="text-text-soft mt-1 text-xs">Offer ID {offer.id.slice(0, 8)}</p>
                     </div>

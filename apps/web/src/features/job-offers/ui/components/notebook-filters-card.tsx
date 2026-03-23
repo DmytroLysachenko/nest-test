@@ -84,125 +84,131 @@ export const NotebookFiltersCard = ({
   summary,
   onQuickAction,
 }: NotebookFiltersCardProps) => (
-  <Card title="Filters & Tools" description="Refine offer list or trigger background maintenance.">
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      <div className="app-field-group">
-        <Label className="app-inline-label" htmlFor="filter-status">
-          Status
-        </Label>
-        <select
-          id="filter-status"
-          className="app-select"
-          value={status}
-          onChange={(e) => onStatusChange(e.target.value as 'ALL' | JobOfferStatus)}
-        >
-          <option value="ALL">All statuses</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+  <Card
+    title="Notebook controls"
+    description="Tune the triage slice and run notebook maintenance without leaving this workspace."
+  >
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="app-field-group">
+          <Label className="app-inline-label" htmlFor="filter-status">
+            Status
+          </Label>
+          <select
+            id="filter-status"
+            className="app-select"
+            value={status}
+            onChange={(e) => onStatusChange(e.target.value as 'ALL' | JobOfferStatus)}
+          >
+            <option value="ALL">All statuses</option>
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="app-field-group">
+          <Label className="app-inline-label" htmlFor="filter-mode">
+            Mode
+          </Label>
+          <select
+            id="filter-mode"
+            className="app-select"
+            value={mode}
+            onChange={(e) => onModeChange(e.target.value as 'strict' | 'approx' | 'explore')}
+          >
+            <option value="strict">Strict (Grounding check)</option>
+            <option value="approx">Approximate (Relaxed constraints)</option>
+            <option value="explore">Explore (Global discovery)</option>
+          </select>
+        </div>
+
+        <div className="app-field-group">
+          <Label className="app-inline-label" htmlFor="filter-scoring">
+            Scoring
+          </Label>
+          <select
+            id="filter-scoring"
+            className="app-select"
+            value={hasScore}
+            onChange={(e) => onHasScoreChange(e.target.value as 'all' | 'yes' | 'no')}
+          >
+            <option value="all">All offers</option>
+            <option value="yes">Only scored</option>
+            <option value="no">Only unscored</option>
+          </select>
+        </div>
+
+        <div className="app-field-group">
+          <Label className="app-inline-label" htmlFor="filter-tag">
+            Tag
+          </Label>
+          <Input
+            id="filter-tag"
+            placeholder="e.g. backend"
+            value={tag}
+            onChange={(e) => onTagChange(e.target.value)}
+            className="h-10"
+          />
+        </div>
+
+        <div className="app-field-group">
+          <Label className="app-inline-label" htmlFor="filter-follow-up">
+            Follow-up
+          </Label>
+          <select
+            id="filter-follow-up"
+            className="app-select"
+            value={followUp}
+            onChange={(e) => onFollowUpChange(e.target.value as 'all' | 'due' | 'upcoming' | 'none')}
+          >
+            <option value="all">All offers</option>
+            <option value="due">Follow-up due</option>
+            <option value="upcoming">Follow-up upcoming</option>
+            <option value="none">No follow-up scheduled</option>
+          </select>
+        </div>
+
+        <div className="app-field-group lg:col-span-2">
+          <Label className="app-inline-label" htmlFor="filter-search">
+            Search in notes/tags
+          </Label>
+          <Input
+            id="filter-search"
+            placeholder="Keywords..."
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="h-10"
+          />
+        </div>
       </div>
 
-      <div className="app-field-group">
-        <Label className="app-inline-label" htmlFor="filter-mode">
-          Mode
-        </Label>
-        <select
-          id="filter-mode"
-          className="app-select"
-          value={mode}
-          onChange={(e) => onModeChange(e.target.value as 'strict' | 'approx' | 'explore')}
-        >
-          <option value="strict">Strict (Grounding check)</option>
-          <option value="approx">Approximate (Relaxed constraints)</option>
-          <option value="explore">Explore (Global discovery)</option>
-        </select>
-      </div>
-
-      <div className="app-field-group">
-        <Label className="app-inline-label" htmlFor="filter-scoring">
-          Scoring
-        </Label>
-        <select
-          id="filter-scoring"
-          className="app-select"
-          value={hasScore}
-          onChange={(e) => onHasScoreChange(e.target.value as 'all' | 'yes' | 'no')}
-        >
-          <option value="all">All offers</option>
-          <option value="yes">Only scored</option>
-          <option value="no">Only unscored</option>
-        </select>
-      </div>
-
-      <div className="app-field-group">
-        <Label className="app-inline-label" htmlFor="filter-tag">
-          Tag
-        </Label>
-        <Input
-          id="filter-tag"
-          placeholder="e.g. backend"
-          value={tag}
-          onChange={(e) => onTagChange(e.target.value)}
-          className="h-10"
-        />
-      </div>
-
-      <div className="app-field-group">
-        <Label className="app-inline-label" htmlFor="filter-follow-up">
-          Follow-up
-        </Label>
-        <select
-          id="filter-follow-up"
-          className="app-select"
-          value={followUp}
-          onChange={(e) => onFollowUpChange(e.target.value as 'all' | 'due' | 'upcoming' | 'none')}
-        >
-          <option value="all">All offers</option>
-          <option value="due">Follow-up due</option>
-          <option value="upcoming">Follow-up upcoming</option>
-          <option value="none">No follow-up scheduled</option>
-        </select>
-      </div>
-
-      <div className="app-field-group lg:col-span-2">
-        <Label className="app-inline-label" htmlFor="filter-search">
-          Search in notes/tags
-        </Label>
-        <Input
-          id="filter-search"
-          placeholder="Keywords..."
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="h-10"
-        />
-      </div>
-    </div>
-
-    <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="secondary" onClick={onResetFilters} className="h-9 px-4">
-          Reset all
-        </Button>
-        <Button type="button" variant="secondary" onClick={onSavePreset} className="h-9 px-4">
-          Save as default
-        </Button>
-        {hasSavedPreset ? (
-          <Button type="button" variant="secondary" onClick={onApplyPreset} className="h-9 px-4">
-            Load default
-          </Button>
-        ) : null}
-      </div>
-
-      <div className="flex items-center gap-4">
-        <div className="text-right">
-          <p className="text-text-strong text-sm font-semibold">{total} matches</p>
+      <div className="app-utility-rail space-y-4">
+        <div className="app-inset-stack">
+          <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Current slice</p>
+          <p className="text-text-strong mt-2 text-2xl font-semibold tracking-[-0.03em]">{total}</p>
+          <p className="text-text-soft mt-1 text-sm">offers in the active triage view</p>
           {mode === 'strict' && hiddenByModeCount > 0 ? (
-            <p className="text-app-warning text-xs">{hiddenByModeCount} hidden by strict mode</p>
+            <p className="text-app-warning mt-2 text-xs">{hiddenByModeCount} hidden by strict mode</p>
           ) : null}
-          <DataFreshnessBadge updatedAt={listUpdatedAt} />
+          <div className="mt-3">
+            <DataFreshnessBadge updatedAt={listUpdatedAt} />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" onClick={onResetFilters} className="h-9 px-4">
+            Reset all
+          </Button>
+          <Button type="button" variant="secondary" onClick={onSavePreset} className="h-9 px-4">
+            Save as default
+          </Button>
+          {hasSavedPreset ? (
+            <Button type="button" variant="secondary" onClick={onApplyPreset} className="h-9 px-4">
+              Load default
+            </Button>
+          ) : null}
         </div>
       </div>
     </div>
@@ -215,7 +221,7 @@ export const NotebookFiltersCard = ({
 
     {summary ? (
       <div className="border-border/40 mt-4 space-y-3 border-t pt-4">
-        <div className="grid gap-3 md:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           <div className="app-muted-panel">
             <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Unscored</p>
             <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.unscored}</p>
