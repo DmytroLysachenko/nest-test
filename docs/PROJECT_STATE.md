@@ -27,6 +27,26 @@ Last updated: 2026-03-21
   - `packages/db` (Drizzle schema/migrations/seeds)
   - `packages/ui` (shared UI primitives)
 
+## Honest Product Assessment
+
+The application is no longer a toy project, but it is not yet a mature product.
+
+Current reality:
+
+- the architecture is credible and increasingly supportable
+- the notebook/workflow side has real product potential
+- scraping remains the main operational risk and the easiest way for the product to feel brittle
+- if the app only mirrors listings, it is strategically weak
+
+The product only makes sense long-term if it behaves like a job-search operating system:
+
+- aggregate opportunities across sources
+- deduplicate and rank them better than native boards
+- help users decide what to do next
+- help users manage follow-up and application progress
+
+That framing should guide future implementation more than raw source count.
+
 ## Stable Flows Implemented
 
 - Auth with refresh-token rotation.
@@ -282,6 +302,8 @@ Last updated: 2026-03-21
 - New table `job_source_run_attempts` captures per-run attempt outcomes for deterministic callback auditing.
 - Recovery and automation smoke still require local API/worker/web services to be started before the readiness probes can succeed.
 - Neon or branch-specific migration drift can still happen operationally, but it is now surfaced through `/health` and startup validation instead of remaining silent until support endpoints are queried.
+- Multi-source expansion is still more of a plan than a proven capability; only selective source growth is justified right now.
+- Scrape completion is improving, but "completed" does not automatically mean "user got useful notebook value" unless linking, ranking, and visibility remain strong.
 
 ## Highest-Value Remaining Gaps
 
@@ -292,3 +314,14 @@ Last updated: 2026-03-21
 - Document recovery exists, but extraction/profile-generation background execution is not yet moved to a durable async pipeline.
 - Support surfaces are present, but alerting and long-horizon observability are still limited.
 - Frontend has improved workflow structure, but visual/design consistency is still mixed across older and newer surfaces.
+
+## Strategic Next Focus
+
+The next phase should optimize for product usefulness, not feature count.
+
+Priority order:
+
+1. make notebook triage and follow-up clearly superior to using the source platforms directly
+2. keep scrape outcomes reliable enough that the workflow can be trusted
+3. add sources selectively only when they expand useful supply with manageable support cost
+4. improve durable async execution and long-horizon observability before broad source expansion

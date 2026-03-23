@@ -19,12 +19,19 @@ This document translates the current roadmap into implementation-oriented sprint
   - stronger source reliability
   - safer startup, smoke, and deploy behavior
 
+## Product Strategy Constraint
+
+- The app must win on workflow quality, not on raw source count.
+- Scraping is a required acquisition layer, but it is not the product moat.
+- New source adapters should land only when workflow value, parser stability, and supportability are strong enough to justify them.
+
 ## Planning Principles
 
 - Each sprint should deliver a full slice across API, web, worker, and docs where needed.
 - Server-driven workflow logic stays in API/read models, not duplicated in frontend.
 - Reliability work is first-class product work, not “later cleanup”.
 - Avoid widening the feature surface faster than supportability and smoke coverage can keep up.
+- Prefer features that reduce user decision time over features that only increase listing volume.
 
 ## Sprint 1: Workflow Completion and Recovery Closure
 
@@ -104,6 +111,25 @@ Reduce time from “offers exist” to “user made progress on real application
 - Add bulk next-step editing beyond follow-up updates.
 - Continue refining dashboard-to-notebook focus deep-link ergonomics.
 - Expand long-tail notebook mobile polish after the current follow-up emphasis changes.
+
+## Sprint 2.5: Product Differentiation Over Native Job Boards
+
+### Goal
+
+Make the notebook clearly more useful than using the source platforms directly.
+
+### Primary Scope
+
+- strengthen cross-source deduplication and canonical offer identity
+- explain why an offer is worth attention now
+- improve follow-up and prep guidance in notebook detail views
+- surface hidden/degraded result states clearly so users trust what they are seeing
+
+### Exit Criteria
+
+- users can understand why an offer is shown, hidden, or degraded
+- notebook gives a clearer next action than the source board itself
+- degraded scrape outcomes still lead to useful triage when possible
 
 ## Sprint 3: Scraper Quality and Source Reliability
 
@@ -230,6 +256,11 @@ Prepare the system for broader ingestion and smarter assistant behavior without 
   - better explanation quality
 - Prepare source abstraction boundaries for additional job sources.
 - Tighten data model and API contracts before multi-source rollout.
+- Define source-selection rules before implementing new adapters:
+  - unique supply value
+  - maintainable transport strategy
+  - support/debug plan
+  - fixture-backed parser coverage
 
 ### Exit Criteria
 
@@ -239,12 +270,21 @@ Prepare the system for broader ingestion and smarter assistant behavior without 
 
 ## Future Backlog Themes
 
-- Multi-source ingestion adapters
+- Selective multi-source ingestion adapters
 - Durable background-job orchestration everywhere it matters
 - Alerting and incident-response hooks
 - Stronger design-system consistency across old and new screens
 - More complete application CRM behavior in notebook
 - Safer admin tooling and rate-limited support actions
+
+## Candidate Feature Backlog To Prefer Over Random Expansion
+
+1. stronger follow-up/reminder workflow
+2. cross-source deduplication and canonical offer identity improvements
+3. application-prep and next-step assistance
+4. degraded/salvaged result handling that still gives users useful leads
+5. source-health gating and circuit-breaking for unstable adapters
+6. second-source rollout only after the above are stable
 
 ## Recommended Sprint Ordering
 

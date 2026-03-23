@@ -20,6 +20,26 @@ As of `2026-03-14`:
 
 The product is beyond boilerplate stage. It already supports a full local cross-service workflow and includes support-grade diagnostics, recovery paths, smoke coverage, and deployment/runbook documentation.
 
+## Product Thesis
+
+This product should not become "another scraped job board".
+
+The intended value is:
+
+- one notebook/pipeline across multiple job sources
+- better filtering and prioritization than native job-board search
+- cross-platform deduplication and workflow tracking
+- follow-up, reminder, and application-prep assistance
+- profile-aware triage that saves users time, not just mirrors listings
+
+Scraping is therefore an acquisition layer, not the product moat by itself.
+
+This means:
+
+- adding a new source is justified only when it adds meaningful supply or user value
+- workflow, ranking, deduplication, and notebook productivity are higher priority than raw source count
+- unstable/high-friction sources should not be added just because they are popular
+
 ## What The System Does
 
 Primary user workflow:
