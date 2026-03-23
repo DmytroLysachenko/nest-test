@@ -152,6 +152,31 @@ const excludedColumn = (column: { name: string }) => sql.raw(`excluded."${column
 const sanitizeStringArray = (value: string[] | undefined | null) =>
   Array.from(new Set((value ?? []).map((item) => item.trim()).filter(Boolean)));
 
+const isLowContextDescription = (value: string | null | undefined) => {
+  const normalized = normalizeString(value)?.toLowerCase();
+  return !normalized || normalized === 'no description found' || normalized === 'listing summary only';
+};
+
+const deriveCatalogQualityReason = (job: CallbackJobPayload) => {
+  if (job.tags?.includes('listing-salvage')) {
+    return 'listing_salvage';
+  }
+
+  const hasRequirements = sanitizeStringArray(job.requirements).length > 0;
+  const hasStructuredDetails =
+    Boolean(job.details) &&
+    typeof job.details === 'object' &&
+    Object.values(job.details as Record<string, unknown>).some((value) =>
+      Array.isArray(value) ? value.length > 0 : Boolean(value),
+    );
+
+  if (isLowContextDescription(job.description) && !hasRequirements && !hasStructuredDetails) {
+    return 'low_context';
+  }
+
+  return null;
+};
+
 const sanitizeCallbackJobs = (jobs: ScrapeCompleteDto['jobs']) => {
   if (!jobs?.length) {
     return [];
@@ -1597,7 +1622,7 @@ export class JobSourcesService {
         details: job.details ?? null,
         contentHash: this.computeCatalogContentHash(job),
         qualityState: ACCEPTED_QUALITY_STATE,
-        qualityReason: job.tags?.includes('listing-salvage') ? 'listing_salvage' : null,
+        qualityReason: deriveCatalogQualityReason(job),
         isExpired: job.isExpired ?? false,
         expiresAt: job.isExpired ? now : null,
         lastFullScrapeAt: now,

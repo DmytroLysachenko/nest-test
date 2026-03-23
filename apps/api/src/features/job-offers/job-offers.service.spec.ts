@@ -529,6 +529,61 @@ describe('JobOffersService', () => {
     expect(result.mode).toBe('strict');
   });
 
+  it('counts low-context catalog rows as degraded notebook results', async () => {
+    const select = jest.fn().mockReturnValue(
+      createListQuery([
+        {
+          id: 'ujo-degraded-1',
+          jobOfferId: 'job-degraded-1',
+          sourceRunId: 'run-degraded-1',
+          status: 'NEW',
+          matchScore: 62,
+          matchMeta: {
+            hardConstraintViolations: [],
+            blockedByHardConstraints: false,
+          },
+          pipelineMeta: null,
+          notes: null,
+          tags: null,
+          statusHistory: [],
+          lastStatusAt: new Date('2026-03-22T13:38:32.201Z'),
+          source: 'PRACUJ_PL',
+          url: 'https://www.pracuj.pl/oferta/2',
+          title: 'Frontend Developer',
+          company: 'Acme',
+          location: 'Remote',
+          salary: null,
+          employmentType: null,
+          description: 'Listing summary only',
+          requirements: [],
+          details: null,
+          qualityReason: 'low_context',
+          createdAt: new Date('2026-03-22T13:38:32.201Z'),
+        },
+      ]),
+    );
+    const service = new JobOffersService(
+      { select } as any,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'NOTEBOOK_APPROX_VIOLATION_PENALTY') return 15;
+          if (key === 'NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY') return 45;
+          if (key === 'NOTEBOOK_APPROX_SCORED_BONUS') return 5;
+          if (key === 'NOTEBOOK_EXPLORE_UNSCORED_BASE') return 55;
+          if (key === 'NOTEBOOK_EXPLORE_RECENCY_WEIGHT') return 12;
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          return undefined;
+        }),
+      } as any,
+    );
+
+    const result = await service.list('user-1', { mode: 'strict', limit: 20, offset: 0 });
+
+    expect(result.total).toBe(1);
+    expect(result.degradedResultCount).toBe(1);
+  });
+
   it('bulk updates follow-up metadata while preserving existing pipeline fields', async () => {
     const updateWhere = jest.fn().mockResolvedValue(undefined);
     const set = jest.fn().mockReturnValue({ where: updateWhere });
