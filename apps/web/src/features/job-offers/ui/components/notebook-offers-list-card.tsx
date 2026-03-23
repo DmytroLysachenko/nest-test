@@ -83,7 +83,7 @@ export const NotebookOffersListCard = ({
   };
 
   return (
-    <Card title="Offers" description="Filtered notebook results">
+    <Card title="Offer queue" description="The active notebook slice, organized for fast review and batch maintenance.">
       <div className="app-toolbar mb-4 flex flex-wrap items-center gap-2">
         <Button type="button" variant="ghost" className="h-8 px-3 text-xs" onClick={onSelectAllVisible}>
           {isAllVisibleSelected ? 'Unselect visible' : 'Select visible'}
@@ -180,15 +180,15 @@ export const NotebookOffersListCard = ({
         </p>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {offers.length ? (
           offers.map((offer) => (
             <article
               key={offer.id}
-              className={`w-full rounded-[1.35rem] border p-4 text-left text-sm transition-all duration-200 ${
+              className={`w-full rounded-[1.45rem] p-4 text-left text-sm transition-all duration-200 ${
                 selectedId === offer.id
-                  ? 'border-primary/50 bg-primary/5 shadow-[0_12px_32px_-16px_color-mix(in_oklab,var(--primary)_20%,transparent)]'
-                  : 'border-border/60 bg-surface/80 hover:border-primary/30 hover:bg-surface-elevated/95 hover:shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--text-strong)_10%,transparent)]'
+                  ? 'bg-[linear-gradient(135deg,color-mix(in_oklab,var(--primary)_8%,white),color-mix(in_oklab,var(--surface-elevated)_72%,transparent))] shadow-[0_18px_42px_-24px_color-mix(in_oklab,var(--primary)_18%,transparent)]'
+                  : 'bg-surface-elevated/88 hover:bg-surface-elevated hover:-translate-y-0.5 hover:shadow-[0_14px_34px_-24px_color-mix(in_oklab,var(--text-strong)_12%,transparent)]'
               }`}
             >
               <div className="mb-3 flex items-start gap-3">
@@ -200,11 +200,15 @@ export const NotebookOffersListCard = ({
                   aria-label={`Select ${offer.title}`}
                 />
                 <button type="button" onClick={() => onSelectOffer(offer.id)} className="min-w-0 flex-1 text-left">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-foreground truncate font-semibold tracking-[-0.02em]">{offer.title}</p>
+                      <p className="text-foreground truncate text-base font-semibold tracking-[-0.02em]">
+                        {offer.title}
+                      </p>
                       <p className="text-secondary-foreground mt-1">{offer.company ?? 'Unknown company'}</p>
-                      <p className="text-muted-foreground mt-1 text-xs">{offer.location ?? 'Unknown location'}</p>
+                      <p className="text-muted-foreground mt-1 text-xs uppercase tracking-[0.14em]">
+                        {offer.location ?? 'Unknown location'}
+                      </p>
                     </div>
                     <span className="app-badge">status: {offer.status}</span>
                   </div>
@@ -229,7 +233,7 @@ export const NotebookOffersListCard = ({
                 ))}
               </div>
               {(getPipelineValue(offer, 'nextStep') || getPipelineValue(offer, 'followUpNote')) && (
-                <div className="border-border/50 bg-surface-muted/60 mt-3 rounded-2xl border px-3 py-2.5 text-xs">
+                <div className="bg-surface-muted/72 mt-3 rounded-[1.1rem] px-3 py-2.5 text-xs">
                   {getPipelineValue(offer, 'nextStep') ? (
                     <p className="text-text-strong font-medium">Next step: {getPipelineValue(offer, 'nextStep')}</p>
                   ) : null}

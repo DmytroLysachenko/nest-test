@@ -28,11 +28,11 @@ type JourneyStepsProps = {
 };
 
 const toneClasses = {
-  info: 'border-primary/20 bg-[linear-gradient(135deg,color-mix(in_oklab,var(--primary)_10%,white),transparent_65%)]',
+  info: 'bg-[linear-gradient(135deg,color-mix(in_oklab,var(--primary)_10%,white),color-mix(in_oklab,var(--surface-elevated)_72%,transparent)_62%)]',
   success:
-    'border-app-success-border bg-[linear-gradient(135deg,color-mix(in_oklab,var(--app-success)_12%,white),transparent_65%)]',
+    'bg-[linear-gradient(135deg,color-mix(in_oklab,var(--app-success)_12%,white),color-mix(in_oklab,var(--surface-elevated)_72%,transparent)_62%)]',
   warning:
-    'border-app-warning-border bg-[linear-gradient(135deg,color-mix(in_oklab,var(--app-warning)_12%,white),transparent_65%)]',
+    'bg-[linear-gradient(135deg,color-mix(in_oklab,var(--app-warning)_12%,white),color-mix(in_oklab,var(--surface-elevated)_72%,transparent)_62%)]',
 };
 
 const statusClasses = {
@@ -53,7 +53,7 @@ export const GuidancePanel = ({
 }: GuidancePanelProps) => (
   <section
     className={cn(
-      'rounded-[1.6rem] border p-5 shadow-[0_20px_60px_-34px_color-mix(in_oklab,var(--text-strong)_18%,transparent)]',
+      'rounded-[1.8rem] p-5 shadow-[0_20px_60px_-34px_color-mix(in_oklab,var(--text-strong)_18%,transparent)] md:p-6',
       toneClasses[tone],
       className,
     )}
@@ -86,7 +86,7 @@ export const JourneySteps = ({ title, description, steps, className }: JourneySt
     </div>
     <div className="grid gap-3 md:grid-cols-3">
       {steps.map((step, index) => (
-        <div key={step.key} className="border-border/70 bg-surface-muted/70 rounded-[1.4rem] border p-4">
+        <div key={step.key} className="bg-surface-muted/72 rounded-[1.45rem] p-4">
           <div className="mb-3 flex items-center gap-3">
             <span
               className={cn(

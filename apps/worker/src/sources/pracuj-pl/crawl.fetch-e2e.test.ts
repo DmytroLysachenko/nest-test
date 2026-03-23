@@ -251,3 +251,68 @@ test('crawlPracujPl prioritizes richer listing summaries when detail budget is l
     await server.close();
   }
 });
+
+test('crawlPracujPl aborts in-flight detail fetches when the scrape signal is cancelled', async () => {
+  const server = await startFixtureServer({
+    '/praca': {
+      html: `
+        <html>
+          <body>
+            <section data-test="section-offers">
+              <a href="https://www.pracuj.pl/praca/slow-offer,oferta,1001">Slow</a>
+            </section>
+          </body>
+        </html>
+      `,
+    },
+    '/praca/slow-offer,oferta,1001': {
+      html: '<html><body><h1>Slow</h1></body></html>',
+    },
+  });
+
+  const controller = new AbortController();
+  const delayedServer = createServer((request, response) => {
+    const pathname = request.url ? new URL(request.url, 'http://localhost').pathname : '/';
+    if (pathname === '/praca/slow-offer,oferta,1001') {
+      setTimeout(() => {
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        response.end('<html><body><h1>Slow</h1></body></html>');
+      }, 5_000);
+      return;
+    }
+    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    response.end(`
+      <html>
+        <body>
+          <section data-test="section-offers">
+            <a href="https://www.pracuj.pl/praca/slow-offer,oferta,1001">Slow</a>
+          </section>
+        </body>
+      </html>
+    `);
+  });
+
+  await new Promise<void>((resolve) => delayedServer.listen(0, '127.0.0.1', () => resolve()));
+  const address = delayedServer.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('Failed to resolve delayed server address');
+  }
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const crawlPromise = crawlPracujPl(true, `${baseUrl}/praca`, 10, undefined, {
+    detailHost: baseUrl,
+    abortSignal: controller.signal,
+  });
+
+  setTimeout(() => controller.abort(), 50);
+
+  try {
+    await assert.rejects(crawlPromise, (error: unknown) => {
+      assert.equal(error instanceof Error ? error.name : undefined, 'AbortError');
+      return true;
+    });
+  } finally {
+    await new Promise<void>((resolve, reject) => delayedServer.close((error) => (error ? reject(error) : resolve())));
+    await server.close();
+  }
+});

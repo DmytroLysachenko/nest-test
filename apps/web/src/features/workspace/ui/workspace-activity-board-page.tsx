@@ -8,7 +8,7 @@ import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboar
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { HeroHeader, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
+import { HeroHeader, StatRow, StatusPill, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { GuidancePanel } from '@/shared/ui/guidance-panels';
 import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
 
@@ -86,13 +86,13 @@ export const WorkspaceActivityBoardPage = () => {
         tone="success"
       />
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+      <section className="app-editorial-section">
         <div className="space-y-5">
           <Card title="Recent Activity" description="Key timestamps from workspace operations.">
             <div className="space-y-3 text-sm">
               {activity.length ? (
                 activity.map((item) => (
-                  <div key={item.key} className="app-muted-panel">
+                  <div key={item.key} className="app-inset-stack">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-text-strong font-semibold">{item.label}</p>
                       <StatusPill value={item.tone} tone={item.tone} />
@@ -110,7 +110,7 @@ export const WorkspaceActivityBoardPage = () => {
             <div className="space-y-3">
               {summary.readinessBreakdown?.length ? (
                 summary.readinessBreakdown.map((step) => (
-                  <div key={step.key} className="app-muted-panel">
+                  <div key={step.key} className="app-inset-stack">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-text-strong text-sm font-semibold">{step.label}</p>
                       <StatusPill value={step.ready ? 'ready' : 'blocked'} tone={step.ready ? 'success' : 'warning'} />
@@ -125,7 +125,10 @@ export const WorkspaceActivityBoardPage = () => {
           </Card>
         </div>
 
-        <div className="space-y-5">
+        <UtilityRail
+          title="Operational focus"
+          description="Use the right rail for readiness, blockers, and next-session pressure."
+        >
           <Card title="Pipeline Health" description="Current readiness of core stages and follow-up pressure.">
             <div className="space-y-3">
               <StatRow
@@ -171,7 +174,7 @@ export const WorkspaceActivityBoardPage = () => {
             <Card title="Current Blockers" description="Direct links to unblock the most important workflow issues.">
               <div className="space-y-3">
                 {summary.blockerDetails.map((blocker) => (
-                  <div key={blocker.key} className="app-muted-panel space-y-3">
+                  <div key={blocker.key} className="app-inset-stack space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-text-strong text-sm font-semibold">{blocker.title}</p>
                       <StatusPill
@@ -205,7 +208,7 @@ export const WorkspaceActivityBoardPage = () => {
                   .slice(0, 3)
                   .map((item) => (
                     <Link key={item.key} href={item.href} className="block">
-                      <div className="app-muted-panel">
+                      <div className="app-inset-stack">
                         <p className="text-text-strong text-sm font-semibold">{item.label}</p>
                         <p className="text-text-soft mt-1 text-sm">{item.description}</p>
                         <p className="text-primary mt-3 text-xs font-semibold uppercase tracking-[0.16em]">
@@ -219,7 +222,7 @@ export const WorkspaceActivityBoardPage = () => {
               )}
             </div>
           </Card>
-        </div>
+        </UtilityRail>
       </section>
     </main>
   );

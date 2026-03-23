@@ -206,3 +206,17 @@ Forms:
 - Prefer semantic token classes (`text-app-danger`, `bg-surface-muted`, `border-app-success-border`, etc.).
 - Avoid direct Tailwind palette classes (`text-rose-*`, `bg-emerald-*`, `text-slate-*`) unless the color is a documented one-off visualization exception.
 - Run `pnpm --filter web ux:check` for token-policy and route-boundary guardrails.
+
+## Desktop Design Direction
+
+- Default workspace direction is light-first and desktop-first.
+- Prefer tonal layering, spacing, and typographic hierarchy over heavy border grids.
+- Use shared page composition primitives before inventing route-local layouts:
+  - shell
+  - editorial sections
+  - utility rails
+  - inset stacks
+  - metric tiles
+- Treat dashboard, planning, notebook, activity, and profile as one connected workspace family.
+- Preserve route structure and functionality during visual redesigns; improve composition before adding new interactions.
+- Empty, hidden, degraded, and blocked states must feel intentional and informative, not like raw placeholder boxes.

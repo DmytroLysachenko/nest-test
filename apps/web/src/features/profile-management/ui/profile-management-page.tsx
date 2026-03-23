@@ -15,7 +15,7 @@ import { ProfileQualityCard } from '@/features/profile-management/ui/components/
 import { DocumentsPanel } from '@/features/documents';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { useAppUiStore } from '@/shared/store/app-ui-store';
-import { HeroHeader } from '@/shared/ui/dashboard-primitives';
+import { HeroHeader, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { GuidancePanel, JourneySteps } from '@/shared/ui/guidance-panels';
 import { WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Card } from '@/shared/ui/card';
@@ -165,7 +165,7 @@ export const ProfileManagementPage = () => {
         ]}
       />
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="app-editorial-section">
         <ProfileInputEditorCard
           initialTargetRoles={latestProfileInputQuery.data?.targetRoles}
           initialNotes={latestProfileInputQuery.data?.notes ?? ''}
@@ -173,7 +173,13 @@ export const ProfileManagementPage = () => {
           isSaving={saveProfileInputMutation.isPending}
           errorMessage={errors.saveProfileInput}
         />
-        <DocumentsReadinessCard documents={documents} />
+        <UtilityRail
+          title="Readiness rail"
+          description="Keep document availability and generation readiness visible without crowding the editing flow."
+          className="p-0"
+        >
+          <DocumentsReadinessCard documents={documents} />
+        </UtilityRail>
       </div>
 
       <WorkflowRecoveryPanel
@@ -185,13 +191,13 @@ export const ProfileManagementPage = () => {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Account Activity" description="Operational account state that helps support and debugging.">
           <div className="space-y-3 text-sm">
-            <div className="app-muted-panel">
+            <div className="app-inset-stack">
               <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Last login</p>
               <p className="text-text-strong mt-2">
                 {auth.user?.lastLoginAt ? new Date(auth.user.lastLoginAt).toLocaleString() : 'No login timestamp yet'}
               </p>
             </div>
-            <div className="app-muted-panel">
+            <div className="app-inset-stack">
               <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Account state</p>
               <p className="text-text-strong mt-2">{auth.user?.isActive === false ? 'Inactive' : 'Active'}</p>
               <p className="text-text-soft mt-1">
@@ -205,7 +211,7 @@ export const ProfileManagementPage = () => {
           title="Danger Zone"
           description="Use this only when you want to close the account and revoke current sessions."
         >
-          <div className="app-muted-panel space-y-3 text-sm">
+          <div className="app-inset-stack space-y-3 text-sm">
             <p className="text-text-soft">
               Deleting the account is a soft delete. You will lose access immediately, but historical workflow and
               operational records remain available for support diagnostics.

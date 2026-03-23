@@ -30,7 +30,7 @@ export const WorkflowRecoveryPanel = ({
     <Card title={title} description={description}>
       <div className="grid gap-3 md:grid-cols-2">
         {blockers.map((blocker) => (
-          <div key={blocker.key} className="app-muted-panel space-y-2">
+          <div key={blocker.key} className="app-inset-stack space-y-3">
             <StatusPill
               value={blocker.severity}
               tone={blocker.severity === 'critical' ? 'danger' : blocker.severity === 'warning' ? 'warning' : 'info'}

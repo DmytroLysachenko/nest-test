@@ -57,8 +57,8 @@ const AppShellSidebar = ({
   onNavigate?: () => void;
 }) => (
   <>
-    <div className="border-sidebar-border border-b px-5 py-6">
-      <div className="border-white/8 rounded-[1.7rem] border bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-4 shadow-[0_22px_50px_-36px_rgba(0,0,0,0.75)]">
+    <div className="px-5 py-6">
+      <div className="bg-sidebar-accent rounded-[1.9rem] p-4 shadow-[0_24px_46px_-34px_color-mix(in_oklab,var(--text-strong)_18%,transparent)]">
         <div className="mb-4 flex items-center gap-3">
           <span className="bg-sidebar-primary text-sidebar-primary-foreground inline-flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-semibold">
             JS
@@ -69,20 +69,20 @@ const AppShellSidebar = ({
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="bg-white/4 rounded-xl px-3 py-2">
+          <div className="rounded-[1rem] bg-white/60 px-3 py-2">
             <p className="text-sidebar-foreground/55">Readiness</p>
             <p className="text-sidebar-foreground mt-1 font-medium">
               {readinessScore == null ? 'n/a' : `${readinessScore}%`}
             </p>
           </div>
-          <div className="bg-white/4 rounded-xl px-3 py-2">
+          <div className="rounded-[1rem] bg-white/60 px-3 py-2">
             <p className="text-sidebar-foreground/55">Next run</p>
             <p className="text-sidebar-foreground mt-1 font-medium">
               {nextRunAt ? new Date(nextRunAt).toLocaleDateString() : 'manual'}
             </p>
           </div>
         </div>
-        <div className="bg-white/4 mt-3 rounded-2xl p-3">
+        <div className="mt-3 rounded-[1.2rem] bg-white/70 p-3">
           <p className="text-sidebar-foreground/55 text-[11px] uppercase tracking-[0.14em]">Next best move</p>
           <p className="text-sidebar-foreground mt-2 text-sm leading-5">
             {nextActionTitle ?? 'Review dashboard priorities'}
@@ -103,13 +103,15 @@ const AppShellSidebar = ({
           >
             <span
               className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[10px] font-semibold ${
-                active ? 'text-sidebar-primary-foreground bg-white/15' : 'bg-sidebar-accent text-sidebar-foreground/70'
+                active ? 'text-sidebar-primary-foreground bg-white/15' : 'text-sidebar-foreground/70 bg-white/70'
               }`}
             >
               {item.shortLabel}
             </span>
             <span className="flex-1">{item.label}</span>
-            {active ? <span className="h-2 w-2 rounded-full bg-white/90" aria-hidden="true" /> : null}
+            {active ? (
+              <span className="bg-sidebar-primary-foreground/85 h-2 w-2 rounded-full" aria-hidden="true" />
+            ) : null}
           </Link>
         );
       })}
@@ -153,7 +155,7 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
   return (
     <div className="app-shell">
       {!hideSidebar && (
-        <aside className="border-sidebar-border bg-sidebar text-sidebar-foreground sticky top-0 hidden h-screen w-72 overflow-y-auto border-r xl:block">
+        <aside className="bg-sidebar/85 text-sidebar-foreground sticky top-0 hidden h-screen w-72 overflow-y-auto xl:block">
           <AppShellSidebar
             pathname={pathname}
             items={navItems}
@@ -175,7 +177,7 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
 
       {!hideSidebar && (
         <aside
-          className={`border-sidebar-border bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-40 w-72 overflow-y-auto border-r transition-transform xl:hidden ${
+          className={`bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-40 w-72 overflow-y-auto transition-transform xl:hidden ${
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -196,7 +198,7 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
           className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(70%_70%_at_50%_0%,color-mix(in_oklab,var(--primary)_8%,transparent),transparent_72%)]"
         />
         <header className="sticky top-0 z-20 px-4 pt-4 md:px-6 md:pt-5">
-          <div className="border-border/60 bg-surface/85 rounded-[1.75rem] border px-4 py-3 shadow-[0_8px_30px_-20px_color-mix(in_oklab,var(--text-strong)_10%,transparent)] backdrop-blur-xl md:px-5">
+          <div className="bg-surface-ghost rounded-[1.9rem] px-4 py-3 shadow-[0_16px_38px_-24px_color-mix(in_oklab,var(--text-strong)_12%,transparent)] backdrop-blur-xl md:px-5">
             <div className="flex flex-wrap items-center gap-3">
               {!hideSidebar && (
                 <Button
@@ -234,12 +236,15 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
 
               {!hideSidebar && (
                 <div className="relative ml-auto hidden min-w-[320px] max-w-[520px] flex-1 xl:block">
-                  <Input placeholder="Search jobs, notes, companies..." className="bg-surface-elevated/90 pl-4" />
+                  <Input
+                    placeholder="Search jobs, notes, companies..."
+                    className="bg-surface-elevated/92 h-11 rounded-2xl pl-4"
+                  />
                 </div>
               )}
 
               <div className="ml-auto flex items-center gap-2">
-                <div className="border-border bg-surface-elevated/88 hidden rounded-2xl border px-3.5 py-2 md:block">
+                <div className="bg-surface-elevated/92 hidden rounded-[1.1rem] px-3.5 py-2 md:block">
                   <p className="text-text-soft text-[11px] uppercase tracking-[0.14em]">Workspace</p>
                   <p className="text-text-strong max-w-48 truncate text-sm font-medium">{userEmail ?? 'anonymous'}</p>
                 </div>

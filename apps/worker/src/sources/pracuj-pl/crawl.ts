@@ -20,6 +20,8 @@ const HTTP_RETRY_TIMEOUT_MS = 30_000;
 const BROWSER_LAUNCH_TIMEOUT_MS = 60_000;
 const PAGE_NAVIGATION_TIMEOUT_MS = 45_000;
 const PAGE_READY_TIMEOUT_MS = 15_000;
+const DETAIL_BROWSER_NAVIGATION_TIMEOUT_MS = 20_000;
+const DETAIL_SELECTOR_TIMEOUT_MS = 5_000;
 const PLAYWRIGHT_BROWSER_CHANNEL = 'chromium';
 const PLAYWRIGHT_LAUNCH_ARGS = [
   '--no-sandbox',
@@ -32,6 +34,8 @@ const PLAYWRIGHT_LAUNCH_ARGS = [
 ];
 const BROWSER_LAUNCH_RETRY_DELAY_MS = 2_000;
 const BROWSER_LAUNCH_RETRY_MAX_DELAY_MS = 5_000;
+const MAX_DETAIL_BROWSER_TIMEOUTS = 2;
+const MAX_DETAIL_BROWSER_FAILURES = 3;
 const DEFAULT_BROWSER_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
@@ -309,6 +313,70 @@ const isExpiredPage = (html: string) => {
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const abortError = () => {
+  const error = new Error('Scrape aborted');
+  error.name = 'AbortError';
+  return error;
+};
+
+const throwIfAborted = (signal?: AbortSignal) => {
+  if (signal?.aborted) {
+    throw abortError();
+  }
+};
+
+const withAbort = async <T>(promiseFactory: () => Promise<T>, signal?: AbortSignal, onAbort?: () => void) => {
+  throwIfAborted(signal);
+  if (!signal) {
+    return promiseFactory();
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    const handleAbort = () => {
+      try {
+        onAbort?.();
+      } finally {
+        reject(abortError());
+      }
+    };
+    signal.addEventListener('abort', handleAbort, { once: true });
+    promiseFactory()
+      .then((value) => {
+        signal.removeEventListener('abort', handleAbort);
+        resolve(value);
+      })
+      .catch((error) => {
+        signal.removeEventListener('abort', handleAbort);
+        reject(error);
+      });
+  });
+};
+
+const sleepWithAbort = async (ms: number, signal?: AbortSignal) => {
+  if (ms <= 0) {
+    throwIfAborted(signal);
+    return;
+  }
+
+  await withAbort(
+    () =>
+      new Promise<void>((resolve) => {
+        const timeoutRef = setTimeout(resolve, ms);
+        timeoutRef.unref?.();
+      }),
+    signal,
+  );
+};
+
+const buildTimeoutSignal = (timeoutMs: number, signal?: AbortSignal) =>
+  signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs);
+
+const isBrowserNavigationTimeoutError = (error: unknown) => {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return message.includes('page.goto') && message.includes('timeout');
+};
+
+const isAbortError = (error: unknown) => error instanceof Error && error.name === 'AbortError';
 
 const randomBetween = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -463,7 +531,9 @@ const fetchHtml = async (
   logger?: Logger,
   cookieJar: LoadedCookie[] = [],
   extraHeaders?: Record<string, string>,
+  signal?: AbortSignal,
 ): Promise<RequestResult> => {
+  throwIfAborted(signal);
   const startedAt = Date.now();
   let currentUrl = url;
   let redirectCount = 0;
@@ -483,7 +553,7 @@ const fetchHtml = async (
       method: 'GET',
       redirect: 'manual',
       headers,
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: buildTimeoutSignal(timeoutMs, signal),
     });
     storeResponseCookies(cookieJar, currentUrl, response.headers);
 
@@ -578,7 +648,9 @@ const createBrowserSession = async (
   cookies: LoadedCookie[],
   logger?: Logger,
   reporter?: CrawlProgressReporter,
+  signal?: AbortSignal,
 ) => {
+  throwIfAborted(signal);
   const startedAt = Date.now();
   const launchOptions = {
     channel: PLAYWRIGHT_BROWSER_CHANNEL,
@@ -652,7 +724,10 @@ const createBrowserSession = async (
             args: PLAYWRIGHT_LAUNCH_ARGS,
           },
         });
-        await sleep(computeRetryDelayMs(attempt, BROWSER_LAUNCH_RETRY_DELAY_MS, BROWSER_LAUNCH_RETRY_MAX_DELAY_MS));
+        await sleepWithAbort(
+          computeRetryDelayMs(attempt, BROWSER_LAUNCH_RETRY_DELAY_MS, BROWSER_LAUNCH_RETRY_MAX_DELAY_MS),
+          signal,
+        );
         continue;
       }
 
@@ -698,14 +773,16 @@ const loadListingPageHttp = async (
   reporter?: CrawlProgressReporter,
   attempt = 1,
   cookieJar?: LoadedCookie[],
+  signal?: AbortSignal,
 ) => {
+  throwIfAborted(signal);
   await emitProgress(reporter, {
     stage: 'listing_http_fetch_started',
     meta: { url, attempt, timeoutMs },
   });
   const startedAt = Date.now();
   try {
-    const result = await fetchHtml(url, timeoutMs, logger, cookieJar ?? []);
+    const result = await fetchHtml(url, timeoutMs, logger, cookieJar ?? [], undefined, signal);
     const domSignals = extractListingDomSignalsFromHtml(result.html);
     await emitProgress(reporter, {
       stage: 'listing_http_fetch_completed',
@@ -749,7 +826,9 @@ const loadListingPageBrowser = async (
   logger?: Logger,
   reporter?: CrawlProgressReporter,
   attempt = 1,
+  signal?: AbortSignal,
 ) => {
+  throwIfAborted(signal);
   await emitProgress(reporter, {
     stage: 'listing_browser_navigation_started',
     meta: { url, attempt, delayMs },
@@ -757,24 +836,54 @@ const loadListingPageBrowser = async (
   const startedAt = Date.now();
   const page = await session.context.newPage();
   try {
-    const response = await page.goto(url, {
-      waitUntil: 'domcontentloaded',
-      timeout: PAGE_NAVIGATION_TIMEOUT_MS,
-    });
+    const response = await withAbort(
+      () =>
+        page.goto(url, {
+          waitUntil: 'domcontentloaded',
+          timeout: PAGE_NAVIGATION_TIMEOUT_MS,
+        }),
+      signal,
+      () => {
+        void page.close().catch(() => undefined);
+      },
+    );
     await acceptCookieBanner(page, logger);
-    await page.waitForTimeout(delayMs);
+    await withAbort(
+      () => page.waitForTimeout(delayMs),
+      signal,
+      () => {
+        void page.close().catch(() => undefined);
+      },
+    );
 
-    const hasNextData = await page.evaluate(() => Boolean(document.querySelector('#__NEXT_DATA__')));
-    const readyState = await page
-      .waitForFunction(
-        () =>
-          document.querySelectorAll('a[href*=",oferta,"]').length > 0 ||
-          Boolean(document.querySelector('#__NEXT_DATA__')) ||
-          Boolean(document.querySelector('[data-test="zero-offers-section"]')),
-        { timeout: PAGE_READY_TIMEOUT_MS },
-      )
+    const hasNextData = await withAbort(
+      () => page.evaluate(() => Boolean(document.querySelector('#__NEXT_DATA__'))),
+      signal,
+      () => {
+        void page.close().catch(() => undefined);
+      },
+    );
+    const readyState = await withAbort(
+      () =>
+        page.waitForFunction(
+          () =>
+            document.querySelectorAll('a[href*=",oferta,"]').length > 0 ||
+            Boolean(document.querySelector('#__NEXT_DATA__')) ||
+            Boolean(document.querySelector('[data-test="zero-offers-section"]')),
+          { timeout: PAGE_READY_TIMEOUT_MS },
+        ),
+      signal,
+      () => {
+        void page.close().catch(() => undefined);
+      },
+    )
       .then(() => 'ready')
-      .catch(() => 'timed_out');
+      .catch((error) => {
+        if (isAbortError(error)) {
+          throw error;
+        }
+        return 'timed_out';
+      });
 
     if (readyState === 'timed_out') {
       await emitProgress(reporter, {
@@ -783,12 +892,24 @@ const loadListingPageBrowser = async (
       });
     }
 
-    const html = await page.content();
+    const html = await withAbort(
+      () => page.content(),
+      signal,
+      () => {
+        void page.close().catch(() => undefined);
+      },
+    );
     const result: ListingLoadResult = {
       status: response?.status() ?? null,
       finalUrl: page.url(),
       html,
-      title: await page.title(),
+      title: await withAbort(
+        () => page.title(),
+        signal,
+        () => {
+          void page.close().catch(() => undefined);
+        },
+      ),
       hasNextData,
       blocked: isBlockedPage(html),
       expired: isExpiredPage(html),
@@ -839,14 +960,16 @@ const loadDetailPageHttp = async (
   attempt = 1,
   cookieJar?: LoadedCookie[],
   extraHeaders?: Record<string, string>,
+  signal?: AbortSignal,
 ) => {
+  throwIfAborted(signal);
   await emitProgress(reporter, {
     stage: 'detail_http_fetch_started',
     meta: { url, attempt, timeoutMs },
   });
   const startedAt = Date.now();
   try {
-    const result = await fetchHtml(url, timeoutMs, logger, cookieJar ?? [], extraHeaders);
+    const result = await fetchHtml(url, timeoutMs, logger, cookieJar ?? [], extraHeaders, signal);
     await emitProgress(reporter, {
       stage: 'detail_http_fetch_completed',
       meta: {
@@ -885,7 +1008,9 @@ const loadDetailPageBrowser = async (
   logger?: Logger,
   reporter?: CrawlProgressReporter,
   attempt = 1,
+  signal?: AbortSignal,
 ) => {
+  throwIfAborted(signal);
   await emitProgress(reporter, {
     stage: 'detail_browser_navigation_started',
     meta: { url, attempt, delayMs, humanize },
@@ -893,27 +1018,68 @@ const loadDetailPageBrowser = async (
   const startedAt = Date.now();
   const page = await session.context.newPage();
   try {
-    const response = await page.goto(url, {
-      waitUntil: 'domcontentloaded',
-      timeout: PAGE_NAVIGATION_TIMEOUT_MS,
-    });
+    const response = await withAbort(
+      () =>
+        page.goto(url, {
+          waitUntil: 'domcontentloaded',
+          timeout: DETAIL_BROWSER_NAVIGATION_TIMEOUT_MS,
+        }),
+      signal,
+      () => {
+        void page.close().catch(() => undefined);
+      },
+    );
     await acceptCookieBanner(page, logger);
-    await page
-      .waitForSelector('[data-test="offer-title"], [data-test="text-positionName"], h1', {
-        timeout: 8_000,
-      })
-      .catch(() => undefined);
+    await withAbort(
+      () =>
+        page.waitForSelector('[data-test="offer-title"], [data-test="text-positionName"], h1', {
+          timeout: DETAIL_SELECTOR_TIMEOUT_MS,
+        }),
+      signal,
+      () => {
+        void page.close().catch(() => undefined);
+      },
+    ).catch((error) => {
+      if (isAbortError(error)) {
+        throw error;
+      }
+      return undefined;
+    });
     if (humanize) {
-      await humanizePage(page, delayMs);
+      await withAbort(
+        () => humanizePage(page, delayMs),
+        signal,
+        () => {
+          void page.close().catch(() => undefined);
+        },
+      );
     } else {
-      await page.waitForTimeout(delayMs);
+      await withAbort(
+        () => page.waitForTimeout(delayMs),
+        signal,
+        () => {
+          void page.close().catch(() => undefined);
+        },
+      );
     }
-    const html = await page.content();
+    const html = await withAbort(
+      () => page.content(),
+      signal,
+      () => {
+        void page.close().catch(() => undefined);
+      },
+    );
     const result: RequestResult = {
       status: response?.status() ?? null,
       finalUrl: page.url(),
       html,
-      title: await page.title(),
+      title: await withAbort(
+        () => page.title(),
+        signal,
+        () => {
+          void page.close().catch(() => undefined);
+        },
+      ),
       hasNextData: Boolean(extractNextDataJson(html)),
       blocked: isBlockedPage(html),
       expired: isExpiredPage(html),
@@ -983,6 +1149,7 @@ export const crawlPracujPl = async (
     skipResolver?: (urls: string[]) => Promise<Set<string>>;
     onProgress?: CrawlProgressReporter;
     detailBudget?: number;
+    abortSignal?: AbortSignal;
   },
 ): Promise<{
   pages: RawPage[];
@@ -1004,6 +1171,7 @@ export const crawlPracujPl = async (
   const detailHumanize = options?.detailHumanize ?? false;
   const listingOnly = options?.listingOnly ?? false;
   const detailHost = options?.detailHost;
+  const abortSignal = options?.abortSignal;
   const cookieJar = (await loadCookies(options?.detailCookiesPath, logger)) ?? [];
   let browserSession: BrowserSession | null = null;
 
@@ -1015,6 +1183,7 @@ export const crawlPracujPl = async (
         cookieJar,
         logger,
         options?.onProgress,
+        abortSignal,
       );
     }
     return browserSession;
@@ -1030,6 +1199,7 @@ export const crawlPracujPl = async (
       options?.onProgress,
       listingAttempt,
       cookieJar,
+      abortSignal,
     );
 
     if (shouldRetryHttpListing(listingLoad)) {
@@ -1038,7 +1208,10 @@ export const crawlPracujPl = async (
         stage: 'listing_http_fetch_retry',
         meta: { url: listingUrl, attempt: listingAttempt, reason: 'no_links_or_next_data' },
       });
-      await sleep(computeRetryDelayMs(listingAttempt, Math.max(listingDelayMs, 1000), HTTP_RETRY_TIMEOUT_MS));
+      await sleepWithAbort(
+        computeRetryDelayMs(listingAttempt, Math.max(listingDelayMs, 1000), HTTP_RETRY_TIMEOUT_MS),
+        abortSignal,
+      );
       listingLoad = await loadListingPageHttp(
         listingUrl,
         HTTP_RETRY_TIMEOUT_MS,
@@ -1046,6 +1219,7 @@ export const crawlPracujPl = async (
         options?.onProgress,
         listingAttempt,
         cookieJar,
+        abortSignal,
       );
     }
 
@@ -1085,6 +1259,7 @@ export const crawlPracujPl = async (
         logger,
         options?.onProgress,
         listingAttempt,
+        abortSignal,
       );
       listingMethod = 'browser';
     }
@@ -1176,12 +1351,15 @@ export const crawlPracujPl = async (
     }
 
     if (listingCooldownMs > 0) {
-      await sleep(listingCooldownMs + randomBetween(500, 1500));
+      await sleepWithAbort(listingCooldownMs + randomBetween(500, 1500), abortSignal);
     }
 
     let detailStopReason: 'completed' | 'budget_reached' | 'source_degraded' =
       detailBudget !== null && detailTargetsAll.length > detailTargets.length ? 'budget_reached' : 'completed';
+    let detailBrowserTimeouts = 0;
+    let detailBrowserFailures = 0;
     for (const url of detailTargets) {
+      throwIfAborted(abortSignal);
       let fallbackReason: string | null = null;
       try {
         const extraHeaders: Record<string, string> = {};
@@ -1198,6 +1376,7 @@ export const crawlPracujPl = async (
           1,
           cookieJar,
           extraHeaders,
+          abortSignal,
         );
         let blocked = result.blocked;
         let expired = result.expired;
@@ -1240,19 +1419,21 @@ export const crawlPracujPl = async (
               blocked: result.blocked,
             },
           });
-          await sleep(detailDelayMs + randomBetween(500, 1500));
+          await sleepWithAbort(detailDelayMs + randomBetween(500, 1500), abortSignal);
           result = await loadDetailPageBrowser(
             await ensureBrowserSession(),
             url,
-            detailDelayMs * 2,
-            true,
+            detailDelayMs,
+            detailHumanize,
             logger,
             options?.onProgress,
             2,
+            abortSignal,
           );
           blocked = result.blocked;
           expired = result.expired;
           transport = 'browser';
+          detailBrowserTimeouts = 0;
           detailDiagnostics.push({
             url,
             finalUrl: result.finalUrl,
@@ -1293,6 +1474,9 @@ export const crawlPracujPl = async (
           );
         }
       } catch (error) {
+        if (isAbortError(error)) {
+          throw error;
+        }
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         if (!fallbackReason) {
           fallbackReason = 'http_error';
@@ -1310,11 +1494,12 @@ export const crawlPracujPl = async (
             const fallbackResult = await loadDetailPageBrowser(
               await ensureBrowserSession(),
               url,
-              detailDelayMs * 2,
-              true,
+              detailDelayMs,
+              detailHumanize,
               logger,
               options?.onProgress,
               2,
+              abortSignal,
             );
             detailDiagnostics.push({
               url,
@@ -1331,11 +1516,19 @@ export const crawlPracujPl = async (
             } else {
               pages.push({ url, html: fallbackResult.html, isExpired: fallbackResult.expired });
             }
-            await sleep(Math.max(250, Math.floor(detailDelayMs / 2)));
+            detailBrowserTimeouts = 0;
+            await sleepWithAbort(Math.max(250, Math.floor(detailDelayMs / 2)), abortSignal);
             continue;
           } catch (fallbackError) {
+            if (isAbortError(fallbackError)) {
+              throw fallbackError;
+            }
             const fallbackMessage =
               fallbackError instanceof Error ? fallbackError.message : 'Unknown browser fallback error';
+            detailBrowserFailures += 1;
+            if (isBrowserNavigationTimeoutError(fallbackError)) {
+              detailBrowserTimeouts += 1;
+            }
             detailDiagnostics.push({
               url,
               attempt: 1,
@@ -1347,7 +1540,22 @@ export const crawlPracujPl = async (
               error: `browser:${fallbackMessage}`,
             });
             logger?.error({ url, error: fallbackMessage }, 'Browser fallback failed for detail page');
-            await sleep(Math.max(250, Math.floor(detailDelayMs / 2)));
+            if (
+              detailBrowserTimeouts >= MAX_DETAIL_BROWSER_TIMEOUTS ||
+              detailBrowserFailures >= MAX_DETAIL_BROWSER_FAILURES
+            ) {
+              detailStopReason = 'source_degraded';
+              logger?.warn(
+                {
+                  detailBrowserTimeouts,
+                  detailBrowserFailures,
+                  url,
+                },
+                'Stopping detail crawl early because browser fallback is degraded',
+              );
+              break;
+            }
+            await sleepWithAbort(Math.max(250, Math.floor(detailDelayMs / 2)), abortSignal);
             continue;
           }
         }
@@ -1358,8 +1566,27 @@ export const crawlPracujPl = async (
           error: errorMessage,
         });
         logger?.error({ url, error }, 'Failed to load detail page');
+        if (isBrowserNavigationTimeoutError(error)) {
+          detailBrowserTimeouts += 1;
+          detailBrowserFailures += 1;
+          if (
+            detailBrowserTimeouts >= MAX_DETAIL_BROWSER_TIMEOUTS ||
+            detailBrowserFailures >= MAX_DETAIL_BROWSER_FAILURES
+          ) {
+            detailStopReason = 'source_degraded';
+            logger?.warn(
+              {
+                detailBrowserTimeouts,
+                detailBrowserFailures,
+                url,
+              },
+              'Stopping detail crawl early because browser navigation failures accumulated',
+            );
+            break;
+          }
+        }
       }
-      await sleep(Math.max(250, Math.floor(detailDelayMs / 2)));
+      await sleepWithAbort(Math.max(250, Math.floor(detailDelayMs / 2)), abortSignal);
     }
 
     if (blockedUrls.length) {

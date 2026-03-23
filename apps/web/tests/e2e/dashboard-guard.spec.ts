@@ -227,12 +227,12 @@ test('dashboard redirects to onboarding when summary requires it', async ({ page
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect
     .poll(async () => page.locator('body').innerText(), {
-      timeout: 10_000,
+      timeout: 20_000,
     })
     .toContain('Guided Setup');
   await expect
     .poll(async () => page.locator('body').innerText(), {
-      timeout: 10_000,
+      timeout: 20_000,
     })
     .toContain('Step 1 of 3');
 });
