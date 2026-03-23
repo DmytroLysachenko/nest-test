@@ -438,6 +438,16 @@ export type JobSourceRunDiagnosticsDto = {
       dedupedInRunCount: number;
       ignoredRecommendedLinks: number;
     };
+    productivity?: {
+      detailAttemptedCount: number;
+      candidateOffers: number;
+      matchedOffers: number;
+      userInsertedOffers: number;
+      degradedAcceptedOffers: number;
+      acceptanceRatio: number | null;
+      insertionRatio: number | null;
+      stopReason: string | null;
+    } | null;
   };
 };
 

@@ -423,6 +423,26 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             label="Zero-offers step observed"
             value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.hadZeroOffersStep ? 'yes' : 'no'}
           />
+          <InspectorRow
+            label="Detail attempts"
+            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.productivity?.detailAttemptedCount ?? 0)}
+          />
+          <InspectorRow
+            label="Catalog candidates"
+            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.productivity?.candidateOffers ?? 0)}
+          />
+          <InspectorRow
+            label="Notebook inserted"
+            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.productivity?.userInsertedOffers ?? 0)}
+          />
+          <InspectorRow
+            label="Acceptance ratio"
+            value={
+              jobSourcesPanel.diagnosticsQuery.data.diagnostics.productivity?.acceptanceRatio == null
+                ? 'n/a'
+                : `${(jobSourcesPanel.diagnosticsQuery.data.diagnostics.productivity.acceptanceRatio * 100).toFixed(1)}%`
+            }
+          />
         </div>
       ) : null}
     </Card>

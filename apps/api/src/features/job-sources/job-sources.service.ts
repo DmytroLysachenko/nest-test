@@ -2955,6 +2955,75 @@ export class JobSourcesService {
                 ),
               }
             : null,
+        productivity: {
+          detailAttemptedCount: Number(diagnostics.detailAttemptedCount ?? 0),
+          candidateOffers: Number(
+            diagnostics.candidateOffers ??
+              (run.progress && typeof run.progress === 'object'
+                ? (run.progress as Record<string, unknown>).candidateOffers
+                : 0) ??
+              0,
+          ),
+          matchedOffers: Number(
+            diagnostics.matchedOffers ??
+              (run.progress && typeof run.progress === 'object'
+                ? (run.progress as Record<string, unknown>).matchedOffers
+                : 0) ??
+              0,
+          ),
+          userInsertedOffers: Number(
+            diagnostics.userInsertedOffers ??
+              (run.progress && typeof run.progress === 'object'
+                ? (run.progress as Record<string, unknown>).userInsertedOffers
+                : 0) ??
+              0,
+          ),
+          degradedAcceptedOffers: Number(
+            diagnostics.degradedAcceptedOffers ?? diagnostics.salvagedOfferCount ?? diagnostics.rejectedOfferCount ?? 0,
+          ),
+          acceptanceRatio:
+            Number(diagnostics.jobLinksDiscovered ?? run.totalFound ?? 0) > 0
+              ? Number(
+                  (
+                    Number(
+                      diagnostics.candidateOffers ??
+                        (run.progress && typeof run.progress === 'object'
+                          ? (run.progress as Record<string, unknown>).candidateOffers
+                          : 0) ??
+                        0,
+                    ) / Number(diagnostics.jobLinksDiscovered ?? run.totalFound ?? 0)
+                  ).toFixed(4),
+                )
+              : null,
+          insertionRatio:
+            Number(
+              diagnostics.candidateOffers ??
+                (run.progress && typeof run.progress === 'object'
+                  ? (run.progress as Record<string, unknown>).candidateOffers
+                  : 0) ??
+                0,
+            ) > 0
+              ? Number(
+                  (
+                    Number(
+                      diagnostics.userInsertedOffers ??
+                        (run.progress && typeof run.progress === 'object'
+                          ? (run.progress as Record<string, unknown>).userInsertedOffers
+                          : 0) ??
+                        0,
+                    ) /
+                    Number(
+                      diagnostics.candidateOffers ??
+                        (run.progress && typeof run.progress === 'object'
+                          ? (run.progress as Record<string, unknown>).candidateOffers
+                          : 0) ??
+                        0,
+                    )
+                  ).toFixed(4),
+                )
+              : null,
+          stopReason: normalizeString(String(diagnostics.detailStopReason ?? '')) ?? null,
+        },
         stats: {
           totalFound: run.totalFound ?? null,
           scrapedCount: run.scrapedCount ?? null,

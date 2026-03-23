@@ -109,6 +109,18 @@ class ScrapeRunDiagnosticsPayloadResponse {
     targetWindowMissed: boolean;
     matchingRejectedMostCandidates: boolean;
   } | null;
+
+  @ApiProperty({ nullable: true, type: Object })
+  productivity!: {
+    detailAttemptedCount: number;
+    candidateOffers: number;
+    matchedOffers: number;
+    userInsertedOffers: number;
+    degradedAcceptedOffers: number;
+    acceptanceRatio: number | null;
+    insertionRatio: number | null;
+    stopReason: string | null;
+  } | null;
 }
 
 class ScrapeRunExecutionStageSummaryResponse {

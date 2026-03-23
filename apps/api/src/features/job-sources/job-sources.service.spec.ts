@@ -616,12 +616,14 @@ describe('JobSourcesService', () => {
     const body = JSON.parse(String(request.body)) as Record<string, unknown>;
     expect(body.source).toBe('pracuj-pl-it');
     expect(body.filters).toMatchObject({
+      location: 'Gdynia',
+      radiusKm: 20,
+    });
+    expect(body.matchingFilters).toMatchObject({
       specializations: ['frontend'],
       workModes: ['home-office'],
       contractTypes: ['3'],
       salaryMin: 18000,
-      location: 'Gdynia',
-      radiusKm: 20,
     });
     expect(result.resolvedFromProfile).toBe(true);
     expect(result.intentFingerprint).toBeDefined();
@@ -1688,6 +1690,11 @@ describe('JobSourcesService', () => {
                         listingUrl: 'https://it.pracuj.pl/praca?its=frontend',
                         totalFound: 12,
                         scrapedCount: 4,
+                        progress: {
+                          candidateOffers: 4,
+                          matchedOffers: 3,
+                          userInsertedOffers: 2,
+                        },
                         completedAt: new Date('2026-02-21T00:00:00.000Z'),
                       },
                     ]),
@@ -1713,6 +1720,12 @@ describe('JobSourcesService', () => {
                               pagesVisited: 3,
                               jobLinksDiscovered: 12,
                               blockedPages: 1,
+                              detailAttemptedCount: 5,
+                              candidateOffers: 4,
+                              matchedOffers: 3,
+                              userInsertedOffers: 2,
+                              salvagedOfferCount: 1,
+                              detailStopReason: 'budget_reached',
                             },
                           }),
                         },
@@ -1803,6 +1816,16 @@ describe('JobSourcesService', () => {
       readyTimedOut: false,
       navigationSucceeded: true,
       failureReason: null,
+    });
+    expect(diagnostics.diagnostics.productivity).toEqual({
+      detailAttemptedCount: 5,
+      candidateOffers: 4,
+      matchedOffers: 3,
+      userInsertedOffers: 2,
+      degradedAcceptedOffers: 1,
+      acceptanceRatio: 0.3333,
+      insertionRatio: 0.5,
+      stopReason: 'budget_reached',
     });
   });
 
