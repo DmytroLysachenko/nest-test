@@ -98,6 +98,9 @@ const WORK_MODE_ALIASES: Record<string, string[]> = {
   mobile: ['mobile', 'field work'],
 };
 
+const hasAnyAlias = (normalizedText: string, aliasesByKey: Record<string, string[]>) =>
+  Object.values(aliasesByKey).some((aliases) => aliases.some((alias) => normalizedText.includes(alias)));
+
 export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: JobContext) => {
   const text = [context.title, context.text, context.location, context.employmentType, context.salaryText]
     .filter(Boolean)
@@ -156,8 +159,10 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
       const aliases = WORK_MODE_ALIASES[mode] ?? [mode];
       return aliases.some((alias) => normalizedText.includes(alias));
     });
-    if (!modes.length) {
+    if (!modes.length && hasAnyAlias(normalizedText, WORK_MODE_ALIASES)) {
       hardViolations.push('workModes');
+    } else if (!modes.length) {
+      softGaps.push('workModes:unspecified');
     }
   }
 
@@ -167,8 +172,10 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
       const aliases = EMPLOYMENT_ALIASES[type] ?? [type];
       return aliases.some((alias) => normalizedText.includes(alias));
     });
-    if (!aliasHits.length) {
+    if (!aliasHits.length && hasAnyAlias(normalizedText, EMPLOYMENT_ALIASES)) {
       hardViolations.push('employmentTypes');
+    } else if (!aliasHits.length) {
+      softGaps.push('employmentTypes:unspecified');
     }
   }
 
