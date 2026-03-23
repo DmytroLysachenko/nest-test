@@ -155,6 +155,23 @@ class ScrapeRunDiagnosticsDto {
   @IsOptional()
   @IsInt()
   @Min(0)
+  detailAttemptedCount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  detailBudget?: number;
+
+  @ApiPropertyOptional({ enum: ['completed', 'budget_reached', 'source_degraded'] })
+  @IsOptional()
+  @IsIn(['completed', 'budget_reached', 'source_degraded'])
+  detailStopReason?: 'completed' | 'budget_reached' | 'source_degraded';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   acceptedOfferCount?: number;
 
   @ApiPropertyOptional()
