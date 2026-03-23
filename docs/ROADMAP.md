@@ -11,6 +11,25 @@ The current direction is to finish turning the repo from a technically capable i
 3. stronger scrape reliability and support diagnostics
 4. safer automation, smoke, and deployment behavior
 
+## Product Guardrails
+
+To avoid chaotic feature work, the roadmap follows these rules:
+
+1. Scraping is infrastructure, not the end product.
+2. The app should win on cross-source workflow quality, not on "we also show listings".
+3. New sources must be added selectively, not aggressively.
+4. Features that reduce user decision time are more valuable than features that only increase listing volume.
+5. Reliability and supportability are part of product scope, not cleanup work.
+
+## Anti-Goals
+
+The project should not drift into:
+
+1. a generic multi-board listing mirror with weak workflow value
+2. source expansion faster than supportability and diagnostics can absorb
+3. large source-specific hacks without durable transport/reliability strategy
+4. product surfaces that duplicate native job-board behavior without improving user outcomes
+
 ## Now (Execution Priority)
 
 1. Frontend productization from internal tooling to user workflow UX.
@@ -34,22 +53,43 @@ The current direction is to finish turning the repo from a technically capable i
 
 ## Next
 
-1. Add cached query/read models for FE cards and dashboard widgets.
-   - Status: in progress (workspace summary now includes next-action/activity/health plus recovery guidance; notebook summary read model now also ships server-driven quick actions for quick triage).
-2. Improve deterministic ranking calibration (mode thresholds + penalty tuning).
-   - Status: in progress (trust-first matcher now includes stronger ambiguity/context penalties and improved employment alias handling).
-3. Add score-explanation audit export for support/debug workflows.
-   - Status: completed (`/api/job-matching/audit` + `/api/job-matching/audit/export.csv` backed by persisted `job_matches.match_meta`).
-4. Expand diagnostics aggregation for long-running scrape history.
-   - Status: in progress (optional timeline buckets + lifecycle counters added to diagnostics summary; filtered run history, CSV export, source health summary, and catalog summary/rematch ops endpoints now shipped).
+1. Make notebook/action workflow clearly better than native boards.
+   - Scope:
+     - follow-up and reminder reliability
+     - stronger "today's focus" / "needs attention" queues
+     - richer application prep and next-step support
+     - explicit hidden/degraded result messaging
+   - Status: in progress.
+2. Tighten scrape output usefulness, not just scrape completion.
+   - Scope:
+     - better degraded-result handling
+     - stronger salvage rules
+     - clearer zero-result vs blocked-result semantics
+     - better run-to-notebook linking visibility
+   - Status: in progress.
+3. Improve deterministic ranking calibration and cross-source trust handling.
+   - Scope:
+     - mode thresholds + penalty tuning
+     - explanation quality
+     - stronger handling of incomplete source metadata
+   - Status: in progress.
+4. Expand diagnostics and source-health aggregation for long-running scrape history.
+   - Status: in progress (timeline buckets, lifecycle counters, run/export surfaces, transport/browser diagnostics shipped).
 5. Extend document diagnostics with percentile timing metrics per stage (upload/confirm/extract).
-   - Status: in progress (`document_stage_metrics` + `/api/documents/diagnostics/summary` added; extraction retry endpoints and explicit retry outcome summaries shipped to improve user recovery path).
+   - Status: in progress (`document_stage_metrics` + `/api/documents/diagnostics/summary` added; extraction retry endpoints and explicit retry outcome summaries shipped).
 6. Persist user notebook operating preferences across sessions/devices.
    - Status: completed (`/api/job-offers/preferences` + web hydration/persistence shipped).
 
 ## Later
 
-1. Multi-source ingestion beyond Pracuj (source adapters).
+1. Selective multi-source ingestion beyond Pracuj.
+   - Add a source only if:
+     - it adds meaningful unique supply
+     - transport/reliability path looks maintainable
+     - support/debug cost is acceptable
+   - Suggested order:
+     - relatively structured local boards first
+     - high-friction sources like LinkedIn only after stronger proof that the product value is already real
 2. Async extraction/profile generation queue (cloud tasks in production).
 3. Observability stack:
    - metrics
@@ -62,12 +102,22 @@ The current direction is to finish turning the repo from a technically capable i
 
 1. Workflow completion
    - remove remaining dead ends in onboarding, recovery, notebook, and schedule UX
-2. Reliability and supportability
-   - improve scrape/source observability, startup stability, and operator diagnostics
-3. Assistant quality
-   - improve triage, prioritization, and prep/follow-up outcomes users get from the product
+2. Workflow differentiation
+   - improve triage, prioritization, follow-up, and prep outcomes enough that native boards are not an obvious substitute
+3. Reliability and supportability
+   - improve scrape/source observability, startup stability, operator diagnostics, and source-health controls
 4. Platform hardening
    - move fragile local/in-memory assumptions toward production-safe background execution and deployment
+
+## Source Expansion Policy
+
+Before implementing a new adapter, require:
+
+1. one clear user-value reason for the source
+2. one expected acquisition strategy (`http-only`, `http-first`, `hybrid`, or `browser-first`)
+3. one support/debug plan for blocked/degraded outcomes
+4. smoke-testable local fixtures for the parser
+5. no silent product assumption that "more sources automatically means more value"
 
 ## Near-Term Sprint Sequence
 

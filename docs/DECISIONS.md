@@ -2,6 +2,17 @@
 
 ADR-lite log for major architectural and contract decisions.
 
+## 2026-03-22: Scraping Is Acquisition Infrastructure, Not The Product
+
+- Decision:
+  - Treat scraping as a source-acquisition layer, not as the application's primary user value.
+  - Prioritize notebook workflow, ranking, deduplication, follow-up, and application support over raw source count.
+  - Add new sources selectively and only when maintainability and supportability are acceptable.
+- Why:
+  - A product that only mirrors listings from external boards is strategically weak.
+  - Each additional source increases parser, anti-bot, support, and ops cost.
+  - The app becomes defensible only if it helps users act better across sources than native platforms do individually.
+
 ## 2026-02-21: Canonical Career Profile Schema
 
 - Decision:
