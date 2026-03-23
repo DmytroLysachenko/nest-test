@@ -29,11 +29,11 @@ const PipelineColumn = ({
   onMove,
   nextStatus,
 }: PipelineColumnProps) => (
-  <div className="flex flex-col gap-4">
+  <div className="bg-surface-elevated/88 flex flex-col gap-4 rounded-[1.55rem] p-4 shadow-[0_14px_34px_-24px_color-mix(in_oklab,var(--text-strong)_12%,transparent)]">
     <div className="flex items-center gap-2 px-1">
       <div className="text-primary/60">{icon}</div>
       <h3 className="text-text-strong font-semibold">{title}</h3>
-      <span className="text-text-soft bg-surface-muted border-border/50 ml-auto rounded-full border px-2 py-0.5 text-xs font-medium">
+      <span className="text-text-soft bg-surface-muted ml-auto rounded-full px-2 py-0.5 text-xs font-medium">
         {offers.length}
       </span>
     </div>
@@ -43,17 +43,17 @@ const PipelineColumn = ({
         offers.map((offer) => (
           <div
             key={offer.id}
-            className={`group relative w-full rounded-2xl border p-3 text-left transition-all duration-200 ${
+            className={`group relative w-full rounded-[1.25rem] p-3 text-left transition-all duration-200 ${
               selectedId === offer.id
-                ? 'border-primary/50 bg-primary/5 shadow-sm'
-                : 'border-border/60 bg-surface/80 hover:border-primary/30 hover:shadow-sm'
+                ? 'bg-[linear-gradient(135deg,color-mix(in_oklab,var(--primary)_8%,white),color-mix(in_oklab,var(--surface-elevated)_72%,transparent))] shadow-sm'
+                : 'bg-surface-muted/70 hover:shadow-sm'
             }`}
           >
             <button type="button" className="w-full text-left" onClick={() => onSelect(offer.id)}>
               <p className="text-text-strong mb-1 truncate text-xs font-bold">{offer.title}</p>
               <p className="text-text-soft truncate text-[10px]">{offer.company}</p>
               <div className="mt-2 flex items-center justify-between">
-                <span className="bg-surface-elevated border-border/40 rounded border px-1.5 py-0.5 text-[10px] font-medium">
+                <span className="bg-surface-elevated rounded px-1.5 py-0.5 text-[10px] font-medium">
                   {offer.matchScore ?? '??'}%
                 </span>
                 {offer.followUpState && offer.followUpState !== 'none' ? (

@@ -143,7 +143,7 @@ export const NotebookOfferDetailsCard = ({
   return (
     <Card title="Offer details" description={offer.title}>
       <div className="space-y-4 text-sm">
-        <div className="app-muted-panel space-y-2">
+        <div className="app-inset-stack space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="app-badge border-primary/20 bg-primary/5 text-primary">{offer.status}</span>
             <span className="app-badge">Score {offer.matchScore ?? 'n/a'}</span>
@@ -167,7 +167,7 @@ export const NotebookOfferDetailsCard = ({
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="app-muted-panel space-y-2">
+          <div className="app-inset-stack space-y-2">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Action plan</p>
             <p className="text-text-strong text-sm font-semibold">{followUpSummary}</p>
             {nextStep ? <p className="text-text-soft text-sm">Next step: {nextStep}</p> : null}
@@ -175,7 +175,7 @@ export const NotebookOfferDetailsCard = ({
               <p className="text-text-soft text-sm">Scheduled for: {new Date(followUpAt).toLocaleString()}</p>
             ) : null}
           </div>
-          <div className="app-muted-panel space-y-2">
+          <div className="app-inset-stack space-y-2">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Prep context</p>
             {contactName ? <p className="text-text-soft text-sm">Contact: {contactName}</p> : null}
             {applicationUrl ? (
@@ -197,7 +197,7 @@ export const NotebookOfferDetailsCard = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
+        <div className="bg-surface-muted/66 flex flex-wrap gap-1.5 rounded-[1.2rem] p-2">
           {STATUSES.map((status) => (
             <Button
               key={status}
@@ -219,7 +219,7 @@ export const NotebookOfferDetailsCard = ({
         </div>
 
         {['APPLIED', 'INTERVIEWING', 'OFFER', 'REJECTED'].includes(offer.status) && (
-          <div className="space-y-3">
+          <div className="app-inset-stack space-y-3">
             <div className="grid gap-3 md:grid-cols-2">
               <div className="app-field-group">
                 <Label htmlFor="follow-up-at" className="app-inline-label">

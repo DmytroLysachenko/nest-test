@@ -8,7 +8,7 @@ import { NotebookOfferDetailsCard } from '@/features/job-offers/ui/components/no
 import { NotebookOffersListCard } from '@/features/job-offers/ui/components/notebook-offers-list-card';
 import { NotebookPipelineCard } from '@/features/job-offers/ui/components/notebook-pipeline-card';
 import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
-import { HeroHeader } from '@/shared/ui/dashboard-primitives';
+import { HeroHeader, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { GuidancePanel } from '@/shared/ui/guidance-panels';
 import { Button } from '@/shared/ui/button';
 
@@ -96,7 +96,7 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
         onAutoArchive={notebook.autoArchive}
       />
 
-      <div className="relative grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,1fr)]">
+      <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.9fr)]">
         <div className={notebook.selectedId ? 'hidden xl:block' : 'block'}>
           {notebook.listQuery.isLoading ? (
             <SectionLoadingState title="Offers" description="Loading notebook data..." rows={7} />
@@ -161,54 +161,64 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
               </Button>
             </div>
           )}
-          <NotebookOfferDetailsCard
-            offer={notebook.selectedOffer}
-            history={notebook.historyQuery.data}
-            historyError={notebook.historyError}
-            updatedAt={notebook.listQuery.dataUpdatedAt}
-            isBusy={notebook.isBusy}
-            onStatusChange={(status) => {
-              if (!notebook.selectedOffer) {
-                return;
-              }
-              notebook.updateStatus({ id: notebook.selectedOffer.id, status });
-            }}
-            onSaveMeta={(notes, tags) => {
-              if (!notebook.selectedOffer) {
-                return;
-              }
-              notebook.updateMeta({ id: notebook.selectedOffer.id, notes, tags });
-            }}
-            onSavePipeline={(pipelineMeta) => {
-              if (!notebook.selectedOffer) {
-                return;
-              }
-              notebook.updatePipeline({ id: notebook.selectedOffer.id, pipelineMeta });
-            }}
-            onRescore={() => {
-              if (!notebook.selectedOffer) {
-                return;
-              }
-              notebook.rescore({ id: notebook.selectedOffer.id });
-            }}
-            onSaveFeedback={(score, notes) => {
-              if (!notebook.selectedOffer) {
-                return;
-              }
-              notebook.updateFeedback({
-                id: notebook.selectedOffer.id,
-                aiFeedbackScore: score,
-                aiFeedbackNotes: notes,
-              });
-            }}
-            onGeneratePrep={(instructions) => {
-              if (!notebook.selectedOffer) {
-                return;
-              }
-              notebook.generatePrep({ id: notebook.selectedOffer.id, instructions });
-            }}
-            isGeneratingPrep={notebook.isGeneratingPrep}
-          />
+          <UtilityRail
+            title={notebook.selectedOffer ? 'Offer workspace' : 'Details rail'}
+            description={
+              notebook.selectedOffer
+                ? 'Keep the selected offer, fit context, and next action in one quieter side workspace.'
+                : 'Select an offer to open notes, fit reasoning, and pipeline controls.'
+            }
+            className="bg-transparent p-0"
+          >
+            <NotebookOfferDetailsCard
+              offer={notebook.selectedOffer}
+              history={notebook.historyQuery.data}
+              historyError={notebook.historyError}
+              updatedAt={notebook.listQuery.dataUpdatedAt}
+              isBusy={notebook.isBusy}
+              onStatusChange={(status) => {
+                if (!notebook.selectedOffer) {
+                  return;
+                }
+                notebook.updateStatus({ id: notebook.selectedOffer.id, status });
+              }}
+              onSaveMeta={(notes, tags) => {
+                if (!notebook.selectedOffer) {
+                  return;
+                }
+                notebook.updateMeta({ id: notebook.selectedOffer.id, notes, tags });
+              }}
+              onSavePipeline={(pipelineMeta) => {
+                if (!notebook.selectedOffer) {
+                  return;
+                }
+                notebook.updatePipeline({ id: notebook.selectedOffer.id, pipelineMeta });
+              }}
+              onRescore={() => {
+                if (!notebook.selectedOffer) {
+                  return;
+                }
+                notebook.rescore({ id: notebook.selectedOffer.id });
+              }}
+              onSaveFeedback={(score, notes) => {
+                if (!notebook.selectedOffer) {
+                  return;
+                }
+                notebook.updateFeedback({
+                  id: notebook.selectedOffer.id,
+                  aiFeedbackScore: score,
+                  aiFeedbackNotes: notes,
+                });
+              }}
+              onGeneratePrep={(instructions) => {
+                if (!notebook.selectedOffer) {
+                  return;
+                }
+                notebook.generatePrep({ id: notebook.selectedOffer.id, instructions });
+              }}
+              isGeneratingPrep={notebook.isGeneratingPrep}
+            />
+          </UtilityRail>
         </div>
       </div>
     </main>
