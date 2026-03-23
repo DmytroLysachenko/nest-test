@@ -212,6 +212,37 @@ Use run diagnostics and events before reading raw service logs.
    - This is typically acquisition underreach, not worker failure.
    - Compare broad acquisition filters with post-scrape matching rules before tightening the notebook.
 
+## Healthy Run, Low Output Checklist
+
+Use this flow before changing scraper code randomly:
+
+1. Check `diagnostics.queryPlan`.
+   - If `targetWindowMissed=true` or `listingCountTooLow=true`, fix acquisition breadth first.
+2. Check `diagnostics.productivity`.
+   - `candidateOffers` low: acquisition or normalization is underperforming.
+   - `candidateOffers` healthy but `userInsertedOffers` low: inspect matching and notebook strictness.
+   - `detailAttemptedCount` low with `stopReason=budget_reached`: tune detail budget or fetch ordering.
+3. Check `hiddenByModeCount` and `degradedResultCount` in notebook responses.
+   - Empty UI can still mean usable but strict-hidden or degraded results exist.
+4. Check catalog quality reasons.
+   - Prefer improving low-context/detail quality before widening notebook insertion rules.
+5. Only after the above, change matcher penalties or salvage thresholds.
+
+## Scrape Productivity Knobs
+
+1. API:
+   - `SCRAPE_ADAPTIVE_QUERY_TARGET_MIN`
+   - `SCRAPE_ADAPTIVE_QUERY_TARGET_MAX`
+2. Worker:
+   - per-source detail budgets from adaptive planner output
+   - transport policy (`http-only`, `http-first`, `hybrid`, `browser-first`)
+3. Debugging signals to compare after a deploy:
+   - `queryPlan.selectedStage`
+   - `queryPlan.selectedCount`
+   - `productivity.acceptanceRatio`
+   - `productivity.insertionRatio`
+   - `browserSummary.failureReason` when fallback was needed
+
 ## Hook Bypass Policy
 
 1. Do not use `--no-verify` for routine commits or pushes.
