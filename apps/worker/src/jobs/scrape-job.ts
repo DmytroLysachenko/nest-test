@@ -71,6 +71,9 @@ type CallbackPayload = {
         stage: string;
         listingUrl: string;
         listingCount: number;
+        blockedCount: number;
+        recommendedCount: number;
+        summaryCount: number;
       }>;
       targetWindowMissed: boolean;
       scarcityReason?: 'listing_count_too_low' | 'listing_count_too_high' | null;
@@ -810,7 +813,14 @@ export const runScrapeJob = async (
       targetMax: number;
       selectedStage: string;
       selectedCount: number;
-      attempts: Array<{ stage: string; listingUrl: string; listingCount: number }>;
+      attempts: Array<{
+        stage: string;
+        listingUrl: string;
+        listingCount: number;
+        blockedCount: number;
+        recommendedCount: number;
+        summaryCount: number;
+      }>;
       targetWindowMissed: boolean;
       scarcityReason?: 'listing_count_too_low' | 'listing_count_too_high' | null;
     } | null = null;
@@ -846,6 +856,9 @@ export const runScrapeJob = async (
             },
           });
           const listingCount = probe.crawlResult.jobLinks.length;
+          const blockedCount = probe.crawlResult.blockedUrls.length;
+          const recommendedCount = probe.crawlResult.recommendedJobLinks.length;
+          const summaryCount = probe.crawlResult.listingSummaries.length;
           await emitExecutionEvent(
             'listing_probe',
             listingCount >= targetWindow.min && listingCount <= targetWindow.max ? 'success' : 'warning',
@@ -855,11 +868,17 @@ export const runScrapeJob = async (
               stage,
               listingUrl: probeListingUrl,
               listingCount,
-              recommendedCount: probe.crawlResult.recommendedJobLinks.length,
-              blockedPages: probe.crawlResult.blockedUrls.length,
+              recommendedCount,
+              blockedPages: blockedCount,
+              summaryCount,
             },
           );
-          return listingCount;
+          return {
+            listingCount,
+            blockedCount,
+            recommendedCount,
+            summaryCount,
+          };
         },
       });
       activeFilters = adaptivePlan.selectedFilters;

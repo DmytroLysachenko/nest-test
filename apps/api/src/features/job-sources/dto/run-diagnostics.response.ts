@@ -90,7 +90,14 @@ class ScrapeRunDiagnosticsPayloadResponse {
     targetMax: number;
     selectedStage: string;
     selectedCount: number;
-    attempts: Array<{ stage: string; listingUrl: string; listingCount: number }>;
+    attempts: Array<{
+      stage: string;
+      listingUrl: string;
+      listingCount: number;
+      blockedCount: number;
+      recommendedCount: number;
+      summaryCount: number;
+    }>;
     targetWindowMissed: boolean;
     scarcityReason: string | null;
   } | null;

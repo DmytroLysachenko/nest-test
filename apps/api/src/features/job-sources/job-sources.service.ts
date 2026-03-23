@@ -2895,6 +2895,9 @@ export class JobSourcesService {
                         stage: normalizeString(String(item.stage ?? '')) ?? 'unknown',
                         listingUrl: normalizeString(String(item.listingUrl ?? '')) ?? '',
                         listingCount: Number(item.listingCount ?? 0),
+                        blockedCount: Number(item.blockedCount ?? 0),
+                        recommendedCount: Number(item.recommendedCount ?? 0),
+                        summaryCount: Number(item.summaryCount ?? 0),
                       }),
                     )
                   : [],

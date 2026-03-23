@@ -4,6 +4,9 @@ export type AdaptiveQueryAttempt = {
   stage: string;
   listingUrl: string;
   listingCount: number;
+  blockedCount: number;
+  recommendedCount: number;
+  summaryCount: number;
 };
 
 export type AdaptiveQueryWindow = {
@@ -16,7 +19,15 @@ type PlannerInput = {
   acquisitionFilters: ScrapeFilters;
   matchingFilters?: ScrapeFilters;
   buildListingUrl: (filters: ScrapeFilters) => string;
-  probeListingCount: (filters: ScrapeFilters, stage: string) => Promise<number>;
+  probeListingCount: (
+    filters: ScrapeFilters,
+    stage: string,
+  ) => Promise<{
+    listingCount: number;
+    blockedCount: number;
+    recommendedCount: number;
+    summaryCount: number;
+  }>;
   targetWindow: AdaptiveQueryWindow;
 };
 
@@ -152,6 +163,19 @@ const scoreWindowDistance = (count: number, targetWindow: AdaptiveQueryWindow) =
   return count - targetWindow.max;
 };
 
+const computeQualityPenalty = (
+  attempt: Pick<AdaptiveQueryAttempt, 'listingCount' | 'blockedCount' | 'recommendedCount' | 'summaryCount'>,
+) => {
+  const listingCount = Math.max(1, attempt.listingCount);
+  const blockedRate = attempt.blockedCount / listingCount;
+  const recommendedRate = attempt.recommendedCount / listingCount;
+  const weakSummaryPenalty = attempt.summaryCount === 0 && listingCount > 0 ? 4 : 0;
+  return blockedRate * 40 + recommendedRate * 15 + weakSummaryPenalty;
+};
+
+const scoreAttempt = (attempt: AdaptiveQueryAttempt, targetWindow: AdaptiveQueryWindow) =>
+  scoreWindowDistance(attempt.listingCount, targetWindow) + computeQualityPenalty(attempt);
+
 export const planPracujAdaptiveQuery = async ({
   source,
   acquisitionFilters,
@@ -163,26 +187,27 @@ export const planPracujAdaptiveQuery = async ({
   const attempts: AdaptiveQueryAttempt[] = [];
   const tryStage = async (stage: string, filters: ScrapeFilters) => {
     const listingUrl = buildListingUrl(filters);
-    const listingCount = await probeListingCount(filters, stage);
-    attempts.push({ stage, listingUrl, listingCount });
-    return { stage, filters, listingUrl, listingCount };
+    const result = await probeListingCount(filters, stage);
+    const attempt = {
+      stage,
+      filters,
+      listingUrl,
+      listingCount: result.listingCount,
+      blockedCount: result.blockedCount,
+      recommendedCount: result.recommendedCount,
+      summaryCount: result.summaryCount,
+    };
+    attempts.push(attempt);
+    return attempt;
   };
 
   const narrowingStages = buildNarrowingStages(source, acquisitionFilters, matchingFilters);
   let selected = await tryStage(narrowingStages[0]!.stage, narrowingStages[0]!.filters);
 
   for (const stage of narrowingStages.slice(1)) {
-    if (selected.listingCount <= targetWindow.max) {
-      break;
-    }
     const candidate = await tryStage(stage.stage, stage.filters);
-    selected =
-      scoreWindowDistance(candidate.listingCount, targetWindow) <=
-      scoreWindowDistance(selected.listingCount, targetWindow)
-        ? candidate
-        : selected;
-    if (isWithinWindow(candidate.listingCount, targetWindow)) {
-      selected = candidate;
+    selected = scoreAttempt(candidate, targetWindow) <= scoreAttempt(selected, targetWindow) ? candidate : selected;
+    if (selected.listingCount < targetWindow.min && candidate.listingCount < targetWindow.min) {
       break;
     }
   }
@@ -190,10 +215,7 @@ export const planPracujAdaptiveQuery = async ({
   if (selected.listingCount < targetWindow.min) {
     for (const stage of buildBroadeningStages(selected.filters)) {
       const candidate = await tryStage(stage.stage, stage.filters);
-      if (
-        scoreWindowDistance(candidate.listingCount, targetWindow) <=
-        scoreWindowDistance(selected.listingCount, targetWindow)
-      ) {
+      if (scoreAttempt(candidate, targetWindow) <= scoreAttempt(selected, targetWindow)) {
         selected = candidate;
       }
       if (isWithinWindow(candidate.listingCount, targetWindow)) {
