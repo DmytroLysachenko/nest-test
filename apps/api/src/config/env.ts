@@ -67,6 +67,8 @@ export const EnvSchema = z.object({
   SCRAPE_SOURCE_FAILURE_WINDOW_RUNS: z.coerce.number().int().min(1).max(50).default(5),
   SCRAPE_SOURCE_FAILURE_THRESHOLD: z.coerce.number().int().min(1).max(50).default(3),
   SCRAPE_SOURCE_AUTOMATION_BACKOFF_MINUTES: z.coerce.number().int().min(1).max(1440).default(30),
+  SCRAPE_ADAPTIVE_QUERY_TARGET_MIN: z.coerce.number().int().min(1).max(100).default(20),
+  SCRAPE_ADAPTIVE_QUERY_TARGET_MAX: z.coerce.number().int().min(1).max(150).default(40),
   SCHEDULER_AUTH_TOKEN: z.string().optional(),
   SCHEDULER_TRIGGER_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(20),
   OPS_INTERNAL_TOKEN: z.string().optional(),
@@ -155,6 +157,10 @@ export const validateEnv = (env: Record<string, unknown>): Env => {
 
   if (parsed.data.NODE_ENV === 'production' && parsed.data.WORKER_TASK_PROVIDER !== 'cloud-tasks') {
     throw new Error('WORKER_TASK_PROVIDER must be cloud-tasks in production mode');
+  }
+
+  if (parsed.data.SCRAPE_ADAPTIVE_QUERY_TARGET_MIN > parsed.data.SCRAPE_ADAPTIVE_QUERY_TARGET_MAX) {
+    throw new Error('SCRAPE_ADAPTIVE_QUERY_TARGET_MIN cannot be greater than SCRAPE_ADAPTIVE_QUERY_TARGET_MAX');
   }
 
   if (parsed.data.WORKER_TASK_PROVIDER === 'cloud-tasks') {

@@ -4,6 +4,7 @@ import { classifyScrapeOutcome } from '@repo/db';
 
 import { persistDeadLetter } from './callback-dead-letter';
 import { resolveOutboundAuthorizationHeader } from './oidc-auth';
+import { planPracujAdaptiveQuery } from './pracuj-adaptive-query-planner';
 import { relaxPracujFiltersOnce } from './pracuj-filter-relaxation';
 import { resolvePipeline, runPipeline } from './scrape-pipelines';
 import { appendScrapeExecutionEvent } from '../db/scrape-execution-events';
@@ -61,6 +62,31 @@ type CallbackPayload = {
     sourceQuality?: ScrapeSourceQuality;
     classifiedOutcome?: ScrapeClassifiedOutcome;
     failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed';
+    detailAttemptedCount?: number;
+    detailBudget?: number | null;
+    detailStopReason?: 'completed' | 'budget_reached' | 'source_degraded';
+    queryPlan?: {
+      targetMin: number;
+      targetMax: number;
+      selectedStage: string;
+      selectedCount: number;
+      attempts: Array<{
+        stage: string;
+        listingUrl: string;
+        listingCount: number;
+        blockedCount: number;
+        recommendedCount: number;
+        summaryCount: number;
+      }>;
+      targetWindowMissed: boolean;
+      scarcityReason?: 'listing_count_too_low' | 'listing_count_too_high' | null;
+    };
+    scarcity?: {
+      listingCountTooLow: boolean;
+      listingCountTooHigh: boolean;
+      targetWindowMissed: boolean;
+      matchingRejectedMostCandidates: boolean;
+    };
   };
 };
 
@@ -784,6 +810,109 @@ export const runScrapeJob = async (
     let relaxReason: string | null = null;
     const relaxationTrail: string[] = [];
     let hadZeroOffersStep = false;
+    let totalDetailAttemptedCount = 0;
+    let lastDetailBudget: number | null = null;
+    let lastDetailStopReason: 'completed' | 'budget_reached' | 'source_degraded' = 'completed';
+    const targetWindow = payload.adaptiveQueryWindow ?? { min: 20, max: 40 };
+    let queryPlan: {
+      targetMin: number;
+      targetMax: number;
+      selectedStage: string;
+      selectedCount: number;
+      attempts: Array<{
+        stage: string;
+        listingUrl: string;
+        listingCount: number;
+        blockedCount: number;
+        recommendedCount: number;
+        summaryCount: number;
+      }>;
+      targetWindowMissed: boolean;
+      scarcityReason?: 'listing_count_too_low' | 'listing_count_too_high' | null;
+    } | null = null;
+
+    if (isPracujSource(payload.source) && activeFilters) {
+      const adaptivePlan = await planPracujAdaptiveQuery({
+        source: payload.source,
+        acquisitionFilters: activeFilters,
+        matchingFilters: payload.matchingFilters,
+        buildListingUrl: pipeline.buildListingUrl,
+        targetWindow,
+        probeListingCount: async (filters, stage) => {
+          const probeListingUrl = pipeline.buildListingUrl(filters);
+          await emitExecutionEvent('listing_probe', 'info', 'Listing probe started', 'LISTING_PROBE_STARTED', {
+            stage,
+            listingUrl: probeListingUrl,
+            filters,
+          });
+          const probe = await runPipeline(payload.source, {
+            headless: options.headless,
+            listingUrl: probeListingUrl,
+            limit: targetWindow.max + 5,
+            logger,
+            options: {
+              listingDelayMs: options.listingDelayMs,
+              listingCooldownMs: 0,
+              detailDelayMs: options.detailDelayMs,
+              listingOnly: true,
+              detailHost: options.detailHost,
+              detailCookiesPath: options.detailCookiesPath,
+              detailHumanize: false,
+              profileDir: options.profileDir,
+            },
+          });
+          const listingCount = probe.crawlResult.jobLinks.length;
+          const blockedCount = probe.crawlResult.blockedUrls.length;
+          const recommendedCount = probe.crawlResult.recommendedJobLinks.length;
+          const summaryCount = probe.crawlResult.listingSummaries.length;
+          await emitExecutionEvent(
+            'listing_probe',
+            listingCount >= targetWindow.min && listingCount <= targetWindow.max ? 'success' : 'warning',
+            'Listing probe completed',
+            'LISTING_PROBE_COMPLETED',
+            {
+              stage,
+              listingUrl: probeListingUrl,
+              listingCount,
+              recommendedCount,
+              blockedPages: blockedCount,
+              summaryCount,
+            },
+          );
+          return {
+            listingCount,
+            blockedCount,
+            recommendedCount,
+            summaryCount,
+          };
+        },
+      });
+      activeFilters = adaptivePlan.selectedFilters;
+      attemptListingUrl = adaptivePlan.selectedListingUrl;
+      queryPlan = {
+        targetMin: targetWindow.min,
+        targetMax: targetWindow.max,
+        selectedStage: adaptivePlan.selectedStage,
+        selectedCount: adaptivePlan.selectedCount,
+        attempts: adaptivePlan.attempts,
+        targetWindowMissed: adaptivePlan.targetWindowMissed,
+        scarcityReason: adaptivePlan.scarcityReason,
+      };
+      await emitExecutionEvent(
+        'listing_probe',
+        adaptivePlan.targetWindowMissed ? 'warning' : 'success',
+        'Adaptive query plan selected',
+        'LISTING_PLAN_SELECTED',
+        {
+          selectedStage: adaptivePlan.selectedStage,
+          selectedCount: adaptivePlan.selectedCount,
+          targetWindow,
+          targetWindowMissed: adaptivePlan.targetWindowMissed,
+          scarcityReason: adaptivePlan.scarcityReason,
+          selectedListingUrl: adaptivePlan.selectedListingUrl,
+        },
+      );
+    }
 
     for (let attempt = 1; attempt <= maxRelaxationAttempts; attempt += 1) {
       attemptsExecuted = attempt;
@@ -840,6 +969,10 @@ export const runScrapeJob = async (
           detailCookiesPath: options.detailCookiesPath,
           detailHumanize: options.detailHumanize,
           profileDir: options.profileDir,
+          detailBudget:
+            attempt === 1
+              ? Math.max(requestedLimit, Math.min(targetWindow.max, Math.max(targetWindow.min, requestedLimit * 2)))
+              : undefined,
           skipUrls,
           skipResolver: (urls: string[]) =>
             loadFreshOfferUrls(options.databaseUrl, 'PRACUJ_PL', urls, options.detailCacheHours ?? 24),
@@ -921,6 +1054,8 @@ export const runScrapeJob = async (
         pagesVisited: crawlResult.pages.length,
         jobLinksDiscovered: crawlResult.jobLinks.length,
         blockedPages: crawlResult.blockedUrls.length,
+        detailAttemptedCount: crawlResult.detailAttemptedCount,
+        detailStopReason: crawlResult.detailStopReason,
         durationMs: Date.now() - listingFetchStartedAt,
       });
       await emitHeartbeat(
@@ -933,6 +1068,9 @@ export const runScrapeJob = async (
       listingHtml = crawlResult.listingHtml;
       listingData = crawlResult.listingData;
       listingSummaries = crawlResult.listingSummaries;
+      totalDetailAttemptedCount += crawlResult.detailAttemptedCount;
+      lastDetailBudget = crawlResult.detailBudget;
+      lastDetailStopReason = crawlResult.detailStopReason;
       crawlResult.jobLinks.forEach((url) => aggregatedJobLinks.add(url));
       crawlResult.recommendedJobLinks.forEach((url) => aggregatedRecommendedLinks.add(url));
       crawlResult.blockedUrls.forEach((url) => aggregatedBlockedUrls.push(url));
@@ -1040,6 +1178,13 @@ export const runScrapeJob = async (
       emptyReason,
       scrapedCount: sanitizedJobs.length,
     });
+    const scarcity = {
+      listingCountTooLow: Boolean(queryPlan?.scarcityReason === 'listing_count_too_low'),
+      listingCountTooHigh: Boolean(queryPlan?.scarcityReason === 'listing_count_too_high'),
+      targetWindowMissed: Boolean(queryPlan?.targetWindowMissed),
+      matchingRejectedMostCandidates:
+        assessedJobs.rejectedOfferCount > assessedJobs.acceptedOfferCount && aggregatedJobLinks.size > 0,
+    };
     const normalizationStartedAt = Date.now();
     const outputPath = await saveOutput(
       {
@@ -1094,6 +1239,9 @@ export const runScrapeJob = async (
             aggregatedJobLinks.size - aggregatedPages.length - aggregatedBlockedUrls.length,
           ),
           blockedPages: aggregatedBlockedUrls.length,
+          detailAttemptedCount: totalDetailAttemptedCount,
+          detailBudget: lastDetailBudget,
+          detailStopReason: lastDetailStopReason,
           hadZeroOffersStep,
           attemptCount: attemptsExecuted,
           adaptiveDelayApplied,
@@ -1103,6 +1251,8 @@ export const runScrapeJob = async (
           emptyReason,
           sourceQuality,
           classifiedOutcome,
+          queryPlan,
+          scarcity,
         },
       });
       const callbackPayload = {

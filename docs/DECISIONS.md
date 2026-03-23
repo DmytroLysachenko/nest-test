@@ -13,6 +13,20 @@ ADR-lite log for major architectural and contract decisions.
   - Each additional source increases parser, anti-bot, support, and ops cost.
   - The app becomes defensible only if it helps users act better across sources than native platforms do individually.
 
+## 2026-03-23: Adaptive Broad-Acquisition Query Planning For Pracuj
+
+- Decision:
+  - Stop deriving narrow source queries directly from the full candidate profile.
+  - Split scrape intent into:
+    - broad acquisition filters for source query planning
+    - richer matching filters for post-scrape ranking, notebook gating, and optional adaptive narrowing
+  - For Pracuj, target a listing window of roughly `20-40` candidates before detail fetch begins.
+  - Keep catalog ingestion broader than notebook projection.
+- Why:
+  - Exact-profile source queries were returning too few listings while still producing "healthy" scrape runs.
+  - A shared catalog benefits from broader acquisition even when strict notebook mode remains conservative.
+  - Adaptive probing makes under-fetching explainable and reduces dependence on brittle keyword-first source queries.
+
 ## 2026-02-21: Canonical Career Profile Schema
 
 - Decision:

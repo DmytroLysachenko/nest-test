@@ -154,7 +154,7 @@ export class JobOffersService {
           followUpState: resolveFollowUpState(item.status, item.pipelineMeta, followUpNow),
           __createdAtMs: new Date(item.createdAt).getTime(),
           __include: ranking.include,
-          __isDegradedSource: item.qualityReason === 'listing_salvage',
+          __isDegradedSource: item.qualityReason === 'listing_salvage' || item.qualityReason === 'low_context',
         };
       })
       .filter((item) => {

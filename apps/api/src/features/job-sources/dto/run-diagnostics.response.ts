@@ -83,6 +83,44 @@ class ScrapeRunDiagnosticsPayloadResponse {
 
   @ApiProperty({ type: ScrapeRunDiagnosticsStatsResponse })
   stats!: ScrapeRunDiagnosticsStatsResponse;
+
+  @ApiProperty({ nullable: true, type: Object })
+  queryPlan!: {
+    targetMin: number;
+    targetMax: number;
+    selectedStage: string;
+    selectedCount: number;
+    attempts: Array<{
+      stage: string;
+      listingUrl: string;
+      listingCount: number;
+      blockedCount: number;
+      recommendedCount: number;
+      summaryCount: number;
+    }>;
+    targetWindowMissed: boolean;
+    scarcityReason: string | null;
+  } | null;
+
+  @ApiProperty({ nullable: true, type: Object })
+  scarcity!: {
+    listingCountTooLow: boolean;
+    listingCountTooHigh: boolean;
+    targetWindowMissed: boolean;
+    matchingRejectedMostCandidates: boolean;
+  } | null;
+
+  @ApiProperty({ nullable: true, type: Object })
+  productivity!: {
+    detailAttemptedCount: number;
+    candidateOffers: number;
+    matchedOffers: number;
+    userInsertedOffers: number;
+    degradedAcceptedOffers: number;
+    acceptanceRatio: number | null;
+    insertionRatio: number | null;
+    stopReason: string | null;
+  } | null;
 }
 
 class ScrapeRunExecutionStageSummaryResponse {

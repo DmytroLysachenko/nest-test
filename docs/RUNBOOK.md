@@ -135,6 +135,7 @@ Canonical environment inventory:
      docker build -f apps/worker/Dockerfile -t nest-test-worker .
      docker run --rm nest-test-worker pnpm --filter worker browser:probe
      ```
+   - Adaptive planner and listing-probe coverage runs in the same worker test suite.
 3. Web checks:
    - `pnpm --filter web check-types`
    - `pnpm --filter web test`
@@ -204,6 +205,43 @@ Use run diagnostics and events before reading raw service logs.
 5. `sourceHealth.paused = true`
    - Automation is under backoff due to repeated source failures.
    - Manual runs remain the preferred debugging path.
+6. `queryPlan.targetWindowMissed = true`
+   - Adaptive acquisition could not land in the intended `20-40` listing window.
+   - Review `queryPlan.attempts`, `selectedStage`, and scarcity flags before changing parser or matcher rules.
+7. `stats.totalFound` stays low while the run is otherwise healthy
+   - This is typically acquisition underreach, not worker failure.
+   - Compare broad acquisition filters with post-scrape matching rules before tightening the notebook.
+
+## Healthy Run, Low Output Checklist
+
+Use this flow before changing scraper code randomly:
+
+1. Check `diagnostics.queryPlan`.
+   - If `targetWindowMissed=true` or `listingCountTooLow=true`, fix acquisition breadth first.
+2. Check `diagnostics.productivity`.
+   - `candidateOffers` low: acquisition or normalization is underperforming.
+   - `candidateOffers` healthy but `userInsertedOffers` low: inspect matching and notebook strictness.
+   - `detailAttemptedCount` low with `stopReason=budget_reached`: tune detail budget or fetch ordering.
+3. Check `hiddenByModeCount` and `degradedResultCount` in notebook responses.
+   - Empty UI can still mean usable but strict-hidden or degraded results exist.
+4. Check catalog quality reasons.
+   - Prefer improving low-context/detail quality before widening notebook insertion rules.
+5. Only after the above, change matcher penalties or salvage thresholds.
+
+## Scrape Productivity Knobs
+
+1. API:
+   - `SCRAPE_ADAPTIVE_QUERY_TARGET_MIN`
+   - `SCRAPE_ADAPTIVE_QUERY_TARGET_MAX`
+2. Worker:
+   - per-source detail budgets from adaptive planner output
+   - transport policy (`http-only`, `http-first`, `hybrid`, `browser-first`)
+3. Debugging signals to compare after a deploy:
+   - `queryPlan.selectedStage`
+   - `queryPlan.selectedCount`
+   - `productivity.acceptanceRatio`
+   - `productivity.insertionRatio`
+   - `browserSummary.failureReason` when fallback was needed
 
 ## Hook Bypass Policy
 

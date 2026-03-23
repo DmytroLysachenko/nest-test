@@ -54,7 +54,7 @@ import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
 import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';
-import { buildFiltersFromProfile, inferPracujSource } from './scrape-request-resolver';
+import { buildFiltersFromProfile, buildMatchingFiltersFromProfile, inferPracujSource } from './scrape-request-resolver';
 import { RunDiagnosticsSummaryCache } from './run-diagnostics-summary-cache';
 import { UpdateScrapeScheduleDto } from './dto/scrape-schedule.dto';
 
@@ -151,6 +151,31 @@ const excludedColumn = (column: { name: string }) => sql.raw(`excluded."${column
 
 const sanitizeStringArray = (value: string[] | undefined | null) =>
   Array.from(new Set((value ?? []).map((item) => item.trim()).filter(Boolean)));
+
+const isLowContextDescription = (value: string | null | undefined) => {
+  const normalized = normalizeString(value)?.toLowerCase();
+  return !normalized || normalized === 'no description found' || normalized === 'listing summary only';
+};
+
+const deriveCatalogQualityReason = (job: CallbackJobPayload) => {
+  if (job.tags?.includes('listing-salvage')) {
+    return 'listing_salvage';
+  }
+
+  const hasRequirements = sanitizeStringArray(job.requirements).length > 0;
+  const hasStructuredDetails =
+    Boolean(job.details) &&
+    typeof job.details === 'object' &&
+    Object.values(job.details as Record<string, unknown>).some((value) =>
+      Array.isArray(value) ? value.length > 0 : Boolean(value),
+    );
+
+  if (isLowContextDescription(job.description) && !hasRequirements && !hasStructuredDetails) {
+    return 'low_context';
+  }
+
+  return null;
+};
 
 const sanitizeCallbackJobs = (jobs: ScrapeCompleteDto['jobs']) => {
   if (!jobs?.length) {
@@ -345,6 +370,12 @@ export class JobSourcesService {
   private readonly cloudTasksClient = new CloudTasksClient();
   private enqueueSuppressedCount = 0;
 
+  private resolveAdaptiveQueryWindow() {
+    const min = this.configService.get('SCRAPE_ADAPTIVE_QUERY_TARGET_MIN', { infer: true });
+    const max = this.configService.get('SCRAPE_ADAPTIVE_QUERY_TARGET_MAX', { infer: true });
+    return { min, max };
+  }
+
   constructor(
     private readonly configService: ConfigService<Env, true>,
     private readonly logger: Logger,
@@ -402,12 +433,12 @@ export class JobSourcesService {
 
     const inferredSource = profileContext.profile ? inferPracujSource(profileContext.profile) : 'pracuj-pl-it';
     const source = (dto.source ?? inferredSource) as PracujSourceKind;
-    const profileDerivedFilters = dto.filters
+    const profileDerivedAcquisitionFilters = dto.filters
       ? undefined
       : profileContext.profile
         ? buildFiltersFromProfile(profileContext.profile)
         : undefined;
-    const rawFilters = (dto.filters as ScrapeFiltersDto | undefined) ?? profileDerivedFilters;
+    const rawFilters = (dto.filters as ScrapeFiltersDto | undefined) ?? profileDerivedAcquisitionFilters;
     const normalizedFiltersResult = normalizePracujFilters(source, rawFilters);
     const normalizedFilters = Object.keys(normalizedFiltersResult.filters).length
       ? normalizedFiltersResult.filters
@@ -876,15 +907,24 @@ export class JobSourcesService {
       }
     }
 
-    const profileDerivedFilters = dto.filters
+    const profileDerivedAcquisitionFilters = dto.filters
       ? undefined
       : profileContext.profile
         ? buildFiltersFromProfile(profileContext.profile)
         : undefined;
-    const rawFilters = (dto.filters as ScrapeFiltersDto | undefined) ?? profileDerivedFilters;
+    const profileDerivedMatchingFilters =
+      dto.filters || !profileContext.profile ? undefined : buildMatchingFiltersFromProfile(profileContext.profile);
+    const rawFilters = (dto.filters as ScrapeFiltersDto | undefined) ?? profileDerivedAcquisitionFilters;
     const normalizedFiltersResult = normalizePracujFilters(source, rawFilters);
     const normalizedFilters = Object.keys(normalizedFiltersResult.filters).length
       ? normalizedFiltersResult.filters
+      : undefined;
+    const normalizedMatchingFiltersResult = normalizePracujFilters(
+      source,
+      (dto.filters as ScrapeFiltersDto | undefined) ?? profileDerivedMatchingFilters,
+    );
+    const normalizedMatchingFilters = Object.keys(normalizedMatchingFiltersResult.filters).length
+      ? normalizedMatchingFiltersResult.filters
       : undefined;
     const listingUrl =
       dto.listingUrl ?? (normalizedFilters ? buildPracujListingUrl(source, normalizedFilters) : undefined);
@@ -1046,6 +1086,8 @@ export class JobSourcesService {
         userId,
         careerProfileId,
         filters: normalizedFilters,
+        matchingFilters: normalizedMatchingFilters,
+        adaptiveQueryWindow: this.resolveAdaptiveQueryWindow(),
       };
       const serializedPayload = JSON.stringify(workerPayload);
       const maxPayloadBytes = this.configService.get('WORKER_TASK_MAX_PAYLOAD_BYTES', { infer: true });
@@ -1580,7 +1622,7 @@ export class JobSourcesService {
         details: job.details ?? null,
         contentHash: this.computeCatalogContentHash(job),
         qualityState: ACCEPTED_QUALITY_STATE,
-        qualityReason: job.tags?.includes('listing-salvage') ? 'listing_salvage' : null,
+        qualityReason: deriveCatalogQualityReason(job),
         isExpired: job.isExpired ?? false,
         expiresAt: job.isExpired ? now : null,
         lastFullScrapeAt: now,
@@ -1659,7 +1701,11 @@ export class JobSourcesService {
               ELSE ${excludedColumn(cols.qualityState)}
             END`,
             qualityReason: sql`CASE
-              WHEN ${excludedColumn(cols.qualityReason)} IS NOT NULL THEN ${excludedColumn(cols.qualityReason)}
+              WHEN ${jobOffersTable.qualityReason} IS NULL THEN ${jobOffersTable.qualityReason}
+              WHEN ${excludedColumn(cols.qualityReason)} IS NULL THEN ${excludedColumn(cols.qualityReason)}
+              WHEN ${jobOffersTable.qualityReason} = 'listing_salvage'
+               AND ${excludedColumn(cols.qualityReason)} = 'low_context'
+              THEN ${excludedColumn(cols.qualityReason)}
               ELSE ${jobOffersTable.qualityReason}
             END`,
             firstSeenAt: sql`least(${jobOffersTable.firstSeenAt}, ${excludedColumn(cols.firstSeenAt)})`,
@@ -2142,7 +2188,12 @@ export class JobSourcesService {
     });
   }
 
-  private resolveImmediateCompletedOutcome(input: { totalFound: number; matchedCount: number; insertedCount: number }) {
+  private resolveImmediateCompletedOutcome(input: {
+    totalFound: number;
+    matchedCount: number;
+    insertedCount: number;
+    origin?: 'DB_REUSE' | 'CATALOG_REMATCH';
+  }) {
     const totalFound = Math.max(0, input.totalFound);
     const matchedCount = Math.max(0, input.matchedCount);
     const insertedCount = Math.max(0, input.insertedCount);
@@ -2171,8 +2222,12 @@ export class JobSourcesService {
       sourceQuality: totalFound === 0 || matchedCount === 0 ? ('empty' as const) : ('healthy' as const),
       progress: {
         totalFound,
+        candidateOffers: totalFound,
         matchedOffers: matchedCount,
         userInsertedOffers: insertedCount,
+        acceptanceRatio: totalFound > 0 ? Number((matchedCount / totalFound).toFixed(4)) : null,
+        insertionRatio: totalFound > 0 ? Number((insertedCount / totalFound).toFixed(4)) : null,
+        deliveryPath: input.origin ?? 'IMMEDIATE',
       },
     };
   }
@@ -2330,6 +2385,7 @@ export class JobSourcesService {
     totalFound: number;
     matchedCount: number;
     insertedCount: number;
+    origin?: 'DB_REUSE' | 'CATALOG_REMATCH';
   }) {
     const outcome = this.resolveImmediateCompletedOutcome(input);
     await this.db
@@ -2864,6 +2920,120 @@ export class JobSourcesService {
         classifiedOutcome,
         transportSummary,
         browserSummary,
+        queryPlan:
+          diagnostics.queryPlan && typeof diagnostics.queryPlan === 'object'
+            ? {
+                targetMin: Number((diagnostics.queryPlan as Record<string, unknown>).targetMin ?? 0),
+                targetMax: Number((diagnostics.queryPlan as Record<string, unknown>).targetMax ?? 0),
+                selectedStage:
+                  normalizeString(String((diagnostics.queryPlan as Record<string, unknown>).selectedStage ?? '')) ?? '',
+                selectedCount: Number((diagnostics.queryPlan as Record<string, unknown>).selectedCount ?? 0),
+                attempts: Array.isArray((diagnostics.queryPlan as Record<string, unknown>).attempts)
+                  ? ((diagnostics.queryPlan as Record<string, unknown>).attempts as Array<Record<string, unknown>>).map(
+                      (item) => ({
+                        stage: normalizeString(String(item.stage ?? '')) ?? 'unknown',
+                        listingUrl: normalizeString(String(item.listingUrl ?? '')) ?? '',
+                        listingCount: Number(item.listingCount ?? 0),
+                        blockedCount: Number(item.blockedCount ?? 0),
+                        recommendedCount: Number(item.recommendedCount ?? 0),
+                        summaryCount: Number(item.summaryCount ?? 0),
+                      }),
+                    )
+                  : [],
+                targetWindowMissed: Boolean(
+                  (diagnostics.queryPlan as Record<string, unknown>).targetWindowMissed ?? false,
+                ),
+                scarcityReason:
+                  normalizeString(String((diagnostics.queryPlan as Record<string, unknown>).scarcityReason ?? '')) ??
+                  null,
+              }
+            : null,
+        scarcity:
+          diagnostics.scarcity && typeof diagnostics.scarcity === 'object'
+            ? {
+                listingCountTooLow: Boolean(
+                  (diagnostics.scarcity as Record<string, unknown>).listingCountTooLow ?? false,
+                ),
+                listingCountTooHigh: Boolean(
+                  (diagnostics.scarcity as Record<string, unknown>).listingCountTooHigh ?? false,
+                ),
+                targetWindowMissed: Boolean(
+                  (diagnostics.scarcity as Record<string, unknown>).targetWindowMissed ?? false,
+                ),
+                matchingRejectedMostCandidates: Boolean(
+                  (diagnostics.scarcity as Record<string, unknown>).matchingRejectedMostCandidates ?? false,
+                ),
+              }
+            : null,
+        productivity: {
+          detailAttemptedCount: Number(diagnostics.detailAttemptedCount ?? 0),
+          candidateOffers: Number(
+            diagnostics.candidateOffers ??
+              (run.progress && typeof run.progress === 'object'
+                ? (run.progress as Record<string, unknown>).candidateOffers
+                : 0) ??
+              0,
+          ),
+          matchedOffers: Number(
+            diagnostics.matchedOffers ??
+              (run.progress && typeof run.progress === 'object'
+                ? (run.progress as Record<string, unknown>).matchedOffers
+                : 0) ??
+              0,
+          ),
+          userInsertedOffers: Number(
+            diagnostics.userInsertedOffers ??
+              (run.progress && typeof run.progress === 'object'
+                ? (run.progress as Record<string, unknown>).userInsertedOffers
+                : 0) ??
+              0,
+          ),
+          degradedAcceptedOffers: Number(
+            diagnostics.degradedAcceptedOffers ?? diagnostics.salvagedOfferCount ?? diagnostics.rejectedOfferCount ?? 0,
+          ),
+          acceptanceRatio:
+            Number(diagnostics.jobLinksDiscovered ?? run.totalFound ?? 0) > 0
+              ? Number(
+                  (
+                    Number(
+                      diagnostics.candidateOffers ??
+                        (run.progress && typeof run.progress === 'object'
+                          ? (run.progress as Record<string, unknown>).candidateOffers
+                          : 0) ??
+                        0,
+                    ) / Number(diagnostics.jobLinksDiscovered ?? run.totalFound ?? 0)
+                  ).toFixed(4),
+                )
+              : null,
+          insertionRatio:
+            Number(
+              diagnostics.candidateOffers ??
+                (run.progress && typeof run.progress === 'object'
+                  ? (run.progress as Record<string, unknown>).candidateOffers
+                  : 0) ??
+                0,
+            ) > 0
+              ? Number(
+                  (
+                    Number(
+                      diagnostics.userInsertedOffers ??
+                        (run.progress && typeof run.progress === 'object'
+                          ? (run.progress as Record<string, unknown>).userInsertedOffers
+                          : 0) ??
+                        0,
+                    ) /
+                    Number(
+                      diagnostics.candidateOffers ??
+                        (run.progress && typeof run.progress === 'object'
+                          ? (run.progress as Record<string, unknown>).candidateOffers
+                          : 0) ??
+                        0,
+                    )
+                  ).toFixed(4),
+                )
+              : null,
+          stopReason: normalizeString(String(diagnostics.detailStopReason ?? '')) ?? null,
+        },
         stats: {
           totalFound: run.totalFound ?? null,
           scrapedCount: run.scrapedCount ?? null,
@@ -3258,6 +3428,7 @@ export class JobSourcesService {
       totalFound: offers.length,
       matchedCount: inserted.matchedCount,
       insertedCount: inserted.insertedCount,
+      origin: 'DB_REUSE',
     });
 
     await this.appendRunEvent({
@@ -3551,6 +3722,7 @@ export class JobSourcesService {
       totalFound: matchedCount,
       matchedCount: linked.matchedCount,
       insertedCount: linked.insertedCount,
+      origin: 'CATALOG_REMATCH',
     });
 
     await this.appendRunEvent({

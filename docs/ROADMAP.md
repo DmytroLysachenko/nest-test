@@ -62,6 +62,10 @@ The project should not drift into:
    - Status: in progress.
 2. Tighten scrape output usefulness, not just scrape completion.
    - Scope:
+     - adaptive broad-acquisition query planning with target listing windows
+     - configurable source target windows and detail-fetch budgets
+     - productivity diagnostics that explain output loss after healthy runs
+     - fetch-order prioritization from listing-summary richness
      - better degraded-result handling
      - stronger salvage rules
      - clearer zero-result vs blocked-result semantics
@@ -128,7 +132,7 @@ Before implementing a new adapter, require:
 2. Sprint B: notebook throughput and application pipeline
    - follow-up queues, stale-offer actions, better bulk triage, stronger summary views
 3. Sprint C: scraper/source quality hardening
-   - source normalization, parser resilience, better degraded/blocked classification, catalog quality-state persistence, replay/debug improvements
+   - source normalization, parser resilience, adaptive acquisition filters, listing-probe planning, detail-budget tuning, better degraded/blocked classification, catalog quality-state persistence, replay/debug improvements
 4. Sprint D: durable async and automation
    - move extraction/profile generation and later scrape orchestration toward durable queue execution while keeping catalog-rematch paths off the worker when possible
 5. Sprint E: release and observability hardening
@@ -143,3 +147,18 @@ Before implementing a new adapter, require:
    - `PROJECT_STATE.md`
    - `ROADMAP.md`
    - `DECISIONS.md` when architecture/contract changed
+
+## Scrape Productivity Tuning Rules
+
+When scrape runs are healthy but output is weak, tune in this order:
+
+1. Acquisition breadth first.
+   - Adjust the target listing window before touching notebook thresholds.
+2. Detail productivity second.
+   - Tune detail budgets and fetch ordering before widening salvage.
+3. Matching tolerance third.
+   - Soften only wording-driven false blockers; keep strict notebook trust-first.
+4. Catalog quality protection always.
+   - Prefer richer detail-backed rows over salvage or low-context updates.
+5. Notebook strictness last.
+   - Prefer hidden/degraded-result messaging over weakening default strict mode.
