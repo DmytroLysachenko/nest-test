@@ -782,11 +782,15 @@ export const runScrapeJob = async (
     };
 
     const timeoutMs = options.scrapeTimeoutMs ?? 180000;
+    const scrapeAbortController = new AbortController();
     let timeoutRef: NodeJS.Timeout | null = null;
     const timeoutPromiseTemplate = new Promise<never>((_, reject) => {
       const timeoutError = new Error(`Scrape timed out after ${timeoutMs}ms`);
       timeoutError.name = 'ScrapeTimeoutError';
-      timeoutRef = setTimeout(() => reject(timeoutError), timeoutMs);
+      timeoutRef = setTimeout(() => {
+        scrapeAbortController.abort(timeoutError);
+        reject(timeoutError);
+      }, timeoutMs);
       timeoutRef?.unref?.();
     });
 
@@ -859,6 +863,7 @@ export const runScrapeJob = async (
               detailCookiesPath: options.detailCookiesPath,
               detailHumanize: false,
               profileDir: options.profileDir,
+              abortSignal: scrapeAbortController.signal,
             },
           });
           const listingCount = probe.crawlResult.jobLinks.length;
@@ -1032,6 +1037,7 @@ export const runScrapeJob = async (
               },
             );
           },
+          abortSignal: scrapeAbortController.signal,
         },
       });
 
