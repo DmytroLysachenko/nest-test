@@ -2188,7 +2188,12 @@ export class JobSourcesService {
     });
   }
 
-  private resolveImmediateCompletedOutcome(input: { totalFound: number; matchedCount: number; insertedCount: number }) {
+  private resolveImmediateCompletedOutcome(input: {
+    totalFound: number;
+    matchedCount: number;
+    insertedCount: number;
+    origin?: 'DB_REUSE' | 'CATALOG_REMATCH';
+  }) {
     const totalFound = Math.max(0, input.totalFound);
     const matchedCount = Math.max(0, input.matchedCount);
     const insertedCount = Math.max(0, input.insertedCount);
@@ -2217,8 +2222,12 @@ export class JobSourcesService {
       sourceQuality: totalFound === 0 || matchedCount === 0 ? ('empty' as const) : ('healthy' as const),
       progress: {
         totalFound,
+        candidateOffers: totalFound,
         matchedOffers: matchedCount,
         userInsertedOffers: insertedCount,
+        acceptanceRatio: totalFound > 0 ? Number((matchedCount / totalFound).toFixed(4)) : null,
+        insertionRatio: totalFound > 0 ? Number((insertedCount / totalFound).toFixed(4)) : null,
+        deliveryPath: input.origin ?? 'IMMEDIATE',
       },
     };
   }
@@ -2376,6 +2385,7 @@ export class JobSourcesService {
     totalFound: number;
     matchedCount: number;
     insertedCount: number;
+    origin?: 'DB_REUSE' | 'CATALOG_REMATCH';
   }) {
     const outcome = this.resolveImmediateCompletedOutcome(input);
     await this.db
@@ -3418,6 +3428,7 @@ export class JobSourcesService {
       totalFound: offers.length,
       matchedCount: inserted.matchedCount,
       insertedCount: inserted.insertedCount,
+      origin: 'DB_REUSE',
     });
 
     await this.appendRunEvent({
@@ -3711,6 +3722,7 @@ export class JobSourcesService {
       totalFound: matchedCount,
       matchedCount: linked.matchedCount,
       insertedCount: linked.insertedCount,
+      origin: 'CATALOG_REMATCH',
     });
 
     await this.appendRunEvent({

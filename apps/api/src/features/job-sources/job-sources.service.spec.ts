@@ -2508,9 +2508,13 @@ describe('JobSourcesService', () => {
         classifiedOutcome: 'success',
         sourceQuality: 'healthy',
         progress: expect.objectContaining({
+          candidateOffers: 2,
           totalFound: 2,
           matchedOffers: 2,
           userInsertedOffers: 0,
+          acceptanceRatio: 1,
+          insertionRatio: 0,
+          deliveryPath: 'CATALOG_REMATCH',
         }),
       }),
     );
