@@ -62,6 +62,7 @@ The project should not drift into:
    - Status: in progress.
 2. Tighten scrape output usefulness, not just scrape completion.
    - Scope:
+     - adaptive broad-acquisition query planning with target listing windows
      - better degraded-result handling
      - stronger salvage rules
      - clearer zero-result vs blocked-result semantics
@@ -128,7 +129,7 @@ Before implementing a new adapter, require:
 2. Sprint B: notebook throughput and application pipeline
    - follow-up queues, stale-offer actions, better bulk triage, stronger summary views
 3. Sprint C: scraper/source quality hardening
-   - source normalization, parser resilience, better degraded/blocked classification, catalog quality-state persistence, replay/debug improvements
+   - source normalization, parser resilience, adaptive acquisition filters, listing-probe planning, better degraded/blocked classification, catalog quality-state persistence, replay/debug improvements
 4. Sprint D: durable async and automation
    - move extraction/profile generation and later scrape orchestration toward durable queue execution while keeping catalog-rematch paths off the worker when possible
 5. Sprint E: release and observability hardening

@@ -224,6 +224,29 @@ class ScrapeRunDiagnosticsDto {
   @IsOptional()
   @IsIn(['source_http_blocked', 'browser_bootstrap_failed', 'browser_navigation_failed'])
   failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed';
+
+  @ApiPropertyOptional({ type: Object })
+  @IsOptional()
+  @IsObject()
+  queryPlan?: {
+    targetMin: number;
+    targetMax: number;
+    selectedStage: string;
+    selectedCount: number;
+    attempts: Array<{ stage: string; listingUrl: string; listingCount: number }>;
+    targetWindowMissed: boolean;
+    scarcityReason?: 'listing_count_too_low' | 'listing_count_too_high' | null;
+  };
+
+  @ApiPropertyOptional({ type: Object })
+  @IsOptional()
+  @IsObject()
+  scarcity?: {
+    listingCountTooLow: boolean;
+    listingCountTooHigh: boolean;
+    targetWindowMissed: boolean;
+    matchingRejectedMostCandidates: boolean;
+  };
 }
 
 export class ScrapeCompleteDto {

@@ -32,16 +32,16 @@ const detectJobSeniority = (text: string) => {
   const input = normalizeAscii(text);
   const matches: Array<keyof typeof SENIORITY_ORDER> = [];
 
-  if (/(intern|trainee|praktykant|stazysta|staz)/i.test(input)) {
+  if (/(intern|trainee|graduate|entry[- ]level|praktykant|stazysta|staz|mlodszy specjalista)/i.test(input)) {
     matches.push('intern');
   }
-  if (/(junior|mlodszy)/i.test(input)) {
+  if (/(junior|associate|assistant|mlodszy)/i.test(input)) {
     matches.push('junior');
   }
-  if (/(mid|regular|specjalista)/i.test(input)) {
+  if (/(mid|regular|specialist|specjalista|samodzielny)/i.test(input)) {
     matches.push('mid');
   }
-  if (/(senior|starszy)/i.test(input)) {
+  if (/(senior|expert|starszy|staff)/i.test(input)) {
     matches.push('senior');
   }
   if (/(lead|tech lead|principal)/i.test(input)) {
@@ -85,10 +85,17 @@ const parseAmountCandidates = (value: string) =>
 const confidenceWeight = (score: number) => Math.max(0.2, Math.min(1, score));
 
 const EMPLOYMENT_ALIASES: Record<string, string[]> = {
-  b2b: ['b2b', 'kontrakt'],
-  uop: ['uop', 'employment contract', 'umowa o prace'],
-  mandate: ['mandate', 'umowa zlecenie'],
-  internship: ['internship', 'intern', 'staz'],
+  b2b: ['b2b', 'kontrakt', 'contractor', 'freelance'],
+  uop: ['uop', 'employment contract', 'employment agreement', 'umowa o prace'],
+  mandate: ['mandate', 'contract of mandate', 'umowa zlecenie'],
+  internship: ['internship', 'intern', 'staz', 'graduate', 'entry level'],
+};
+
+const WORK_MODE_ALIASES: Record<string, string[]> = {
+  remote: ['remote', 'zdal', 'home office', 'home-office', 'fully remote'],
+  hybrid: ['hybrid', 'hybryd', 'partially remote'],
+  onsite: ['onsite', 'on-site', 'office', 'stacjonarn', 'full-office'],
+  mobile: ['mobile', 'field work'],
 };
 
 export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: JobContext) => {
@@ -146,8 +153,7 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
   const hardWorkModes = profile.workPreferences.hardConstraints.workModes;
   if (hardWorkModes.length) {
     const modes = hardWorkModes.filter((mode) => {
-      const aliases =
-        mode === 'remote' ? ['remote', 'zdal', 'home'] : mode === 'hybrid' ? ['hybrid', 'hybryd'] : [mode];
+      const aliases = WORK_MODE_ALIASES[mode] ?? [mode];
       return aliases.some((alias) => normalizedText.includes(alias));
     });
     if (!modes.length) {
@@ -175,12 +181,7 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
   }
 
   const softWorkModeScore = profile.workPreferences.softPreferences.workModes.reduce((acc, item) => {
-    const aliases =
-      item.value === 'remote'
-        ? ['remote', 'zdal', 'home']
-        : item.value === 'hybrid'
-          ? ['hybrid', 'hybryd']
-          : [item.value];
+    const aliases = WORK_MODE_ALIASES[item.value] ?? [item.value];
     const matched = aliases.some((alias) => normalizedText.includes(alias));
     if (!matched) {
       softGaps.push(`workMode:${item.value}`);

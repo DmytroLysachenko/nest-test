@@ -135,6 +135,7 @@ Canonical environment inventory:
      docker build -f apps/worker/Dockerfile -t nest-test-worker .
      docker run --rm nest-test-worker pnpm --filter worker browser:probe
      ```
+   - Adaptive planner and listing-probe coverage runs in the same worker test suite.
 3. Web checks:
    - `pnpm --filter web check-types`
    - `pnpm --filter web test`
@@ -204,6 +205,12 @@ Use run diagnostics and events before reading raw service logs.
 5. `sourceHealth.paused = true`
    - Automation is under backoff due to repeated source failures.
    - Manual runs remain the preferred debugging path.
+6. `queryPlan.targetWindowMissed = true`
+   - Adaptive acquisition could not land in the intended `20-40` listing window.
+   - Review `queryPlan.attempts`, `selectedStage`, and scarcity flags before changing parser or matcher rules.
+7. `stats.totalFound` stays low while the run is otherwise healthy
+   - This is typically acquisition underreach, not worker failure.
+   - Compare broad acquisition filters with post-scrape matching rules before tightening the notebook.
 
 ## Hook Bypass Policy
 

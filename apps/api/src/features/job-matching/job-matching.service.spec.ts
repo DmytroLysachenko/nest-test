@@ -148,4 +148,40 @@ describe('JobMatchingService scoring', () => {
     expect(result.hardConstraintViolations).toContain('seniority');
     expect(result.blockedByHardConstraints).toBe(true);
   });
+
+  it('recognizes broader wording aliases for seniority, work mode, and employment type', () => {
+    const result = scoreCandidateAgainstJob(
+      {
+        schemaVersion: '1.0.0',
+        candidateCore: {
+          headline: 'Junior Frontend Engineer',
+          summary: 'Junior frontend profile',
+          seniority: { primary: 'junior', secondary: [] },
+          languages: [],
+        },
+        targetRoles: [{ title: 'Frontend Developer', confidenceScore: 0.8, confidenceLevel: 'medium', priority: 1 }],
+        competencies: [],
+        workPreferences: {
+          hardConstraints: {
+            workModes: ['remote'],
+            employmentTypes: ['uop'],
+            locations: [],
+            noPolishRequired: false,
+            onlyEmployerOffers: false,
+            onlyWithProjectDescription: false,
+          },
+          softPreferences: { workModes: [], employmentTypes: [], locations: [] },
+        },
+        searchSignals: { keywords: [], specializations: [], technologies: [] },
+        riskAndGrowth: { gaps: [], growthDirections: [], transferableStrengths: [] },
+      } as any,
+      {
+        text: 'Associate frontend engineer. Fully remote. Employment agreement.',
+      },
+    );
+
+    expect(result.hardConstraintViolations).not.toContain('employmentTypes');
+    expect(result.hardConstraintViolations).not.toContain('workModes');
+    expect(result.hardConstraintViolations).not.toContain('seniority');
+  });
 });

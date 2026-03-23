@@ -14,6 +14,15 @@ const SENIORITY_TO_POSITION_LEVEL: Record<string, string> = {
   manager: '20',
 };
 
+const SENIORITY_TO_ACQUISITION_BAND: Record<string, string[]> = {
+  intern: ['1', '17'],
+  junior: ['1', '17', '4'],
+  mid: ['17', '4', '18'],
+  senior: ['4', '18', '19'],
+  lead: ['18', '19', '20'],
+  manager: ['18', '19', '20'],
+};
+
 const WORK_MODE_TO_PRACUJ: Record<CandidateWorkMode, string> = {
   remote: 'home-office',
   hybrid: 'hybrid',
@@ -182,7 +191,7 @@ export const inferPracujSource = (profile: CandidateProfile): PracujSourceKind =
   return hasItSignals ? 'pracuj-pl-it' : 'pracuj-pl-general';
 };
 
-export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilters | undefined => {
+export const buildMatchingFiltersFromProfile = (profile: CandidateProfile): ScrapeFilters | undefined => {
   const primarySeniority = profile.candidateCore.seniority.primary;
   const secondarySeniority = profile.candidateCore.seniority.secondary;
   const seniority = unique([primarySeniority, ...secondarySeniority]);
@@ -223,6 +232,31 @@ export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilter
     noPolishRequired: profile.workPreferences.hardConstraints.noPolishRequired || undefined,
     onlyEmployerOffers: profile.workPreferences.hardConstraints.onlyEmployerOffers || undefined,
     onlyWithProjectDescription: profile.workPreferences.hardConstraints.onlyWithProjectDescription || undefined,
+  };
+
+  const hasAny = Object.values(filters).some((value) =>
+    Array.isArray(value) ? value.length > 0 : value != null && value !== false && value !== '',
+  );
+
+  return hasAny ? filters : undefined;
+};
+
+export const buildFiltersFromProfile = (profile: CandidateProfile): ScrapeFilters | undefined => {
+  const primarySeniority = profile.candidateCore.seniority.primary;
+  const secondarySeniority = profile.candidateCore.seniority.secondary;
+  const seniority = unique([primarySeniority, ...secondarySeniority]);
+  const positionLevels = unique(
+    seniority.flatMap((value) => SENIORITY_TO_ACQUISITION_BAND[value] ?? [SENIORITY_TO_POSITION_LEVEL[value]]),
+  );
+
+  const location = profile.workPreferences.hardConstraints.locations[0]?.city;
+  const radiusKm = profile.workPreferences.hardConstraints.locations[0]?.radiusKm;
+  const canonicalLocation = canonicalizeLocation(location, radiusKm);
+
+  const filters: ScrapeFilters = {
+    positionLevels: positionLevels.length ? positionLevels : undefined,
+    location: canonicalLocation.city ?? undefined,
+    radiusKm: canonicalLocation.radiusKm ?? undefined,
   };
 
   const hasAny = Object.values(filters).some((value) =>

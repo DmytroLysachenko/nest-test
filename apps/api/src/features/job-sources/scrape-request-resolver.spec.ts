@@ -1,4 +1,4 @@
-import { buildFiltersFromProfile } from './scrape-request-resolver';
+import { buildFiltersFromProfile, buildMatchingFiltersFromProfile } from './scrape-request-resolver';
 
 const profileFixture = {
   schemaVersion: '1.0.0',
@@ -49,14 +49,14 @@ const profileFixture = {
 } as const;
 
 describe('buildFiltersFromProfile', () => {
-  it('maps fuzzy specialization labels and canonicalizes tricity location', () => {
+  it('builds broad acquisition filters with canonicalized location and seniority band', () => {
     const filters = buildFiltersFromProfile(profileFixture as any);
 
     expect(filters).toBeDefined();
-    expect(filters?.specializations).toEqual(expect.arrayContaining(['frontend', 'backend']));
+    expect(filters?.specializations).toBeUndefined();
     expect(filters?.location).toBe('Gdynia');
     expect(filters?.radiusKm).toBe(35);
-    expect(filters?.keywords).toBe('junior frontend');
+    expect(filters?.positionLevels).toEqual(expect.arrayContaining(['1', '17', '4']));
   });
 
   it('builds focused role keyword phrase and avoids noisy keyword concatenation', () => {
@@ -77,8 +77,7 @@ describe('buildFiltersFromProfile', () => {
       },
     } as any);
 
-    expect(filters?.keywords).toBe('junior frontend');
-    expect(filters?.keywords).not.toContain('java');
+    expect(filters?.keywords).toBeUndefined();
   });
 
   it('ignores soft-only constraints for scrape narrowing filters', () => {
@@ -101,11 +100,22 @@ describe('buildFiltersFromProfile', () => {
       },
     } as any);
 
-    expect(filters?.keywords).toBe('junior frontend');
     expect(filters?.workModes).toBeUndefined();
     expect(filters?.contractTypes).toBeUndefined();
     expect(filters?.location).toBeUndefined();
     expect(filters?.radiusKm).toBeUndefined();
     expect(filters?.salaryMin).toBeUndefined();
+  });
+});
+
+describe('buildMatchingFiltersFromProfile', () => {
+  it('keeps focused specializations and keywords for post-scrape matching and optional narrowing', () => {
+    const filters = buildMatchingFiltersFromProfile(profileFixture as any);
+
+    expect(filters).toBeDefined();
+    expect(filters?.specializations).toEqual(expect.arrayContaining(['frontend', 'backend']));
+    expect(filters?.keywords).toBe('junior frontend');
+    expect(filters?.workModes).toEqual(['home-office']);
+    expect(filters?.contractTypes).toEqual(['0']);
   });
 });
