@@ -1701,7 +1701,11 @@ export class JobSourcesService {
               ELSE ${excludedColumn(cols.qualityState)}
             END`,
             qualityReason: sql`CASE
-              WHEN ${excludedColumn(cols.qualityReason)} IS NOT NULL THEN ${excludedColumn(cols.qualityReason)}
+              WHEN ${jobOffersTable.qualityReason} IS NULL THEN ${jobOffersTable.qualityReason}
+              WHEN ${excludedColumn(cols.qualityReason)} IS NULL THEN ${excludedColumn(cols.qualityReason)}
+              WHEN ${jobOffersTable.qualityReason} = 'listing_salvage'
+               AND ${excludedColumn(cols.qualityReason)} = 'low_context'
+              THEN ${excludedColumn(cols.qualityReason)}
               ELSE ${jobOffersTable.qualityReason}
             END`,
             firstSeenAt: sql`least(${jobOffersTable.firstSeenAt}, ${excludedColumn(cols.firstSeenAt)})`,
