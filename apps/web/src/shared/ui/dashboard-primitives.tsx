@@ -49,6 +49,22 @@ type StatRowProps = {
   tone?: 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 };
 
+type EditorialPanelProps = {
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+};
+
+type UtilityRailProps = {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  className?: string;
+};
+
 type SemanticTone = 'success' | 'warning' | 'danger' | 'info';
 
 const toneClasses: Record<SemanticTone, string> = {
@@ -91,14 +107,14 @@ export const HeroHeader = ({ eyebrow, title, subtitle, meta, action, className }
 
 export const MetricCard = ({ label, value, caption, trend, className }: MetricCardProps) => (
   <div className={cn('app-kpi flex flex-col', className)}>
-    <p className="text-text-soft mb-2 text-sm font-medium uppercase tracking-wider">{label}</p>
+    <p className="text-text-soft mb-2 text-[0.68rem] font-medium uppercase tracking-[0.2em]">{label}</p>
     <p className="text-text-strong text-3xl font-semibold tracking-[-0.04em] md:text-[2rem]">{value}</p>
     {caption ? <p className="text-text-soft mt-2 text-sm leading-6">{caption}</p> : null}
     {trend ? (
       <div className="mt-auto pt-4">
         <span
           className={cn(
-            'border-border mt-1 inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-medium',
+            'mt-1 inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-medium',
             trend.tone ? trendToneClasses[trend.tone] : 'bg-surface-muted text-text-soft',
           )}
         >
@@ -112,7 +128,7 @@ export const MetricCard = ({ label, value, caption, trend, className }: MetricCa
 export const StatusPill = ({ value, tone = 'neutral' }: StatusPillProps) => (
   <span
     className={cn(
-      'border-border bg-surface-muted text-text-soft inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium',
+      'bg-surface-muted text-text-soft inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
       tone !== 'neutral' && toneClasses[tone],
     )}
   >
@@ -127,8 +143,34 @@ export const DataTableShell = ({ title, description, children, className }: Data
 );
 
 export const StatRow = ({ label, value, tone = 'neutral' }: StatRowProps) => (
-  <div className="border-border/70 bg-surface-muted/72 flex items-center justify-between gap-3 rounded-2xl border px-4 py-3">
+  <div className="bg-surface-muted/74 flex items-center justify-between gap-3 rounded-[1.2rem] px-4 py-3">
     <span className="text-text-soft text-sm">{label}</span>
     {typeof value === 'string' ? <StatusPill value={value} tone={tone} /> : value}
   </div>
+);
+
+export const EditorialPanel = ({ eyebrow, title, description, action, children, className }: EditorialPanelProps) => (
+  <section className={cn('app-surface-elevated overflow-hidden p-5 md:p-6', className)}>
+    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="max-w-3xl space-y-2">
+        {eyebrow ? <p className="text-text-soft text-[0.7rem] uppercase tracking-[0.22em]">{eyebrow}</p> : null}
+        <div className="space-y-1.5">
+          <h2 className="text-text-strong text-2xl font-semibold tracking-[-0.03em]">{title}</h2>
+          {description ? <p className="text-text-soft text-sm leading-6">{description}</p> : null}
+        </div>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+    <div className="mt-5">{children}</div>
+  </section>
+);
+
+export const UtilityRail = ({ title, description, children, className }: UtilityRailProps) => (
+  <aside className={cn('app-utility-rail space-y-4', className)}>
+    <div className="space-y-1.5">
+      <h2 className="text-text-strong text-lg font-semibold tracking-[-0.02em]">{title}</h2>
+      {description ? <p className="text-text-soft text-sm leading-6">{description}</p> : null}
+    </div>
+    {children}
+  </aside>
 );

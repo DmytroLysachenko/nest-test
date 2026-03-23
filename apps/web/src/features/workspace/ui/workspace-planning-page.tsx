@@ -15,7 +15,7 @@ import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { PageErrorState, SectionErrorState, SectionLoadingState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { HeroHeader, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
+import { EditorialPanel, HeroHeader, StatRow, StatusPill, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { GuidancePanel } from '@/shared/ui/guidance-panels';
 import { WorkflowBlockedState } from '@/shared/ui/workflow-blocked-state';
 
@@ -102,11 +102,11 @@ export const WorkspacePlanningPage = () => {
       <GuidancePanel
         eyebrow="Operator note"
         title="Use dashboard for overview, planning for execution"
-        description="Manual runs, schedule tuning, and diagnostics now live here so the main dashboard can stay focused on state and next actions."
+        description="Manual runs, schedule tuning, and diagnostics live here so the rest of the workspace can stay calmer and more decisive."
         tone="info"
       />
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)]">
+      <section className="app-editorial-section">
         <div className="space-y-5">
           <JobSourcesPanel token={auth.token} />
 
@@ -211,7 +211,10 @@ export const WorkspacePlanningPage = () => {
           ) : null}
         </div>
 
-        <aside className="space-y-5">
+        <UtilityRail
+          title="Execution rail"
+          description="A compact operator view of schedule state, run health, and likely failure meaning."
+        >
           <Card title="Automation Snapshot" description="Current schedule and scrape operating state.">
             <div className="space-y-3">
               <StatRow
@@ -254,14 +257,14 @@ export const WorkspacePlanningPage = () => {
                 ['Validation', 'Scraped payload shape changed and needs investigation.'],
                 ['Callback', 'Worker finished but result application failed on the API side.'],
               ].map(([label, description]) => (
-                <div key={label} className="app-muted-panel">
+                <div key={label} className="app-inset-stack">
                   <p className="text-text-strong text-sm font-semibold">{label}</p>
                   <p className="text-text-soft mt-1 text-sm leading-6">{description}</p>
                 </div>
               ))}
             </div>
           </Card>
-        </aside>
+        </UtilityRail>
       </section>
     </main>
   );
