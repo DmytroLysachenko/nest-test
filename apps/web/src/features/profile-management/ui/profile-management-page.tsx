@@ -15,7 +15,7 @@ import { ProfileQualityCard } from '@/features/profile-management/ui/components/
 import { DocumentsPanel } from '@/features/documents';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { useAppUiStore } from '@/shared/store/app-ui-store';
-import { HeroHeader } from '@/shared/ui/dashboard-primitives';
+import { HeroHeader, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { GuidancePanel, JourneySteps } from '@/shared/ui/guidance-panels';
 import { WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Card } from '@/shared/ui/card';
@@ -23,7 +23,6 @@ import { Button } from '@/shared/ui/button';
 import { ConfirmActionDialog } from '@/shared/ui/confirm-action-dialog';
 import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
 import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
-import { UtilityRail } from '@/shared/ui/dashboard-primitives';
 
 export const ProfileManagementPage = () => {
   const router = useRouter();
