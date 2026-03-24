@@ -23,7 +23,7 @@ type UseNotebookPageArgs = {
 };
 
 export const useNotebookPage = ({ token, initialQuickAction = null, initialOfferId = null }: UseNotebookPageArgs) => {
-  const { notebookSummary } = usePrivateDashboardData();
+  const { notebookSummary, summary } = usePrivateDashboardData();
   const selectedId = useAppUiStore((state) => state.notebook.selectedOfferId);
   const selectedOfferIds = useAppUiStore((state) => state.notebook.selectedOfferIds);
   const filters = useAppUiStore((state) => state.notebook.filters);
@@ -298,6 +298,7 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     lastInteractionAt,
     preferencesQuery,
     summaryQuery,
+    workspaceSummary: summary,
     notebookSummary: summaryQuery.data,
     selectedOffer,
     selectedId,

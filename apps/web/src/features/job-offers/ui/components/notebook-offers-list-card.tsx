@@ -15,6 +15,7 @@ type NotebookOffersListCardProps = {
   offers: JobOfferListItemDto[];
   hiddenByModeCount: number;
   degradedResultCount: number;
+  lastScrapeStatus: string | null;
   selectedId: string | null;
   selectedOfferIds: string[];
   isBusy: boolean;
@@ -42,6 +43,7 @@ export const NotebookOffersListCard = ({
   offers,
   hiddenByModeCount,
   degradedResultCount,
+  lastScrapeStatus,
   selectedId,
   selectedOfferIds,
   isBusy,
@@ -260,7 +262,9 @@ export const NotebookOffersListCard = ({
                   ? `${hiddenByModeCount} offer${hiddenByModeCount === 1 ? '' : 's'} matched your notebook, but strict mode filtered them out because they violate hard constraints.`
                   : degradedResultCount > 0
                     ? `${degradedResultCount} offer${degradedResultCount === 1 ? '' : 's'} came from listing-level salvage because source detail pages were incomplete. Review them in approx or explore mode after a fresh scrape.`
-                    : 'Try relaxing filters or switch mode to explore to discover more opportunities.'
+                    : lastScrapeStatus === 'FAILED'
+                      ? 'The latest scrape failed before it could deliver notebook-ready offers. Check the scrape control center before retrying.'
+                      : 'Try relaxing filters or switch mode to explore to discover more opportunities.'
               }
             />
             <div className="app-muted-panel text-sm">
@@ -278,6 +282,12 @@ export const NotebookOffersListCard = ({
                 <p className="text-text-soft mt-1">
                   Degraded-source offers mean the scrape found promising listings, but detail pages were partially
                   blocked or incomplete.
+                </p>
+              ) : null}
+              {lastScrapeStatus === 'FAILED' ? (
+                <p className="text-text-soft mt-1">
+                  The latest scrape run failed. Inspect the recent run story and diagnostics before assuming the
+                  notebook is truly empty.
                 </p>
               ) : null}
               {mode === 'approx' ? (
