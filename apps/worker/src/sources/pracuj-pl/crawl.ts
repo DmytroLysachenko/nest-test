@@ -1140,6 +1140,7 @@ export const crawlPracujPl = async (
     listingDelayMs?: number;
     listingCooldownMs?: number;
     detailDelayMs?: number;
+    browserFallbackCooldownMs?: number;
     listingOnly?: boolean;
     detailHost?: string;
     detailCookiesPath?: string;
@@ -1169,6 +1170,7 @@ export const crawlPracujPl = async (
   const listingDelayMs = options?.listingDelayMs ?? 1500;
   const listingCooldownMs = options?.listingCooldownMs ?? 0;
   const detailDelayMs = options?.detailDelayMs ?? 2000;
+  const browserFallbackCooldownMs = options?.browserFallbackCooldownMs ?? Math.max(2000, detailDelayMs + 1000);
   const detailHumanize = options?.detailHumanize ?? false;
   const listingOnly = options?.listingOnly ?? false;
   const detailHost = options?.detailHost;
@@ -1433,6 +1435,7 @@ export const crawlPracujPl = async (
             2,
             abortSignal,
           );
+          await sleepWithAbort(browserFallbackCooldownMs + randomBetween(500, 1500), abortSignal);
           blocked = result.blocked;
           expired = result.expired;
           transport = 'browser';
@@ -1520,7 +1523,7 @@ export const crawlPracujPl = async (
               pages.push({ url, html: fallbackResult.html, isExpired: fallbackResult.expired });
             }
             detailBrowserTimeouts = 0;
-            await sleepWithAbort(Math.max(250, Math.floor(detailDelayMs / 2)), abortSignal);
+            await sleepWithAbort(browserFallbackCooldownMs, abortSignal);
             continue;
           } catch (fallbackError) {
             if (isAbortError(fallbackError)) {
