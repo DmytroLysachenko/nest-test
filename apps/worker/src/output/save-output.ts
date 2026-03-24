@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, readdir, rm, stat, writeFile } from 'fs/promises';
 import { isAbsolute, join, resolve } from 'path';
 
 import type { DetailFetchDiagnostics, ListingJobSummary, NormalizedJob, ParsedJob, RawPage } from '../sources/types';
@@ -19,6 +19,20 @@ type OutputPayload = {
   detailDiagnostics?: DetailFetchDiagnostics[];
 };
 
+export type OutputArtifactManifest = {
+  outputPath: string;
+  retentionExpiresAt: string | null;
+  rawPages: {
+    count: number;
+    directory: string | null;
+    samplePaths: string[];
+  };
+  listing: {
+    htmlPath: string | null;
+    dataPath: string | null;
+  };
+};
+
 const toSafeFilename = (value: string) => value.replace(/[^\w.-]+/g, '_');
 
 const resolveOutputDir = (value?: string) => {
@@ -26,6 +40,34 @@ const resolveOutputDir = (value?: string) => {
     return resolve(process.cwd(), 'data');
   }
   return isAbsolute(value) ? value : resolve(process.cwd(), value);
+};
+
+const pruneExpiredArtifacts = async (baseDir: string, retentionHours: number) => {
+  const cutoff = Date.now() - retentionHours * 60 * 60 * 1000;
+
+  const prunePath = async (targetPath: string) => {
+    const targetStat = await stat(targetPath);
+    if (targetStat.isDirectory()) {
+      const children = await readdir(targetPath, { withFileTypes: true });
+      for (const child of children) {
+        await prunePath(join(targetPath, child.name));
+      }
+      const remaining = await readdir(targetPath);
+      if (remaining.length === 0 && targetStat.mtimeMs < cutoff) {
+        await rm(targetPath, { recursive: true, force: true });
+      }
+      return;
+    }
+
+    if (targetStat.mtimeMs < cutoff) {
+      await rm(targetPath, { force: true });
+    }
+  };
+
+  const entries = await readdir(baseDir, { withFileTypes: true });
+  for (const entry of entries) {
+    await prunePath(join(baseDir, entry.name));
+  }
 };
 
 const saveRawPages = async (pages: RawPage[], baseDir: string) => {
@@ -41,7 +83,7 @@ const saveRawPages = async (pages: RawPage[], baseDir: string) => {
     await writeFile(htmlPath, page.html, 'utf-8');
     paths.push({ url: page.url, htmlPath });
   }
-  return paths;
+  return { rawDir, paths };
 };
 
 const saveListingData = async (listingHtml: string | undefined, listingData: unknown, baseDir: string) => {
@@ -63,12 +105,18 @@ const saveListingData = async (listingHtml: string | undefined, listingData: unk
   return { htmlPath, dataPath };
 };
 
-export const saveOutput = async (payload: OutputPayload, outputDir?: string, mode: 'full' | 'minimal' = 'full') => {
+export const saveOutput = async (
+  payload: OutputPayload,
+  outputDir?: string,
+  mode: 'full' | 'minimal' = 'full',
+  retentionHours?: number,
+) => {
   const baseDir = resolveOutputDir(outputDir);
   await mkdir(baseDir, { recursive: true });
 
   const rawPages = mode === 'full' && payload.pages ? await saveRawPages(payload.pages, baseDir) : undefined;
-  const listingData = mode === 'full' ? await saveListingData(payload.listingHtml, payload.listingData, baseDir) : {};
+  const listingData: { htmlPath?: string; dataPath?: string } =
+    mode === 'full' ? await saveListingData(payload.listingHtml, payload.listingData, baseDir) : {};
   const filename = `${toSafeFilename(payload.source)}-${toSafeFilename(payload.runId)}.json`;
   const path = join(baseDir, filename);
 
@@ -81,7 +129,7 @@ export const saveOutput = async (payload: OutputPayload, outputDir?: string, mod
           fetchedAt: payload.fetchedAt,
           jobs: payload.jobs,
           raw: payload.raw,
-          rawPages,
+          rawPages: rawPages?.paths,
           blockedUrls: payload.blockedUrls ?? [],
           jobLinks: payload.jobLinks ?? [],
           listingSummaries: payload.listingSummaries ?? [],
@@ -101,5 +149,28 @@ export const saveOutput = async (payload: OutputPayload, outputDir?: string, mod
   );
 
   await writeFile(path, data, 'utf-8');
-  return path;
+  if (typeof retentionHours === 'number' && retentionHours > 0) {
+    await pruneExpiredArtifacts(baseDir, retentionHours);
+  }
+  const retentionExpiresAt =
+    typeof retentionHours === 'number' && retentionHours > 0
+      ? new Date(Date.now() + retentionHours * 60 * 60 * 1000).toISOString()
+      : null;
+
+  return {
+    path,
+    artifacts: {
+      outputPath: path,
+      retentionExpiresAt,
+      rawPages: {
+        count: rawPages?.paths.length ?? 0,
+        directory: rawPages?.rawDir ?? null,
+        samplePaths: rawPages?.paths.slice(0, 5).map((item) => item.htmlPath) ?? [],
+      },
+      listing: {
+        htmlPath: listingData.htmlPath ?? null,
+        dataPath: listingData.dataPath ?? null,
+      },
+    } satisfies OutputArtifactManifest,
+  };
 };
