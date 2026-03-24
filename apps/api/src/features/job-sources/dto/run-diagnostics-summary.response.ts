@@ -32,6 +32,12 @@ class ScrapeRunPerformanceSummary {
 
   @ApiProperty()
   successRate!: number;
+
+  @ApiProperty()
+  usableRunRate!: number;
+
+  @ApiProperty()
+  avgUsefulOfferCount!: number;
 }
 
 class ScrapeRunFailureSummary {
@@ -68,6 +74,17 @@ class ScrapeRunLifecycleSummary {
   enqueueSuppressed!: number;
 }
 
+class ScrapeRunOutcomeSummary {
+  @ApiProperty()
+  silentFailureCount!: number;
+
+  @ApiProperty()
+  partialSuccessRuns!: number;
+
+  @ApiProperty()
+  blockedRuns!: number;
+}
+
 class ScrapeRunTimelineItemResponse {
   @ApiProperty()
   bucketStart!: string;
@@ -100,6 +117,9 @@ export class ScrapeRunDiagnosticsSummaryResponse {
 
   @ApiProperty({ type: ScrapeRunFailureSummary })
   failures!: ScrapeRunFailureSummary;
+
+  @ApiProperty({ type: ScrapeRunOutcomeSummary })
+  outcomes!: ScrapeRunOutcomeSummary;
 
   @ApiProperty({ type: ScrapeRunLifecycleSummary })
   lifecycle!: ScrapeRunLifecycleSummary;
