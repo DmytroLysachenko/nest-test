@@ -35,6 +35,8 @@ const extractJsonLdBlocks = (html: string) => {
 const toText = (value?: string) => (value ? value.replace(/<[^>]+>/g, '').trim() : '');
 const cleanText = (value?: string) => (value ? value.replace(/\s+/g, ' ').trim() : '');
 const pickString = (value: unknown) => (typeof value === 'string' && value.trim().length ? value.trim() : undefined);
+const pickStringArray = (value: unknown) =>
+  Array.isArray(value) ? value.map((item) => pickString(item)).filter((item): item is string => Boolean(item)) : [];
 
 const extractNextDataJson = (html: string) => {
   const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
@@ -226,6 +228,32 @@ const extractJobOfferSections = (jobOffer: Record<string, unknown> | null) => {
   };
 };
 
+const resolveJobOfferScalar = (jobOffer: Record<string, unknown> | null, keys: string[]) => {
+  if (!jobOffer) {
+    return undefined;
+  }
+  for (const key of keys) {
+    const value = pickString(jobOffer[key]);
+    if (value) {
+      return value;
+    }
+  }
+  return undefined;
+};
+
+const resolveJobOfferList = (jobOffer: Record<string, unknown> | null, keys: string[]) => {
+  if (!jobOffer) {
+    return [];
+  }
+  for (const key of keys) {
+    const values = pickStringArray(jobOffer[key]);
+    if (values.length) {
+      return values;
+    }
+  }
+  return [];
+};
+
 const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | undefined => {
   const jobOffer = findJobOfferData(html);
   const offerSections = extractJobOfferSections(jobOffer);
@@ -249,6 +277,10 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
   const contractTypes = extractChips(html, ['[data-test="offer-contracts"]', '[data-test="offer-contracts-types"]']);
   const positionLevels = extractChips(html, ['[data-test="offer-position-levels"]']);
   const workSchedules = extractChips(html, ['[data-test="offer-work-schedules"]']);
+  const fallbackWorkModes = resolveJobOfferList(jobOffer, ['workModes', 'workplaces', 'remoteInterviewTypes']);
+  const fallbackContractTypes = resolveJobOfferList(jobOffer, ['employmentTypes', 'contractTypes']);
+  const fallbackPositionLevels = resolveJobOfferList(jobOffer, ['positionLevels']);
+  const fallbackSchedules = resolveJobOfferList(jobOffer, ['workSchedules']);
   const benefits = offerSections.benefits.length
     ? offerSections.benefits
     : extractChips(html, ['[data-test="section-benefits"]', '[data-test="offer-benefits"]']);
@@ -264,9 +296,13 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
   if (
     !allTech.length &&
     !workModes.length &&
+    !fallbackWorkModes.length &&
     !contractTypes.length &&
+    !fallbackContractTypes.length &&
     !positionLevels.length &&
+    !fallbackPositionLevels.length &&
     !workSchedules.length &&
+    !fallbackSchedules.length &&
     !benefits.length &&
     !companyDescription
   ) {
@@ -289,10 +325,18 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
           niceToHave: optionalReq.length ? optionalReq : undefined,
         }
       : undefined,
-    workModes: workModes.length ? workModes : undefined,
-    contractTypes: contractTypes.length ? contractTypes : undefined,
-    positionLevels: positionLevels.length ? positionLevels : undefined,
-    workSchedules: workSchedules.length ? workSchedules : undefined,
+    workModes: workModes.length ? workModes : fallbackWorkModes.length ? fallbackWorkModes : undefined,
+    contractTypes: contractTypes.length
+      ? contractTypes
+      : fallbackContractTypes.length
+        ? fallbackContractTypes
+        : undefined,
+    positionLevels: positionLevels.length
+      ? positionLevels
+      : fallbackPositionLevels.length
+        ? fallbackPositionLevels
+        : undefined,
+    workSchedules: workSchedules.length ? workSchedules : fallbackSchedules.length ? fallbackSchedules : undefined,
     benefits: benefits.length ? benefits : jsonLdBenefits.length ? jsonLdBenefits : undefined,
     companyDescription,
   };
@@ -365,20 +409,23 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
     const offerSections = extractJobOfferSections(jobOffer);
 
     const title =
+      resolveJobOfferScalar(jobOffer, ['jobTitle', 'title']) ||
       jsonLd?.title?.trim() ||
       extractTextBySelectors(page.html, ['[data-test="offer-title"]', 'h1']) ||
       fallbackTitle(page.html);
     const company =
       hiringOrg?.trim() ||
-      pickString((jobOffer as Record<string, unknown> | null)?.employerName) ||
+      resolveJobOfferScalar(jobOffer, ['employerName', 'companyName', 'company']) ||
       extractTextBySelectors(page.html, ['[data-test="offer-company"]', '[data-test="text-company-name"]']) ||
       extractTextBySelectors(page.html, ['[data-test="text-employerName"]']) ||
       undefined;
     const locationText =
       combinedLocation ||
+      resolveJobOfferScalar(jobOffer, ['region', 'location', 'workplaceName']) ||
       extractTextBySelectors(page.html, ['[data-test="offer-location"]', '[data-test="text-region"]']) ||
       undefined;
     const description =
+      resolveJobOfferScalar(jobOffer, ['description', 'shortDescription']) ||
       cleanText(toText(jsonLd?.description)) ||
       cleanText(jsonLd?.responsibilities) ||
       buildDescription(offerSections.responsibilities) ||
@@ -392,7 +439,9 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
     const requirements =
       offerSections.requirementsExpected.length || offerSections.requirementsOptional.length
         ? [...offerSections.requirementsExpected, ...offerSections.requirementsOptional]
-        : splitList(jsonLd?.experienceRequirements);
+        : resolveJobOfferList(jobOffer, ['requirements', 'expectedRequirements']).length
+          ? resolveJobOfferList(jobOffer, ['requirements', 'expectedRequirements'])
+          : splitList(jsonLd?.experienceRequirements);
     const details = collectDetails(page.html, jsonLd);
 
     return {
