@@ -72,6 +72,32 @@ export const buildSalvagedListingJobs = (summaries: ListingJobSummary[]): Parsed
     details: summary.details,
   }));
 
+const canonicalizeUrl = (value: string) => {
+  try {
+    const url = new URL(value);
+    url.search = '';
+    url.hash = '';
+    return url.toString().toLowerCase();
+  } catch {
+    return value.trim().toLowerCase();
+  }
+};
+
+export const mergeParsedJobsWithListingSalvage = (
+  parsedJobs: ParsedJob[],
+  listingSummaries: ListingJobSummary[],
+  skippedUrls: string[] = [],
+) => {
+  const parsedUrlSet = new Set(parsedJobs.map((job) => canonicalizeUrl(job.url)));
+  const skippedUrlSet = new Set(skippedUrls.map((url) => canonicalizeUrl(url)));
+  const salvagedJobs = buildSalvagedListingJobs(listingSummaries).filter((job) => {
+    const normalizedUrl = canonicalizeUrl(job.url);
+    return !parsedUrlSet.has(normalizedUrl) && !skippedUrlSet.has(normalizedUrl);
+  });
+
+  return [...parsedJobs, ...salvagedJobs];
+};
+
 export const runPipeline = async (
   source: string,
   input: {
@@ -84,12 +110,10 @@ export const runPipeline = async (
 ) => {
   const pipeline = resolvePipeline(source);
   const crawlResult = await crawlPracujPl(input.headless, input.listingUrl, input.limit, input.logger, input.options);
-  const parsedJobs =
-    crawlResult.pages.length > 0
-      ? parsePracujPl(crawlResult.pages)
-      : input.options?.listingOnly
-        ? []
-        : buildSalvagedListingJobs(crawlResult.listingSummaries);
+  const detailParsedJobs = crawlResult.pages.length > 0 ? parsePracujPl(crawlResult.pages) : [];
+  const parsedJobs = input.options?.listingOnly
+    ? []
+    : mergeParsedJobsWithListingSalvage(detailParsedJobs, crawlResult.listingSummaries, crawlResult.skippedUrls);
   const normalized = normalizePracujPl(parsedJobs, pipeline.normalizeSource);
 
   return {

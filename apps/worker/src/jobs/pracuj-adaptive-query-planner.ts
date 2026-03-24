@@ -74,38 +74,7 @@ const buildNarrowingStages = (
       stage: 'specialization',
       filters: {
         ...cloneFilters(acquisitionFilters),
-        [specializationKey]: [specializationValues[0]],
-      },
-    });
-  }
-
-  const keywords = matchingFilters.keywords?.trim();
-  if (keywords) {
-    stages.push({
-      stage: 'keyword',
-      filters: {
-        ...cloneFilters(acquisitionFilters),
-        keywords,
-      },
-    });
-  }
-
-  if (matchingFilters.workModes?.length) {
-    stages.push({
-      stage: 'work_mode',
-      filters: {
-        ...cloneFilters(acquisitionFilters),
-        workModes: [...matchingFilters.workModes],
-      },
-    });
-  }
-
-  if (matchingFilters.contractTypes?.length) {
-    stages.push({
-      stage: 'contract',
-      filters: {
-        ...cloneFilters(acquisitionFilters),
-        contractTypes: [...matchingFilters.contractTypes],
+        [specializationKey]: [...specializationValues.slice(0, 3)],
       },
     });
   }

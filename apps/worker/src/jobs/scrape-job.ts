@@ -100,6 +100,8 @@ type CompletionDiagnosticsInput = {
 };
 
 const MAX_CALLBACK_ERROR_LENGTH = 1000;
+const SCRAPE_TIMEOUT_RESERVE_MS = 20_000;
+const DETAIL_FETCH_BUDGET_PER_ITEM_MS = 18_000;
 
 const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const toError = (error: unknown) => (error instanceof Error ? error : new Error('Unknown error'));
@@ -167,6 +169,20 @@ export const computeNormalizedJobContentHash = (
       }),
     )
     .digest('hex');
+
+export const computeInitialDetailBudget = (input: {
+  requestedLimit: number;
+  targetWindow: { min: number; max: number };
+  scrapeTimeoutMs: number;
+  elapsedMs: number;
+}) => {
+  const requestedLimit = Math.max(1, input.requestedLimit);
+  const targetMax = Math.max(1, input.targetWindow.max);
+  const remainingMs = Math.max(0, input.scrapeTimeoutMs - input.elapsedMs - SCRAPE_TIMEOUT_RESERVE_MS);
+  const runtimeBudget = Math.max(1, Math.floor(remainingMs / DETAIL_FETCH_BUDGET_PER_ITEM_MS));
+
+  return Math.max(1, Math.min(requestedLimit, targetMax, runtimeBudget));
+};
 
 export const resolveScrapeCompletionDiagnostics = ({
   sanitizedCount,
@@ -802,6 +818,7 @@ export const runScrapeJob = async (
     const aggregatedBlockedUrls: string[] = [];
     const aggregatedJobLinks = new Set<string>();
     const aggregatedRecommendedLinks = new Set<string>();
+    const aggregatedSkippedUrls = new Set<string>();
     const aggregatedParsedJobs: ParsedJob[] = [];
     const aggregatedNormalized: NormalizedJob[] = [];
     const aggregatedNormalizedKeys = new Set<string>();
@@ -976,7 +993,12 @@ export const runScrapeJob = async (
           profileDir: options.profileDir,
           detailBudget:
             attempt === 1
-              ? Math.max(requestedLimit, Math.min(targetWindow.max, Math.max(targetWindow.min, requestedLimit * 2)))
+              ? computeInitialDetailBudget({
+                  requestedLimit,
+                  targetWindow,
+                  scrapeTimeoutMs: timeoutMs,
+                  elapsedMs: Date.now() - startedAt,
+                })
               : undefined,
           skipUrls,
           skipResolver: (urls: string[]) =>
@@ -1078,6 +1100,7 @@ export const runScrapeJob = async (
       lastDetailBudget = crawlResult.detailBudget;
       lastDetailStopReason = crawlResult.detailStopReason;
       crawlResult.jobLinks.forEach((url) => aggregatedJobLinks.add(url));
+      crawlResult.skippedUrls.forEach((url) => aggregatedSkippedUrls.add(url));
       crawlResult.recommendedJobLinks.forEach((url) => aggregatedRecommendedLinks.add(url));
       crawlResult.blockedUrls.forEach((url) => aggregatedBlockedUrls.push(url));
       crawlResult.detailDiagnostics.forEach((item) => aggregatedDiagnostics.push(item));
@@ -1240,10 +1263,7 @@ export const runScrapeJob = async (
           acceptedOfferCount: assessedJobs.acceptedOfferCount,
           rejectedOfferCount: assessedJobs.rejectedOfferCount,
           rejectedOfferReasons: assessedJobs.rejectedOfferReasons,
-          skippedFreshUrls: Math.max(
-            0,
-            aggregatedJobLinks.size - aggregatedPages.length - aggregatedBlockedUrls.length,
-          ),
+          skippedFreshUrls: aggregatedSkippedUrls.size,
           blockedPages: aggregatedBlockedUrls.length,
           detailAttemptedCount: totalDetailAttemptedCount,
           detailBudget: lastDetailBudget,
@@ -1356,7 +1376,7 @@ export const runScrapeJob = async (
         blockedPages: aggregatedBlockedUrls.length,
         ignoredRecommendedLinks: aggregatedRecommendedLinks.size,
         dedupedInRunCount,
-        skippedFreshUrls: Math.max(0, aggregatedJobLinks.size - aggregatedPages.length - aggregatedBlockedUrls.length),
+        skippedFreshUrls: aggregatedSkippedUrls.size,
         jobLinks: aggregatedJobLinks.size,
         outputPath,
         durationMs: Date.now() - startedAt,
@@ -1371,6 +1391,7 @@ export const runScrapeJob = async (
       outputPath,
       durationMs: Date.now() - startedAt,
       normalizationDurationMs: Date.now() - normalizationStartedAt,
+      skippedFreshUrls: aggregatedSkippedUrls.size,
       classifiedOutcome,
     });
 

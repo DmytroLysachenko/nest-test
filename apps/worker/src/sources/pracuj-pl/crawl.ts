@@ -1155,6 +1155,7 @@ export const crawlPracujPl = async (
   pages: RawPage[];
   blockedUrls: string[];
   jobLinks: string[];
+  skippedUrls: string[];
   recommendedJobLinks: string[];
   hasZeroOffers: boolean;
   listingHtml: string;
@@ -1317,6 +1318,7 @@ export const crawlPracujPl = async (
     const localSkipUrls = options?.skipUrls ?? new Set<string>();
     const resolvedSkipUrls = options?.skipResolver ? await options.skipResolver(normalizedLinks) : new Set<string>();
     const skipUrls = new Set<string>([...localSkipUrls, ...resolvedSkipUrls]);
+    const skippedUrls = normalizedLinks.filter((url) => skipUrls.has(url));
     const detailTargetsAll = prioritizeDetailTargets(
       normalizedLinks.filter((url) => !skipUrls.has(url)),
       listingSummaries,
@@ -1338,6 +1340,7 @@ export const crawlPracujPl = async (
         pages,
         blockedUrls,
         jobLinks: normalizedLinks,
+        skippedUrls,
         recommendedJobLinks: domLinks.recommendedLinks,
         hasZeroOffers: domLinks.hasZeroOffers,
         listingHtml: html,
@@ -1600,6 +1603,7 @@ export const crawlPracujPl = async (
       pages,
       blockedUrls,
       jobLinks: normalizedLinks,
+      skippedUrls,
       recommendedJobLinks: domLinks.recommendedLinks,
       hasZeroOffers: domLinks.hasZeroOffers,
       listingHtml: html,
