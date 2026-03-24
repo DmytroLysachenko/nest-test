@@ -354,6 +354,7 @@ test('resolveScrapeCompletionDiagnostics marks partial blocked runs as degraded 
   });
 
   assert.equal(result.blockedRate, 0.375);
+  assert.equal(result.silentFailure, false);
   assert.equal(result.resultKind, 'blocked');
   assert.equal(result.emptyReason, null);
   assert.equal(result.sourceQuality, 'degraded');
@@ -376,9 +377,11 @@ test('resolveScrapeCompletionDiagnostics distinguishes detail parse gaps from so
   });
 
   assert.equal(parseGap.resultKind, 'empty');
+  assert.equal(parseGap.silentFailure, true);
   assert.equal(parseGap.emptyReason, 'detail_parse_gap');
   assert.equal(parseGap.sourceQuality, 'degraded');
   assert.equal(blocked.resultKind, 'blocked');
+  assert.equal(blocked.silentFailure, false);
   assert.equal(blocked.emptyReason, null);
   assert.equal(blocked.sourceQuality, 'degraded');
 });

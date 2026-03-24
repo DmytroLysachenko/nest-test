@@ -22,6 +22,7 @@ import type {
 import type { Logger } from 'pino';
 import type { ScrapeSourceJob } from '../types/jobs';
 import type { DetailFetchDiagnostics, ListingJobSummary, NormalizedJob, ParsedJob, RawPage } from '../sources/types';
+import type { OutputArtifactManifest } from '../output/save-output';
 
 type CallbackPayload = {
   eventId?: string;
@@ -65,6 +66,29 @@ type CallbackPayload = {
     detailAttemptedCount?: number;
     detailBudget?: number | null;
     detailStopReason?: 'completed' | 'budget_reached' | 'source_degraded';
+    silentFailure?: boolean;
+    artifacts?: OutputArtifactManifest | null;
+    stageMetrics?: {
+      fetch: {
+        pagesVisited: number;
+        jobLinksDiscovered: number;
+        blockedPages: number;
+        browserFallbacks: number;
+        detailAttemptedCount: number;
+      };
+      parse: {
+        acceptedOfferCount: number;
+        rejectedOfferCount: number;
+        dedupedInRunCount: number;
+        salvagedOfferCount: number;
+      };
+      finalize: {
+        blockedRate: number;
+        attemptCount: number;
+        stopReason: 'completed' | 'budget_reached' | 'source_degraded' | null;
+        resultKind: ScrapeResultKind;
+      };
+    };
     queryPlan?: {
       targetMin: number;
       targetMax: number;
@@ -192,16 +216,19 @@ export const resolveScrapeCompletionDiagnostics = ({
   rejectedOfferCount,
 }: CompletionDiagnosticsInput): {
   blockedRate: number;
+  silentFailure: boolean;
   resultKind: ScrapeResultKind;
   emptyReason: ScrapeEmptyReason | null;
   sourceQuality: ScrapeSourceQuality;
 } => {
   const blockedRate = jobLinkCount > 0 ? Number((blockedUrlCount / jobLinkCount).toFixed(4)) : 0;
+  const silentFailure = sanitizedCount === 0 && jobLinkCount > 0 && !hadZeroOffersStep && blockedRate < 0.5;
 
   if (sanitizedCount > 0) {
     if (blockedRate >= 0.3) {
       return {
         blockedRate,
+        silentFailure: false,
         resultKind: 'blocked',
         emptyReason: null,
         sourceQuality: 'degraded',
@@ -210,6 +237,7 @@ export const resolveScrapeCompletionDiagnostics = ({
 
     return {
       blockedRate,
+      silentFailure: false,
       resultKind: 'healthy',
       emptyReason: null,
       sourceQuality: blockedUrlCount > 0 || rejectedOfferCount > 0 ? 'degraded' : 'healthy',
@@ -219,6 +247,7 @@ export const resolveScrapeCompletionDiagnostics = ({
   if (hadZeroOffersStep) {
     return {
       blockedRate,
+      silentFailure: false,
       resultKind: 'empty',
       emptyReason: 'filters_exhausted',
       sourceQuality: 'empty',
@@ -228,6 +257,7 @@ export const resolveScrapeCompletionDiagnostics = ({
   if (jobLinkCount === 0) {
     return {
       blockedRate,
+      silentFailure: false,
       resultKind: 'empty',
       emptyReason: 'no_listings',
       sourceQuality: 'empty',
@@ -237,6 +267,7 @@ export const resolveScrapeCompletionDiagnostics = ({
   if (blockedUrlCount === jobLinkCount || blockedRate >= 0.5) {
     return {
       blockedRate,
+      silentFailure: false,
       resultKind: 'blocked',
       emptyReason: null,
       sourceQuality: 'degraded',
@@ -245,6 +276,7 @@ export const resolveScrapeCompletionDiagnostics = ({
 
   return {
     blockedRate,
+    silentFailure,
     resultKind: 'empty',
     emptyReason: 'detail_parse_gap',
     sourceQuality: 'degraded',
@@ -675,6 +707,7 @@ export const runScrapeJob = async (
     listingDelayMs?: number;
     listingCooldownMs?: number;
     detailDelayMs?: number;
+    browserFallbackCooldownMs?: number;
     detailCacheHours?: number;
     listingOnly?: boolean;
     detailHost?: string;
@@ -683,6 +716,7 @@ export const runScrapeJob = async (
     requireDetail?: boolean;
     profileDir?: string;
     outputMode?: 'full' | 'minimal';
+    outputRetentionHours?: number;
     callbackUrl?: string;
     callbackToken?: string;
     callbackSigningSecret?: string;
@@ -875,6 +909,7 @@ export const runScrapeJob = async (
               listingDelayMs: options.listingDelayMs,
               listingCooldownMs: 0,
               detailDelayMs: options.detailDelayMs,
+              browserFallbackCooldownMs: options.browserFallbackCooldownMs,
               listingOnly: true,
               detailHost: options.detailHost,
               detailCookiesPath: options.detailCookiesPath,
@@ -986,6 +1021,7 @@ export const runScrapeJob = async (
           listingDelayMs: options.listingDelayMs,
           listingCooldownMs: options.listingCooldownMs,
           detailDelayMs: adaptiveDetailDelayMs,
+          browserFallbackCooldownMs: options.browserFallbackCooldownMs,
           listingOnly: options.listingOnly,
           detailHost: options.detailHost,
           detailCookiesPath: options.detailCookiesPath,
@@ -1192,7 +1228,7 @@ export const runScrapeJob = async (
         dedupedInRunCount,
       },
     );
-    const { blockedRate, resultKind, emptyReason, sourceQuality } = resolveScrapeCompletionDiagnostics({
+    const { blockedRate, silentFailure, resultKind, emptyReason, sourceQuality } = resolveScrapeCompletionDiagnostics({
       sanitizedCount: sanitizedJobs.length,
       jobLinkCount: aggregatedJobLinks.size,
       blockedUrlCount: aggregatedBlockedUrls.length,
@@ -1215,7 +1251,7 @@ export const runScrapeJob = async (
         assessedJobs.rejectedOfferCount > assessedJobs.acceptedOfferCount && aggregatedJobLinks.size > 0,
     };
     const normalizationStartedAt = Date.now();
-    const outputPath = await saveOutput(
+    const output = await saveOutput(
       {
         source: payload.source,
         runId,
@@ -1233,7 +1269,32 @@ export const runScrapeJob = async (
       },
       options.outputDir,
       options.outputMode,
+      options.outputMode === 'full' ? (options.outputRetentionHours ?? 72) : undefined,
     );
+    const outputPath = output.path;
+    const browserFallbackCount = aggregatedDiagnostics.filter((item) => item.transport === 'browser').length;
+    const salvagedOfferCount = sanitizedJobs.filter((job) => job.tags?.includes('listing-salvage')).length;
+    const stageMetrics = {
+      fetch: {
+        pagesVisited: aggregatedPages.length,
+        jobLinksDiscovered: aggregatedJobLinks.size,
+        blockedPages: aggregatedBlockedUrls.length,
+        browserFallbacks: browserFallbackCount,
+        detailAttemptedCount: totalDetailAttemptedCount,
+      },
+      parse: {
+        acceptedOfferCount: assessedJobs.acceptedOfferCount,
+        rejectedOfferCount: assessedJobs.rejectedOfferCount,
+        dedupedInRunCount,
+        salvagedOfferCount,
+      },
+      finalize: {
+        blockedRate,
+        attemptCount: attemptsExecuted,
+        stopReason: lastDetailStopReason ?? null,
+        resultKind,
+      },
+    } satisfies NonNullable<NonNullable<CallbackPayload['diagnostics']>['stageMetrics']>;
 
     if (callbackUrl) {
       const emittedAt = new Date().toISOString();
@@ -1268,6 +1329,9 @@ export const runScrapeJob = async (
           detailAttemptedCount: totalDetailAttemptedCount,
           detailBudget: lastDetailBudget,
           detailStopReason: lastDetailStopReason,
+          silentFailure,
+          artifacts: output.artifacts,
+          stageMetrics,
           hadZeroOffersStep,
           attemptCount: attemptsExecuted,
           adaptiveDelayApplied,
@@ -1443,6 +1507,29 @@ export const runScrapeJob = async (
           rejectedOfferReasons: {},
           skippedFreshUrls: 0,
           blockedPages: 0,
+          silentFailure: false,
+          artifacts: null,
+          stageMetrics: {
+            fetch: {
+              pagesVisited: 0,
+              jobLinksDiscovered: 0,
+              blockedPages: 0,
+              browserFallbacks: 0,
+              detailAttemptedCount: 0,
+            },
+            parse: {
+              acceptedOfferCount: 0,
+              rejectedOfferCount: 0,
+              dedupedInRunCount: 0,
+              salvagedOfferCount: 0,
+            },
+            finalize: {
+              blockedRate: 0,
+              attemptCount: 1,
+              stopReason: null,
+              resultKind: 'failed',
+            },
+          },
           hadZeroOffersStep: false,
           attemptCount: 1,
           adaptiveDelayApplied: 0,
