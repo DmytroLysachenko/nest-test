@@ -375,6 +375,14 @@ export type JobSourceRunDto = {
   completedAt: string | null;
   finalizedAt?: string | null;
   failureType?: 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown' | null;
+  silentFailure?: boolean;
+  usefulOfferCount?: number;
+  story?: {
+    phase: 'completed' | 'partial' | 'blocked' | 'empty' | 'failed' | 'running' | 'queued';
+    summary: string;
+    recommendedAction: string;
+    userVisibility: 'positive' | 'warning' | 'danger' | 'neutral';
+  };
   retryOfRunId?: string | null;
   retryCount?: number;
   createdAt: string;
@@ -388,6 +396,8 @@ export type JobSourceHealthDto = {
     completedRuns: number;
     failedRuns: number;
     successRate: number;
+    usableRunRate: number;
+    avgUsefulOfferCount: number;
     timeoutFailures: number;
     callbackFailures: number;
     networkFailures: number;
@@ -403,6 +413,7 @@ export type JobSourceHealthDto = {
     listingEmptyRuns: number;
     filtersExhaustedRuns: number;
     detailParseGapRuns: number;
+    silentFailureRuns: number;
     latestRunAt: string | null;
     latestRunStatus: string | null;
   }>;
@@ -421,6 +432,12 @@ export type JobSourceRunDiagnosticsDto = {
   reconcileReason?: string | null;
   lastEventAt?: string | null;
   progress?: Record<string, unknown> | null;
+  story?: {
+    phase: 'completed' | 'partial' | 'blocked' | 'empty' | 'failed' | 'running' | 'queued';
+    summary: string;
+    recommendedAction: string;
+    userVisibility: 'positive' | 'warning' | 'danger' | 'neutral';
+  };
   diagnostics: {
     relaxationTrail: string[];
     blockedUrls: string[];
@@ -428,6 +445,50 @@ export type JobSourceRunDiagnosticsDto = {
     resultKind?: string | null;
     emptyReason?: string | null;
     sourceQuality?: string | null;
+    classifiedOutcome?: string | null;
+    silentFailure?: boolean;
+    artifacts?: {
+      outputPath: string | null;
+      retentionExpiresAt: string | null;
+      rawPages: {
+        count: number;
+        directory: string | null;
+        samplePaths: string[];
+      };
+      listing: {
+        htmlPath: string | null;
+        dataPath: string | null;
+      };
+    } | null;
+    stageMetrics?: {
+      fetch: {
+        pagesVisited: number;
+        jobLinksDiscovered: number;
+        blockedPages: number;
+        browserFallbacks: number;
+        detailAttemptedCount: number;
+      };
+      parse: {
+        acceptedOfferCount: number;
+        rejectedOfferCount: number;
+        dedupedInRunCount: number;
+        salvagedOfferCount: number;
+      };
+      finalize: {
+        blockedRate: number;
+        attemptCount: number;
+        stopReason: string | null;
+        resultKind: string | null;
+      };
+    } | null;
+    notebookVisibility?: {
+      candidateOffers: number;
+      matchedOffers: number;
+      userInsertedOffers: number;
+      hiddenByStrict: number;
+      usefulOfferCount: number;
+      listingsFound: number;
+    };
     stats: {
       totalFound: number | null;
       scrapedCount: number | null;
@@ -486,6 +547,8 @@ export type JobSourceRunDiagnosticsSummaryDto = {
     avgScrapedCount: number | null;
     avgTotalFound: number | null;
     successRate: number;
+    usableRunRate: number;
+    avgUsefulOfferCount: number;
   };
   failures: {
     timeout: number;
@@ -494,6 +557,11 @@ export type JobSourceRunDiagnosticsSummaryDto = {
     parse: number;
     callback: number;
     unknown: number;
+  };
+  outcomes: {
+    silentFailureCount: number;
+    partialSuccessRuns: number;
+    blockedRuns: number;
   };
   lifecycle: {
     reconciledStale: number;
