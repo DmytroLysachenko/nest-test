@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-03-21
+Last updated: 2026-03-24
 
 ## Milestone Progress Snapshot
 
@@ -10,6 +10,8 @@ Last updated: 2026-03-21
   - canonical profile schema, deterministic matching, persisted match audit metadata
 - M3 BE + Worker Hardening: completed
   - worker callback safety, retry taxonomy, stale-run reconciliation, diagnostics, queue/deploy hardening
+- Reliability tranche in progress
+  - run stories, artifact-backed diagnostics, silent-failure detection, and notebook-visible scrape explanations are now the active priority before broader product expansion
 - M4 Frontend Workflow Completion: substantially implemented, still being polished
   - onboarding, notebook-first dashboard, persisted notebook preferences, recovery guidance, schedule/preflight controls
 - M5 Robust Job Assistant Service: started
@@ -107,6 +109,7 @@ That framing should guide future implementation more than raw source count.
 - Worker
   - scrape lifecycle visibility is materially stronger
   - diagnostics now distinguish degraded/empty/blocked/partial outcomes
+  - diagnostics now also expose artifact manifests, stage metrics, and silent-failure classification so completed-but-useless runs are not treated as healthy success
   - source-specific alias normalization is now deterministic for contract type, work mode, and seniority fields
   - callback envelope is replay-safe and increasingly support-friendly
 - Web

@@ -123,7 +123,7 @@ function Wait-ForHealthyEndpoint {
   param(
     [Parameter(Mandatory = $true)][string]$Uri,
     [Parameter(Mandatory = $true)][string]$Context,
-    [int]$TimeoutSeconds = 90
+    [int]$TimeoutSeconds = 150
   )
 
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -935,6 +935,18 @@ if ($null -eq $diagnosticsPayload.data.diagnostics.stats.jobLinksDiscovered) {
 if ($null -eq $diagnosticsPayload.data.finalizedAt -and $null -eq $diagnosticsPayload.data.heartbeatAt) {
   throw 'Scrape diagnostics missing both finalizedAt and heartbeatAt.'
 }
+if ($null -eq $diagnosticsPayload.data.story.summary) {
+  throw 'Scrape diagnostics missing story.summary.'
+}
+if ($null -eq $diagnosticsPayload.data.diagnostics.silentFailure) {
+  throw 'Scrape diagnostics missing silentFailure.'
+}
+if ($null -eq $diagnosticsPayload.data.diagnostics.notebookVisibility.usefulOfferCount) {
+  throw 'Scrape diagnostics missing notebookVisibility.usefulOfferCount.'
+}
+if ($null -eq $diagnosticsPayload.data.diagnostics.stageMetrics.fetch.pagesVisited) {
+  throw 'Scrape diagnostics missing stageMetrics.fetch.pagesVisited.'
+}
 
 Write-Host '12.2) Verifying scrape diagnostics summary endpoint...'
 $stage = 'verify-scrape-diagnostics-summary'
@@ -947,11 +959,31 @@ if ($null -eq $diagnosticsSummaryPayload.data.status.total) {
 if ($null -eq $diagnosticsSummaryPayload.data.performance.successRate) {
   throw 'Scrape diagnostics summary missing performance.successRate.'
 }
+if ($null -eq $diagnosticsSummaryPayload.data.performance.usableRunRate) {
+  throw 'Scrape diagnostics summary missing performance.usableRunRate.'
+}
 if ($null -eq $diagnosticsSummaryPayload.data.timeline) {
   throw 'Scrape diagnostics summary missing timeline.'
 }
 if ($null -eq $diagnosticsSummaryPayload.data.lifecycle.retriedRuns) {
   throw 'Scrape diagnostics summary missing lifecycle.retriedRuns.'
+}
+if ($null -eq $diagnosticsSummaryPayload.data.outcomes.silentFailureCount) {
+  throw 'Scrape diagnostics summary missing outcomes.silentFailureCount.'
+}
+
+Write-Host '12.25) Verifying source health endpoint...'
+$stage = 'verify-source-health'
+$sourceHealth = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/sources/health?windowHours=168" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $sourceHealth.StatusCode -Allowed @(200) -Context 'Get source health'
+$sourceHealthPayload = $sourceHealth.Content | ConvertFrom-Json
+if ($sourceHealthPayload.data.items.Count -gt 0) {
+  if ($null -eq $sourceHealthPayload.data.items[0].usableRunRate) {
+    throw 'Source health missing usableRunRate.'
+  }
+  if ($null -eq $sourceHealthPayload.data.items[0].silentFailureRuns) {
+    throw 'Source health missing silentFailureRuns.'
+  }
 }
 
 Write-Host '12.3) Verifying retry endpoint guard on completed run...'

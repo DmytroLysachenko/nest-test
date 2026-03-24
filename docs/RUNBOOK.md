@@ -105,6 +105,13 @@ Canonical environment inventory:
   - `WORKER_CALLBACK_RETRY_MAX_DELAY_MS`
   - `WORKER_CALLBACK_RETRY_JITTER_PCT`
   - `WORKER_HEARTBEAT_INTERVAL_MS`
+  - `PRACUJ_LISTING_DELAY_MS`
+  - `PRACUJ_LISTING_COOLDOWN_MS`
+  - `PRACUJ_DETAIL_DELAY_MS`
+  - `PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS`
+  - `PRACUJ_DETAIL_CACHE_HOURS`
+  - `WORKER_OUTPUT_MODE`
+  - `WORKER_OUTPUT_RETENTION_HOURS`
   - `QUEUE_PROVIDER` (`local` or `cloud-tasks`)
   - `TASKS_AUTH_TOKEN` (optional if OIDC is used)
   - `TASKS_SERVICE_ACCOUNT_EMAIL` (required when using Cloud Tasks OIDC)
@@ -190,6 +197,16 @@ Canonical environment inventory:
 
 Use run diagnostics and events before reading raw service logs.
 
+Interpretation rule:
+
+1. A scrape run is healthy only when it produces useful offers or an intentionally empty outcome that is explained.
+2. `COMPLETED` alone is not enough. Check `classifiedOutcome`, `story`, `silentFailure`, and notebook visibility.
+3. Prefer artifact-backed diagnostics before guessing:
+   - `diagnostics.artifacts.outputPath`
+   - `diagnostics.artifacts.listing.htmlPath`
+   - `diagnostics.artifacts.listing.dataPath`
+   - `diagnostics.artifacts.rawPages.samplePaths`
+
 1. `transportSummary.httpBlockedCount > 0` and `browserSummary.successfulLaunches > 0`
    - HTTP path was challenged, browser fallback recovered.
    - Expected result: run may still complete normally.
@@ -211,6 +228,12 @@ Use run diagnostics and events before reading raw service logs.
 7. `stats.totalFound` stays low while the run is otherwise healthy
    - This is typically acquisition underreach, not worker failure.
    - Compare broad acquisition filters with post-scrape matching rules before tightening the notebook.
+8. `silentFailure = true`
+   - The run completed and found listings, but none became usable offers.
+   - Treat this as a reliability problem, not as a healthy zero-result scrape.
+9. `story.phase = partial` or `classifiedOutcome = partial_success`
+   - The run returned usable offers, but source blocking or detail degradation reduced quality.
+   - Review salvage-backed offers in notebook `approx` or `explore` before changing acquisition rules.
 
 ## Healthy Run, Low Output Checklist
 
