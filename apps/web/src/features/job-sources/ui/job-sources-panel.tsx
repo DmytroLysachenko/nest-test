@@ -29,7 +29,20 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
     formState: { errors: scheduleErrors },
   } = jobSourcesPanel.scheduleForm;
   const preflight = jobSourcesPanel.preflightQuery.data;
+  const sourceHealth = jobSourcesPanel.sourceHealthQuery.data?.items?.[0] ?? null;
   const formatTimestamp = (value: string | null | undefined) => (value ? new Date(value).toLocaleString() : 'n/a');
+  const getStoryTone = (value?: 'positive' | 'warning' | 'danger' | 'neutral') => {
+    if (value === 'positive') {
+      return 'border-app-success-border bg-app-success-soft';
+    }
+    if (value === 'danger') {
+      return 'border-app-danger-border bg-app-danger-soft';
+    }
+    if (value === 'warning') {
+      return 'border-app-warning-border bg-app-warning-soft';
+    }
+    return 'border-border/60 bg-surface/70';
+  };
 
   return (
     <Card
@@ -92,6 +105,20 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           },
         ]}
       />
+
+      {sourceHealth ? (
+        <div className="app-muted-panel mt-4 space-y-3 text-sm">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-text-strong font-semibold">Source health (72h)</p>
+            <span className="app-badge">usable run rate: {(sourceHealth.usableRunRate * 100).toFixed(1)}%</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <InspectorRow label="Success rate" value={`${(sourceHealth.successRate * 100).toFixed(1)}%`} />
+            <InspectorRow label="Avg useful offers" value={String(sourceHealth.avgUsefulOfferCount)} />
+            <InspectorRow label="Silent failures" value={String(sourceHealth.silentFailureRuns)} />
+          </div>
+        </div>
+      ) : null}
 
       <form
         className="mt-5 flex flex-col gap-4"
@@ -374,22 +401,33 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
       <div className="mt-5 space-y-2">
         <p className="text-text-strong text-sm font-semibold">Recent runs</p>
         <p className="text-text-soft text-xs">
-          Use this to confirm that a run actually started, progressed, and finished before switching into notebook
-          triage.
+          This should explain whether the run was useful before you need to inspect raw counters.
         </p>
         {jobSourcesPanel.runsQuery.data?.items?.length ? (
           jobSourcesPanel.runsQuery.data.items.map((run) => (
             <article key={run.id} className="app-muted-panel space-y-3 text-sm">
-              <InspectorRow label="Status" value={run.status} />
-              <InspectorRow label="Scraped" value={String(run.scrapedCount ?? 0)} />
-              <InspectorRow label="Found" value={String(run.totalFound ?? 0)} />
-              <div className="mt-2">
-                {diagnosticsEnabled ? (
-                  <Button type="button" variant="secondary" onClick={() => jobSourcesPanel.setSelectedRunId(run.id)}>
-                    Show diagnostics
-                  </Button>
-                ) : null}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="app-badge">status: {run.status}</span>
+                <span className="app-badge">useful offers: {run.usefulOfferCount ?? run.scrapedCount ?? 0}</span>
+                <span className="app-badge">found: {run.totalFound ?? 0}</span>
+                {run.silentFailure ? <span className="app-badge">silent failure</span> : null}
               </div>
+              <div className={`rounded-2xl border p-3 ${getStoryTone(run.story?.userVisibility)}`}>
+                <p className="text-text-strong font-semibold">
+                  {run.story?.summary ?? 'Run finished without a readable summary.'}
+                </p>
+                <p className="text-text-soft mt-1">{run.story?.recommendedAction ?? 'Open diagnostics for detail.'}</p>
+              </div>
+              <InspectorRow
+                label="Finished"
+                value={formatTimestamp(run.finalizedAt ?? run.completedAt ?? run.createdAt)}
+              />
+              <InspectorRow label="Run id" value={run.id} />
+              {diagnosticsEnabled ? (
+                <Button type="button" variant="secondary" onClick={() => jobSourcesPanel.setSelectedRunId(run.id)}>
+                  {jobSourcesPanel.selectedRunId === run.id ? 'Showing diagnostics' : 'Show diagnostics'}
+                </Button>
+              ) : null}
               {run.error ? <p className="text-app-danger">{run.error}</p> : null}
             </article>
           ))
@@ -401,48 +439,128 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
       {diagnosticsEnabled && jobSourcesPanel.diagnosticsQuery.data ? (
         <div className="app-muted-panel mt-4 space-y-3 text-sm">
           <p className="text-text-strong font-semibold">Run diagnostics</p>
+          <div
+            className={`rounded-2xl border p-3 ${getStoryTone(jobSourcesPanel.diagnosticsQuery.data.story?.userVisibility)}`}
+          >
+            <p className="text-text-strong font-semibold">{jobSourcesPanel.diagnosticsQuery.data.story?.summary}</p>
+            <p className="text-text-soft mt-1">{jobSourcesPanel.diagnosticsQuery.data.story?.recommendedAction}</p>
+          </div>
           <InspectorRow label="Run id" value={jobSourcesPanel.diagnosticsQuery.data.runId} />
           <InspectorRow label="Status" value={jobSourcesPanel.diagnosticsQuery.data.status} />
           <InspectorRow
-            label="Pages visited"
-            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.pagesVisited)}
+            label="Outcome"
+            value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.classifiedOutcome ?? 'n/a'}
           />
           <InspectorRow
-            label="Job links discovered"
-            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.jobLinksDiscovered)}
+            label="Silent failure"
+            value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.silentFailure ? 'yes' : 'no'}
           />
-          <InspectorRow
-            label="Blocked pages"
-            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.blockedPages)}
-          />
-          <InspectorRow
-            label="Ignored recommended links"
-            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.ignoredRecommendedLinks)}
-          />
-          <InspectorRow
-            label="Zero-offers step observed"
-            value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.hadZeroOffersStep ? 'yes' : 'no'}
-          />
-          <InspectorRow
-            label="Detail attempts"
-            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.productivity?.detailAttemptedCount ?? 0)}
-          />
-          <InspectorRow
-            label="Catalog candidates"
-            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.productivity?.candidateOffers ?? 0)}
-          />
-          <InspectorRow
-            label="Notebook inserted"
-            value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.productivity?.userInsertedOffers ?? 0)}
-          />
-          <InspectorRow
-            label="Acceptance ratio"
-            value={
-              jobSourcesPanel.diagnosticsQuery.data.diagnostics.productivity?.acceptanceRatio == null
-                ? 'n/a'
-                : `${(jobSourcesPanel.diagnosticsQuery.data.diagnostics.productivity.acceptanceRatio * 100).toFixed(1)}%`
-            }
-          />
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
+              <p className="text-text-strong font-medium">Acquisition</p>
+              <div className="mt-2 space-y-1">
+                <InspectorRow
+                  label="Pages visited"
+                  value={String(
+                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.stageMetrics?.fetch.pagesVisited ??
+                      jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.pagesVisited,
+                  )}
+                />
+                <InspectorRow
+                  label="Listings found"
+                  value={String(
+                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.stageMetrics?.fetch.jobLinksDiscovered ??
+                      jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.jobLinksDiscovered,
+                  )}
+                />
+                <InspectorRow
+                  label="Blocked pages"
+                  value={String(
+                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.stageMetrics?.fetch.blockedPages ??
+                      jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.blockedPages,
+                  )}
+                />
+                <InspectorRow
+                  label="Browser fallbacks"
+                  value={String(
+                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.stageMetrics?.fetch.browserFallbacks ?? 0,
+                  )}
+                />
+                <InspectorRow
+                  label="Detail attempts"
+                  value={String(
+                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.stageMetrics?.fetch.detailAttemptedCount ??
+                      jobSourcesPanel.diagnosticsQuery.data.diagnostics.productivity?.detailAttemptedCount ??
+                      0,
+                  )}
+                />
+              </div>
+            </div>
+            <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
+              <p className="text-text-strong font-medium">Notebook visibility</p>
+              <div className="mt-2 space-y-1">
+                <InspectorRow
+                  label="Useful offers"
+                  value={String(
+                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.notebookVisibility?.usefulOfferCount ?? 0,
+                  )}
+                />
+                <InspectorRow
+                  label="Candidate offers"
+                  value={String(
+                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.notebookVisibility?.candidateOffers ?? 0,
+                  )}
+                />
+                <InspectorRow
+                  label="Matched offers"
+                  value={String(
+                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.notebookVisibility?.matchedOffers ?? 0,
+                  )}
+                />
+                <InspectorRow
+                  label="Notebook inserted"
+                  value={String(
+                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.notebookVisibility?.userInsertedOffers ?? 0,
+                  )}
+                />
+                <InspectorRow
+                  label="Hidden by strict"
+                  value={String(
+                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.notebookVisibility?.hiddenByStrict ?? 0,
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+          {jobSourcesPanel.diagnosticsQuery.data.diagnostics.artifacts ? (
+            <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
+              <p className="text-text-strong font-medium">Artifacts</p>
+              <div className="mt-2 space-y-1">
+                <InspectorRow
+                  label="Output JSON"
+                  value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.artifacts.outputPath ?? 'n/a'}
+                />
+                <InspectorRow
+                  label="Listing HTML"
+                  value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.artifacts.listing.htmlPath ?? 'n/a'}
+                />
+                <InspectorRow
+                  label="Listing data"
+                  value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.artifacts.listing.dataPath ?? 'n/a'}
+                />
+                <InspectorRow
+                  label="Raw detail pages"
+                  value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.artifacts.rawPages.count)}
+                />
+                <InspectorRow
+                  label="Retention expires"
+                  value={formatTimestamp(
+                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.artifacts.retentionExpiresAt,
+                  )}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </Card>
