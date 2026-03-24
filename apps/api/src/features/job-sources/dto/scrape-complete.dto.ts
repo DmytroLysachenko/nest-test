@@ -170,6 +170,11 @@ class ScrapeRunDiagnosticsDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsBoolean()
+  silentFailure?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsInt()
   @Min(0)
   acceptedOfferCount?: number;
@@ -184,6 +189,48 @@ class ScrapeRunDiagnosticsDto {
   @IsOptional()
   @IsObject()
   rejectedOfferReasons?: Record<string, number>;
+
+  @ApiPropertyOptional({ type: Object })
+  @IsOptional()
+  @IsObject()
+  artifacts?: {
+    outputPath: string;
+    retentionExpiresAt: string | null;
+    rawPages: {
+      count: number;
+      directory: string | null;
+      samplePaths: string[];
+    };
+    listing: {
+      htmlPath: string | null;
+      dataPath: string | null;
+    };
+  } | null;
+
+  @ApiPropertyOptional({ type: Object })
+  @IsOptional()
+  @IsObject()
+  stageMetrics?: {
+    fetch: {
+      pagesVisited: number;
+      jobLinksDiscovered: number;
+      blockedPages: number;
+      browserFallbacks: number;
+      detailAttemptedCount: number;
+    };
+    parse: {
+      acceptedOfferCount: number;
+      rejectedOfferCount: number;
+      dedupedInRunCount: number;
+      salvagedOfferCount: number;
+    };
+    finalize: {
+      blockedRate: number;
+      attemptCount: number;
+      stopReason: string | null;
+      resultKind: 'healthy' | 'empty' | 'blocked' | 'failed';
+    };
+  };
 
   @ApiPropertyOptional()
   @IsOptional()
