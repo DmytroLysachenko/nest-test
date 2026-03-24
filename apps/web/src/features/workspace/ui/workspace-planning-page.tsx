@@ -133,6 +133,9 @@ export const WorkspacePlanningPage = () => {
                   <p className="text-text-strong font-semibold">
                     Success rate: {(diagnostics.performance.successRate * 100).toFixed(1)}%
                   </p>
+                  <p className="text-text-soft">
+                    Usable run rate: {(diagnostics.performance.usableRunRate * 100).toFixed(1)}%
+                  </p>
                 </div>
                 <div className="app-muted-panel space-y-2 text-sm">
                   <p className="text-text-soft">
@@ -148,11 +151,13 @@ export const WorkspacePlanningPage = () => {
                       : `${diagnostics.performance.p95DurationMs} ms`}
                   </p>
                   <p className="text-text-soft">Avg scraped: {diagnostics.performance.avgScrapedCount ?? 'n/a'}</p>
+                  <p className="text-text-soft">Avg useful offers: {diagnostics.performance.avgUsefulOfferCount}</p>
                 </div>
                 <div className="app-muted-panel space-y-2 text-sm">
                   <p className="text-app-warning">Timeout failures: {diagnostics.failures.timeout}</p>
                   <p className="text-app-danger">Network failures: {diagnostics.failures.network}</p>
                   <p className="text-app-danger">Validation failures: {diagnostics.failures.validation}</p>
+                  <p className="text-text-soft">Silent failures: {diagnostics.outcomes.silentFailureCount}</p>
                 </div>
               </div>
             </Card>
