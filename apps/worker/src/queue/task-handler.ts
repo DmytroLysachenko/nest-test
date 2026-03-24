@@ -12,6 +12,7 @@ export const handleTask = async (
     listingDelayMs?: number;
     listingCooldownMs?: number;
     detailDelayMs?: number;
+    browserFallbackCooldownMs?: number;
     detailCacheHours?: number;
     listingOnly?: boolean;
     detailHost?: string;
@@ -20,6 +21,7 @@ export const handleTask = async (
     requireDetail?: boolean;
     profileDir?: string;
     outputMode?: 'full' | 'minimal';
+    outputRetentionHours?: number;
     callbackUrl?: string;
     callbackToken?: string;
     callbackOidcAudience?: string;
@@ -42,6 +44,7 @@ export const handleTask = async (
         listingDelayMs: options.listingDelayMs,
         listingCooldownMs: options.listingCooldownMs,
         detailDelayMs: options.detailDelayMs,
+        browserFallbackCooldownMs: options.browserFallbackCooldownMs,
         detailCacheHours: options.detailCacheHours,
         listingOnly: options.listingOnly,
         detailHost: options.detailHost,
@@ -50,6 +53,7 @@ export const handleTask = async (
         requireDetail: options.requireDetail,
         profileDir: options.profileDir,
         outputMode: options.outputMode,
+        outputRetentionHours: options.outputRetentionHours,
         callbackUrl: options.callbackUrl,
         callbackToken: options.callbackToken,
         callbackOidcAudience: options.callbackOidcAudience,
