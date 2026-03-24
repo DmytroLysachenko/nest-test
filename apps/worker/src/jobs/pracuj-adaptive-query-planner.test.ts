@@ -7,7 +7,6 @@ test('planPracujAdaptiveQuery narrows broad acquisition into target window when 
   const counts = new Map<string, number>([
     ['base', 64],
     ['specialization', 28],
-    ['keyword', 9],
   ]);
 
   const result = await planPracujAdaptiveQuery({
@@ -18,7 +17,7 @@ test('planPracujAdaptiveQuery narrows broad acquisition into target window when 
       radiusKm: 35,
     },
     matchingFilters: {
-      specializations: ['frontend'],
+      specializations: ['frontend', 'backend'],
       keywords: 'junior frontend',
     },
     buildListingUrl: (filters) => `https://it.pracuj.pl/praca?${JSON.stringify(filters)}`,
@@ -35,7 +34,8 @@ test('planPracujAdaptiveQuery narrows broad acquisition into target window when 
   assert.equal(result.selectedCount, 28);
   assert.equal(result.targetWindowMissed, false);
   assert.equal(result.scarcityReason, null);
-  assert.equal(result.attempts.length, 3);
+  assert.equal(result.attempts.length, 2);
+  assert.deepEqual(result.selectedFilters.specializations, ['frontend', 'backend']);
 });
 
 test('planPracujAdaptiveQuery broadens low-scarcity acquisition when initial listing count is too low', async () => {
@@ -69,7 +69,7 @@ test('planPracujAdaptiveQuery broadens low-scarcity acquisition when initial lis
   assert.equal(result.targetWindowMissed, false);
 });
 
-test('planPracujAdaptiveQuery prefers cleaner stage when multiple attempts fit the target window', async () => {
+test('planPracujAdaptiveQuery prefers specialization union over overly broad base acquisition', async () => {
   const result = await planPracujAdaptiveQuery({
     source: 'pracuj-pl-it',
     acquisitionFilters: {
@@ -78,7 +78,7 @@ test('planPracujAdaptiveQuery prefers cleaner stage when multiple attempts fit t
       radiusKm: 35,
     },
     matchingFilters: {
-      specializations: ['frontend'],
+      specializations: ['frontend', 'fullstack'],
       keywords: 'junior frontend',
     },
     buildListingUrl: (filters) => `https://it.pracuj.pl/praca?${JSON.stringify(filters)}`,
@@ -87,14 +87,12 @@ test('planPracujAdaptiveQuery prefers cleaner stage when multiple attempts fit t
       if (stage === 'base') {
         return { listingCount: 45, blockedCount: 0, recommendedCount: 0, summaryCount: 45 };
       }
-      if (stage === 'specialization') {
-        return { listingCount: 30, blockedCount: 6, recommendedCount: 10, summaryCount: 5 };
-      }
       return { listingCount: 29, blockedCount: 0, recommendedCount: 1, summaryCount: 29 };
     },
   });
 
-  assert.equal(result.selectedStage, 'keyword');
+  assert.equal(result.selectedStage, 'specialization');
   assert.equal(result.selectedCount, 29);
   assert.equal(result.targetWindowMissed, false);
+  assert.deepEqual(result.selectedFilters.specializations, ['frontend', 'fullstack']);
 });

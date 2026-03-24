@@ -6,13 +6,14 @@ import { classifyScrapeOutcome } from '@repo/db';
 import {
   assessNormalizedJobs,
   buildScrapeCallbackPayload,
-  resolveScrapeCompletionDiagnostics,
-  computeCallbackPayloadHash,
-  computeNormalizedJobContentHash,
   buildWorkerCallbackSignaturePayload,
   classifyScrapeError,
   classifyScrapeFailureReason,
+  computeCallbackPayloadHash,
   computeCallbackRetryDelayMs,
+  computeInitialDetailBudget,
+  computeNormalizedJobContentHash,
+  resolveScrapeCompletionDiagnostics,
   sanitizeCallbackJobs,
 } from './scrape-job';
 
@@ -380,4 +381,26 @@ test('resolveScrapeCompletionDiagnostics distinguishes detail parse gaps from so
   assert.equal(blocked.resultKind, 'blocked');
   assert.equal(blocked.emptyReason, null);
   assert.equal(blocked.sourceQuality, 'degraded');
+});
+
+test('computeInitialDetailBudget caps first attempt detail work to remaining task time', () => {
+  const budget = computeInitialDetailBudget({
+    requestedLimit: 20,
+    targetWindow: { min: 20, max: 40 },
+    scrapeTimeoutMs: 180000,
+    elapsedMs: 83000,
+  });
+
+  assert.equal(budget, 4);
+});
+
+test('computeInitialDetailBudget does not exceed requested limit on fast runs', () => {
+  const budget = computeInitialDetailBudget({
+    requestedLimit: 3,
+    targetWindow: { min: 20, max: 40 },
+    scrapeTimeoutMs: 180000,
+    elapsedMs: 5000,
+  });
+
+  assert.equal(budget, 3);
 });
