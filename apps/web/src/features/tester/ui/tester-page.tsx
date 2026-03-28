@@ -10,6 +10,7 @@ import { Input } from '@/shared/ui/input';
 import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
+import { WorkflowFeedback, WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 type TesterPageProps = {
   token: string;
@@ -69,7 +70,12 @@ export const TesterPage = ({ token }: TesterPageProps) => {
               Apply preset
             </Button>
             {testerPage.selectedPreset?.notes ? (
-              <p className="text-muted-foreground text-xs">{testerPage.selectedPreset.notes}</p>
+              <WorkflowInlineNotice
+                title="Preset notes"
+                description={testerPage.selectedPreset.notes}
+                tone="info"
+                className="text-xs"
+              />
             ) : null}
           </div>
 
@@ -89,6 +95,11 @@ export const TesterPage = ({ token }: TesterPageProps) => {
 
       <Card title="Request" description="Edit and send request payloads.">
         <form className="space-y-3" onSubmit={testerPage.submit}>
+          <WorkflowInlineNotice
+            title="This is an internal verification tool"
+            description="Use presets for known request shapes first, then edit the path or payload. Keep this separate from normal product workflows."
+            tone="warning"
+          />
           <div className="grid gap-3 md:grid-cols-3">
             <div className="app-field-group">
               <Label htmlFor="tester-service" className="app-inline-label">
@@ -129,7 +140,9 @@ export const TesterPage = ({ token }: TesterPageProps) => {
               Path
             </Label>
             <Input id="tester-path" placeholder="/job-sources/runs" {...register('path')} />
-            {errors.path?.message ? <p className="text-app-danger text-sm">{errors.path.message}</p> : null}
+            {errors.path?.message ? (
+              <WorkflowInlineNotice title="Path is required" description={errors.path.message} tone="danger" />
+            ) : null}
           </div>
 
           <div className="app-field-group">
@@ -162,8 +175,21 @@ export const TesterPage = ({ token }: TesterPageProps) => {
             <Textarea id="tester-body" rows={10} placeholder="{}" {...register('bodyText')} />
           </div>
 
-          {testerPage.error ? <p className="text-app-danger text-sm">{testerPage.error}</p> : null}
-          {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
+          {testerPage.error ? (
+            <WorkflowFeedback
+              title="Tester request failed"
+              description={testerPage.error}
+              tone="danger"
+              className="p-4 sm:p-5"
+            />
+          ) : null}
+          {errors.root?.message ? (
+            <WorkflowInlineNotice
+              title="Request form needs correction"
+              description={errors.root.message}
+              tone="danger"
+            />
+          ) : null}
           <div className="app-toolbar flex items-center justify-between gap-3">
             <p className="text-text-soft text-xs">
               Use presets for known request shapes, then edit path or payload as needed.
@@ -178,6 +204,13 @@ export const TesterPage = ({ token }: TesterPageProps) => {
       <Card title="Last Result" description="Request and response payloads for the latest run.">
         {testerPage.mutation.data ? (
           <div className="space-y-4">
+            {!testerPage.mutation.data.response.ok ? (
+              <WorkflowInlineNotice
+                title="The last response returned a non-success status"
+                description="Check the response body below first. For auth failures, confirm the selected token and target service before retrying."
+                tone="warning"
+              />
+            ) : null}
             <div className="space-y-2">
               <p className="text-foreground text-sm font-semibold">Request</p>
               <pre className="app-code max-h-80">{testerPage.formatJson(testerPage.mutation.data.request)}</pre>
@@ -191,7 +224,11 @@ export const TesterPage = ({ token }: TesterPageProps) => {
             </div>
           </div>
         ) : (
-          <p className="text-muted-foreground text-sm">No requests sent yet.</p>
+          <WorkflowFeedback
+            title="No tester request has been sent yet"
+            description="Apply a preset, confirm the target service and credentials, then send one request to inspect the captured request/response pair here."
+            tone="info"
+          />
         )}
       </Card>
     </main>

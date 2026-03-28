@@ -10,6 +10,7 @@ import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
 import { EmptyState } from '@/shared/ui/empty-state';
+import { WorkflowFeedback, WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 type JobMatchingPanelProps = {
   token: string;
@@ -36,6 +37,11 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
           void jobMatchingPanel.submit(event);
         }}
       >
+        <WorkflowInlineNotice
+          title="Use this for spot checks"
+          description="This panel is best for validating how one role maps to your current profile before you change broader sourcing or notebook strategy."
+          tone="info"
+        />
         <div className="app-field-group">
           <Label htmlFor="job-description" className="app-inline-label">
             Job description
@@ -48,7 +54,11 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
           />
         </div>
         {errors.jobDescription?.message ? (
-          <p className="text-app-danger text-sm">{errors.jobDescription.message}</p>
+          <WorkflowInlineNotice
+            title="Job description is required"
+            description={errors.jobDescription.message}
+            tone="danger"
+          />
         ) : null}
 
         <div className="app-field-group">
@@ -57,11 +67,33 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
           </Label>
           <Input id="job-min-score" className="max-w-24" type="number" min={0} max={100} {...register('minScore')} />
         </div>
-        {errors.minScore?.message ? <p className="text-app-danger text-sm">{errors.minScore.message}</p> : null}
+        {errors.minScore?.message ? (
+          <WorkflowInlineNotice
+            title="Minimum score needs correction"
+            description={errors.minScore.message}
+            tone="danger"
+          />
+        ) : null}
 
-        {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
+        {errors.root?.message ? (
+          <WorkflowFeedback
+            title="Unable to score this role"
+            description={errors.root.message}
+            tone="danger"
+            className="p-4 sm:p-5"
+          />
+        ) : null}
         <div className="app-toolbar flex items-center justify-between gap-3">
-          {disabled && disabledReason ? <p className="text-app-warning text-sm">{disabledReason}</p> : <span />}
+          {disabled && disabledReason ? (
+            <WorkflowInlineNotice
+              title="Matching is currently blocked"
+              description={disabledReason}
+              tone="warning"
+              className="max-w-xl"
+            />
+          ) : (
+            <span />
+          )}
           <Button type="submit" disabled={disabled || jobMatchingPanel.isSubmitting}>
             {jobMatchingPanel.isSubmitting ? 'Scoring...' : 'Score job'}
           </Button>
@@ -81,9 +113,11 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
             </div>
           ) : null}
           {jobMatchingPanel.scoreResult.missingPreferences?.length ? (
-            <p className="text-app-warning mt-2 text-xs">
-              Missing preferences: {jobMatchingPanel.scoreResult.missingPreferences.join(', ')}
-            </p>
+            <WorkflowInlineNotice
+              title="Some profile preferences were missing during scoring"
+              description={`Missing preferences: ${jobMatchingPanel.scoreResult.missingPreferences.join(', ')}`}
+              tone="warning"
+            />
           ) : null}
           <details className="mt-2">
             <summary className="text-text-strong cursor-pointer font-medium">Explanation</summary>

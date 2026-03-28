@@ -9,6 +9,7 @@ import {
   profileInputFormSchema,
   type ProfileInputFormValues,
 } from '@/features/profile-inputs/model/validation/profile-input-form-schema';
+import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
 export const useProfileInputPanel = (token: string) => {
   const form = useForm<ProfileInputFormValues>({
@@ -31,6 +32,9 @@ export const useProfileInputPanel = (token: string) => {
     form,
     submit,
     latestQuery,
+    latestErrorMessage: latestQuery.error
+      ? toUserErrorMessage(latestQuery.error, 'Unable to load the latest saved profile input right now.')
+      : null,
     isSubmitting: createMutation.isPending,
   };
 };

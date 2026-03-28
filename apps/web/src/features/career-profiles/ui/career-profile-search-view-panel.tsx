@@ -5,6 +5,7 @@ import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+import { WorkflowFeedback, WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 type CareerProfileSearchViewPanelProps = {
   token: string;
@@ -19,10 +20,15 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
 
   return (
     <Card
-      title="Career Profiles Search View"
-      description="Query denormalized profile fields (seniority, target roles, keywords, technologies) for quick validation."
+      title="Career profile search view"
+      description="Validate denormalized profile fields and search indexes without dropping into raw database inspection."
     >
       <form className="space-y-3" onSubmit={searchViewPanel.submit}>
+        <WorkflowInlineNotice
+          title="Use this to verify profile indexing, not as a primary workflow"
+          description="Filter by role, seniority, keywords, or technologies to confirm the generated search view matches what matching and sourcing depend on."
+          tone="info"
+        />
         <div className="grid gap-3 md:grid-cols-4">
           <div className="app-field-group">
             <Label htmlFor="cp-status" className="app-inline-label">
@@ -75,18 +81,29 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
               Limit
             </Label>
             <Input id="cp-limit" type="number" min={1} max={100} {...register('limit')} />
-            {errors.limit?.message ? <p className="text-app-danger text-xs">{errors.limit.message}</p> : null}
+            {errors.limit?.message ? (
+              <WorkflowInlineNotice title="Limit needs correction" description={errors.limit.message} tone="danger" />
+            ) : null}
           </div>
           <div className="app-field-group">
             <Label htmlFor="cp-offset" className="app-inline-label">
               Offset
             </Label>
             <Input id="cp-offset" type="number" min={0} {...register('offset')} />
-            {errors.offset?.message ? <p className="text-app-danger text-xs">{errors.offset.message}</p> : null}
+            {errors.offset?.message ? (
+              <WorkflowInlineNotice title="Offset needs correction" description={errors.offset.message} tone="danger" />
+            ) : null}
           </div>
         </div>
 
-        {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
+        {errors.root?.message ? (
+          <WorkflowFeedback
+            title="Unable to load the search view"
+            description={errors.root.message}
+            tone="danger"
+            className="p-4 sm:p-5"
+          />
+        ) : null}
         <div className="app-toolbar flex items-center gap-2">
           <Button type="submit" disabled={searchViewPanel.isSubmitting}>
             {searchViewPanel.isSubmitting ? 'Loading...' : 'Load search view'}
@@ -95,21 +112,21 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
         </div>
       </form>
 
-      <div className="mt-4 overflow-x-auto">
-        <table className="min-w-full border-collapse text-xs">
-          <thead>
-            <tr className="border-border text-text-soft border-b text-left">
-              <th className="px-2 py-2">Profile</th>
-              <th className="px-2 py-2">Status</th>
-              <th className="px-2 py-2">Seniority</th>
-              <th className="px-2 py-2">Roles</th>
-              <th className="px-2 py-2">Keywords</th>
-              <th className="px-2 py-2">Technologies</th>
-            </tr>
-          </thead>
-          <tbody>
-            {searchViewPanel.rows.length > 0 ? (
-              searchViewPanel.rows.map((item) => (
+      {searchViewPanel.rows.length > 0 ? (
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full border-collapse text-xs">
+            <thead>
+              <tr className="border-border text-text-soft border-b text-left">
+                <th className="px-2 py-2">Profile</th>
+                <th className="px-2 py-2">Status</th>
+                <th className="px-2 py-2">Seniority</th>
+                <th className="px-2 py-2">Roles</th>
+                <th className="px-2 py-2">Keywords</th>
+                <th className="px-2 py-2">Technologies</th>
+              </tr>
+            </thead>
+            <tbody>
+              {searchViewPanel.rows.map((item) => (
                 <tr key={item.id} className="border-border text-text-soft border-b align-top">
                   <td className="px-2 py-2">
                     <div>{item.id}</div>
@@ -123,17 +140,25 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
                   <td className="px-2 py-2">{item.searchableKeywords.slice(0, 8).join(', ') || '-'}</td>
                   <td className="px-2 py-2">{item.searchableTechnologies.slice(0, 8).join(', ') || '-'}</td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td className="text-text-soft px-2 py-3" colSpan={6}>
-                  No rows loaded yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : searchViewPanel.hasRequested ? (
+        <WorkflowFeedback
+          title="No indexed rows matched this filter set"
+          description="Try broadening the role or keyword filters first. If you expected a result, confirm the latest profile generation completed and the denormalized fields were refreshed."
+          tone="warning"
+          className="mt-4"
+        />
+      ) : (
+        <WorkflowFeedback
+          title="Search results will appear here"
+          description="Run a query when you need to verify how profile data was flattened into searchable fields for downstream workflows."
+          tone="info"
+          className="mt-4"
+        />
+      )}
     </Card>
   );
 };

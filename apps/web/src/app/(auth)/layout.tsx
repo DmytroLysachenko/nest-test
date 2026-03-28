@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 import { useAuth } from '@/features/auth/model/context/auth-context';
+import { WorkspaceSplashState } from '@/shared/ui/async-states';
 
 export default function PublicAuthLayout({
   children,
@@ -20,7 +21,12 @@ export default function PublicAuthLayout({
   }, [auth.isHydrated, auth.isLoading, auth.isAuthenticated, router]);
 
   if (!auth.isHydrated || auth.isLoading) {
-    return <main className="text-muted-foreground mx-auto max-w-md px-4 py-10 text-sm">Checking session...</main>;
+    return (
+      <WorkspaceSplashState
+        title="Preparing sign-in"
+        subtitle="Checking whether a private session is already active before loading authentication screens..."
+      />
+    );
   }
 
   if (auth.isAuthenticated) {

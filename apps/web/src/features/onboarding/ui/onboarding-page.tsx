@@ -16,6 +16,7 @@ import { StepProgress } from '@/shared/ui/step-progress';
 import { TagInput } from '@/shared/ui/tag-input';
 import { Textarea } from '@/shared/ui/textarea';
 import { WorkspaceSplashState } from '@/shared/ui/async-states';
+import { WorkflowFeedback, WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 const seniorityValues = ['intern', 'junior', 'mid', 'senior', 'lead', 'manager'] as const;
 const workModes = ['remote', 'hybrid', 'onsite', 'mobile'] as const;
@@ -110,7 +111,11 @@ export const OnboardingPage = () => {
                 onChange={(next) => setValue('desiredPositions', next, { shouldValidate: true })}
               />
               {errors.desiredPositions?.message ? (
-                <p className="text-app-danger text-sm">{errors.desiredPositions.message}</p>
+                <WorkflowInlineNotice
+                  title="Target positions need correction"
+                  description={errors.desiredPositions.message}
+                  tone="danger"
+                />
               ) : null}
 
               <TagInput
@@ -127,7 +132,11 @@ export const OnboardingPage = () => {
                 onChange={(next) => setValue('coreSkills', next, { shouldValidate: true })}
               />
               {errors.coreSkills?.message ? (
-                <p className="text-app-danger text-sm">{errors.coreSkills.message}</p>
+                <WorkflowInlineNotice
+                  title="Core skills need correction"
+                  description={errors.coreSkills.message}
+                  tone="danger"
+                />
               ) : null}
 
               <div className="grid gap-5 md:grid-cols-2">
@@ -311,7 +320,12 @@ export const OnboardingPage = () => {
               </Button>
               <div className="flex items-center gap-3">
                 {!onboarding.hasReadyDocument && (
-                  <span className="text-app-warning text-xs font-medium">Extract at least one document</span>
+                  <WorkflowInlineNotice
+                    title="At least one document must finish extraction first"
+                    description="Upload and wait for one READY document before moving to the final review step."
+                    tone="warning"
+                    className="max-w-sm"
+                  />
                 )}
                 <Button type="button" onClick={() => onboarding.setStep(3)} disabled={!onboarding.hasReadyDocument}>
                   Continue to review
@@ -384,7 +398,12 @@ export const OnboardingPage = () => {
               </Button>
               <div className="flex items-center gap-3">
                 {onboarding.generationError ? (
-                  <p className="text-app-danger text-sm font-medium">{onboarding.generationError}</p>
+                  <WorkflowFeedback
+                    title="Unable to generate your first profile"
+                    description={onboarding.generationError}
+                    tone="danger"
+                    className="p-4 sm:p-5"
+                  />
                 ) : null}
                 <Button
                   type="button"

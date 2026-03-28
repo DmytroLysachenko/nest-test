@@ -13,6 +13,7 @@ import {
 import { env } from '@/shared/config/env';
 import { ApiError } from '@/shared/lib/http/api-error';
 import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
+import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
 const formatJson = (value: unknown) => JSON.stringify(value, null, 2);
 const defaultPreset = testerEndpointPresets[0];
@@ -62,17 +63,18 @@ export const useTesterPage = (token: string) => {
         workerBaseUrl: env.NEXT_PUBLIC_WORKER_URL,
       }),
     onError: (err: unknown) => {
-      if (err instanceof ApiError) {
-        setError(err.message);
-        return;
-      }
-
-      if (err instanceof Error) {
-        setError(err.message);
-        return;
-      }
-
-      setError('Request failed.');
+      setError(
+        toUserErrorMessage(err, 'The tester request did not complete.', {
+          byCode: {
+            INVALID_JSON: 'Request JSON is invalid. Fix the body or headers payload and send again.',
+          },
+          byStatus: {
+            401: 'The endpoint rejected this request because the current token is missing or expired.',
+            403: 'The endpoint refused this request for the current token or worker secret.',
+            404: 'The target route was not found. Check the service and path before retrying.',
+          },
+        }),
+      );
     },
     onSuccess: () => {
       setError(null);

@@ -9,6 +9,7 @@ import {
   careerProfileGenerationFormSchema,
   type CareerProfileGenerationFormValues,
 } from '@/features/career-profiles/model/validation/career-profile-generation-form-schema';
+import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
 export const useCareerProfilePanel = (token: string) => {
   const form = useForm<CareerProfileGenerationFormValues>({
@@ -30,6 +31,9 @@ export const useCareerProfilePanel = (token: string) => {
     form,
     submit,
     latestQuery,
+    latestErrorMessage: latestQuery.error
+      ? toUserErrorMessage(latestQuery.error, 'Unable to load the latest generated profile right now.')
+      : null,
     isSubmitting: generateMutation.isPending,
   };
 };

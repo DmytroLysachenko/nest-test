@@ -10,6 +10,7 @@ import {
   GOOGLE_OAUTH_NONCE_KEY,
   GOOGLE_OAUTH_STATE_KEY,
 } from '@/features/auth/model/utils/google-oauth';
+import { WorkflowFeedback } from '@/shared/ui/workflow-feedback';
 
 export default function GoogleAuthCallbackPage() {
   const router = useRouter();
@@ -63,13 +64,14 @@ export default function GoogleAuthCallbackPage() {
       <div className="border-border/80 bg-card/95 w-full max-w-md rounded-2xl border p-6 shadow-sm backdrop-blur-sm">
         <h1 className="text-foreground text-lg font-semibold">Google Sign In</h1>
         {error ? (
-          <p className="text-app-danger mt-3 text-sm">
-            {error} Go back to{' '}
-            <a className="underline" href="/login">
-              login
-            </a>{' '}
-            and try again.
-          </p>
+          <WorkflowFeedback
+            title="Google sign-in did not complete"
+            description={`${error} Return to login and retry the Google flow once the session state is clean.`}
+            tone="danger"
+            actionLabel="Back to login"
+            onAction={() => router.replace('/login')}
+            className="mt-4 p-4 sm:p-5"
+          />
         ) : (
           <p className="text-muted-foreground mt-3 text-sm">Completing authentication...</p>
         )}
