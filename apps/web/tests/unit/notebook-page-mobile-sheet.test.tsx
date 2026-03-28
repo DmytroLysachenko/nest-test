@@ -162,7 +162,7 @@ describe('NotebookPage mobile sheet', () => {
       generatePrep: vi.fn(),
       isGeneratingPrep: false,
       isPreferencesLoading: false,
-    } as ReturnType<typeof useNotebookPage>);
+    } as unknown as ReturnType<typeof useNotebookPage>);
 
     render(<NotebookPage token="token" />);
 
