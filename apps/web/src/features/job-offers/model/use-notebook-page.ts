@@ -201,9 +201,23 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     ],
   );
 
-  const listError = listQuery.isError ? toUserErrorMessage(listQuery.error, 'Failed to load notebook offers.') : null;
+  const listError = listQuery.isError
+    ? toUserErrorMessage(listQuery.error, 'Failed to load notebook offers.', {
+        byStatus: {
+          401: 'Your session expired. Sign in again to keep working in the notebook.',
+          403: 'You do not have access to this notebook yet.',
+          429: 'Notebook data is being requested too aggressively right now. Wait a moment and retry.',
+          500: 'Notebook data is temporarily unavailable. Try again shortly.',
+        },
+      })
+    : null;
   const historyError = historyQuery.isError
-    ? toUserErrorMessage(historyQuery.error, 'Failed to load offer history.')
+    ? toUserErrorMessage(historyQuery.error, 'Failed to load offer history.', {
+        byStatus: {
+          429: 'Offer history is temporarily rate-limited. Retry in a moment.',
+          500: 'Offer history is temporarily unavailable. Retry shortly.',
+        },
+      })
     : null;
   const selectedVisibleIds = listQuery.data?.items.map((offer) => offer.id) ?? [];
   const isAllVisibleSelected =

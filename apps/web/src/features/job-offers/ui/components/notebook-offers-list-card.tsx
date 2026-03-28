@@ -1,13 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Inbox } from 'lucide-react';
+import React from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowRight, Inbox, Layers3 } from 'lucide-react';
 
+import { getNotebookCollectionState } from '@/features/job-offers/model/notebook-state-copy';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { EmptyState } from '@/shared/ui/empty-state';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+import { WorkflowFeedback, WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 import type { JobOfferListItemDto, JobOfferStatus } from '@/shared/types/api';
 
@@ -35,6 +37,8 @@ type NotebookOffersListCardProps = {
     nextStep?: string | null;
     note?: string | null;
   }) => void;
+  onModeChange?: (mode: 'strict' | 'approx' | 'explore') => void;
+  onOpenPlanning?: () => void;
   onPrev: () => void;
   onNext: () => void;
 };
@@ -58,18 +62,34 @@ export const NotebookOffersListCard = ({
   onClearSelected,
   onBulkStatusChange,
   onBulkFollowUpSave,
+  onModeChange,
+  onOpenPlanning,
   onPrev,
   onNext,
 }: NotebookOffersListCardProps) => {
   const [bulkFollowUpAt, setBulkFollowUpAt] = useState('');
   const [bulkNextStep, setBulkNextStep] = useState('');
   const [bulkNote, setBulkNote] = useState('');
+  const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
   const canSaveBulkFollowUp = useMemo(
     () =>
       selectedOfferIds.length > 0 &&
       (bulkFollowUpAt.trim().length > 0 || bulkNextStep.trim().length > 0 || bulkNote.trim().length > 0),
     [bulkFollowUpAt, bulkNextStep, bulkNote, selectedOfferIds.length],
   );
+  const collectionState = getNotebookCollectionState({
+    mode,
+    hiddenByModeCount,
+    degradedResultCount,
+    lastScrapeStatus,
+  });
+
+  useEffect(() => {
+    if (!selectedOfferIds.length) {
+      setBulkPanelOpen(false);
+    }
+  }, [selectedOfferIds.length]);
+
   const getFollowUpTone = (followUpState?: JobOfferListItemDto['followUpState']) => {
     if (followUpState === 'due') {
       return 'border-app-danger-border bg-app-danger-soft text-app-danger';
@@ -79,9 +99,19 @@ export const NotebookOffersListCard = ({
     }
     return '';
   };
+
   const getPipelineValue = (offer: JobOfferListItemDto, key: 'nextStep' | 'followUpNote') => {
     const value = offer.pipelineMeta?.[key];
     return typeof value === 'string' ? value.trim() : '';
+  };
+
+  const handlePrimaryCollectionAction = () => {
+    if (collectionState.nextMode && onModeChange) {
+      onModeChange(collectionState.nextMode);
+      return;
+    }
+
+    onOpenPlanning?.();
   };
 
   return (
@@ -102,6 +132,18 @@ export const NotebookOffersListCard = ({
         <span className="app-badge">{selectedOfferIds.length} selected</span>
         {degradedResultCount > 0 ? <span className="app-badge">degraded source: {degradedResultCount}</span> : null}
         <div className="ml-auto flex flex-wrap gap-2">
+          {selectedOfferIds.length ? (
+            <Button
+              type="button"
+              variant={bulkPanelOpen ? 'default' : 'secondary'}
+              className="h-8 px-3 text-xs"
+              disabled={isBusy}
+              onClick={() => setBulkPanelOpen((current) => !current)}
+            >
+              <Layers3 className="mr-2 h-3.5 w-3.5" />
+              {bulkPanelOpen ? 'Hide bulk plan' : 'Edit bulk plan'}
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="secondary"
@@ -123,64 +165,84 @@ export const NotebookOffersListCard = ({
         </div>
       </div>
 
-      <div className="app-muted-panel mb-4 space-y-3">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
-          <div className="app-field-group">
-            <Label htmlFor="bulk-follow-up-at" className="app-inline-label">
-              Bulk follow-up date
-            </Label>
-            <Input
-              id="bulk-follow-up-at"
-              type="datetime-local"
-              value={bulkFollowUpAt}
-              onChange={(event) => setBulkFollowUpAt(event.target.value)}
-            />
-          </div>
-          <div className="app-field-group">
-            <Label htmlFor="bulk-next-step" className="app-inline-label">
-              Bulk next step
-            </Label>
-            <Input
-              id="bulk-next-step"
-              value={bulkNextStep}
-              placeholder="Send follow-up email"
-              onChange={(event) => setBulkNextStep(event.target.value)}
-            />
-          </div>
-          <div className="app-field-group">
-            <Label htmlFor="bulk-follow-up-note" className="app-inline-label">
-              Bulk follow-up note
-            </Label>
-            <Input
-              id="bulk-follow-up-note"
-              value={bulkNote}
-              placeholder="Mention updated portfolio or interview availability"
-              onChange={(event) => setBulkNote(event.target.value)}
-            />
-          </div>
-          <Button
-            type="button"
-            className="h-10"
-            disabled={!canSaveBulkFollowUp || isBusy}
-            onClick={() => {
-              onBulkFollowUpSave({
-                ids: selectedOfferIds,
-                followUpAt: bulkFollowUpAt ? new Date(bulkFollowUpAt).toISOString() : null,
-                nextStep: bulkNextStep.trim() || null,
-                note: bulkNote.trim() || null,
-              });
-              setBulkFollowUpAt('');
-              setBulkNextStep('');
-              setBulkNote('');
-            }}
-          >
-            Save bulk follow-up
-          </Button>
+      {selectedOfferIds.length ? (
+        <div className="mb-4 space-y-3">
+          <WorkflowInlineNotice
+            title={`Bulk actions are ready for ${selectedOfferIds.length} selected offer${selectedOfferIds.length === 1 ? '' : 's'}`}
+            description="Use bulk save or dismiss for quick cleanup. Open the bulk plan only when you need to stamp one follow-up date, next step, or note across the selection."
+            tone="info"
+          />
+          {bulkPanelOpen ? (
+            <div className="app-muted-panel space-y-3">
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+                <div className="app-field-group">
+                  <Label htmlFor="bulk-follow-up-at" className="app-inline-label">
+                    Bulk follow-up date
+                  </Label>
+                  <Input
+                    id="bulk-follow-up-at"
+                    type="datetime-local"
+                    value={bulkFollowUpAt}
+                    onChange={(event) => setBulkFollowUpAt(event.target.value)}
+                  />
+                </div>
+                <div className="app-field-group">
+                  <Label htmlFor="bulk-next-step" className="app-inline-label">
+                    Bulk next step
+                  </Label>
+                  <Input
+                    id="bulk-next-step"
+                    value={bulkNextStep}
+                    placeholder="Send follow-up email"
+                    onChange={(event) => setBulkNextStep(event.target.value)}
+                  />
+                </div>
+                <div className="app-field-group">
+                  <Label htmlFor="bulk-follow-up-note" className="app-inline-label">
+                    Bulk follow-up note
+                  </Label>
+                  <Input
+                    id="bulk-follow-up-note"
+                    value={bulkNote}
+                    placeholder="Mention updated portfolio or interview availability"
+                    onChange={(event) => setBulkNote(event.target.value)}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  className="h-10"
+                  disabled={!canSaveBulkFollowUp || isBusy}
+                  onClick={() => {
+                    onBulkFollowUpSave({
+                      ids: selectedOfferIds,
+                      followUpAt: bulkFollowUpAt ? new Date(bulkFollowUpAt).toISOString() : null,
+                      nextStep: bulkNextStep.trim() || null,
+                      note: bulkNote.trim() || null,
+                    });
+                    setBulkFollowUpAt('');
+                    setBulkNextStep('');
+                    setBulkNote('');
+                    setBulkPanelOpen(false);
+                  }}
+                >
+                  Save bulk follow-up
+                </Button>
+              </div>
+              <p className="text-text-soft text-xs">
+                Apply one follow-up date, next step, or note across the current selection without opening each offer.
+              </p>
+            </div>
+          ) : null}
         </div>
-        <p className="text-text-soft text-xs">
-          Apply one follow-up date, next step, or note across the current selection without opening each offer.
-        </p>
-      </div>
+      ) : (
+        <div className="mb-4">
+          <WorkflowInlineNotice
+            title="Review first, bulk-edit second"
+            description="Selections stay out of the way until you need them. Open an offer for deeper work, or select several roles to reveal bulk actions."
+            tone="success"
+          />
+        </div>
+      )}
 
       <div className="space-y-3">
         {offers.length ? (
@@ -234,6 +296,28 @@ export const NotebookOffersListCard = ({
                   </span>
                 ))}
               </div>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-text-soft text-xs leading-6">
+                  {offer.followUpState === 'due'
+                    ? 'Due now. Handle this before widening the funnel.'
+                    : offer.followUpState === 'upcoming'
+                      ? 'Upcoming follow-up scheduled. Keep the thread warm.'
+                      : offer.status === 'NEW' || offer.status === 'SEEN'
+                        ? 'First-pass triage candidate.'
+                        : 'Continue moving this role through the pipeline.'}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 px-0 text-xs"
+                  onClick={() => onSelectOffer(offer.id)}
+                >
+                  Open workspace
+                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              </div>
+
               {(getPipelineValue(offer, 'nextStep') || getPipelineValue(offer, 'followUpNote')) && (
                 <div className="bg-surface-muted/72 mt-3 rounded-[1.1rem] px-3 py-2.5 text-xs">
                   {getPipelineValue(offer, 'nextStep') ? (
@@ -248,59 +332,22 @@ export const NotebookOffersListCard = ({
           ))
         ) : (
           <div className="space-y-3">
-            <EmptyState
-              icon={<Inbox className="h-8 w-8" />}
-              title={
-                mode === 'strict' && hiddenByModeCount > 0
-                  ? 'Offers hidden by strict mode'
-                  : degradedResultCount > 0
-                    ? 'Only degraded-source offers are available'
-                    : 'No offers found'
+            <WorkflowFeedback
+              eyebrow="Notebook state"
+              icon={<Inbox className="h-5 w-5" />}
+              title={collectionState.title}
+              description={collectionState.description}
+              tone={
+                collectionState.key === 'failed' ? 'danger' : collectionState.key === 'degraded' ? 'warning' : 'info'
               }
-              description={
-                mode === 'strict' && hiddenByModeCount > 0
-                  ? `${hiddenByModeCount} offer${hiddenByModeCount === 1 ? '' : 's'} matched your notebook, but strict mode filtered them out because they violate hard constraints.`
-                  : degradedResultCount > 0
-                    ? `${degradedResultCount} offer${degradedResultCount === 1 ? '' : 's'} came from listing-level salvage because source detail pages were incomplete. Review them in approx or explore mode after a fresh scrape.`
-                    : lastScrapeStatus === 'FAILED'
-                      ? 'The latest scrape failed before it could deliver notebook-ready offers. Check the scrape control center before retrying.'
-                      : 'Try relaxing filters or switch mode to explore to discover more opportunities.'
-              }
+              actionLabel={collectionState.actionLabel}
+              onAction={handlePrimaryCollectionAction}
             />
-            <div className="app-muted-panel text-sm">
-              <p className="text-text-strong font-medium">Suggested next step</p>
-              {mode === 'strict' ? (
-                <p className="text-text-soft mt-1">
-                  {hiddenByModeCount > 0 ? 'Switch to ' : 'You are in strict mode. Switch to '}
-                  <span className="font-medium">approx</span>
-                  {hiddenByModeCount > 0
-                    ? ' to review near matches that were hidden by hard constraints.'
-                    : ' to allow near matches.'}
-                </p>
-              ) : null}
-              {degradedResultCount > 0 ? (
-                <p className="text-text-soft mt-1">
-                  Degraded-source offers mean the scrape found promising listings, but detail pages were partially
-                  blocked or incomplete.
-                </p>
-              ) : null}
-              {lastScrapeStatus === 'FAILED' ? (
-                <p className="text-text-soft mt-1">
-                  The latest scrape run failed. Inspect the recent run story and diagnostics before assuming the
-                  notebook is truly empty.
-                </p>
-              ) : null}
-              {mode === 'approx' ? (
-                <p className="text-text-soft mt-1">
-                  You are in approx mode. Switch to <span className="font-medium">explore</span> for broader discovery.
-                </p>
-              ) : null}
-              {mode === 'explore' ? (
-                <p className="text-text-soft mt-1">
-                  You are in explore mode. Clear status/tag filters and enqueue a fresh scrape run.
-                </p>
-              ) : null}
-            </div>
+            <WorkflowInlineNotice
+              title={collectionState.nextStepTitle}
+              description={collectionState.nextStepDescription}
+              tone={collectionState.key === 'failed' ? 'danger' : 'info'}
+            />
           </div>
         )}
       </div>

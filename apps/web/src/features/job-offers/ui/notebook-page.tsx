@@ -1,6 +1,9 @@
 'use client';
 
+import React from 'react';
+import { useEffect, useState } from 'react';
 import { LayoutGrid, List } from 'lucide-react';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@repo/ui/components/sheet';
 
 import { useNotebookPage } from '@/features/job-offers/model/use-notebook-page';
 import { NotebookFiltersCard } from '@/features/job-offers/ui/components/notebook-filters-card';
@@ -28,6 +31,70 @@ type NotebookPageProps = {
 
 export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId = null }: NotebookPageProps) => {
   const notebook = useNotebookPage({ token, initialQuickAction, initialOfferId });
+  const [isDesktopRail, setIsDesktopRail] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 1280px)');
+    const updateBreakpoint = () => setIsDesktopRail(mediaQuery.matches);
+
+    updateBreakpoint();
+    mediaQuery.addEventListener('change', updateBreakpoint);
+
+    return () => {
+      mediaQuery.removeEventListener('change', updateBreakpoint);
+    };
+  }, []);
+
+  const renderOfferWorkspace = () => (
+    <NotebookOfferDetailsCard
+      offer={notebook.selectedOffer}
+      history={notebook.historyQuery.data}
+      historyError={notebook.historyError}
+      updatedAt={notebook.listQuery.dataUpdatedAt}
+      isBusy={notebook.isBusy}
+      onStatusChange={(status) => {
+        if (!notebook.selectedOffer) {
+          return;
+        }
+        notebook.updateStatus({ id: notebook.selectedOffer.id, status });
+      }}
+      onSaveMeta={(notes, tags) => {
+        if (!notebook.selectedOffer) {
+          return;
+        }
+        notebook.updateMeta({ id: notebook.selectedOffer.id, notes, tags });
+      }}
+      onSavePipeline={(pipelineMeta) => {
+        if (!notebook.selectedOffer) {
+          return;
+        }
+        notebook.updatePipeline({ id: notebook.selectedOffer.id, pipelineMeta });
+      }}
+      onRescore={() => {
+        if (!notebook.selectedOffer) {
+          return;
+        }
+        notebook.rescore({ id: notebook.selectedOffer.id });
+      }}
+      onSaveFeedback={(score, notes) => {
+        if (!notebook.selectedOffer) {
+          return;
+        }
+        notebook.updateFeedback({
+          id: notebook.selectedOffer.id,
+          aiFeedbackScore: score,
+          aiFeedbackNotes: notes,
+        });
+      }}
+      onGeneratePrep={(instructions) => {
+        if (!notebook.selectedOffer) {
+          return;
+        }
+        notebook.generatePrep({ id: notebook.selectedOffer.id, instructions });
+      }}
+      isGeneratingPrep={notebook.isGeneratingPrep}
+    />
+  );
 
   return (
     <main className="app-page space-y-6">
@@ -97,7 +164,7 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
       />
 
       <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.9fr)]">
-        <div className={notebook.selectedId ? 'hidden xl:block' : 'block'}>
+        <div>
           {notebook.listQuery.isLoading ? (
             <SectionLoadingState title="Offers" description="Loading notebook data..." rows={7} />
           ) : notebook.listError ? (
@@ -148,20 +215,17 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
               onBulkFollowUpSave={(payload) => {
                 notebook.bulkUpdateFollowUp(payload);
               }}
+              onModeChange={(value) => notebook.setNotebookFilter('mode', value)}
+              onOpenPlanning={() => {
+                window.location.href = '/planning';
+              }}
               onPrev={() => notebook.setNotebookOffset(notebook.pagination.offset - notebook.pagination.limit)}
               onNext={() => notebook.setNotebookOffset(notebook.pagination.offset + notebook.pagination.limit)}
             />
           )}
         </div>
 
-        <div className={`${notebook.selectedId ? 'block' : 'hidden xl:block'} xl:sticky xl:top-24 xl:self-start`}>
-          {notebook.selectedId && (
-            <div className="mb-4 xl:hidden">
-              <Button variant="secondary" onClick={() => notebook.setNotebookSelectedOffer('')}>
-                ← Back to offers list
-              </Button>
-            </div>
-          )}
+        <div className="hidden xl:sticky xl:top-24 xl:block xl:self-start">
           <UtilityRail
             title={notebook.selectedOffer ? 'Offer workspace' : 'Details rail'}
             description={
@@ -171,57 +235,39 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
             }
             className="bg-transparent p-0"
           >
-            <NotebookOfferDetailsCard
-              offer={notebook.selectedOffer}
-              history={notebook.historyQuery.data}
-              historyError={notebook.historyError}
-              updatedAt={notebook.listQuery.dataUpdatedAt}
-              isBusy={notebook.isBusy}
-              onStatusChange={(status) => {
-                if (!notebook.selectedOffer) {
-                  return;
-                }
-                notebook.updateStatus({ id: notebook.selectedOffer.id, status });
-              }}
-              onSaveMeta={(notes, tags) => {
-                if (!notebook.selectedOffer) {
-                  return;
-                }
-                notebook.updateMeta({ id: notebook.selectedOffer.id, notes, tags });
-              }}
-              onSavePipeline={(pipelineMeta) => {
-                if (!notebook.selectedOffer) {
-                  return;
-                }
-                notebook.updatePipeline({ id: notebook.selectedOffer.id, pipelineMeta });
-              }}
-              onRescore={() => {
-                if (!notebook.selectedOffer) {
-                  return;
-                }
-                notebook.rescore({ id: notebook.selectedOffer.id });
-              }}
-              onSaveFeedback={(score, notes) => {
-                if (!notebook.selectedOffer) {
-                  return;
-                }
-                notebook.updateFeedback({
-                  id: notebook.selectedOffer.id,
-                  aiFeedbackScore: score,
-                  aiFeedbackNotes: notes,
-                });
-              }}
-              onGeneratePrep={(instructions) => {
-                if (!notebook.selectedOffer) {
-                  return;
-                }
-                notebook.generatePrep({ id: notebook.selectedOffer.id, instructions });
-              }}
-              isGeneratingPrep={notebook.isGeneratingPrep}
-            />
+            {renderOfferWorkspace()}
           </UtilityRail>
         </div>
       </div>
+
+      {!isDesktopRail ? (
+        <Sheet
+          open={Boolean(notebook.selectedId)}
+          onOpenChange={(open) => (!open ? notebook.setNotebookSelectedOffer(null) : null)}
+        >
+          <SheetContent side="bottom" className="h-[92vh] rounded-t-[1.8rem] border-none px-0">
+            <SheetHeader className="px-5 pb-0 pt-5">
+              <SheetTitle>{notebook.selectedOffer?.title ?? 'Offer workspace'}</SheetTitle>
+              <SheetDescription>
+                Keep the selected offer, fit context, and next action together without losing the notebook list.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="overflow-y-auto px-5 pb-5">
+              <UtilityRail
+                title={notebook.selectedOffer ? 'Offer workspace' : 'Details rail'}
+                description={
+                  notebook.selectedOffer
+                    ? 'Edit status, follow-up, and notes while keeping the list context in the background.'
+                    : 'Select an offer to open notes, fit reasoning, and pipeline controls.'
+                }
+                className="bg-transparent p-0"
+              >
+                {renderOfferWorkspace()}
+              </UtilityRail>
+            </div>
+          </SheetContent>
+        </Sheet>
+      ) : null}
     </main>
   );
 };
