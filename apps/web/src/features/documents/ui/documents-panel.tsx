@@ -6,6 +6,7 @@ import { useDocumentsPanel } from '@/features/documents/model/hooks/use-document
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
+import { WorkflowFeedback, WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 import type { DocumentDto } from '@/shared/types/api';
 
@@ -65,47 +66,45 @@ export const DocumentsPanel = ({
           {uploadMutation.isPending ? 'Processing...' : 'Upload + confirm + extract'}
         </Button>
         {activeStage !== 'idle' ? <p className="text-text-soft text-sm">Current stage: {activeStage}</p> : null}
-        {disabled && disabledReason ? <p className="text-app-warning text-sm">{disabledReason}</p> : null}
-        {status ? <p className="text-app-success text-sm">{status}</p> : null}
-        {error ? <p className="text-app-danger text-sm">{error}</p> : null}
+        {disabled && disabledReason ? (
+          <WorkflowInlineNotice
+            title="Document actions are temporarily locked"
+            description={disabledReason}
+            tone="warning"
+          />
+        ) : null}
+        {status ? <WorkflowInlineNotice title="Document pipeline update" description={status} tone="success" /> : null}
+        {error ? (
+          <WorkflowFeedback
+            title="Document workflow needs attention"
+            description={error}
+            tone="danger"
+            actionLabel="Try upload again"
+            onAction={() => {
+              uploadMutation.reset();
+            }}
+          />
+        ) : null}
         {recoverySummary ? (
-          <div className="border-app-success-border bg-app-success-soft rounded-2xl border p-3 text-sm">
-            <p className="font-semibold">Recovery update</p>
-            <p className="mt-1">{recoverySummary}</p>
-          </div>
+          <WorkflowInlineNotice title="Recovery update" description={recoverySummary} tone="success" />
         ) : null}
         {diagnosticsEnabled && uploadHealthQuery.data ? (
-          <div
-            className={`rounded-2xl border p-3 text-xs ${uploadHealthQuery.data.ok ? 'border-app-success-border bg-app-success-soft' : 'border-app-warning-border bg-app-warning-soft'}`}
-          >
-            <p className="font-semibold">Upload health: {uploadHealthQuery.data.ok ? 'OK' : 'Degraded'}</p>
-            <p>
-              Bucket:{' '}
-              {uploadHealthQuery.data.bucket.ok ? 'ok' : `error (${uploadHealthQuery.data.bucket.reason ?? 'unknown'})`}
-            </p>
-            <p>
-              Signed URL:{' '}
-              {uploadHealthQuery.data.signedUrl.ok
-                ? 'ok'
-                : `error (${uploadHealthQuery.data.signedUrl.reason ?? 'unknown'})`}
-            </p>
-            <p>TraceId: {uploadHealthQuery.data.traceId}</p>
-          </div>
+          <WorkflowInlineNotice
+            title={`Upload health: ${uploadHealthQuery.data.ok ? 'ready' : 'degraded'}`}
+            description={`Bucket ${uploadHealthQuery.data.bucket.ok ? 'ok' : (uploadHealthQuery.data.bucket.reason ?? 'issue detected')}. Signed URL ${uploadHealthQuery.data.signedUrl.ok ? 'ok' : (uploadHealthQuery.data.signedUrl.reason ?? 'issue detected')}. Trace ${uploadHealthQuery.data.traceId}.`}
+            tone={uploadHealthQuery.data.ok ? 'success' : 'warning'}
+          />
         ) : null}
         {failedDocuments.length > 0 ? (
-          <div className="border-app-warning-border bg-app-warning-soft rounded-2xl border p-3 text-xs">
-            <p className="font-semibold">Recovery actions available</p>
-            <p className="mt-1">{failedDocuments.length} document(s) failed extraction and can be retried in batch.</p>
-            <Button
-              type="button"
-              variant="secondary"
-              className="mt-3 h-8"
-              onClick={() => retryAllFailedMutation.mutate()}
-              disabled={retryAllFailedMutation.isPending}
-            >
-              {retryAllFailedMutation.isPending ? 'Retrying failed documents...' : 'Retry all failed extractions'}
-            </Button>
-          </div>
+          <WorkflowFeedback
+            title="Recovery actions are available"
+            description={`${failedDocuments.length} document(s) failed extraction and can be retried in one batch instead of opening each file individually.`}
+            tone="warning"
+            actionLabel={
+              retryAllFailedMutation.isPending ? 'Retrying failed documents...' : 'Retry all failed extractions'
+            }
+            onAction={() => retryAllFailedMutation.mutate()}
+          />
         ) : null}
       </div>
 
@@ -181,7 +180,14 @@ export const DocumentsPanel = ({
                   </p>
                 ) : null}
               </div>
-              {document.extractionError ? <p className="text-app-danger">{document.extractionError}</p> : null}
+              {document.extractionError ? (
+                <WorkflowInlineNotice
+                  title="Extraction issue"
+                  description={document.extractionError}
+                  tone="danger"
+                  className="mt-3"
+                />
+              ) : null}
             </article>
           ))
         ) : (
@@ -202,10 +208,17 @@ export const DocumentsPanel = ({
             {documentEventsQuery.data.map((event) => (
               <article key={event.id} className="app-muted-panel space-y-1 text-xs">
                 <p className="text-text-strong font-medium">
-                  {event.stage} · {event.status}
+                  {event.stage} - {event.status}
                 </p>
                 <p className="text-text-soft">{event.message}</p>
-                {event.errorCode ? <p className="text-app-danger mt-1">code: {event.errorCode}</p> : null}
+                {event.errorCode ? (
+                  <WorkflowInlineNotice
+                    title="Diagnostic code"
+                    description={event.errorCode}
+                    tone="danger"
+                    className="mt-2 px-3 py-2"
+                  />
+                ) : null}
                 {event.traceId ? <p className="text-text-soft mt-1">traceId: {event.traceId}</p> : null}
               </article>
             ))}

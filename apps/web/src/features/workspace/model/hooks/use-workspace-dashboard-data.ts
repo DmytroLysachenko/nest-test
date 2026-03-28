@@ -27,9 +27,21 @@ export const useWorkspaceDashboardData = ({ token }: UseWorkspaceDashboardDataAr
   const isInitialLoading =
     !token || isBootstrapping || (!summary && !summaryError) || summary?.workflow.needsOnboarding;
   const offersError = offersQuery.isError
-    ? toUserErrorMessage(offersQuery.error, 'Unable to load recent offers.')
+    ? toUserErrorMessage(offersQuery.error, 'Unable to load recent offers.', {
+        byStatus: {
+          429: 'Recent offers are temporarily rate-limited. Retry in a moment.',
+          500: 'Recent offers are temporarily unavailable. Retry shortly.',
+        },
+      })
     : null;
-  const focusError = focusQuery.isError ? toUserErrorMessage(focusQuery.error, 'Unable to load focus queue.') : null;
+  const focusError = focusQuery.isError
+    ? toUserErrorMessage(focusQuery.error, 'Unable to load focus queue.', {
+        byStatus: {
+          429: "Today's focus is loading too often right now. Retry in a moment.",
+          500: "Today's focus is temporarily unavailable. Retry shortly.",
+        },
+      })
+    : null;
 
   return useMemo(
     () => ({

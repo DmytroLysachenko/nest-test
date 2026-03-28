@@ -2,6 +2,7 @@
 
 import { Card } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
+import { WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 import type { CareerProfileQualityDto } from '@/shared/types/api';
 
@@ -56,6 +57,13 @@ export const ProfileQualityCard = ({
               ))}
             </ul>
           </div>
+        ) : null}
+        {quality.missing.length ? (
+          <WorkflowInlineNotice
+            title="Most likely blockers"
+            description={`Missing or weak areas: ${quality.missing.join(', ')}.`}
+            tone="warning"
+          />
         ) : null}
       </div>
     ) : (

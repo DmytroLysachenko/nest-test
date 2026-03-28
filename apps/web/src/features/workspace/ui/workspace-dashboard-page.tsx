@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import { Inbox } from 'lucide-react';
 
@@ -24,6 +25,7 @@ import {
 } from '@/shared/ui/dashboard-primitives';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { GuidancePanel, JourneySteps } from '@/shared/ui/guidance-panels';
+import { WorkflowFeedback } from '@/shared/ui/workflow-feedback';
 import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
 
 export const WorkspaceDashboardPage = () => {
@@ -305,19 +307,15 @@ export const WorkspaceDashboardPage = () => {
                 ))}
               </div>
             ) : dashboard.focusError ? (
-              <div className="border-app-danger-border bg-app-danger-soft space-y-2 rounded-xl border p-3">
-                <p className="text-app-danger text-sm">{dashboard.focusError}</p>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  className="h-9"
-                  onClick={() => {
-                    void dashboard.refetchFocus();
-                  }}
-                >
-                  Retry
-                </Button>
-              </div>
+              <WorkflowFeedback
+                title="Today's focus is temporarily unavailable"
+                description={dashboard.focusError}
+                tone="danger"
+                actionLabel="Retry"
+                onAction={() => {
+                  void dashboard.refetchFocus();
+                }}
+              />
             ) : dashboard.focusGroups.length ? (
               <div className="space-y-3">
                 {dashboard.focusGroups
@@ -334,6 +332,9 @@ export const WorkspaceDashboardPage = () => {
                         <span className="app-badge">{group.count}</span>
                       </div>
                       <p className="text-text-soft mt-2 text-sm leading-6">{group.description}</p>
+                      <p className="text-primary mt-3 text-xs font-semibold uppercase tracking-[0.16em]">
+                        Open in notebook
+                      </p>
                     </Link>
                   ))}
               </div>
@@ -407,19 +408,15 @@ export const WorkspaceDashboardPage = () => {
             ))}
           </div>
         ) : dashboard.offersError ? (
-          <div className="border-app-danger-border bg-app-danger-soft space-y-2 rounded-xl border p-3">
-            <p className="text-app-danger text-sm">{dashboard.offersError}</p>
-            <Button
-              type="button"
-              variant="destructive"
-              className="h-9"
-              onClick={() => {
-                void dashboard.refetchOffers();
-              }}
-            >
-              Retry
-            </Button>
-          </div>
+          <WorkflowFeedback
+            title="Recent offers are temporarily unavailable"
+            description={dashboard.offersError}
+            tone="danger"
+            actionLabel="Retry"
+            onAction={() => {
+              void dashboard.refetchOffers();
+            }}
+          />
         ) : offers.length ? (
           <table className="min-w-full text-sm">
             <thead>

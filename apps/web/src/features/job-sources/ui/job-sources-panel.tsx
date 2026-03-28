@@ -9,6 +9,8 @@ import { GuidancePanel, JourneySteps } from '@/shared/ui/guidance-panels';
 import { Input } from '@/shared/ui/input';
 import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
+import { EmptyState } from '@/shared/ui/empty-state';
+import { WorkflowFeedback, WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
 
@@ -158,7 +160,13 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             Leave this disabled for the recommended profile-driven mode. Use it only when you want to test a specific
             listing source manually.
           </p>
-          {errors.listingUrl?.message ? <p className="text-app-danger text-sm">{errors.listingUrl.message}</p> : null}
+          {errors.listingUrl?.message ? (
+            <WorkflowInlineNotice
+              title="Listing URL needs correction"
+              description={errors.listingUrl.message}
+              tone="danger"
+            />
+          ) : null}
         </div>
 
         <div className="app-field-group">
@@ -169,15 +177,27 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           <p className="text-text-soft text-xs">
             Keep this lower for quick validation, higher for a wider sourcing pass.
           </p>
-          {errors.limit?.message ? <p className="text-app-danger text-sm">{errors.limit.message}</p> : null}
+          {errors.limit?.message ? (
+            <WorkflowInlineNotice title="Run limit needs correction" description={errors.limit.message} tone="danger" />
+          ) : null}
         </div>
 
-        {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
+        {errors.root?.message ? (
+          <WorkflowFeedback title="Unable to start the scrape run" description={errors.root.message} tone="danger" />
+        ) : null}
         <div className="app-toolbar flex items-center justify-between gap-3">
           {disabled && disabledReason ? (
-            <p className="text-app-warning text-sm">{disabledReason}</p>
+            <WorkflowInlineNotice
+              title="Run actions are temporarily locked"
+              description={disabledReason}
+              tone="warning"
+            />
           ) : preflight && !preflight.ready ? (
-            <p className="text-app-warning text-sm">Resolve scrape blockers before enqueueing a run.</p>
+            <WorkflowInlineNotice
+              title="Resolve blockers before you run"
+              description="The current sourcing context is not ready yet. Clear the blockers below before enqueueing a new run."
+              tone="warning"
+            />
           ) : (
             <span />
           )}
@@ -198,7 +218,11 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               {preflight.ready ? 'Ready to run' : 'Action required'}
             </span>
           </div>
-          <p className="text-text-soft">{preflight.guidance}</p>
+          <WorkflowInlineNotice
+            title={preflight.ready ? 'Sourcing context looks ready' : 'Preflight found blockers or warnings'}
+            description={preflight.guidance}
+            tone={preflight.ready ? 'success' : 'warning'}
+          />
           <InspectorRow label="Source" value={preflight.source ?? 'n/a'} />
           <InspectorRow label="Listing URL" value={preflight.listingUrl ?? 'n/a'} />
           <InspectorRow label="Active runs" value={String(preflight.activeRunCount)} />
@@ -219,21 +243,14 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               <p className="text-text-strong font-medium">Blockers</p>
               <div className="mt-2 space-y-2">
                 {preflight.blockerDetails.map((blocker) => (
-                  <div
+                  <WorkflowFeedback
                     key={blocker.code}
-                    className="border-app-warning-border bg-app-warning-soft rounded-2xl border p-3"
-                  >
-                    <p className="text-text-strong font-semibold">{blocker.title}</p>
-                    <p className="text-text-soft mt-1">{blocker.description}</p>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="mt-3 h-8"
-                      onClick={() => (window.location.href = blocker.href)}
-                    >
-                      {blocker.ctaLabel}
-                    </Button>
-                  </div>
+                    title={blocker.title}
+                    description={blocker.description}
+                    tone="warning"
+                    actionLabel={blocker.ctaLabel}
+                    onAction={() => (window.location.href = blocker.href)}
+                  />
                 ))}
               </div>
             </div>
@@ -243,10 +260,12 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               <p className="text-text-strong font-medium">Warnings</p>
               <div className="mt-2 space-y-2">
                 {preflight.warningDetails.map((warning) => (
-                  <div key={warning.code} className="border-border/60 bg-surface/70 rounded-2xl border p-3">
-                    <p className="text-text-strong font-semibold">{warning.title}</p>
-                    <p className="text-text-soft mt-1">{warning.description}</p>
-                  </div>
+                  <WorkflowInlineNotice
+                    key={warning.code}
+                    title={warning.title}
+                    description={warning.description}
+                    tone="info"
+                  />
                 ))}
               </div>
             </div>
@@ -329,7 +348,11 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               Examples: `0 8 * * 1-5` for weekdays at 08:00, `0 18 * * *` for every day at 18:00.
             </p>
             {scheduleErrors.cron?.message ? (
-              <p className="text-app-danger text-sm">{scheduleErrors.cron.message}</p>
+              <WorkflowInlineNotice
+                title="Cron needs correction"
+                description={scheduleErrors.cron.message}
+                tone="danger"
+              />
             ) : null}
           </div>
 
@@ -364,7 +387,11 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               Use smaller batches for tighter review cycles and larger batches for wider discovery.
             </p>
             {scheduleErrors.limit?.message ? (
-              <p className="text-app-danger text-sm">{scheduleErrors.limit.message}</p>
+              <WorkflowInlineNotice
+                title="Schedule limit needs correction"
+                description={scheduleErrors.limit.message}
+                tone="danger"
+              />
             ) : null}
           </div>
         </div>
@@ -428,11 +455,14 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
                   {jobSourcesPanel.selectedRunId === run.id ? 'Showing diagnostics' : 'Show diagnostics'}
                 </Button>
               ) : null}
-              {run.error ? <p className="text-app-danger">{run.error}</p> : null}
+              {run.error ? <WorkflowInlineNotice title="Run error" description={run.error} tone="danger" /> : null}
             </article>
           ))
         ) : (
-          <p className="text-text-soft text-sm">No runs yet.</p>
+          <EmptyState
+            title="No runs yet"
+            description="Use a manual run once your profile context is ready, or save a schedule first if you want sourcing to stay automatic."
+          />
         )}
       </div>
 

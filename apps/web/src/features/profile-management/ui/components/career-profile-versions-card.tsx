@@ -6,6 +6,7 @@ import { Card } from '@/shared/ui/card';
 import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
+import { WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 import type { CareerProfileDto, CareerProfileListDto, DocumentDto } from '@/shared/types/api';
 
@@ -58,7 +59,13 @@ export const CareerProfileVersionsCard = ({
             {...generationForm.register('instructions')}
           />
         </div>
-        {generateErrorMessage ? <p className="text-app-danger text-sm">{generateErrorMessage}</p> : null}
+        {generateErrorMessage ? (
+          <WorkflowInlineNotice
+            title="Profile generation needs attention"
+            description={generateErrorMessage}
+            tone="danger"
+          />
+        ) : null}
         <div className="app-toolbar flex items-center justify-between gap-3">
           {!canGenerate ? (
             <p className="text-app-warning text-sm">
@@ -88,7 +95,9 @@ export const CareerProfileVersionsCard = ({
 
       <div className="mt-4 space-y-2">
         <p className="text-text-strong text-sm font-semibold">Version history</p>
-        {restoreErrorMessage ? <p className="text-app-danger text-sm">{restoreErrorMessage}</p> : null}
+        {restoreErrorMessage ? (
+          <WorkflowInlineNotice title="Profile restore failed" description={restoreErrorMessage} tone="danger" />
+        ) : null}
         {versions?.items?.length ? (
           versions.items.map((item) => (
             <article key={item.id} className="app-muted-panel space-y-3 text-sm">

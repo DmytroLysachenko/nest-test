@@ -6,6 +6,7 @@ import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
+import { WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 type ProfileInputEditorCardProps = {
   initialTargetRoles?: string;
@@ -54,7 +55,13 @@ export const ProfileInputEditorCard = ({
           <p className="text-text-soft text-xs">
             Use a concise comma-separated list of the roles you want the system to prioritize.
           </p>
-          {errors.targetRoles?.message ? <p className="text-app-danger text-sm">{errors.targetRoles.message}</p> : null}
+          {errors.targetRoles?.message ? (
+            <WorkflowInlineNotice
+              title="Target roles need correction"
+              description={errors.targetRoles.message}
+              tone="danger"
+            />
+          ) : null}
         </div>
 
         <div className="app-field-group">
@@ -70,10 +77,14 @@ export const ProfileInputEditorCard = ({
           <p className="text-text-soft text-xs">
             Capture constraints, non-negotiables, and context that should influence filtering or ranking.
           </p>
-          {errors.notes?.message ? <p className="text-app-danger text-sm">{errors.notes.message}</p> : null}
+          {errors.notes?.message ? (
+            <WorkflowInlineNotice title="Notes need correction" description={errors.notes.message} tone="danger" />
+          ) : null}
         </div>
 
-        {errorMessage ? <p className="text-app-danger text-sm">{errorMessage}</p> : null}
+        {errorMessage ? (
+          <WorkflowInlineNotice title="Unable to save profile input" description={errorMessage} tone="danger" />
+        ) : null}
         <Button type="submit" disabled={isSaving}>
           {isSaving ? 'Saving...' : 'Save profile input'}
         </Button>
