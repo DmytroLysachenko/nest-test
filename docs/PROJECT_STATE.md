@@ -115,6 +115,7 @@ That framing should guide future implementation more than raw source count.
 - Web
   - major move from panel-heavy internal tooling toward guided product workflow
   - still contains mixed maturity areas where some screens feel productized and some remain utilitarian
+  - current frontend polish focus is notebook responsiveness, intentional workflow feedback states, and lower-friction offer interaction on smaller screens
 - Database and migrations
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields
 - CI/CD and smoke

@@ -5,6 +5,7 @@ import { Skeleton } from '@repo/ui/components/skeleton';
 
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
+import { WorkflowFeedback } from '@/shared/ui/workflow-feedback';
 
 type PageLoadingStateProps = {
   title?: string;
@@ -137,22 +138,22 @@ export const SectionLoadingState = ({ title, description, rows = 3 }: SectionLoa
 
 export const PageErrorState = ({ title, message, retryLabel = 'Retry', onRetry }: AsyncErrorStateProps) => (
   <main className="app-page">
-    <Card title={title} description={message} className="border-app-danger-border bg-app-danger-soft">
-      {onRetry ? (
-        <Button type="button" variant="destructive" onClick={onRetry}>
-          {retryLabel}
-        </Button>
-      ) : null}
-    </Card>
+    <WorkflowFeedback
+      title={title}
+      description={message}
+      tone="danger"
+      actionLabel={onRetry ? retryLabel : undefined}
+      onAction={onRetry}
+    />
   </main>
 );
 
 export const SectionErrorState = ({ title, message, retryLabel = 'Retry', onRetry }: AsyncErrorStateProps) => (
-  <Card title={title} description={message} className="border-app-danger-border bg-app-danger-soft">
-    {onRetry ? (
-      <Button type="button" variant="destructive" className="h-9" onClick={onRetry}>
-        {retryLabel}
-      </Button>
-    ) : null}
-  </Card>
+  <WorkflowFeedback
+    title={title}
+    description={message}
+    tone="danger"
+    actionLabel={onRetry ? retryLabel : undefined}
+    onAction={onRetry}
+  />
 );
