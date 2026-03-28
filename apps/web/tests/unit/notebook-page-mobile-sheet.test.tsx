@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useNotebookPage } from '@/features/job-offers/model/use-notebook-page';
 import { NotebookPage } from '@/features/job-offers/ui/notebook-page';
+
 import type { JobOfferListItemDto, JobOfferSummaryDto, WorkspaceSummaryDto } from '@/shared/types/api';
 
 vi.mock('@/features/job-offers/model/use-notebook-page', () => ({
@@ -161,7 +162,7 @@ describe('NotebookPage mobile sheet', () => {
       generatePrep: vi.fn(),
       isGeneratingPrep: false,
       isPreferencesLoading: false,
-    } as any);
+    } as ReturnType<typeof useNotebookPage>);
 
     render(<NotebookPage token="token" />);
 

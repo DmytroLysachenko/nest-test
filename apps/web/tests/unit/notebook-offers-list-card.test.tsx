@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NotebookOffersListCard } from '@/features/job-offers/ui/components/notebook-offers-list-card';
+
 import type { JobOfferListItemDto } from '@/shared/types/api';
 
 const baseOffer: JobOfferListItemDto = {
