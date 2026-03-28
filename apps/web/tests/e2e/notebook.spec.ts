@@ -380,10 +380,11 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
     .first()
     .click();
 
-  await expect(page.getByText('Action plan')).toBeVisible();
+  await expect(page.getByText('Follow-up plan', { exact: true })).toBeVisible();
   await expect(page.getByText('Next step: Send follow-up email').first()).toBeVisible();
 
   await page.getByLabel('Select Backend Developer').check();
+  await page.getByRole('button', { name: 'Edit bulk plan' }).click();
   await page.getByLabel('Bulk next step').fill('Prepare recruiter follow-up');
   await page.getByLabel('Bulk follow-up note').fill('Share updated portfolio link');
   const bulkFollowUpRequest = page.waitForRequest('**/api/job-offers/pipeline/bulk-follow-up');
@@ -398,7 +399,7 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
   await page.getByLabel('Tags (comma separated)').fill('smoke, backend');
 
   const metaRequest = page.waitForRequest('**/api/job-offers/ujo-1/meta');
-  await page.getByRole('button', { name: 'Save metadata' }).click();
+  await page.getByRole('button', { name: 'Save notes and tags' }).click();
   await metaRequest;
 
   const scoreRequest = page.waitForRequest('**/api/job-offers/ujo-1/score');
