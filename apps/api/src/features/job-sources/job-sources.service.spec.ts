@@ -1842,6 +1842,113 @@ describe('JobSourcesService', () => {
     });
   });
 
+  it('returns zeroed stage metrics when diagnostics omit stage metrics', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) =>
+                  Promise.resolve(
+                    cb([
+                      {
+                        id: 'run-10b',
+                        traceId: 'trace-10b',
+                        source: 'PRACUJ_PL',
+                        userId: 'user-10',
+                        listingUrl: 'https://example.com/listing',
+                        status: 'RUNNING',
+                        totalFound: 0,
+                        scrapedCount: 0,
+                        finalizedAt: null,
+                        completedAt: null,
+                        lastHeartbeatAt: new Date('2026-02-27T09:00:00.000Z'),
+                        failureType: null,
+                        error: null,
+                        progress: {},
+                        classifiedOutcome: null,
+                        sourceQuality: null,
+                        emptyReason: null,
+                      },
+                    ]),
+                  ),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  then: (cb: (rows: unknown[]) => unknown) =>
+                    Promise.resolve(
+                      cb([
+                        {
+                          payload: JSON.stringify({
+                            diagnostics: {},
+                          }),
+                        },
+                      ]),
+                    ),
+                }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  then: (cb: (rows: unknown[]) => unknown) => Promise.resolve(cb([])),
+                }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        }),
+      update: jest.fn(),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const diagnostics = await service.getRunDiagnostics('user-10', 'run-10b');
+
+    expect(diagnostics.diagnostics.stageMetrics).toEqual({
+      fetch: {
+        pagesVisited: 0,
+        jobLinksDiscovered: 0,
+        blockedPages: 0,
+        browserFallbacks: 0,
+        detailAttemptedCount: 0,
+      },
+      parse: {
+        acceptedOfferCount: 0,
+        rejectedOfferCount: 0,
+        dedupedInRunCount: 0,
+        salvagedOfferCount: 0,
+      },
+      finalize: {
+        blockedRate: 0,
+        attemptCount: 0,
+        stopReason: null,
+        resultKind: null,
+      },
+    });
+  });
+
   it('returns aggregated diagnostics summary for recent runs', async () => {
     const now = new Date('2026-02-26T10:00:00.000Z');
     jest.spyOn(Date, 'now').mockReturnValue(now.getTime());

@@ -2326,13 +2326,9 @@ export class JobSourcesService {
 
   private normalizeStageMetrics(value: unknown) {
     const metrics = this.toNullableRecord(value);
-    if (!metrics) {
-      return null;
-    }
-
-    const fetch = this.toNullableRecord(metrics.fetch);
-    const parse = this.toNullableRecord(metrics.parse);
-    const finalize = this.toNullableRecord(metrics.finalize);
+    const fetch = this.toNullableRecord(metrics?.fetch);
+    const parse = this.toNullableRecord(metrics?.parse);
+    const finalize = this.toNullableRecord(metrics?.finalize);
 
     return {
       fetch: {
