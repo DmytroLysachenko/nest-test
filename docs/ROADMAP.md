@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-03-21
+Last updated: 2026-03-29
 
 ## Product Direction
 
@@ -32,8 +32,8 @@ The project should not drift into:
 
 ## Now (Execution Priority)
 
-1. Frontend productization from internal tooling to user workflow UX.
-   - Status: onboarding wizard + notebook-first dashboard implemented; server draft recovery, recovery-center guidance, schedule controls, notebook triage summary, route-aware blocker CTA metadata, and richer preflight guidance shipped. Current polish focus is notebook responsiveness, cleaner workflow feedback states, and better offer-detail interaction.
+1. Workflow differentiation in dashboard + notebook.
+   - Status: in progress (normalized follow-up fields, action-plan read model, prep packet read model, and one-click notebook follow-up actions shipped; remaining work is deeper reminder reliability and richer prep support).
 2. Matching quality tuning (score calibration, stricter seniority/constraints behavior).
    - Status: in progress (capped approx penalties + explore recency weighting shipped; threshold tuning ongoing).
 3. Scraper quality hardening and source-specific reliability.
