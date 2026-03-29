@@ -40,6 +40,27 @@ export class JobOfferItem {
   followUpState?: 'due' | 'upcoming' | 'none';
 
   @ApiProperty({ required: false })
+  followUpAt!: string | null;
+
+  @ApiProperty({ required: false })
+  nextStep!: string | null;
+
+  @ApiProperty({ required: false })
+  followUpNote!: string | null;
+
+  @ApiProperty({ required: false })
+  applicationUrl!: string | null;
+
+  @ApiProperty({ required: false })
+  contactName!: string | null;
+
+  @ApiProperty({ required: false })
+  lastFollowUpCompletedAt!: string | null;
+
+  @ApiProperty({ required: false })
+  lastFollowUpSnoozedAt!: string | null;
+
+  @ApiProperty({ required: false })
   matchMeta!: unknown | null;
 
   @ApiProperty({ required: false })
@@ -103,6 +124,9 @@ export class JobOfferListResponse {
 
   @ApiProperty()
   degradedResultCount!: number;
+
+  @ApiProperty({ required: false, type: [String] })
+  stateReasons?: string[];
 }
 
 class JobOfferSummaryBucket {
@@ -179,6 +203,115 @@ class JobOfferFocusGroup {
 
   @ApiProperty({ type: [JobOfferFocusItem] })
   items!: JobOfferFocusItem[];
+}
+
+class JobOfferActionPlanBucket {
+  @ApiProperty()
+  key!: string;
+
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  description!: string;
+
+  @ApiProperty()
+  href!: string;
+
+  @ApiProperty()
+  count!: number;
+
+  @ApiProperty()
+  ctaLabel!: string;
+
+  @ApiProperty({ required: false, type: [String] })
+  reasons?: string[];
+}
+
+class PrepPacketSummary {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty({ required: false })
+  company!: string | null;
+
+  @ApiProperty({ required: false })
+  location!: string | null;
+
+  @ApiProperty({ required: false })
+  url!: string | null;
+
+  @ApiProperty({ required: false })
+  description!: string | null;
+
+  @ApiProperty({ required: false })
+  requirements!: unknown | null;
+}
+
+class PrepPacketProfileSummary {
+  @ApiProperty({ required: false })
+  headline!: string | null;
+
+  @ApiProperty({ required: false })
+  summary!: string | null;
+
+  @ApiProperty({ type: [String] })
+  targetRoles!: string[];
+
+  @ApiProperty({ type: [String] })
+  searchableKeywords!: string[];
+}
+
+export class JobOfferActionPlanResponse {
+  @ApiProperty({ type: [JobOfferActionPlanBucket] })
+  buckets!: JobOfferActionPlanBucket[];
+}
+
+export class JobOfferPrepPacketResponse {
+  @ApiProperty({ type: PrepPacketSummary })
+  offer!: PrepPacketSummary;
+
+  @ApiProperty({ required: false })
+  matchRationale!: Record<string, unknown> | null;
+
+  @ApiProperty({ type: [String] })
+  tags!: string[];
+
+  @ApiProperty({ required: false })
+  notes!: string | null;
+
+  @ApiProperty({ required: false })
+  followUpState!: 'due' | 'upcoming' | 'none';
+
+  @ApiProperty({ required: false })
+  followUpAt!: string | null;
+
+  @ApiProperty({ required: false })
+  nextStep!: string | null;
+
+  @ApiProperty({ required: false })
+  followUpNote!: string | null;
+
+  @ApiProperty({ required: false })
+  applicationUrl!: string | null;
+
+  @ApiProperty({ required: false })
+  contactName!: string | null;
+
+  @ApiProperty({ required: false })
+  prepMaterials!: Record<string, unknown> | null;
+
+  @ApiProperty({ type: PrepPacketProfileSummary, required: false })
+  profile!: PrepPacketProfileSummary | null;
+
+  @ApiProperty({ type: [String] })
+  talkingPoints!: string[];
+
+  @ApiProperty({ type: [String] })
+  verifyBeforeReply!: string[];
 }
 
 export class JobOfferSummaryResponse {

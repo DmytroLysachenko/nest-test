@@ -23,7 +23,13 @@ import { JobOffersService } from './job-offers.service';
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
 import { UpdateJobOfferStatusDto } from './dto/update-job-offer-status.dto';
 import { ScoreJobOfferDto } from './dto/score-job-offer.dto';
-import { JobOfferFocusResponse, JobOfferListResponse, JobOfferSummaryResponse } from './dto/job-offer.response';
+import {
+  JobOfferActionPlanResponse,
+  JobOfferFocusResponse,
+  JobOfferListResponse,
+  JobOfferPrepPacketResponse,
+  JobOfferSummaryResponse,
+} from './dto/job-offer.response';
 import { UpdateJobOfferMetaDto } from './dto/update-job-offer-meta.dto';
 import { ListStatusHistoryQuery } from './dto/list-status-history.query';
 import { UpdateJobOfferFeedbackDto } from './dto/update-job-offer-feedback.dto';
@@ -31,6 +37,7 @@ import { UpdateJobOfferPipelineDto } from './dto/update-job-offer-pipeline.dto';
 import { GeneratePrepDto } from './dto/generate-prep.dto';
 import { NotebookPreferencesResponse, UpdateNotebookPreferencesDto } from './dto/notebook-preferences.dto';
 import { BulkUpdateJobOfferFollowUpDto } from './dto/bulk-update-job-offer-follow-up.dto';
+import { CompleteFollowUpDto, SnoozeFollowUpDto } from './dto/follow-up-command.dto';
 
 @ApiTags('job-offers')
 @ApiBearerAuth()
@@ -62,6 +69,13 @@ export class JobOffersController {
     return this.jobOffersService.getFocusQueue(user.userId);
   }
 
+  @Get('action-plan')
+  @ApiOperation({ summary: 'Get server-driven daily action plan for notebook work' })
+  @ApiOkResponse({ type: JobOfferActionPlanResponse })
+  async getActionPlan(@CurrentUser() user: JwtValidateUser) {
+    return this.jobOffersService.getActionPlan(user.userId);
+  }
+
   @Get('preferences')
   @ApiOperation({ summary: 'Get persisted notebook preferences for current user' })
   @ApiOkResponse({ type: NotebookPreferencesResponse })
@@ -88,6 +102,16 @@ export class JobOffersController {
   @ApiOperation({ summary: 'Get status history for a single offer' })
   async getHistory(@CurrentUser() user: JwtValidateUser, @Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.jobOffersService.getHistory(user.userId, id);
+  }
+
+  @Get(':id/prep-packet')
+  @ApiOperation({ summary: 'Get a structured prep packet for an active offer' })
+  @ApiOkResponse({ type: JobOfferPrepPacketResponse })
+  async getPrepPacket(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.jobOffersService.getPrepPacket(user.userId, id);
   }
 
   @Post('dismiss-all-seen')
@@ -146,6 +170,35 @@ export class JobOffersController {
   @ApiOperation({ summary: 'Bulk update follow-up metadata for selected offers' })
   async bulkUpdateFollowUp(@CurrentUser() user: JwtValidateUser, @Body() dto: BulkUpdateJobOfferFollowUpDto) {
     return this.jobOffersService.bulkUpdateFollowUp(user.userId, dto);
+  }
+
+  @Post(':id/follow-up/complete')
+  @ApiOperation({ summary: 'Mark current follow-up as completed' })
+  async completeFollowUp(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: CompleteFollowUpDto,
+  ) {
+    return this.jobOffersService.completeFollowUp(user.userId, id, dto);
+  }
+
+  @Post(':id/follow-up/snooze')
+  @ApiOperation({ summary: 'Snooze the current follow-up' })
+  async snoozeFollowUp(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: SnoozeFollowUpDto,
+  ) {
+    return this.jobOffersService.snoozeFollowUp(user.userId, id, dto.durationHours);
+  }
+
+  @Post(':id/follow-up/clear')
+  @ApiOperation({ summary: 'Clear follow-up scheduling and next-step fields' })
+  async clearFollowUp(
+    @CurrentUser() user: JwtValidateUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.jobOffersService.clearFollowUp(user.userId, id);
   }
 
   @Post(':id/generate-prep')
