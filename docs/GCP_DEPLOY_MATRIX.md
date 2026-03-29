@@ -2,7 +2,7 @@
 
 Canonical runtime/deploy contract for Google Cloud Run production deployments.
 
-Last updated: 2026-03-05
+Last updated: 2026-03-29
 
 For the complete local + production inventory, use:
 
@@ -14,38 +14,86 @@ For the complete local + production inventory, use:
 
 | Name | Used by | Notes |
 |---|---|---|
-| `GCP_PROJECT_ID` | release-candidate, promote-to-prod | GCP project id |
-| `GCP_REGION` | release-candidate, promote-to-prod | Cloud Run + Artifact Registry region |
-| `GAR_REPOSITORY` | release-candidate, promote-to-prod | Artifact Registry Docker repository |
-| `GCP_API_SERVICE` | promote-to-prod | Cloud Run service name for API |
-| `GCP_WORKER_SERVICE` | promote-to-prod | Cloud Run service name for Worker |
-| `GCP_WEB_SERVICE` | promote-to-prod | Cloud Run service name for Web |
-| `GCP_API_BASE_URL` | promote-to-prod | Public API base URL (`https://...`) |
-| `GCP_WORKER_BASE_URL` | promote-to-prod | Public Worker base URL (`https://...`) |
-| `GCP_WEB_BASE_URL` | promote-to-prod | Public Web base URL (`https://...`) |
-| `GOOGLE_OAUTH_CLIENT_ID` | release-candidate, deploy-prod-on-main | Public Google OAuth client id used by web build and API token verification |
-| `GEMINI_MODEL` | deploy-prod-on-main | Vertex AI model id injected into API runtime |
-| `SCHEDULER_JOB_NAME` | deploy-prod-on-main | Optional Cloud Scheduler job name override (default `job-seek-schedule-trigger`) |
-| `SCHEDULER_CRON` | deploy-prod-on-main | Optional Cloud Scheduler cron expression (default `*/10 * * * *`) |
-| `SCHEDULER_TIMEZONE` | deploy-prod-on-main | Optional Cloud Scheduler timezone (default `Etc/UTC`) |
-| `OPS_RECONCILE_JOB_NAME` | deploy-prod-on-main | Optional reconcile job name override (default `job-seek-reconcile-stale-runs`) |
-| `OPS_RECONCILE_CRON` | deploy-prod-on-main | Optional reconcile cron expression (default `*/15 * * * *`) |
-| `OPS_RECONCILE_TIMEZONE` | deploy-prod-on-main | Optional reconcile timezone (default `Etc/UTC`) |
-| `WORKER_TASKS_DLQ` | deploy-prod-on-main | Optional DLQ queue name provisioned by deploy script (default `worker-scrape-dlq`) |
-| `TASKS_MAX_ATTEMPTS` | deploy-prod-on-main | Optional Cloud Tasks retry max attempts (default `8`) |
-| `TASKS_MIN_BACKOFF_SEC` | deploy-prod-on-main | Optional retry min backoff seconds (default `5`) |
-| `TASKS_MAX_BACKOFF_SEC` | deploy-prod-on-main | Optional retry max backoff seconds (default `300`) |
-| `TASKS_MAX_DOUBLINGS` | deploy-prod-on-main | Optional retry max doublings (default `5`) |
-| `TASKS_MAX_RETRY_DURATION_SEC` | deploy-prod-on-main | Optional retry max duration in seconds (default `1800`) |
+| `GCP_PROJECT_ID` | release-candidate, deploy-prod-on-main, promote-to-prod | GCP project id |
+| `GCP_REGION` | release-candidate, deploy-prod-on-main, promote-to-prod | Cloud Run + Artifact Registry region |
+| `GAR_REPOSITORY` | release-candidate, deploy-prod-on-main, promote-to-prod | Artifact Registry Docker repository |
+| `GCP_API_SERVICE` | deploy-prod-on-main, promote-to-prod | Cloud Run service name for API |
+| `GCP_WORKER_SERVICE` | deploy-prod-on-main, promote-to-prod | Cloud Run service name for Worker |
+| `GCP_WEB_SERVICE` | deploy-prod-on-main, promote-to-prod | Cloud Run service name for Web |
+| `GCP_API_BASE_URL` | release-candidate | Public API base URL (`https://...`) for web image build |
+| `GCP_WORKER_BASE_URL` | release-candidate | Public Worker base URL (`https://...`) for web image build |
+| `GCP_WEB_BASE_URL` | optional reference only | Public Web base URL if you track it in vars |
+| `GOOGLE_OAUTH_CLIENT_ID` | release-candidate, deploy-prod-on-main, promote-to-prod | Public Google OAuth client id used by web build and API token verification |
+| `GEMINI_MODEL` | deploy-prod-on-main, promote-to-prod | Vertex AI model id injected into API runtime |
+| `GCS_BUCKET` | deploy-prod-on-main, promote-to-prod | document storage bucket |
+| `API_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | global API throttle window |
+| `API_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | global API throttle limit |
+| `AUTH_LOGIN_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | auth login throttle window |
+| `AUTH_LOGIN_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | auth login throttle limit |
+| `AUTH_REFRESH_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | auth refresh throttle window |
+| `AUTH_REFRESH_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | auth refresh throttle limit |
+| `AUTH_REGISTER_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | auth register throttle window |
+| `AUTH_REGISTER_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | auth register throttle limit |
+| `AUTH_OTP_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | auth OTP throttle window |
+| `AUTH_OTP_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | auth OTP throttle limit |
+| `WORKER_REQUEST_TIMEOUT_MS` | deploy-prod-on-main, promote-to-prod | API wait timeout for worker accept |
+| `WORKER_TASK_MAX_PAYLOAD_BYTES` | deploy-prod-on-main, promote-to-prod | API/worker payload guardrail |
+| `API_BODY_LIMIT` | deploy-prod-on-main, promote-to-prod | API body parser limit |
+| `DISK_HEALTH_THRESHOLD` | deploy-prod-on-main, promote-to-prod | API health threshold |
+| `SCHEDULER_TRIGGER_BATCH_SIZE` | deploy-prod-on-main, promote-to-prod | scheduler trigger batch size |
+| `WORKSPACE_SUMMARY_CACHE_TTL_SEC` | deploy-prod-on-main, promote-to-prod | dashboard cache TTL |
+| `JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS` | deploy-prod-on-main, promote-to-prod | job source diagnostics window |
+| `DOCUMENT_DIAGNOSTICS_WINDOW_HOURS` | deploy-prod-on-main, promote-to-prod | document diagnostics window |
+| `SCRAPE_DB_REUSE_HOURS` | deploy-prod-on-main, promote-to-prod | scrape DB reuse window |
+| `SCRAPE_MAX_ACTIVE_RUNS_PER_USER` | deploy-prod-on-main, promote-to-prod | active scrape cap |
+| `SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER` | deploy-prod-on-main, promote-to-prod | daily scrape budget |
+| `SCRAPE_ENQUEUE_IDEMPOTENCY_TTL_SEC` | deploy-prod-on-main, promote-to-prod | idempotency TTL |
+| `SCRAPE_MAX_RETRY_CHAIN_DEPTH` | deploy-prod-on-main, promote-to-prod | retry chain cap |
+| `SCRAPE_STALE_PENDING_MINUTES` | deploy-prod-on-main, promote-to-prod | stale pending threshold |
+| `SCRAPE_STALE_RUNNING_MINUTES` | deploy-prod-on-main, promote-to-prod | stale running threshold |
+| `AUTO_SCORE_ON_INGEST` | deploy-prod-on-main, promote-to-prod | ingest auto-score toggle |
+| `AUTO_SCORE_CONCURRENCY` | deploy-prod-on-main, promote-to-prod | auto-score concurrency |
+| `AUTO_SCORE_MIN_SCORE` | deploy-prod-on-main, promote-to-prod | auto-score floor |
+| `AUTO_SCORE_RETRY_ATTEMPTS` | deploy-prod-on-main, promote-to-prod | auto-score retries |
+| `NOTEBOOK_APPROX_VIOLATION_PENALTY` | deploy-prod-on-main, promote-to-prod | notebook ranking tuning |
+| `NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY` | deploy-prod-on-main, promote-to-prod | notebook ranking tuning |
+| `NOTEBOOK_APPROX_SCORED_BONUS` | deploy-prod-on-main, promote-to-prod | notebook ranking tuning |
+| `NOTEBOOK_EXPLORE_UNSCORED_BASE` | deploy-prod-on-main, promote-to-prod | notebook ranking tuning |
+| `NOTEBOOK_EXPLORE_RECENCY_WEIGHT` | deploy-prod-on-main, promote-to-prod | notebook ranking tuning |
+| `WEB_QUERY_STALE_TIME_MS` | deploy-prod-on-main, promote-to-prod | frontend query stale time |
+| `WEB_QUERY_REFETCH_ON_WINDOW_FOCUS` | deploy-prod-on-main, promote-to-prod | frontend focus refetch toggle |
+| `WEB_QUERY_DIAGNOSTICS_REFETCH_MS` | deploy-prod-on-main, promote-to-prod | frontend diagnostics polling |
+| `WORKER_CPU` | deploy-prod-on-main, promote-to-prod | worker Cloud Run CPU |
+| `WORKER_MEMORY` | deploy-prod-on-main, promote-to-prod | worker Cloud Run memory |
+| `WORKER_MAX_INSTANCES` | deploy-prod-on-main, promote-to-prod | worker max instances |
+| `WORKER_MIN_INSTANCES` | deploy-prod-on-main, promote-to-prod | worker min instances |
+| `SCHEDULER_JOB_NAME` | deploy-prod-on-main, promote-to-prod | Optional Cloud Scheduler job name override (default `job-seek-schedule-trigger`) |
+| `SCHEDULER_CRON` | deploy-prod-on-main, promote-to-prod | Optional Cloud Scheduler cron expression (default `0 */12 * * *`) |
+| `SCHEDULER_TIMEZONE` | deploy-prod-on-main, promote-to-prod | Optional Cloud Scheduler timezone (default `Europe/Warsaw`) |
+| `OPS_RECONCILE_JOB_NAME` | deploy-prod-on-main, promote-to-prod | Optional reconcile job name override (default `job-seek-reconcile-stale-runs`) |
+| `OPS_RECONCILE_CRON` | deploy-prod-on-main, promote-to-prod | Optional reconcile cron expression (default `0 2 * * *`) |
+| `OPS_RECONCILE_TIMEZONE` | deploy-prod-on-main, promote-to-prod | Optional reconcile timezone (default `Europe/Warsaw`) |
+| `WORKER_TASKS_DLQ` | deploy-prod-on-main, promote-to-prod | Optional DLQ queue name provisioned by deploy script (default `worker-scrape-dlq`) |
+| `TASKS_MAX_ATTEMPTS` | deploy-prod-on-main, promote-to-prod | Optional Cloud Tasks retry max attempts (default `8`) |
+| `TASKS_MIN_BACKOFF_SEC` | deploy-prod-on-main, promote-to-prod | Optional retry min backoff seconds (default `5`) |
+| `TASKS_MAX_BACKOFF_SEC` | deploy-prod-on-main, promote-to-prod | Optional retry max backoff seconds (default `300`) |
+| `TASKS_MAX_DOUBLINGS` | deploy-prod-on-main, promote-to-prod | Optional retry max doublings (default `5`) |
+| `TASKS_MAX_RETRY_DURATION_SEC` | deploy-prod-on-main, promote-to-prod | Optional retry max duration in seconds (default `1800`) |
 
 ### Required GitHub Secrets (`secrets.*`)
 
 | Name | Used by | Notes |
 |---|---|---|
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | release-candidate, promote-to-prod | GitHub OIDC provider resource |
-| `GCP_DEPLOYER_SERVICE_ACCOUNT` | release-candidate, promote-to-prod | CI deployer service account email |
-| `SCHEDULER_AUTH_TOKEN` | deploy-prod-on-main | Shared bearer token for `/api/job-sources/schedule/trigger` |
-| `OPS_INTERNAL_TOKEN` | deploy-prod-on-main | Shared bearer token for `/api/ops/reconcile-stale-runs` |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | deploy-prod-on-main, promote-to-prod | API Google OAuth secret |
+| `DATABASE_URL` | deploy-prod-on-main, promote-to-prod | production Postgres connection |
+| `ACCESS_TOKEN_SECRET` | deploy-prod-on-main, promote-to-prod | JWT signing secret |
+| `REFRESH_TOKEN_SECRET` | deploy-prod-on-main, promote-to-prod | JWT signing secret |
+| `MAIL_USERNAME` | deploy-prod-on-main, promote-to-prod | SMTP username |
+| `MAIL_PASSWORD` | deploy-prod-on-main, promote-to-prod | SMTP password |
+| `WORKER_SHARED_TOKEN` | deploy-prod-on-main, promote-to-prod | shared worker ingress token |
+| `WORKER_CALLBACK_TOKEN` | deploy-prod-on-main, promote-to-prod | shared worker callback token |
+| `SCHEDULER_AUTH_TOKEN` | deploy-prod-on-main, promote-to-prod | shared bearer token for `/api/job-sources/schedule/trigger` |
+| `OPS_INTERNAL_TOKEN` | deploy-prod-on-main, promote-to-prod | shared bearer token for `/api/ops/reconcile-stale-runs` |
 
 ## 2) Cloud Run Runtime Contract
 
@@ -93,7 +141,7 @@ For the complete local + production inventory, use:
 | `WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC` | `300` | default is acceptable |
 | `API_BODY_LIMIT` | `1mb` | ingress guardrail |
 | `API_THROTTLE_TTL_MS` | `60000` | global API throttle window (ms) |
-| `API_THROTTLE_LIMIT` | `60` | global API throttle request budget per window |
+| `API_THROTTLE_LIMIT` | `120` | global API throttle request budget per window |
 | `WORKER_REQUEST_TIMEOUT_MS` | `5000` | API wait timeout for worker accept response |
 | `GOOGLE_OAUTH_CLIENT_ID` | `<google-client-id>` | required for `/auth/oauth/google` verification |
 | `SCHEDULER_AUTH_TOKEN` | `<secret>` | required for internal schedule trigger endpoint |
@@ -200,8 +248,7 @@ For the complete local + production inventory, use:
 `Promote To Prod` workflow expects:
 
 1. `release_sha` must be full 40-char git SHA.
-2. `GCP_API_BASE_URL`, `GCP_WORKER_BASE_URL`, `GCP_WEB_BASE_URL` must be `https://`.
-3. All required `vars.*` and `secrets.*` listed above must be present.
+2. All required `vars.*` and `secrets.*` listed above must be present.
 
 ## 4) First Production Rollout Sequence
 

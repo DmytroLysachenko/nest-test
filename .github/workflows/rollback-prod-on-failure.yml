@@ -90,8 +90,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          test -n "${GCP_PROJECT_ID}" || (echo "Missing vars.GCP_PROJECT_ID" && exit 1)
-          test -n "${GCP_REGION}" || (echo "Missing vars.GCP_REGION" && exit 1)
+          test -n "${GCP_PROJECT_ID}" || (echo "Missing GCP_PROJECT_ID" && exit 1)
+          test -n "${GCP_REGION}" || (echo "Missing GCP_REGION" && exit 1)
 
           resolve_revision_image() {
             local revision="$1"

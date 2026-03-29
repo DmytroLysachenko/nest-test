@@ -128,9 +128,9 @@ jobs:
         run: |
           test -n "${RELEASE_SHA}" || (echo "Missing RELEASE_SHA from workflow_run event" && exit 1)
           echo "${RELEASE_SHA}" | grep -Eq '^[0-9a-f]{40}$' || (echo "RELEASE_SHA must be a full 40-char git SHA" && exit 1)
-          test -n "${{ vars.GCP_PROJECT_ID }}" || (echo "Missing vars.GCP_PROJECT_ID" && exit 1)
-          test -n "${{ vars.GCP_REGION }}" || (echo "Missing vars.GCP_REGION" && exit 1)
-          test -n "${{ vars.GAR_REPOSITORY }}" || (echo "Missing vars.GAR_REPOSITORY" && exit 1)
+          test -n "${{ vars.GCP_PROJECT_ID }}" || (echo "Missing GCP_PROJECT_ID" && exit 1)
+          test -n "${{ vars.GCP_REGION }}" || (echo "Missing GCP_REGION" && exit 1)
+          test -n "${{ vars.GAR_REPOSITORY }}" || (echo "Missing GAR_REPOSITORY" && exit 1)
 
       - name: Configure Docker auth for Artifact Registry
         run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
@@ -233,15 +233,15 @@ jobs:
         run: |
           test -n "${RELEASE_SHA}" || (echo "Missing RELEASE_SHA from workflow_run event" && exit 1)
           echo "${RELEASE_SHA}" | grep -Eq '^[0-9a-f]{40}$' || (echo "RELEASE_SHA must be a full 40-char git SHA" && exit 1)
-          test -n "${{ vars.GCP_PROJECT_ID }}" || (echo "Missing vars.GCP_PROJECT_ID" && exit 1)
-          test -n "${{ vars.GCP_REGION }}" || (echo "Missing vars.GCP_REGION" && exit 1)
-          test -n "${{ vars.GAR_REPOSITORY }}" || (echo "Missing vars.GAR_REPOSITORY" && exit 1)
-          test -n "${{ vars.GCP_API_SERVICE }}" || (echo "Missing vars.GCP_API_SERVICE" && exit 1)
-          test -n "${{ vars.GCP_WORKER_SERVICE }}" || (echo "Missing vars.GCP_WORKER_SERVICE" && exit 1)
-          test -n "${{ vars.GCP_WEB_SERVICE }}" || (echo "Missing vars.GCP_WEB_SERVICE" && exit 1)
-          test -n "${{ vars.GCS_BUCKET }}" || (echo "Missing vars.GCS_BUCKET" && exit 1)
-          test -n "${{ vars.GEMINI_MODEL }}" || (echo "Missing vars.GEMINI_MODEL" && exit 1)
-          test -n "${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" || (echo "Missing vars.GOOGLE_OAUTH_CLIENT_ID" && exit 1)
+          test -n "${{ vars.GCP_PROJECT_ID }}" || (echo "Missing GCP_PROJECT_ID" && exit 1)
+          test -n "${{ vars.GCP_REGION }}" || (echo "Missing GCP_REGION" && exit 1)
+          test -n "${{ vars.GAR_REPOSITORY }}" || (echo "Missing GAR_REPOSITORY" && exit 1)
+          test -n "${{ vars.GCP_API_SERVICE }}" || (echo "Missing GCP_API_SERVICE" && exit 1)
+          test -n "${{ vars.GCP_WORKER_SERVICE }}" || (echo "Missing GCP_WORKER_SERVICE" && exit 1)
+          test -n "${{ vars.GCP_WEB_SERVICE }}" || (echo "Missing GCP_WEB_SERVICE" && exit 1)
+          test -n "${{ vars.GCS_BUCKET }}" || (echo "Missing GCS_BUCKET" && exit 1)
+          test -n "${{ vars.GEMINI_MODEL }}" || (echo "Missing GEMINI_MODEL" && exit 1)
+          test -n "${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" || (echo "Missing GOOGLE_OAUTH_CLIENT_ID" && exit 1)
           test -n "${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}" || (echo "Missing secrets.GOOGLE_OAUTH_CLIENT_SECRET" && exit 1)
           test -n "${{ secrets.SCHEDULER_AUTH_TOKEN }}" || (echo "Missing secrets.SCHEDULER_AUTH_TOKEN" && exit 1)
           test -n "${{ secrets.OPS_INTERNAL_TOKEN }}" || (echo "Missing secrets.OPS_INTERNAL_TOKEN" && exit 1)
@@ -273,6 +273,40 @@ jobs:
           MAIL_PORT: ${{ vars.MAIL_PORT }}
           MAIL_SECURE: ${{ vars.MAIL_SECURE }}
           GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+          API_THROTTLE_TTL_MS: ${{ vars.API_THROTTLE_TTL_MS }}
+          API_THROTTLE_LIMIT: ${{ vars.API_THROTTLE_LIMIT }}
+          AUTH_LOGIN_THROTTLE_TTL_MS: ${{ vars.AUTH_LOGIN_THROTTLE_TTL_MS }}
+          AUTH_LOGIN_THROTTLE_LIMIT: ${{ vars.AUTH_LOGIN_THROTTLE_LIMIT }}
+          AUTH_REFRESH_THROTTLE_TTL_MS: ${{ vars.AUTH_REFRESH_THROTTLE_TTL_MS }}
+          AUTH_REFRESH_THROTTLE_LIMIT: ${{ vars.AUTH_REFRESH_THROTTLE_LIMIT }}
+          AUTH_REGISTER_THROTTLE_TTL_MS: ${{ vars.AUTH_REGISTER_THROTTLE_TTL_MS }}
+          AUTH_REGISTER_THROTTLE_LIMIT: ${{ vars.AUTH_REGISTER_THROTTLE_LIMIT }}
+          AUTH_OTP_THROTTLE_TTL_MS: ${{ vars.AUTH_OTP_THROTTLE_TTL_MS }}
+          AUTH_OTP_THROTTLE_LIMIT: ${{ vars.AUTH_OTP_THROTTLE_LIMIT }}
+          WORKER_REQUEST_TIMEOUT_MS: ${{ vars.WORKER_REQUEST_TIMEOUT_MS }}
+          WORKER_TASK_MAX_PAYLOAD_BYTES: ${{ vars.WORKER_TASK_MAX_PAYLOAD_BYTES }}
+          API_BODY_LIMIT: ${{ vars.API_BODY_LIMIT }}
+          DISK_HEALTH_THRESHOLD: ${{ vars.DISK_HEALTH_THRESHOLD }}
+          SCHEDULER_TRIGGER_BATCH_SIZE: ${{ vars.SCHEDULER_TRIGGER_BATCH_SIZE }}
+          WORKSPACE_SUMMARY_CACHE_TTL_SEC: ${{ vars.WORKSPACE_SUMMARY_CACHE_TTL_SEC }}
+          JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS: ${{ vars.JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS }}
+          DOCUMENT_DIAGNOSTICS_WINDOW_HOURS: ${{ vars.DOCUMENT_DIAGNOSTICS_WINDOW_HOURS }}
+          SCRAPE_DB_REUSE_HOURS: ${{ vars.SCRAPE_DB_REUSE_HOURS }}
+          SCRAPE_MAX_ACTIVE_RUNS_PER_USER: ${{ vars.SCRAPE_MAX_ACTIVE_RUNS_PER_USER }}
+          SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER: ${{ vars.SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER }}
+          SCRAPE_ENQUEUE_IDEMPOTENCY_TTL_SEC: ${{ vars.SCRAPE_ENQUEUE_IDEMPOTENCY_TTL_SEC }}
+          SCRAPE_MAX_RETRY_CHAIN_DEPTH: ${{ vars.SCRAPE_MAX_RETRY_CHAIN_DEPTH }}
+          SCRAPE_STALE_PENDING_MINUTES: ${{ vars.SCRAPE_STALE_PENDING_MINUTES }}
+          SCRAPE_STALE_RUNNING_MINUTES: ${{ vars.SCRAPE_STALE_RUNNING_MINUTES }}
+          AUTO_SCORE_ON_INGEST: ${{ vars.AUTO_SCORE_ON_INGEST }}
+          AUTO_SCORE_CONCURRENCY: ${{ vars.AUTO_SCORE_CONCURRENCY }}
+          AUTO_SCORE_MIN_SCORE: ${{ vars.AUTO_SCORE_MIN_SCORE }}
+          AUTO_SCORE_RETRY_ATTEMPTS: ${{ vars.AUTO_SCORE_RETRY_ATTEMPTS }}
+          NOTEBOOK_APPROX_VIOLATION_PENALTY: ${{ vars.NOTEBOOK_APPROX_VIOLATION_PENALTY }}
+          NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY: ${{ vars.NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY }}
+          NOTEBOOK_APPROX_SCORED_BONUS: ${{ vars.NOTEBOOK_APPROX_SCORED_BONUS }}
+          NOTEBOOK_EXPLORE_UNSCORED_BASE: ${{ vars.NOTEBOOK_EXPLORE_UNSCORED_BASE }}
+          NOTEBOOK_EXPLORE_RECENCY_WEIGHT: ${{ vars.NOTEBOOK_EXPLORE_RECENCY_WEIGHT }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           WORKER_TASKS_QUEUE: ${{ vars.WORKER_TASKS_QUEUE }}
           WORKER_TASKS_DLQ: ${{ vars.WORKER_TASKS_DLQ }}
@@ -283,6 +317,13 @@ jobs:
           TASKS_MAX_RETRY_DURATION_SEC: ${{ vars.TASKS_MAX_RETRY_DURATION_SEC }}
           ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
           WORKER_ALLOWED_ORIGINS: ${{ vars.WORKER_ALLOWED_ORIGINS }}
+          WORKER_CPU: ${{ vars.WORKER_CPU }}
+          WORKER_MEMORY: ${{ vars.WORKER_MEMORY }}
+          WORKER_MAX_INSTANCES: ${{ vars.WORKER_MAX_INSTANCES }}
+          WORKER_MIN_INSTANCES: ${{ vars.WORKER_MIN_INSTANCES }}
+          WEB_QUERY_STALE_TIME_MS: ${{ vars.WEB_QUERY_STALE_TIME_MS }}
+          WEB_QUERY_REFETCH_ON_WINDOW_FOCUS: ${{ vars.WEB_QUERY_REFETCH_ON_WINDOW_FOCUS }}
+          WEB_QUERY_DIAGNOSTICS_REFETCH_MS: ${{ vars.WEB_QUERY_DIAGNOSTICS_REFETCH_MS }}
           SCHEDULER_JOB_NAME: ${{ vars.SCHEDULER_JOB_NAME }}
           SCHEDULER_CRON: ${{ vars.SCHEDULER_CRON }}
           SCHEDULER_TIMEZONE: ${{ vars.SCHEDULER_TIMEZONE }}

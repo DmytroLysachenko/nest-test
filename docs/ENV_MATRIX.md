@@ -10,7 +10,7 @@ Last updated: 2026-03-11
 2. Production runtime uses:
    - Cloud Run plain env vars for non-secrets
    - Secret Manager-backed env vars for secrets
-3. GitHub Actions is not the runtime source of truth. It only applies the desired Cloud Run config.
+3. GitHub `production` variables and secrets are the CI/CD source of truth for production config. GitHub Actions applies that managed contract into Cloud Run and Secret Manager.
 4. Critical production behavior must not rely on code defaults alone.
 5. Manual Cloud Run console edits should be treated as emergency-only and backported into CI/CD config immediately.
 
@@ -21,10 +21,10 @@ Last updated: 2026-03-11
 | Local API | `apps/api/.env` |
 | Local Worker | `apps/worker/.env` |
 | Local Web | `apps/web/.env` |
-| Production API template | `apps/api/.env.prod` |
-| Production Worker template | `apps/worker/.env.prod` |
-| Production Web template | `apps/web/.env.prod` |
-| Production deploy contract | `.github/workflows/*` + `scripts/deploy-cloud-run-prod.sh` |
+| Production reference templates | `apps/*/.env.prod` |
+| Production managed non-secrets | GitHub `production` variables |
+| Production managed secrets | GitHub `production` secrets -> Secret Manager via deploy workflow |
+| Production deploy contract | GitHub `production` vars/secrets + `.github/workflows/*` + `scripts/deploy-cloud-run-prod.sh` |
 
 ## API
 
@@ -130,7 +130,7 @@ Last updated: 2026-03-11
 
 ## GitHub Actions Inputs
 
-### Repository variables
+### GitHub production variables
 
 - Deploy metadata:
   - `GCP_PROJECT_ID`
@@ -176,7 +176,7 @@ Last updated: 2026-03-11
   - `WEB_QUERY_REFETCH_ON_WINDOW_FOCUS`
   - `WEB_QUERY_DIAGNOSTICS_REFETCH_MS`
 
-### Repository secrets
+### GitHub production secrets
 
 - Deploy auth:
   - `GCP_WORKLOAD_IDENTITY_PROVIDER`
@@ -195,7 +195,7 @@ Last updated: 2026-03-11
 
 ## Current Simplification Path
 
-1. Treat `.env.prod` files as the human-editable production templates.
-2. Sync GitHub repo vars/secrets from those templates instead of assembling values ad hoc.
-3. Let CI/CD push the managed contract into Cloud Run.
-4. Keep Cloud Run console edits only for emergency hotfixes.
+1. Treat GitHub `production` variables and secrets as the only writable production control plane.
+2. Use `.env.prod` files only as local/operator reference templates, not as the deployed source of truth.
+3. Let CI/CD push the managed contract into Cloud Run and Secret Manager.
+4. Keep Cloud Run console edits only for emergency hotfixes and backport them into GitHub config immediately.

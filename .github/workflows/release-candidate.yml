@@ -34,10 +34,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Validate required release env names
         run: |
-          test -n "${{ vars.GCP_PROJECT_ID }}" || (echo "Missing vars.GCP_PROJECT_ID" && exit 1)
-          test -n "${{ vars.GCP_REGION }}" || (echo "Missing vars.GCP_REGION" && exit 1)
-          test -n "${{ vars.GAR_REPOSITORY }}" || (echo "Missing vars.GAR_REPOSITORY" && exit 1)
-          test -n "${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" || (echo "Missing vars.GOOGLE_OAUTH_CLIENT_ID" && exit 1)
+          test -n "${{ vars.GCP_PROJECT_ID }}" || (echo "Missing GCP_PROJECT_ID" && exit 1)
+          test -n "${{ vars.GCP_REGION }}" || (echo "Missing GCP_REGION" && exit 1)
+          test -n "${{ vars.GAR_REPOSITORY }}" || (echo "Missing GAR_REPOSITORY" && exit 1)
+          test -n "${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" || (echo "Missing GOOGLE_OAUTH_CLIENT_ID" && exit 1)
       - run: pnpm build
       - run: pnpm --filter @repo/db migrate -- --dry-run || true
       - name: Configure Docker auth for Artifact Registry

@@ -81,14 +81,11 @@ Required core values:
    - `NEXT_PUBLIC_WORKER_URL=https://<worker-url>`
    - `NEXT_PUBLIC_ENABLE_TESTER=false`
 
-## 5) Configure GitHub Actions OIDC
+## 5) Configure GitHub Actions OIDC and production config
 
 1. Create Workload Identity Pool + Provider in GCP.
 2. Allow your GitHub repo to impersonate `GCP_DEPLOYER_SERVICE_ACCOUNT`.
-3. Add GitHub repository secrets:
-   - `GCP_WORKLOAD_IDENTITY_PROVIDER`
-   - `GCP_DEPLOYER_SERVICE_ACCOUNT`
-4. Add GitHub repository variables:
+3. Add GitHub production variables:
    - `GCP_PROJECT_ID`
    - `GCP_REGION`
    - `GAR_REPOSITORY`
@@ -96,6 +93,19 @@ Required core values:
    - `GCP_WORKER_SERVICE`
    - `GCP_WEB_SERVICE`
    - `GCS_BUCKET`
+   - Core runtime vars:
+     - `GOOGLE_OAUTH_CLIENT_ID`
+     - `GEMINI_MODEL`
+     - `API_THROTTLE_TTL_MS`
+     - `API_THROTTLE_LIMIT`
+     - `AUTH_LOGIN_THROTTLE_TTL_MS`
+     - `AUTH_LOGIN_THROTTLE_LIMIT`
+     - `AUTH_REFRESH_THROTTLE_TTL_MS`
+     - `AUTH_REFRESH_THROTTLE_LIMIT`
+     - `AUTH_REGISTER_THROTTLE_TTL_MS`
+     - `AUTH_REGISTER_THROTTLE_LIMIT`
+     - `AUTH_OTP_THROTTLE_TTL_MS`
+     - `AUTH_OTP_THROTTLE_LIMIT`
    - Optional runtime vars:
      - `GCP_API_RUNTIME_SERVICE_ACCOUNT`
      - `GCP_WORKER_RUNTIME_SERVICE_ACCOUNT`
@@ -105,17 +115,19 @@ Required core values:
      - `MAIL_HOST` (default `smtp.sendgrid.net`)
      - `MAIL_PORT` (default `587`)
      - `MAIL_SECURE` (default `false`)
-     - `WORKER_TASKS_QUEUE` (default `worker-scrape`)
-     - `ALLOWED_ORIGINS` (optional; if empty, workflow auto-uses deployed web URL)
-
-5. Add GitHub repository secrets for app runtime:
+      - `WORKER_TASKS_QUEUE` (default `worker-scrape`)
+      - `ALLOWED_ORIGINS` (optional; if empty, workflow auto-uses deployed web URL)
+4. Add GitHub production secrets for app runtime:
    - `DATABASE_URL` (Neon connection string)
    - `ACCESS_TOKEN_SECRET`
    - `REFRESH_TOKEN_SECRET`
    - `MAIL_USERNAME`
    - `MAIL_PASSWORD`
+   - `GOOGLE_OAUTH_CLIENT_SECRET`
    - `WORKER_SHARED_TOKEN`
    - `WORKER_CALLBACK_TOKEN`
+   - `SCHEDULER_AUTH_TOKEN`
+   - `OPS_INTERNAL_TOKEN`
 
 ## 6) CI/CD behavior in this repo
 
