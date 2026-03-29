@@ -667,6 +667,13 @@ export type JobOfferListItemDto = {
   rankingScore?: number | null;
   explanationTags?: string[];
   followUpState?: 'due' | 'upcoming' | 'none';
+  followUpAt?: string | null;
+  nextStep?: string | null;
+  followUpNote?: string | null;
+  applicationUrl?: string | null;
+  contactName?: string | null;
+  lastFollowUpCompletedAt?: string | null;
+  lastFollowUpSnoozedAt?: string | null;
   matchMeta: Record<string, unknown> | null;
   aiFeedbackScore: number | null;
   aiFeedbackNotes: string | null;
@@ -695,6 +702,7 @@ export type JobOffersListDto = {
   mode: 'strict' | 'approx' | 'explore';
   hiddenByModeCount: number;
   degradedResultCount: number;
+  stateReasons?: string[];
   rankingMeta?: {
     mode: 'strict' | 'approx' | 'explore';
     tuning: {
@@ -751,6 +759,48 @@ export type JobOfferFocusDto = {
   }>;
 };
 
+export type JobOfferActionPlanDto = {
+  buckets: Array<{
+    key: 'due-now' | 'scheduled-soon' | 'missing-next-step' | 'stale-active' | 'strict-top-unreviewed' | string;
+    label: string;
+    description: string;
+    href: string;
+    count: number;
+    ctaLabel: string;
+    reasons?: string[];
+  }>;
+};
+
+export type JobOfferPrepPacketDto = {
+  offer: {
+    id: string;
+    title: string;
+    company: string | null;
+    location: string | null;
+    url: string | null;
+    description: string | null;
+    requirements: unknown | null;
+  };
+  matchRationale: Record<string, unknown> | null;
+  tags: string[];
+  notes: string | null;
+  followUpState: 'due' | 'upcoming' | 'none';
+  followUpAt: string | null;
+  nextStep: string | null;
+  followUpNote: string | null;
+  applicationUrl: string | null;
+  contactName: string | null;
+  prepMaterials: Record<string, unknown> | null;
+  profile: {
+    headline: string | null;
+    summary: string | null;
+    targetRoles: string[];
+    searchableKeywords: string[];
+  } | null;
+  talkingPoints: string[];
+  verifyBeforeReply: string[];
+};
+
 export type NotebookFiltersDto = {
   status: 'ALL' | JobOfferStatus;
   mode: 'strict' | 'approx' | 'explore';
@@ -759,7 +809,7 @@ export type NotebookFiltersDto = {
   tag: string;
   hasScore: 'all' | 'yes' | 'no';
   followUp: 'all' | 'due' | 'upcoming' | 'none';
-  attention: 'all' | 'staleUntriaged';
+  attention: 'all' | 'staleUntriaged' | 'missingNextStep' | 'stalePipeline';
 };
 
 export type NotebookPreferencesDto = {

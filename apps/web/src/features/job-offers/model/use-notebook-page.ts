@@ -18,6 +18,8 @@ type UseNotebookPageArgs = {
     | 'staleUntriaged'
     | 'followUpDue'
     | 'followUpUpcoming'
+    | 'missingNextStep'
+    | 'stalePipeline'
     | null;
   initialOfferId?: string | null;
 };
@@ -67,12 +69,13 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     ],
   );
 
-  const { listQuery, selectedOffer, historyQuery, preferencesQuery, summaryQuery } = useNotebookQueries({
-    token,
-    listParams,
-    selectedId,
-    sharedNotebookSummary: notebookSummary,
-  });
+  const { listQuery, selectedOffer, historyQuery, preferencesQuery, summaryQuery, actionPlanQuery, prepPacketQuery } =
+    useNotebookQueries({
+      token,
+      listParams,
+      selectedId,
+      sharedNotebookSummary: notebookSummary,
+    });
 
   const {
     statusMutation,
@@ -83,6 +86,9 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     metaMutation,
     feedbackMutation,
     pipelineMutation,
+    completeFollowUpMutation,
+    snoozeFollowUpMutation,
+    clearFollowUpMutation,
     scoreMutation,
     generatePrepMutation,
     enqueueProfileScrapeMutation,
@@ -183,7 +189,12 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
         ? [
             {
               key: 'attention',
-              label: 'Attention: stale untriaged',
+              label:
+                filters.attention === 'missingNextStep'
+                  ? 'Attention: missing next step'
+                  : filters.attention === 'stalePipeline'
+                    ? 'Attention: stale pipeline'
+                    : 'Attention: stale untriaged',
               onClear: () => setNotebookFilter('attention', 'all'),
             },
           ]
@@ -224,7 +235,16 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     selectedVisibleIds.length > 0 && selectedVisibleIds.every((id) => selectedOfferIds.includes(id));
 
   const applyQuickAction = (
-    action: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'staleUntriaged' | 'followUpDue' | 'followUpUpcoming',
+    action:
+      | 'unscored'
+      | 'strictTop'
+      | 'saved'
+      | 'applied'
+      | 'staleUntriaged'
+      | 'followUpDue'
+      | 'followUpUpcoming'
+      | 'missingNextStep'
+      | 'stalePipeline',
   ) => {
     setNotebookSelectedOffer(null);
     clearNotebookSelectedOfferIds();
@@ -278,6 +298,22 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
       return;
     }
 
+    if (action === 'missingNextStep') {
+      setNotebookFilter('status', 'ALL');
+      setNotebookFilter('mode', 'strict');
+      setNotebookFilter('hasScore', 'all');
+      setNotebookFilter('attention', 'missingNextStep');
+      return;
+    }
+
+    if (action === 'stalePipeline') {
+      setNotebookFilter('status', 'ALL');
+      setNotebookFilter('mode', 'strict');
+      setNotebookFilter('hasScore', 'all');
+      setNotebookFilter('attention', 'stalePipeline');
+      return;
+    }
+
     setNotebookFilter('status', 'APPLIED');
     setNotebookFilter('mode', 'strict');
     setNotebookFilter('hasScore', 'all');
@@ -314,6 +350,8 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     summaryQuery,
     workspaceSummary: summary,
     notebookSummary: summaryQuery.data,
+    actionPlan: actionPlanQuery.data,
+    prepPacket: prepPacketQuery.data,
     selectedOffer,
     selectedId,
     filters,
@@ -330,6 +368,9 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
       scoreMutation.isPending ||
       feedbackMutation.isPending ||
       pipelineMutation.isPending ||
+      completeFollowUpMutation.isPending ||
+      snoozeFollowUpMutation.isPending ||
+      clearFollowUpMutation.isPending ||
       generatePrepMutation.isPending ||
       enqueueProfileScrapeMutation.isPending,
     enqueueProfileScrapeMutation,
@@ -352,6 +393,9 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     updateMeta: metaMutation.mutate,
     updateFeedback: feedbackMutation.mutate,
     updatePipeline: pipelineMutation.mutate,
+    completeFollowUp: completeFollowUpMutation.mutate,
+    snoozeFollowUp: snoozeFollowUpMutation.mutate,
+    clearFollowUp: clearFollowUpMutation.mutate,
     rescore: scoreMutation.mutate,
     generatePrep: generatePrepMutation.mutate,
     isGeneratingPrep: generatePrepMutation.isPending,

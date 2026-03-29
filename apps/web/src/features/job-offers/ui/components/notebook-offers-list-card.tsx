@@ -36,6 +36,8 @@ type NotebookOffersListCardProps = {
     nextStep?: string | null;
     note?: string | null;
   }) => void;
+  onBulkSnooze: (durationHours: number) => void;
+  onBulkClearFollowUp: () => void;
   onModeChange?: (mode: 'strict' | 'approx' | 'explore') => void;
   onOpenPlanning?: () => void;
   onPrev: () => void;
@@ -61,6 +63,8 @@ export const NotebookOffersListCard = ({
   onClearSelected,
   onBulkStatusChange,
   onBulkFollowUpSave,
+  onBulkSnooze,
+  onBulkClearFollowUp,
   onModeChange,
   onOpenPlanning,
   onPrev,
@@ -100,7 +104,7 @@ export const NotebookOffersListCard = ({
   };
 
   const getPipelineValue = (offer: JobOfferListItemDto, key: 'nextStep' | 'followUpNote') => {
-    const value = offer.pipelineMeta?.[key];
+    const value = offer[key] ?? offer.pipelineMeta?.[key];
     return typeof value === 'string' ? value.trim() : '';
   };
 
@@ -151,6 +155,24 @@ export const NotebookOffersListCard = ({
             onClick={() => onBulkStatusChange('SAVED')}
           >
             Bulk Save
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-8 px-3 text-xs"
+            disabled={!selectedOfferIds.length || isBusy}
+            onClick={() => onBulkSnooze(72)}
+          >
+            Bulk Snooze
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-8 px-3 text-xs"
+            disabled={!selectedOfferIds.length || isBusy}
+            onClick={onBulkClearFollowUp}
+          >
+            Clear follow-up
           </Button>
           <Button
             type="button"
@@ -317,8 +339,11 @@ export const NotebookOffersListCard = ({
                 </Button>
               </div>
 
-              {(getPipelineValue(offer, 'nextStep') || getPipelineValue(offer, 'followUpNote')) && (
+              {(offer.followUpAt || getPipelineValue(offer, 'nextStep') || getPipelineValue(offer, 'followUpNote')) && (
                 <div className="bg-surface-muted/72 mt-3 rounded-[1.1rem] px-3 py-2.5 text-xs">
+                  {offer.followUpAt ? (
+                    <p className="text-text-soft">Follow-up at: {new Date(offer.followUpAt).toLocaleString()}</p>
+                  ) : null}
                   {getPipelineValue(offer, 'nextStep') ? (
                     <p className="text-text-strong font-medium">Next step: {getPipelineValue(offer, 'nextStep')}</p>
                   ) : null}

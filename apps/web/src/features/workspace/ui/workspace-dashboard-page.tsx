@@ -299,6 +299,54 @@ export const WorkspaceDashboardPage = () => {
           title="Focus lane"
           description="Short operational blocks that tell you what deserves the next session."
         >
+          <Card title="Today" description="Action-plan buckets for the next notebook session.">
+            {dashboard.isActionPlanLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="bg-surface-muted h-14 animate-pulse rounded-lg" />
+                ))}
+              </div>
+            ) : dashboard.actionPlanError ? (
+              <WorkflowFeedback
+                title="Today's action plan is temporarily unavailable"
+                description={dashboard.actionPlanError}
+                tone="danger"
+                actionLabel="Retry"
+                onAction={() => {
+                  void dashboard.refetchActionPlan();
+                }}
+              />
+            ) : dashboard.actionPlan.length ? (
+              <div className="space-y-3">
+                {dashboard.actionPlan
+                  .filter((bucket) => bucket.count > 0)
+                  .slice(0, 5)
+                  .map((bucket) => (
+                    <Link
+                      key={bucket.key}
+                      href={bucket.href}
+                      className="app-muted-panel block transition-transform hover:-translate-y-0.5"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-text-strong text-sm font-semibold">{bucket.label}</p>
+                        <span className="app-badge">{bucket.count}</span>
+                      </div>
+                      <p className="text-text-soft mt-2 text-sm leading-6">{bucket.description}</p>
+                      <p className="text-primary mt-3 text-xs font-semibold uppercase tracking-[0.16em]">
+                        {bucket.ctaLabel}
+                      </p>
+                    </Link>
+                  ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={<Inbox className="h-8 w-8" />}
+                title="No action plan blockers"
+                description="The notebook does not have any urgent action-plan buckets right now."
+              />
+            )}
+          </Card>
+
           <Card title="Today's Focus" description="Server-driven focus lanes for the next notebook session.">
             {dashboard.isFocusLoading ? (
               <div className="space-y-2">

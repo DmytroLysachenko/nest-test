@@ -17,7 +17,7 @@ import { Textarea } from '@/shared/ui/textarea';
 import { EmptyState } from '@/shared/ui/empty-state';
 
 import type { getJobOfferHistory } from '@/features/job-offers/api/job-offers-api';
-import type { JobOfferListItemDto, JobOfferStatus } from '@/shared/types/api';
+import type { JobOfferListItemDto, JobOfferPrepPacketDto, JobOfferStatus } from '@/shared/types/api';
 
 const STATUSES: JobOfferStatus[] = [
   'NEW',
@@ -33,12 +33,16 @@ const STATUSES: JobOfferStatus[] = [
 type NotebookOfferDetailsCardProps = {
   offer: JobOfferListItemDto | null;
   history: Awaited<ReturnType<typeof getJobOfferHistory>> | undefined;
+  prepPacket: JobOfferPrepPacketDto | null;
   historyError: string | null;
   updatedAt: number | null | undefined;
   isBusy: boolean;
   onStatusChange: (status: JobOfferStatus) => void;
   onSaveMeta: (notes: string, tags: string[]) => void;
   onSavePipeline: (pipelineMeta: Record<string, unknown>) => void;
+  onCompleteFollowUp: (nextAction?: 'clear' | 'tomorrow' | 'in3days' | 'in1week') => void;
+  onSnoozeFollowUp: (durationHours: number) => void;
+  onClearFollowUp: () => void;
   onSaveFeedback: (score: number, notes: string) => void;
   onRescore: () => void;
   onGeneratePrep: (instructions?: string) => void;
@@ -48,12 +52,16 @@ type NotebookOfferDetailsCardProps = {
 export const NotebookOfferDetailsCard = ({
   offer,
   history,
+  prepPacket,
   historyError,
   updatedAt,
   isBusy,
   onStatusChange,
   onSaveMeta,
   onSavePipeline,
+  onCompleteFollowUp,
+  onSnoozeFollowUp,
+  onClearFollowUp,
   onRescore,
 }: NotebookOfferDetailsCardProps) => {
   const [pendingConfirmStatus, setPendingConfirmStatus] = useState<JobOfferStatus | null>(null);
@@ -85,12 +93,18 @@ export const NotebookOfferDetailsCard = ({
       : {};
   const hasPipelineDraftChanges =
     pipelineMetaStr !== (offer.pipelineMeta ? JSON.stringify(offer.pipelineMeta, null, 2) : '');
-  const followUpAt = pipelineMeta && typeof pipelineMeta.followUpAt === 'string' ? pipelineMeta.followUpAt : '';
+  const followUpAt =
+    offer.followUpAt ?? (pipelineMeta && typeof pipelineMeta.followUpAt === 'string' ? pipelineMeta.followUpAt : '');
   const applicationUrl =
-    pipelineMeta && typeof pipelineMeta.applicationUrl === 'string' ? pipelineMeta.applicationUrl : '';
-  const nextStep = pipelineMeta && typeof pipelineMeta.nextStep === 'string' ? pipelineMeta.nextStep : '';
-  const contactName = pipelineMeta && typeof pipelineMeta.contactName === 'string' ? pipelineMeta.contactName : '';
-  const followUpNote = pipelineMeta && typeof pipelineMeta.followUpNote === 'string' ? pipelineMeta.followUpNote : '';
+    offer.applicationUrl ??
+    (pipelineMeta && typeof pipelineMeta.applicationUrl === 'string' ? pipelineMeta.applicationUrl : '');
+  const nextStep =
+    offer.nextStep ?? (pipelineMeta && typeof pipelineMeta.nextStep === 'string' ? pipelineMeta.nextStep : '');
+  const contactName =
+    offer.contactName ?? (pipelineMeta && typeof pipelineMeta.contactName === 'string' ? pipelineMeta.contactName : '');
+  const followUpNote =
+    offer.followUpNote ??
+    (pipelineMeta && typeof pipelineMeta.followUpNote === 'string' ? pipelineMeta.followUpNote : '');
   const followUpState = offer.followUpState ?? 'none';
   const followUpSummary =
     followUpState === 'due'
@@ -317,10 +331,93 @@ export const NotebookOfferDetailsCard = ({
             <Button type="button" size="sm" disabled={isBusy || !hasPipelineDraftChanges} onClick={handleSavePipeline}>
               Save follow-up plan
             </Button>
+            <Button type="button" size="sm" variant="secondary" disabled={isBusy} onClick={() => onCompleteFollowUp()}>
+              Mark follow-up done
+            </Button>
+            <Button type="button" size="sm" variant="secondary" disabled={isBusy} onClick={() => onSnoozeFollowUp(72)}>
+              Snooze 3 days
+            </Button>
+            <Button type="button" size="sm" variant="ghost" disabled={isBusy} onClick={onClearFollowUp}>
+              Clear follow-up
+            </Button>
             <p className="text-text-soft self-center text-xs">
               Keep dates, contact context, and the next touch in one place so the role does not drift.
             </p>
           </div>
+        </section>
+
+        <section className="app-inset-stack space-y-3">
+          <div className="space-y-1">
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Prep packet</p>
+            <p className="text-text-strong text-sm font-semibold">
+              A scan-friendly briefing for the next reply or interview
+            </p>
+          </div>
+          {prepPacket ? (
+            <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="app-muted-panel space-y-2">
+                  <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Why this role fits</p>
+                  {prepPacket.profile?.headline ? (
+                    <p className="text-text-strong text-sm">
+                      {prepPacket.profile.headline} aligned to {prepPacket.offer.title}.
+                    </p>
+                  ) : (
+                    <p className="text-text-soft text-sm">Profile summary is not available yet for this packet.</p>
+                  )}
+                  {prepPacket.profile?.summary ? (
+                    <p className="text-text-soft text-sm leading-6">{prepPacket.profile.summary}</p>
+                  ) : null}
+                </div>
+                <div className="app-muted-panel space-y-2">
+                  <p className="text-text-soft text-xs uppercase tracking-[0.16em]">What to mention next</p>
+                  {prepPacket.talkingPoints.length ? (
+                    prepPacket.talkingPoints.map((point) => (
+                      <p key={point} className="text-text-soft text-sm leading-6">
+                        {point}
+                      </p>
+                    ))
+                  ) : (
+                    <p className="text-text-soft text-sm">
+                      No talking points yet. Add next-step context or notes first.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="app-muted-panel space-y-2">
+                  <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Verify before replying</p>
+                  {prepPacket.verifyBeforeReply.map((item) => (
+                    <p key={item} className="text-text-soft text-sm leading-6">
+                      {item}
+                    </p>
+                  ))}
+                </div>
+                <div className="app-muted-panel space-y-2">
+                  <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Role-specific signals</p>
+                  {prepPacket.profile?.targetRoles.length ? (
+                    <p className="text-text-soft text-sm leading-6">
+                      Target roles: {prepPacket.profile.targetRoles.join(', ')}
+                    </p>
+                  ) : null}
+                  {prepPacket.profile?.searchableKeywords.length ? (
+                    <p className="text-text-soft text-sm leading-6">
+                      Keywords: {prepPacket.profile.searchableKeywords.join(', ')}
+                    </p>
+                  ) : null}
+                  {!prepPacket.profile?.targetRoles.length && !prepPacket.profile?.searchableKeywords.length ? (
+                    <p className="text-text-soft text-sm">No profile-derived signals are ready yet.</p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <WorkflowInlineNotice
+              title="Prep packet is loading"
+              description="This workspace will show the role fit, next talking points, and reply checklist once the packet is available."
+              tone="info"
+            />
+          )}
         </section>
 
         <section className="app-inset-stack space-y-3">

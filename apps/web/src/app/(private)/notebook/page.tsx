@@ -10,14 +10,25 @@ import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
 
 const isNotebookQuickAction = (
   value: string | null,
-): value is 'unscored' | 'strictTop' | 'saved' | 'applied' | 'staleUntriaged' | 'followUpDue' | 'followUpUpcoming' =>
+): value is
+  | 'unscored'
+  | 'strictTop'
+  | 'saved'
+  | 'applied'
+  | 'staleUntriaged'
+  | 'followUpDue'
+  | 'followUpUpcoming'
+  | 'missingNextStep'
+  | 'stalePipeline' =>
   value === 'unscored' ||
   value === 'strictTop' ||
   value === 'saved' ||
   value === 'applied' ||
   value === 'staleUntriaged' ||
   value === 'followUpDue' ||
-  value === 'followUpUpcoming';
+  value === 'followUpUpcoming' ||
+  value === 'missingNextStep' ||
+  value === 'stalePipeline';
 
 export default function NotebookRoute() {
   const router = useRouter();

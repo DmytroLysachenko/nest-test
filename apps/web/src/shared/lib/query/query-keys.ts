@@ -71,12 +71,16 @@ export const queryKeys = {
         tag?: string;
         hasScore?: boolean;
         followUp?: 'due' | 'upcoming' | 'none';
+        attention?: 'staleUntriaged' | 'missingNextStep' | 'stalePipeline';
       },
     ) => ['job-offers', token, params] as const,
     history: (token: string | null, offerId: string | null) => ['job-offers', 'history', token, offerId] as const,
     preferences: (token: string | null) => ['job-offers', 'preferences', token] as const,
     summary: (token: string | null) => ['job-offers', 'summary', token] as const,
     focus: (token: string | null) => ['job-offers', 'focus', token] as const,
+    actionPlan: (token: string | null) => ['job-offers', 'action-plan', token] as const,
+    prepPacket: (token: string | null, offerId: string | null) =>
+      ['job-offers', 'prep-packet', token, offerId] as const,
   },
   ops: {
     supportOverview: (token: string | null, windowHours = 72) =>

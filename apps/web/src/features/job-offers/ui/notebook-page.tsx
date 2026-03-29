@@ -24,6 +24,8 @@ type NotebookPageProps = {
     | 'staleUntriaged'
     | 'followUpDue'
     | 'followUpUpcoming'
+    | 'missingNextStep'
+    | 'stalePipeline'
     | null;
   initialOfferId?: string | null;
 };
@@ -48,6 +50,7 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
     <NotebookOfferDetailsCard
       offer={notebook.selectedOffer}
       history={notebook.historyQuery.data}
+      prepPacket={notebook.prepPacket ?? null}
       historyError={notebook.historyError}
       updatedAt={notebook.listQuery.dataUpdatedAt}
       isBusy={notebook.isBusy}
@@ -68,6 +71,24 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
           return;
         }
         notebook.updatePipeline({ id: notebook.selectedOffer.id, pipelineMeta });
+      }}
+      onCompleteFollowUp={(nextAction) => {
+        if (!notebook.selectedOffer) {
+          return;
+        }
+        notebook.completeFollowUp({ id: notebook.selectedOffer.id, nextAction });
+      }}
+      onSnoozeFollowUp={(durationHours) => {
+        if (!notebook.selectedOffer) {
+          return;
+        }
+        notebook.snoozeFollowUp({ id: notebook.selectedOffer.id, durationHours });
+      }}
+      onClearFollowUp={() => {
+        if (!notebook.selectedOffer) {
+          return;
+        }
+        notebook.clearFollowUp({ id: notebook.selectedOffer.id });
       }}
       onRescore={() => {
         if (!notebook.selectedOffer) {
@@ -213,6 +234,20 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
               }}
               onBulkFollowUpSave={(payload) => {
                 notebook.bulkUpdateFollowUp(payload);
+              }}
+              onBulkSnooze={(durationHours) => {
+                notebook.bulkUpdateFollowUp({
+                  ids: notebook.selectedOfferIds,
+                  followUpAt: new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString(),
+                });
+              }}
+              onBulkClearFollowUp={() => {
+                notebook.bulkUpdateFollowUp({
+                  ids: notebook.selectedOfferIds,
+                  followUpAt: null,
+                  nextStep: null,
+                  note: null,
+                });
               }}
               onModeChange={(value) => notebook.setNotebookFilter('mode', value)}
               onOpenPlanning={() => {
