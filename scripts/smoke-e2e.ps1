@@ -333,7 +333,8 @@ function Ensure-LocalSmokeServices {
     [Parameter(Mandatory = $true)][string]$ApiBaseUrl,
     [Parameter(Mandatory = $true)][string]$WorkerBaseUrl,
     [Parameter(Mandatory = $true)][string]$WebBaseUrl,
-    [Parameter(Mandatory = $true)][string]$RepoRoot
+    [Parameter(Mandatory = $true)][string]$RepoRoot,
+    [Parameter(Mandatory = $true)][string]$WorkerCallbackToken
   )
 
   $managed = @()
@@ -349,8 +350,8 @@ function Ensure-LocalSmokeServices {
       HealthPath = '/health'
       FallbackPort = 3100
       CommandTemplate = {
-        param([int]$Port)
-        "`$env:HOST='0.0.0.0'; `$env:PORT='$Port'; `$env:WORKER_TASK_URL='http://localhost:4101/tasks'; `$env:WORKER_CALLBACK_URL='http://localhost:$Port/api/job-sources/complete'; pnpm --filter api dev"
+        param([int]$Port, [string]$CallbackToken)
+        "`$env:HOST='0.0.0.0'; `$env:PORT='$Port'; `$env:WORKER_TASK_URL='http://localhost:4101/tasks'; `$env:WORKER_CALLBACK_URL='http://localhost:$Port/api/job-sources/complete'; `$env:WORKER_CALLBACK_TOKEN='$CallbackToken'; pnpm --filter api dev"
       }
     },
     @{
@@ -358,7 +359,10 @@ function Ensure-LocalSmokeServices {
       BaseUrl = $WorkerBaseUrl
       HealthPath = '/health'
       FallbackPort = 4101
-      CommandTemplate = { param([int]$Port) "`$env:PORT='$Port'; `$env:WORKER_PORT='$Port'; pnpm --filter worker dev" }
+      CommandTemplate = {
+        param([int]$Port, [string]$CallbackToken)
+        "`$env:PORT='$Port'; `$env:WORKER_PORT='$Port'; `$env:WORKER_SMOKE_ACCEPT_ONLY='true'; `$env:WORKER_CALLBACK_TOKEN='$CallbackToken'; pnpm --filter worker dev"
+      }
     },
     @{
       Name = 'web'
@@ -389,7 +393,7 @@ function Ensure-LocalSmokeServices {
       Write-Host "Starting local $($definition.Name) smoke service on dedicated port $fallbackPort."
       $managed += Start-ManagedService `
         -Name $definition.Name `
-        -Command (& $definition.CommandTemplate $fallbackPort) `
+        -Command (& $definition.CommandTemplate $fallbackPort $WorkerCallbackToken) `
         -WorkingDirectory $RepoRoot `
         -LogDirectory $logDirectory
     }
@@ -423,11 +427,12 @@ $smokeEmail = Get-EnvOrDefault -Name 'SMOKE_EMAIL' -Default 'admin@example.com'
 $smokePassword = Get-EnvOrDefault -Name 'SMOKE_PASSWORD' -Default 'admin123'
 $skipSeedRaw = Get-EnvOrDefault -Name 'SMOKE_SKIP_SEED' -Default ''
 $skipSeed = @('1', 'true', 'yes') -contains $skipSeedRaw.ToLower()
-$forceCallbackRaw = Get-EnvOrDefault -Name 'SMOKE_FORCE_CALLBACK' -Default ''
+$forceCallbackRaw = Get-EnvOrDefault -Name 'SMOKE_FORCE_CALLBACK' -Default 'true'
 $forceCallback = @('1', 'true', 'yes') -contains $forceCallbackRaw.ToLower()
 $autoStartRaw = Get-EnvOrDefault -Name 'SMOKE_AUTOSTART' -Default 'true'
 $autoStart = @('1', 'true', 'yes') -contains $autoStartRaw.ToLower()
-$workerCallbackToken = Get-EnvOrDefault -Name 'WORKER_CALLBACK_TOKEN' -Default ''
+$localWorkerCallbackToken = 'smoke-local-worker-callback-token'
+$workerCallbackToken = Get-EnvOrDefault -Name 'WORKER_CALLBACK_TOKEN' -Default $localWorkerCallbackToken
 $managedServices = @()
 
 if (-not $skipSeed) {
@@ -452,7 +457,8 @@ if (
     -ApiBaseUrl $apiBaseUrl `
     -WorkerBaseUrl $workerBaseUrl `
     -WebBaseUrl $webBaseUrl `
-    -RepoRoot $repoRoot
+    -RepoRoot $repoRoot `
+    -WorkerCallbackToken $workerCallbackToken
   $managedServices = $autostartResult.Managed
   $apiBaseUrl = $autostartResult.ApiBaseUrl
   $workerBaseUrl = $autostartResult.WorkerBaseUrl
