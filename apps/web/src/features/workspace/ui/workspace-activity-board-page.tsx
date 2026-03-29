@@ -10,6 +10,7 @@ import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { HeroHeader, StatRow, StatusPill, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { GuidancePanel } from '@/shared/ui/guidance-panels';
+import { WorkflowFeedback } from '@/shared/ui/workflow-feedback';
 import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
 
 export const WorkspaceActivityBoardPage = () => {
@@ -101,7 +102,12 @@ export const WorkspaceActivityBoardPage = () => {
                   </div>
                 ))
               ) : (
-                <p className="text-text-soft text-sm">No recent activity yet.</p>
+                <WorkflowFeedback
+                  title="No recent activity yet"
+                  description="Once you upload documents, generate a profile, or run sourcing, the latest workflow timestamps will appear here."
+                  tone="info"
+                  className="p-4 sm:p-5"
+                />
               )}
             </div>
           </Card>
@@ -119,7 +125,12 @@ export const WorkspaceActivityBoardPage = () => {
                   </div>
                 ))
               ) : (
-                <p className="text-text-soft text-sm">No readiness stages available.</p>
+                <WorkflowFeedback
+                  title="Readiness stages are temporarily unavailable"
+                  description="The workspace summary loaded without the detailed readiness breakdown. Refresh the page if you need stage-by-stage detail."
+                  tone="warning"
+                  className="p-4 sm:p-5"
+                />
               )}
             </div>
           </Card>
@@ -218,7 +229,12 @@ export const WorkspaceActivityBoardPage = () => {
                     </Link>
                   ))
               ) : (
-                <p className="text-text-soft text-sm">No focus groups are waiting right now.</p>
+                <WorkflowFeedback
+                  title="No focus groups are waiting right now"
+                  description="Your notebook does not have a high-pressure bucket at the moment. New follow-ups or fresh offers will show up here automatically."
+                  tone="info"
+                  className="p-4 sm:p-5"
+                />
               )}
             </div>
           </Card>

@@ -60,6 +60,57 @@ class ScrapeRunDiagnosticsPayloadResponse {
   @ApiProperty({ nullable: true })
   classifiedOutcome!: string | null;
 
+  @ApiProperty()
+  silentFailure!: boolean;
+
+  @ApiProperty({ nullable: true, type: Object })
+  artifacts!: {
+    outputPath: string | null;
+    retentionExpiresAt: string | null;
+    rawPages: {
+      count: number;
+      directory: string | null;
+      samplePaths: string[];
+    };
+    listing: {
+      htmlPath: string | null;
+      dataPath: string | null;
+    };
+  } | null;
+
+  @ApiProperty({ nullable: true, type: Object })
+  stageMetrics!: {
+    fetch: {
+      pagesVisited: number;
+      jobLinksDiscovered: number;
+      blockedPages: number;
+      browserFallbacks: number;
+      detailAttemptedCount: number;
+    };
+    parse: {
+      acceptedOfferCount: number;
+      rejectedOfferCount: number;
+      dedupedInRunCount: number;
+      salvagedOfferCount: number;
+    };
+    finalize: {
+      blockedRate: number;
+      attemptCount: number;
+      stopReason: string | null;
+      resultKind: string | null;
+    };
+  } | null;
+
+  @ApiProperty({ type: Object })
+  notebookVisibility!: {
+    candidateOffers: number;
+    matchedOffers: number;
+    userInsertedOffers: number;
+    hiddenByStrict: number;
+    usefulOfferCount: number;
+    listingsFound: number;
+  };
+
   @ApiProperty({ nullable: true, type: Object })
   transportSummary!: {
     listingTransport: 'http' | 'browser' | 'http->browser' | 'unknown';
@@ -173,6 +224,14 @@ export class ScrapeRunDiagnosticsResponse {
 
   @ApiProperty({ nullable: true, type: Object })
   progress!: Record<string, unknown> | null;
+
+  @ApiProperty({ type: Object })
+  story!: {
+    phase: string;
+    summary: string;
+    recommendedAction: string;
+    userVisibility: string;
+  };
 
   @ApiProperty({ type: [ScrapeRunExecutionStageSummaryResponse] })
   executionStages!: ScrapeRunExecutionStageSummaryResponse[];

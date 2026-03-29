@@ -17,6 +17,7 @@ import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { EditorialPanel, HeroHeader, StatRow, StatusPill, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { GuidancePanel } from '@/shared/ui/guidance-panels';
+import { WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 import { WorkflowBlockedState } from '@/shared/ui/workflow-blocked-state';
 
 const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
@@ -68,12 +69,40 @@ export const WorkspacePlanningPage = () => {
   const diagnostics = diagnosticsSummaryQuery.data ?? null;
   const documentDiagnostics = documentDiagnosticsSummaryQuery.data ?? null;
   const diagnosticsError = diagnosticsSummaryQuery.isError
-    ? toUserErrorMessage(diagnosticsSummaryQuery.error, 'Unable to load scrape diagnostics.')
+    ? toUserErrorMessage(diagnosticsSummaryQuery.error, 'Unable to load scrape diagnostics.', {
+        byStatus: {
+          429: 'Scrape diagnostics are temporarily rate-limited. Retry in a moment.',
+          500: 'Scrape diagnostics are temporarily unavailable. Retry shortly.',
+        },
+      })
     : null;
   const documentDiagnosticsError = documentDiagnosticsSummaryQuery.isError
-    ? toUserErrorMessage(documentDiagnosticsSummaryQuery.error, 'Unable to load document diagnostics.')
+    ? toUserErrorMessage(documentDiagnosticsSummaryQuery.error, 'Unable to load document diagnostics.', {
+        byStatus: {
+          429: 'Document diagnostics are temporarily rate-limited. Retry in a moment.',
+          500: 'Document diagnostics are temporarily unavailable. Retry shortly.',
+        },
+      })
     : null;
   const reliability = diagnostics ? getWorkspaceReliabilityLabel(diagnostics.performance.successRate) : null;
+  const failureGuideItems: Array<{
+    title: string;
+    description: string;
+    tone: 'warning' | 'danger';
+  }> = [
+    {
+      title: 'Timeout',
+      description: 'Source page too slow or overloaded. Lower the batch size or retry later.',
+      tone: 'warning',
+    },
+    { title: 'Network', description: 'Temporary upstream issue. Retry when the source stabilizes.', tone: 'danger' },
+    { title: 'Validation', description: 'Scraped payload shape changed and needs investigation.', tone: 'danger' },
+    {
+      title: 'Callback',
+      description: 'Worker finished but result application failed on the API side.',
+      tone: 'warning',
+    },
+  ];
 
   return (
     <main className="app-page">
@@ -133,6 +162,9 @@ export const WorkspacePlanningPage = () => {
                   <p className="text-text-strong font-semibold">
                     Success rate: {(diagnostics.performance.successRate * 100).toFixed(1)}%
                   </p>
+                  <p className="text-text-soft">
+                    Usable run rate: {(diagnostics.performance.usableRunRate * 100).toFixed(1)}%
+                  </p>
                 </div>
                 <div className="app-muted-panel space-y-2 text-sm">
                   <p className="text-text-soft">
@@ -148,12 +180,26 @@ export const WorkspacePlanningPage = () => {
                       : `${diagnostics.performance.p95DurationMs} ms`}
                   </p>
                   <p className="text-text-soft">Avg scraped: {diagnostics.performance.avgScrapedCount ?? 'n/a'}</p>
+                  <p className="text-text-soft">Avg useful offers: {diagnostics.performance.avgUsefulOfferCount}</p>
                 </div>
                 <div className="app-muted-panel space-y-2 text-sm">
                   <p className="text-app-warning">Timeout failures: {diagnostics.failures.timeout}</p>
                   <p className="text-app-danger">Network failures: {diagnostics.failures.network}</p>
                   <p className="text-app-danger">Validation failures: {diagnostics.failures.validation}</p>
+                  <p className="text-text-soft">Silent failures: {diagnostics.outcomes.silentFailureCount}</p>
                 </div>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <WorkflowInlineNotice
+                  title="How to read this"
+                  description="Use planning diagnostics to decide whether to rerun, wait, or tune the source. A failed run does not automatically mean the market is empty."
+                  tone="info"
+                />
+                <WorkflowInlineNotice
+                  title="What to do next"
+                  description="If usable run rate is lagging behind success rate, treat it as a quality problem in sourcing or linking, not as a healthy completion signal."
+                  tone="warning"
+                />
               </div>
             </Card>
           ) : null}
@@ -207,6 +253,13 @@ export const WorkspacePlanningPage = () => {
                   </p>
                 </div>
               </div>
+              <div className="mt-4">
+                <WorkflowInlineNotice
+                  title="Document timing is for confidence, not curiosity"
+                  description="Use these timings when uploads or extraction feel stuck. The normal user path should stay in Profile Studio and document recovery, not in diagnostics."
+                  tone="info"
+                />
+              </div>
             </Card>
           ) : null}
         </div>
@@ -247,20 +300,34 @@ export const WorkspacePlanningPage = () => {
               <StatRow label="Total runs" value={String(summary.scrape.totalRuns)} />
               {reliability ? <StatRow label="Reliability" value={reliability.label} tone={reliability.tone} /> : null}
             </div>
+            {reliability ? (
+              <div className="mt-4">
+                <WorkflowInlineNotice
+                  title="Current operating stance"
+                  description={
+                    reliability.tone === 'success'
+                      ? 'Runs are healthy enough to keep notebook triage moving. Tune carefully rather than making reactive source changes.'
+                      : reliability.tone === 'warning'
+                        ? 'Watch output quality and run usefulness before expanding automation or trusting recent results too much.'
+                        : 'Treat the current sourcing setup as unstable until failures and weak-output causes are understood.'
+                  }
+                  tone={
+                    reliability.tone === 'success' ? 'success' : reliability.tone === 'warning' ? 'warning' : 'danger'
+                  }
+                />
+              </div>
+            ) : null}
           </Card>
 
           <Card title="Failure Guide" description="What the most common scrape failures usually mean.">
             <div className="space-y-3">
-              {[
-                ['Timeout', 'Source page too slow or overloaded. Lower the batch size or retry later.'],
-                ['Network', 'Temporary upstream issue. Retry when the source stabilizes.'],
-                ['Validation', 'Scraped payload shape changed and needs investigation.'],
-                ['Callback', 'Worker finished but result application failed on the API side.'],
-              ].map(([label, description]) => (
-                <div key={label} className="app-inset-stack">
-                  <p className="text-text-strong text-sm font-semibold">{label}</p>
-                  <p className="text-text-soft mt-1 text-sm leading-6">{description}</p>
-                </div>
+              {failureGuideItems.map((item) => (
+                <WorkflowInlineNotice
+                  key={item.title}
+                  title={item.title}
+                  description={item.description}
+                  tone={item.tone}
+                />
               ))}
             </div>
           </Card>

@@ -6,6 +6,7 @@ import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
+import { WorkflowFeedback, WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 type ProfileInputPanelProps = {
   token: string;
@@ -17,10 +18,19 @@ export const ProfileInputPanel = ({ token }: ProfileInputPanelProps) => {
     register,
     formState: { errors },
   } = profileInputPanel.form;
+  const latestInput = profileInputPanel.latestQuery.data;
 
   return (
-    <Card title="Profile input" description="Define your target roles and personal notes for profile generation.">
+    <Card
+      title="Profile input"
+      description="Capture the role direction and constraints that should influence every new profile version."
+    >
       <form className="flex flex-col gap-3" onSubmit={profileInputPanel.submit}>
+        <WorkflowInlineNotice
+          title="Update this only when your search direction changes"
+          description="Treat this as stable source context. Small job-by-job preferences belong in notebook notes, not here."
+          tone="info"
+        />
         <Label htmlFor="profile-target-roles" className="text-text-soft">
           Target roles
         </Label>
@@ -29,7 +39,13 @@ export const ProfileInputPanel = ({ token }: ProfileInputPanelProps) => {
           placeholder="Backend Engineer, NestJS Developer"
           {...register('targetRoles')}
         />
-        {errors.targetRoles?.message ? <p className="text-app-danger text-sm">{errors.targetRoles.message}</p> : null}
+        {errors.targetRoles?.message ? (
+          <WorkflowInlineNotice
+            title="Target roles need correction"
+            description={errors.targetRoles.message}
+            tone="danger"
+          />
+        ) : null}
 
         <Label htmlFor="profile-notes" className="text-text-soft">
           Notes
@@ -40,35 +56,56 @@ export const ProfileInputPanel = ({ token }: ProfileInputPanelProps) => {
           placeholder="Preferred location, salary range, role priorities..."
           {...register('notes')}
         />
-        {errors.notes?.message ? <p className="text-app-danger text-sm">{errors.notes.message}</p> : null}
+        {errors.notes?.message ? (
+          <WorkflowInlineNotice title="Notes need correction" description={errors.notes.message} tone="danger" />
+        ) : null}
 
-        {errors.root?.message ? <p className="text-app-danger text-sm">{errors.root.message}</p> : null}
+        {errors.root?.message ? (
+          <WorkflowFeedback
+            title="Unable to save profile input"
+            description={errors.root.message}
+            tone="danger"
+            className="p-4 sm:p-5"
+          />
+        ) : null}
         <Button type="submit" disabled={profileInputPanel.isSubmitting}>
           {profileInputPanel.isSubmitting ? 'Saving...' : 'Save profile input'}
         </Button>
       </form>
 
       <div className="border-border bg-surface-muted mt-5 rounded-md border border-dashed p-3 text-sm">
-        <p className="text-text-strong font-semibold">Latest input</p>
-        {profileInputPanel.latestQuery.data ? (
+        <p className="text-text-strong font-semibold">Latest saved context</p>
+        {profileInputPanel.latestErrorMessage ? (
+          <WorkflowInlineNotice
+            title="Latest input is temporarily unavailable"
+            description={profileInputPanel.latestErrorMessage}
+            tone="warning"
+            className="mt-3"
+          />
+        ) : latestInput ? (
           <div className="text-text-soft mt-2 space-y-1">
             <p>
-              <span className="font-medium">Roles:</span> {profileInputPanel.latestQuery.data.targetRoles}
+              <span className="font-medium">Roles:</span> {latestInput.targetRoles}
             </p>
             <p>
-              <span className="font-medium">Notes:</span> {profileInputPanel.latestQuery.data.notes || 'n/a'}
+              <span className="font-medium">Notes:</span> {latestInput.notes || 'n/a'}
             </p>
-            {profileInputPanel.latestQuery.data.normalizedInput?.searchPreferences ? (
+            {latestInput.normalizedInput?.searchPreferences ? (
               <details className="mt-2">
                 <summary className="text-text-strong cursor-pointer font-medium">Normalized search preferences</summary>
                 <pre className="bg-surface-elevated text-text-soft mt-2 whitespace-pre-wrap rounded-md p-2 text-xs">
-                  {JSON.stringify(profileInputPanel.latestQuery.data.normalizedInput.searchPreferences, null, 2)}
+                  {JSON.stringify(latestInput.normalizedInput.searchPreferences, null, 2)}
                 </pre>
               </details>
             ) : null}
           </div>
         ) : (
-          <p className="text-text-soft mt-2">No profile input yet.</p>
+          <WorkflowFeedback
+            title="No saved profile input yet"
+            description="Save your target roles and baseline notes first so profile generation has stable direction before you create a new version."
+            tone="info"
+            className="mt-3 p-4 sm:p-5"
+          />
         )}
       </div>
     </Card>

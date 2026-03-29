@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import { Inbox } from 'lucide-react';
 
@@ -24,6 +25,7 @@ import {
 } from '@/shared/ui/dashboard-primitives';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { GuidancePanel, JourneySteps } from '@/shared/ui/guidance-panels';
+import { WorkflowFeedback } from '@/shared/ui/workflow-feedback';
 import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
 
 export const WorkspaceDashboardPage = () => {
@@ -297,6 +299,54 @@ export const WorkspaceDashboardPage = () => {
           title="Focus lane"
           description="Short operational blocks that tell you what deserves the next session."
         >
+          <Card title="Today" description="Action-plan buckets for the next notebook session.">
+            {dashboard.isActionPlanLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="bg-surface-muted h-14 animate-pulse rounded-lg" />
+                ))}
+              </div>
+            ) : dashboard.actionPlanError ? (
+              <WorkflowFeedback
+                title="Today's action plan is temporarily unavailable"
+                description={dashboard.actionPlanError}
+                tone="danger"
+                actionLabel="Retry"
+                onAction={() => {
+                  void dashboard.refetchActionPlan();
+                }}
+              />
+            ) : dashboard.actionPlan.length ? (
+              <div className="space-y-3">
+                {dashboard.actionPlan
+                  .filter((bucket) => bucket.count > 0)
+                  .slice(0, 5)
+                  .map((bucket) => (
+                    <Link
+                      key={bucket.key}
+                      href={bucket.href}
+                      className="app-muted-panel block transition-transform hover:-translate-y-0.5"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-text-strong text-sm font-semibold">{bucket.label}</p>
+                        <span className="app-badge">{bucket.count}</span>
+                      </div>
+                      <p className="text-text-soft mt-2 text-sm leading-6">{bucket.description}</p>
+                      <p className="text-primary mt-3 text-xs font-semibold uppercase tracking-[0.16em]">
+                        {bucket.ctaLabel}
+                      </p>
+                    </Link>
+                  ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={<Inbox className="h-8 w-8" />}
+                title="No action plan blockers"
+                description="The notebook does not have any urgent action-plan buckets right now."
+              />
+            )}
+          </Card>
+
           <Card title="Today's Focus" description="Server-driven focus lanes for the next notebook session.">
             {dashboard.isFocusLoading ? (
               <div className="space-y-2">
@@ -305,19 +355,15 @@ export const WorkspaceDashboardPage = () => {
                 ))}
               </div>
             ) : dashboard.focusError ? (
-              <div className="border-app-danger-border bg-app-danger-soft space-y-2 rounded-xl border p-3">
-                <p className="text-app-danger text-sm">{dashboard.focusError}</p>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  className="h-9"
-                  onClick={() => {
-                    void dashboard.refetchFocus();
-                  }}
-                >
-                  Retry
-                </Button>
-              </div>
+              <WorkflowFeedback
+                title="Today's focus is temporarily unavailable"
+                description={dashboard.focusError}
+                tone="danger"
+                actionLabel="Retry"
+                onAction={() => {
+                  void dashboard.refetchFocus();
+                }}
+              />
             ) : dashboard.focusGroups.length ? (
               <div className="space-y-3">
                 {dashboard.focusGroups
@@ -334,6 +380,9 @@ export const WorkspaceDashboardPage = () => {
                         <span className="app-badge">{group.count}</span>
                       </div>
                       <p className="text-text-soft mt-2 text-sm leading-6">{group.description}</p>
+                      <p className="text-primary mt-3 text-xs font-semibold uppercase tracking-[0.16em]">
+                        Open in notebook
+                      </p>
                     </Link>
                   ))}
               </div>
@@ -407,19 +456,15 @@ export const WorkspaceDashboardPage = () => {
             ))}
           </div>
         ) : dashboard.offersError ? (
-          <div className="border-app-danger-border bg-app-danger-soft space-y-2 rounded-xl border p-3">
-            <p className="text-app-danger text-sm">{dashboard.offersError}</p>
-            <Button
-              type="button"
-              variant="destructive"
-              className="h-9"
-              onClick={() => {
-                void dashboard.refetchOffers();
-              }}
-            >
-              Retry
-            </Button>
-          </div>
+          <WorkflowFeedback
+            title="Recent offers are temporarily unavailable"
+            description={dashboard.offersError}
+            tone="danger"
+            actionLabel="Retry"
+            onAction={() => {
+              void dashboard.refetchOffers();
+            }}
+          />
         ) : offers.length ? (
           <table className="min-w-full text-sm">
             <thead>

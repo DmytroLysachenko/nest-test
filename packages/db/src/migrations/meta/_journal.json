@@ -232,6 +232,13 @@
       "when": 1773853200000,
       "tag": "0032_scrape_execution_audit_and_rbac",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1774652400000,
+      "tag": "0033_user_job_offer_follow_up_fields",
+      "breakpoints": true
     }
   ]
 }

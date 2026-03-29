@@ -4,7 +4,9 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import {
+  getJobOfferActionPlan,
   getJobOfferHistory,
+  getJobOfferPrepPacket,
   getNotebookPreferences,
   getNotebookSummary,
   listJobOffers,
@@ -72,11 +74,32 @@ export const useNotebookQueries = ({
     }),
   );
 
+  const actionPlanQuery = useQuery(
+    buildAuthedQueryOptions({
+      token,
+      queryKey: queryKeys.jobOffers.actionPlan(token),
+      queryFn: getJobOfferActionPlan,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+    }),
+  );
+
+  const prepPacketQuery = useQuery(
+    buildAuthedQueryOptions({
+      token,
+      queryKey: queryKeys.jobOffers.prepPacket(token, selectedOffer?.id ?? null),
+      queryFn: (authToken) => getJobOfferPrepPacket(authToken, selectedOffer!.id),
+      enabled: Boolean(selectedOffer?.id),
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+    }),
+  );
+
   return {
     listQuery,
     selectedOffer,
     historyQuery,
     preferencesQuery,
+    actionPlanQuery,
+    prepPacketQuery,
     summaryQuery: {
       ...summaryQuery,
       data: sharedNotebookSummary ?? summaryQuery.data,

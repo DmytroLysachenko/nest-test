@@ -4,8 +4,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { enqueueScrape } from '@/features/job-sources/api/job-sources-api';
 import {
+  clearJobOfferFollowUp,
+  completeJobOfferFollowUp,
   scoreJobOffer,
   generateJobOfferPrep,
+  snoozeJobOfferFollowUp,
   updateNotebookPreferences,
   updateJobOfferFeedback,
   updateJobOfferMeta,
@@ -203,6 +206,48 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     },
   });
 
+  const completeFollowUpMutation = useMutation({
+    mutationFn: ({
+      id,
+      note,
+      nextAction,
+    }: {
+      id: string;
+      note?: string;
+      nextAction?: 'clear' | 'tomorrow' | 'in3days' | 'in1week';
+    }) => completeJobOfferFollowUp(token, id, { note, nextAction }),
+    onSuccess: () => {
+      syncJobOffers();
+      toastSuccess('Follow-up marked as completed');
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to complete follow-up'));
+    },
+  });
+
+  const snoozeFollowUpMutation = useMutation({
+    mutationFn: ({ id, durationHours }: { id: string; durationHours?: number }) =>
+      snoozeJobOfferFollowUp(token, id, { durationHours }),
+    onSuccess: (_result, variables) => {
+      syncJobOffers();
+      toastSuccess(`Follow-up snoozed${variables.durationHours ? ` by ${variables.durationHours}h` : ''}`);
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to snooze follow-up'));
+    },
+  });
+
+  const clearFollowUpMutation = useMutation({
+    mutationFn: ({ id }: { id: string }) => clearJobOfferFollowUp(token, id),
+    onSuccess: () => {
+      syncJobOffers();
+      toastSuccess('Follow-up cleared');
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to clear follow-up'));
+    },
+  });
+
   const bulkFollowUpMutation = useMutation({
     mutationFn: (payload: {
       ids: string[];
@@ -279,6 +324,9 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     metaMutation,
     feedbackMutation,
     pipelineMutation,
+    completeFollowUpMutation,
+    snoozeFollowUpMutation,
+    clearFollowUpMutation,
     scoreMutation,
     generatePrepMutation,
     enqueueProfileScrapeMutation,

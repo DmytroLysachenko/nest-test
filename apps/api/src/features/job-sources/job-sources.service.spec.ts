@@ -1827,6 +1827,126 @@ describe('JobSourcesService', () => {
       insertionRatio: 0.5,
       stopReason: 'budget_reached',
     });
+    expect(diagnostics.story).toMatchObject({
+      phase: 'completed',
+      userVisibility: 'positive',
+    });
+    expect(diagnostics.diagnostics.silentFailure).toBe(false);
+    expect(diagnostics.diagnostics.notebookVisibility).toEqual({
+      candidateOffers: 4,
+      matchedOffers: 3,
+      userInsertedOffers: 2,
+      hiddenByStrict: 1,
+      usefulOfferCount: 4,
+      listingsFound: 12,
+    });
+  });
+
+  it('returns zeroed stage metrics when diagnostics omit stage metrics', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) =>
+                  Promise.resolve(
+                    cb([
+                      {
+                        id: 'run-10b',
+                        traceId: 'trace-10b',
+                        source: 'PRACUJ_PL',
+                        userId: 'user-10',
+                        listingUrl: 'https://example.com/listing',
+                        status: 'RUNNING',
+                        totalFound: 0,
+                        scrapedCount: 0,
+                        finalizedAt: null,
+                        completedAt: null,
+                        lastHeartbeatAt: new Date('2026-02-27T09:00:00.000Z'),
+                        failureType: null,
+                        error: null,
+                        progress: {},
+                        classifiedOutcome: null,
+                        sourceQuality: null,
+                        emptyReason: null,
+                      },
+                    ]),
+                  ),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  then: (cb: (rows: unknown[]) => unknown) =>
+                    Promise.resolve(
+                      cb([
+                        {
+                          payload: JSON.stringify({
+                            diagnostics: {},
+                          }),
+                        },
+                      ]),
+                    ),
+                }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  then: (cb: (rows: unknown[]) => unknown) => Promise.resolve(cb([])),
+                }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        }),
+      update: jest.fn(),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const diagnostics = await service.getRunDiagnostics('user-10', 'run-10b');
+
+    expect(diagnostics.diagnostics.stageMetrics).toEqual({
+      fetch: {
+        pagesVisited: 0,
+        jobLinksDiscovered: 0,
+        blockedPages: 0,
+        browserFallbacks: 0,
+        detailAttemptedCount: 0,
+      },
+      parse: {
+        acceptedOfferCount: 0,
+        rejectedOfferCount: 0,
+        dedupedInRunCount: 0,
+        salvagedOfferCount: 0,
+      },
+      finalize: {
+        blockedRate: 0,
+        attemptCount: 0,
+        stopReason: null,
+        resultKind: null,
+      },
+    });
   });
 
   it('returns aggregated diagnostics summary for recent runs', async () => {
@@ -1840,6 +1960,8 @@ describe('JobSourcesService', () => {
             {
               status: 'COMPLETED',
               error: null,
+              classifiedOutcome: 'success',
+              sourceQuality: 'healthy',
               totalFound: 10,
               scrapedCount: 8,
               startedAt: new Date('2026-02-26T08:00:00.000Z'),
@@ -1848,6 +1970,8 @@ describe('JobSourcesService', () => {
             {
               status: 'FAILED',
               error: '[timeout] worker timeout',
+              classifiedOutcome: 'failed:timeout',
+              sourceQuality: 'failed',
               totalFound: 0,
               scrapedCount: 0,
               startedAt: new Date('2026-02-26T09:00:00.000Z'),
@@ -1856,6 +1980,8 @@ describe('JobSourcesService', () => {
             {
               status: 'RUNNING',
               error: null,
+              classifiedOutcome: null,
+              sourceQuality: null,
               totalFound: null,
               scrapedCount: null,
               startedAt: new Date('2026-02-26T09:30:00.000Z'),
@@ -1883,6 +2009,9 @@ describe('JobSourcesService', () => {
     expect(summary.status.failed).toBe(1);
     expect(summary.status.running).toBe(1);
     expect(summary.performance.avgDurationMs).toBe(210000);
+    expect(summary.performance.usableRunRate).toBe(0.5);
+    expect(summary.performance.avgUsefulOfferCount).toBe(4);
+    expect(summary.outcomes.silentFailureCount).toBe(0);
     expect(summary.failures.timeout).toBe(1);
   });
 
@@ -1897,6 +2026,8 @@ describe('JobSourcesService', () => {
             {
               status: 'COMPLETED',
               error: null,
+              classifiedOutcome: 'success',
+              sourceQuality: 'healthy',
               totalFound: 5,
               scrapedCount: 4,
               startedAt: new Date('2026-02-26T08:00:00.000Z'),
@@ -1905,6 +2036,8 @@ describe('JobSourcesService', () => {
             {
               status: 'FAILED',
               error: '[network] blocked',
+              classifiedOutcome: 'failed:network',
+              sourceQuality: 'failed',
               totalFound: 0,
               scrapedCount: 0,
               startedAt: new Date('2026-02-26T08:30:00.000Z'),
@@ -2569,6 +2702,8 @@ describe('JobSourcesService', () => {
               failureType: null,
               classifiedOutcome: 'success',
               sourceQuality: 'healthy',
+              totalFound: 10,
+              scrapedCount: 8,
               createdAt: new Date('2026-03-21T10:00:00.000Z'),
               lastHeartbeatAt: null,
             },
@@ -2578,6 +2713,8 @@ describe('JobSourcesService', () => {
               failureType: null,
               classifiedOutcome: 'partial_success',
               sourceQuality: 'degraded',
+              totalFound: 12,
+              scrapedCount: 4,
               createdAt: new Date('2026-03-21T10:10:00.000Z'),
               lastHeartbeatAt: null,
             },
@@ -2587,6 +2724,8 @@ describe('JobSourcesService', () => {
               failureType: null,
               classifiedOutcome: 'detail_parse_gap',
               sourceQuality: 'degraded',
+              totalFound: 9,
+              scrapedCount: 0,
               createdAt: new Date('2026-03-21T10:20:00.000Z'),
               lastHeartbeatAt: null,
             },
@@ -2596,6 +2735,8 @@ describe('JobSourcesService', () => {
               failureType: null,
               classifiedOutcome: 'filters_exhausted',
               sourceQuality: 'empty',
+              totalFound: 0,
+              scrapedCount: 0,
               createdAt: new Date('2026-03-21T10:30:00.000Z'),
               lastHeartbeatAt: null,
             },
@@ -2605,6 +2746,8 @@ describe('JobSourcesService', () => {
               failureType: 'network',
               classifiedOutcome: 'failed:network',
               sourceQuality: 'failed',
+              totalFound: 0,
+              scrapedCount: 0,
               createdAt: new Date('2026-03-21T11:00:00.000Z'),
               lastHeartbeatAt: null,
             },
@@ -2614,6 +2757,8 @@ describe('JobSourcesService', () => {
               failureType: null,
               classifiedOutcome: null,
               sourceQuality: null,
+              totalFound: null,
+              scrapedCount: null,
               createdAt: new Date('2026-03-21T11:30:00.000Z'),
               lastHeartbeatAt: new Date('2026-03-21T11:40:00.000Z'),
             },
@@ -2646,6 +2791,9 @@ describe('JobSourcesService', () => {
       partialSuccessRuns: 1,
       filtersExhaustedRuns: 1,
       detailParseGapRuns: 1,
+      silentFailureRuns: 1,
+      usableRunRate: 0.5,
+      avgUsefulOfferCount: 2,
       latestRunStatus: 'RUNNING',
     });
   });

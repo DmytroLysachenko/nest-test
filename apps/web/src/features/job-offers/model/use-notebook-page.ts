@@ -18,12 +18,14 @@ type UseNotebookPageArgs = {
     | 'staleUntriaged'
     | 'followUpDue'
     | 'followUpUpcoming'
+    | 'missingNextStep'
+    | 'stalePipeline'
     | null;
   initialOfferId?: string | null;
 };
 
 export const useNotebookPage = ({ token, initialQuickAction = null, initialOfferId = null }: UseNotebookPageArgs) => {
-  const { notebookSummary } = usePrivateDashboardData();
+  const { notebookSummary, summary } = usePrivateDashboardData();
   const selectedId = useAppUiStore((state) => state.notebook.selectedOfferId);
   const selectedOfferIds = useAppUiStore((state) => state.notebook.selectedOfferIds);
   const filters = useAppUiStore((state) => state.notebook.filters);
@@ -67,12 +69,13 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     ],
   );
 
-  const { listQuery, selectedOffer, historyQuery, preferencesQuery, summaryQuery } = useNotebookQueries({
-    token,
-    listParams,
-    selectedId,
-    sharedNotebookSummary: notebookSummary,
-  });
+  const { listQuery, selectedOffer, historyQuery, preferencesQuery, summaryQuery, actionPlanQuery, prepPacketQuery } =
+    useNotebookQueries({
+      token,
+      listParams,
+      selectedId,
+      sharedNotebookSummary: notebookSummary,
+    });
 
   const {
     statusMutation,
@@ -83,6 +86,9 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     metaMutation,
     feedbackMutation,
     pipelineMutation,
+    completeFollowUpMutation,
+    snoozeFollowUpMutation,
+    clearFollowUpMutation,
     scoreMutation,
     generatePrepMutation,
     enqueueProfileScrapeMutation,
@@ -183,7 +189,12 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
         ? [
             {
               key: 'attention',
-              label: 'Attention: stale untriaged',
+              label:
+                filters.attention === 'missingNextStep'
+                  ? 'Attention: missing next step'
+                  : filters.attention === 'stalePipeline'
+                    ? 'Attention: stale pipeline'
+                    : 'Attention: stale untriaged',
               onClear: () => setNotebookFilter('attention', 'all'),
             },
           ]
@@ -201,16 +212,39 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     ],
   );
 
-  const listError = listQuery.isError ? toUserErrorMessage(listQuery.error, 'Failed to load notebook offers.') : null;
+  const listError = listQuery.isError
+    ? toUserErrorMessage(listQuery.error, 'Failed to load notebook offers.', {
+        byStatus: {
+          401: 'Your session expired. Sign in again to keep working in the notebook.',
+          403: 'You do not have access to this notebook yet.',
+          429: 'Notebook data is being requested too aggressively right now. Wait a moment and retry.',
+          500: 'Notebook data is temporarily unavailable. Try again shortly.',
+        },
+      })
+    : null;
   const historyError = historyQuery.isError
-    ? toUserErrorMessage(historyQuery.error, 'Failed to load offer history.')
+    ? toUserErrorMessage(historyQuery.error, 'Failed to load offer history.', {
+        byStatus: {
+          429: 'Offer history is temporarily rate-limited. Retry in a moment.',
+          500: 'Offer history is temporarily unavailable. Retry shortly.',
+        },
+      })
     : null;
   const selectedVisibleIds = listQuery.data?.items.map((offer) => offer.id) ?? [];
   const isAllVisibleSelected =
     selectedVisibleIds.length > 0 && selectedVisibleIds.every((id) => selectedOfferIds.includes(id));
 
   const applyQuickAction = (
-    action: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'staleUntriaged' | 'followUpDue' | 'followUpUpcoming',
+    action:
+      | 'unscored'
+      | 'strictTop'
+      | 'saved'
+      | 'applied'
+      | 'staleUntriaged'
+      | 'followUpDue'
+      | 'followUpUpcoming'
+      | 'missingNextStep'
+      | 'stalePipeline',
   ) => {
     setNotebookSelectedOffer(null);
     clearNotebookSelectedOfferIds();
@@ -264,6 +298,22 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
       return;
     }
 
+    if (action === 'missingNextStep') {
+      setNotebookFilter('status', 'ALL');
+      setNotebookFilter('mode', 'strict');
+      setNotebookFilter('hasScore', 'all');
+      setNotebookFilter('attention', 'missingNextStep');
+      return;
+    }
+
+    if (action === 'stalePipeline') {
+      setNotebookFilter('status', 'ALL');
+      setNotebookFilter('mode', 'strict');
+      setNotebookFilter('hasScore', 'all');
+      setNotebookFilter('attention', 'stalePipeline');
+      return;
+    }
+
     setNotebookFilter('status', 'APPLIED');
     setNotebookFilter('mode', 'strict');
     setNotebookFilter('hasScore', 'all');
@@ -298,7 +348,10 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     lastInteractionAt,
     preferencesQuery,
     summaryQuery,
+    workspaceSummary: summary,
     notebookSummary: summaryQuery.data,
+    actionPlan: actionPlanQuery.data,
+    prepPacket: prepPacketQuery.data,
     selectedOffer,
     selectedId,
     filters,
@@ -315,6 +368,9 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
       scoreMutation.isPending ||
       feedbackMutation.isPending ||
       pipelineMutation.isPending ||
+      completeFollowUpMutation.isPending ||
+      snoozeFollowUpMutation.isPending ||
+      clearFollowUpMutation.isPending ||
       generatePrepMutation.isPending ||
       enqueueProfileScrapeMutation.isPending,
     enqueueProfileScrapeMutation,
@@ -337,6 +393,9 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     updateMeta: metaMutation.mutate,
     updateFeedback: feedbackMutation.mutate,
     updatePipeline: pipelineMutation.mutate,
+    completeFollowUp: completeFollowUpMutation.mutate,
+    snoozeFollowUp: snoozeFollowUpMutation.mutate,
+    clearFollowUp: clearFollowUpMutation.mutate,
     rescore: scoreMutation.mutate,
     generatePrep: generatePrepMutation.mutate,
     isGeneratingPrep: generatePrepMutation.isPending,

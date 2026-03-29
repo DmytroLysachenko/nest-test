@@ -17,6 +17,12 @@ class JobSourceHealthItemResponse {
   successRate!: number;
 
   @ApiProperty()
+  usableRunRate!: number;
+
+  @ApiProperty()
+  avgUsefulOfferCount!: number;
+
+  @ApiProperty()
   timeoutFailures!: number;
 
   @ApiProperty()
@@ -66,6 +72,9 @@ class JobSourceHealthItemResponse {
 
   @ApiProperty()
   detailParseGapRuns!: number;
+
+  @ApiProperty()
+  silentFailureRuns!: number;
 }
 
 export class JobSourceHealthResponse {

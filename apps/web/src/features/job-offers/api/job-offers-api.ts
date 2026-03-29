@@ -3,7 +3,9 @@ import { apiRequest } from '@/shared/lib/http/api-client';
 import type {
   JobOfferHistoryDto,
   JobOfferFocusDto,
+  JobOfferActionPlanDto,
   JobOfferSummaryDto,
+  JobOfferPrepPacketDto,
   JobOffersListDto,
   JobOfferScoreResultDto,
   JobOfferStatus,
@@ -21,7 +23,7 @@ export type ListJobOffersParams = {
   tag?: string;
   hasScore?: boolean;
   followUp?: 'due' | 'upcoming' | 'none';
-  attention?: 'staleUntriaged';
+  attention?: 'staleUntriaged' | 'missingNextStep' | 'stalePipeline';
 };
 
 const toQuery = (params: ListJobOffersParams) => {
@@ -168,6 +170,42 @@ export const getNotebookSummary = (token: string) =>
 export const getJobOfferFocus = (token: string) =>
   apiRequest<JobOfferFocusDto>('/job-offers/focus', {
     method: 'GET',
+    token,
+  });
+
+export const getJobOfferActionPlan = (token: string) =>
+  apiRequest<JobOfferActionPlanDto>('/job-offers/action-plan', {
+    method: 'GET',
+    token,
+  });
+
+export const getJobOfferPrepPacket = (token: string, id: string) =>
+  apiRequest<JobOfferPrepPacketDto>(`/job-offers/${id}/prep-packet`, {
+    method: 'GET',
+    token,
+  });
+
+export const completeJobOfferFollowUp = (
+  token: string,
+  id: string,
+  payload: { note?: string; nextAction?: 'clear' | 'tomorrow' | 'in3days' | 'in1week' } = {},
+) =>
+  apiRequest<{ id: string }>(`/job-offers/${id}/follow-up/complete`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  });
+
+export const snoozeJobOfferFollowUp = (token: string, id: string, payload: { durationHours?: number } = {}) =>
+  apiRequest<{ id: string }>(`/job-offers/${id}/follow-up/snooze`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  });
+
+export const clearJobOfferFollowUp = (token: string, id: string) =>
+  apiRequest<{ id: string }>(`/job-offers/${id}/follow-up/clear`, {
+    method: 'POST',
     token,
   });
 

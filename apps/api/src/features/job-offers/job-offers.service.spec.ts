@@ -472,6 +472,68 @@ describe('JobOffersService', () => {
     );
   });
 
+  it('groups daily action-plan buckets from normalized follow-up and workflow state', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-03-09T10:00:00.000Z'));
+
+    const select = jest.fn().mockReturnValue(
+      createSummaryQuery([
+        {
+          id: 'ujo-due',
+          status: 'SAVED',
+          matchScore: 81,
+          matchMeta: { hardConstraintViolations: [] },
+          pipelineMeta: { followUpAt: '2026-03-08T10:00:00.000Z' },
+          createdAt: new Date('2026-03-01T12:00:00.000Z'),
+          lastStatusAt: new Date('2026-03-01T12:00:00.000Z'),
+        },
+        {
+          id: 'ujo-missing-next',
+          status: 'APPLIED',
+          matchScore: 77,
+          matchMeta: { hardConstraintViolations: [] },
+          pipelineMeta: { applicationUrl: 'https://example.com/thread' },
+          createdAt: new Date('2026-03-01T12:00:00.000Z'),
+          lastStatusAt: new Date('2026-03-01T12:00:00.000Z'),
+        },
+        {
+          id: 'ujo-strict',
+          status: 'NEW',
+          matchScore: 78,
+          matchMeta: { hardConstraintViolations: [] },
+          pipelineMeta: null,
+          createdAt: new Date('2026-03-08T12:00:00.000Z'),
+          lastStatusAt: new Date('2026-03-08T12:00:00.000Z'),
+        },
+      ]),
+    );
+
+    const service = new JobOffersService(
+      { select } as any,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'NOTEBOOK_APPROX_VIOLATION_PENALTY') return 15;
+          if (key === 'NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY') return 45;
+          if (key === 'NOTEBOOK_APPROX_SCORED_BONUS') return 5;
+          if (key === 'NOTEBOOK_EXPLORE_UNSCORED_BASE') return 55;
+          if (key === 'NOTEBOOK_EXPLORE_RECENCY_WEIGHT') return 12;
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          return undefined;
+        }),
+      } as any,
+    );
+
+    const result = await service.getActionPlan('user-1');
+
+    expect(result.buckets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'due-now', href: '/notebook?focus=followUpDue', count: 1 }),
+        expect.objectContaining({ key: 'missing-next-step', href: '/notebook?focus=missingNextStep', count: 2 }),
+        expect.objectContaining({ key: 'strict-top-unreviewed', href: '/notebook?focus=strictTop', count: 1 }),
+      ]),
+    );
+  });
+
   it('reports offers hidden by strict mode when hard constraints exclude visible results', async () => {
     const select = jest.fn().mockReturnValue(
       createListQuery([

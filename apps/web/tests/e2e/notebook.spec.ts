@@ -170,6 +170,45 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
     });
   });
 
+  await page.route('**/api/job-offers/ujo-1/prep-packet', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          offer: {
+            id: 'ujo-1',
+            title: 'Backend Developer',
+            company: 'Test Company',
+            location: 'Gdynia',
+            url: 'https://it.pracuj.pl/praca/test,oferta,1',
+            description: 'Build NestJS services',
+            requirements: ['TypeScript', 'Node.js'],
+          },
+          matchRationale: { summary: 'Good backend match' },
+          tags: ['backend'],
+          notes: 'Important role',
+          followUpState: 'due',
+          followUpAt: '2026-02-03T09:30:00.000Z',
+          nextStep: 'Send follow-up email',
+          followUpNote: 'Mention portfolio refresh and API design case study.',
+          applicationUrl: 'https://example.com/application/123',
+          contactName: 'Ava Recruiter',
+          prepMaterials: null,
+          profile: {
+            headline: 'Backend engineer',
+            summary: 'TypeScript and NestJS focused backend developer.',
+            targetRoles: ['Backend Developer'],
+            searchableKeywords: ['nestjs', 'typescript'],
+          },
+          talkingPoints: ['Lead with your TypeScript and NestJS experience.'],
+          verifyBeforeReply: ['Verify the follow-up date, recipient, and thread before you send the next message.'],
+        },
+      }),
+    });
+  });
+
   await page.route('**/api/job-offers/ujo-1/status', async (route) => {
     await route.fulfill({
       status: 200,
@@ -342,6 +381,30 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
     });
   });
 
+  await page.route('**/api/job-offers/ujo-1/follow-up/complete', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { id: 'ujo-1' } }),
+    });
+  });
+
+  await page.route('**/api/job-offers/ujo-1/follow-up/snooze', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { id: 'ujo-1' } }),
+    });
+  });
+
+  await page.route('**/api/job-offers/ujo-1/follow-up/clear', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { id: 'ujo-1' } }),
+    });
+  });
+
   await page.route('**/api/job-sources/schedule', async (route) => {
     await route.fulfill({
       status: 200,
@@ -380,10 +443,13 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
     .first()
     .click();
 
-  await expect(page.getByText('Action plan')).toBeVisible();
+  await expect(page.getByText('Follow-up plan', { exact: true })).toBeVisible();
   await expect(page.getByText('Next step: Send follow-up email').first()).toBeVisible();
+  await expect(page.getByText('Prep packet')).toBeVisible();
+  await expect(page.getByText('Lead with your TypeScript and NestJS experience.')).toBeVisible();
 
   await page.getByLabel('Select Backend Developer').check();
+  await page.getByRole('button', { name: 'Edit bulk plan' }).click();
   await page.getByLabel('Bulk next step').fill('Prepare recruiter follow-up');
   await page.getByLabel('Bulk follow-up note').fill('Share updated portfolio link');
   const bulkFollowUpRequest = page.waitForRequest('**/api/job-offers/pipeline/bulk-follow-up');
@@ -398,10 +464,22 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
   await page.getByLabel('Tags (comma separated)').fill('smoke, backend');
 
   const metaRequest = page.waitForRequest('**/api/job-offers/ujo-1/meta');
-  await page.getByRole('button', { name: 'Save metadata' }).click();
+  await page.getByRole('button', { name: 'Save notes and tags' }).click();
   await metaRequest;
 
   const scoreRequest = page.waitForRequest('**/api/job-offers/ujo-1/score');
   await page.getByRole('button', { name: 'Re-score' }).click();
   await scoreRequest;
+
+  const completeFollowUpRequest = page.waitForRequest('**/api/job-offers/ujo-1/follow-up/complete');
+  await page.getByRole('button', { name: 'Mark follow-up done' }).click();
+  await completeFollowUpRequest;
+
+  const snoozeFollowUpRequest = page.waitForRequest('**/api/job-offers/ujo-1/follow-up/snooze');
+  await page.getByRole('button', { name: 'Snooze 3 days' }).click();
+  await snoozeFollowUpRequest;
+
+  const clearFollowUpRequest = page.waitForRequest('**/api/job-offers/ujo-1/follow-up/clear');
+  await page.getByRole('button', { name: 'Clear follow-up' }).last().click();
+  await clearFollowUpRequest;
 });

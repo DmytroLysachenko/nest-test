@@ -1,6 +1,8 @@
 'use client';
 
 import { Card } from '@/shared/ui/card';
+import { EmptyState } from '@/shared/ui/empty-state';
+import { WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 import type { DocumentDto } from '@/shared/types/api';
 
@@ -32,11 +34,21 @@ export const DocumentsReadinessCard = ({ documents }: DocumentsReadinessCardProp
               <p className="text-text-soft">
                 Type: {document.type} | Extraction: {document.extractionStatus}
               </p>
-              {document.extractionError ? <p className="text-app-danger">{document.extractionError}</p> : null}
+              {document.extractionError ? (
+                <WorkflowInlineNotice
+                  title="Extraction issue"
+                  description={document.extractionError}
+                  tone="danger"
+                  className="mt-3 px-3 py-2"
+                />
+              ) : null}
             </article>
           ))
         ) : (
-          <p className="text-text-soft text-sm">No documents uploaded yet.</p>
+          <EmptyState
+            title="No documents uploaded yet"
+            description="Upload at least one document so profile generation has grounded source material."
+          />
         )}
       </div>
     </Card>

@@ -9,7 +9,7 @@ import {
   careerProfileSearchViewFormSchema,
   type CareerProfileSearchViewFormValues,
 } from '@/features/career-profiles/model/validation/career-profile-search-view-form-schema';
-import { ApiError } from '@/shared/lib/http/api-error';
+import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
 import type { CareerProfileSearchViewItemDto } from '@/shared/types/api';
 
@@ -41,15 +41,15 @@ export const useCareerProfileSearchViewPanel = (token: string) => {
         offset: Number(values.offset),
       }),
     onError: (error: unknown) => {
-      if (error instanceof ApiError) {
-        form.setError('root', { type: 'server', message: error.message });
-        return;
-      }
-      if (error instanceof Error) {
-        form.setError('root', { type: 'server', message: error.message });
-        return;
-      }
-      form.setError('root', { type: 'server', message: 'Failed to load search-view data.' });
+      form.setError('root', {
+        type: 'server',
+        message: toUserErrorMessage(error, 'Unable to load the career profile search view.', {
+          byStatus: {
+            401: 'Your session expired before the search view could load. Sign in again and retry.',
+            403: 'This validation view is currently unavailable for your account.',
+          },
+        }),
+      });
     },
   });
 
@@ -63,6 +63,7 @@ export const useCareerProfileSearchViewPanel = (token: string) => {
     submit,
     rows: mutation.data?.items ?? ([] as CareerProfileSearchViewItemDto[]),
     total: mutation.data?.total ?? 0,
+    hasRequested: mutation.isSuccess || mutation.isError,
     isSubmitting: mutation.isPending,
   };
 };

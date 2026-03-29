@@ -40,7 +40,8 @@
       "serialize-javascript": "^7.0.3",
       "form-data": "^4.0.4",
       "basic-ftp": "^5.2.0",
-      "glob": "^11.0.1"
+      "glob": "^11.0.1",
+      "handlebars": "^4.7.9"
     },
     "auditConfig": {
       "ignoreAdvisories": [
@@ -51,6 +52,7 @@
   "scripts": {
     "build": "turbo run build --log-order=grouped",
     "check-types": "turbo run check-types",
+    "deps:check": "pnpm audit --audit-level critical",
     "dev": "turbo run dev --parallel",
     "dev:stack": "docker compose -f docker/docker-compose.yml up -d && turbo run dev --parallel",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
@@ -61,7 +63,7 @@
     "test": "turbo run test",
     "test-build": "pnpm --filter web build && pnpm --filter api build && pnpm --filter worker build",
     "verify:precommit": "pnpm exec lint-staged --no-stash",
-    "verify:prepush": "pnpm --filter @repo/db build && pnpm lint:fix:check && pnpm check-types && pnpm --filter api test -- --runInBand src/features/auth/auth.service.spec.ts src/config/env.spec.ts && pnpm --filter worker test && pnpm --filter api build && pnpm --filter worker build && pnpm --filter web test && pnpm --filter web test:e2e && pnpm --filter web ux:check",
+    "verify:prepush": "pnpm deps:check && pnpm --filter @repo/db build && pnpm lint:fix:check && pnpm check-types && pnpm --filter api test -- --runInBand src/features/auth/auth.service.spec.ts src/config/env.spec.ts && pnpm --filter worker test && pnpm --filter api build && pnpm --filter worker build && pnpm --filter web test && pnpm --filter web test:e2e && pnpm --filter web ux:check",
     "smoke:e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-e2e.ps1",
     "support:bundle": "pnpm --filter @repo/db support:bundle",
     "support:query": "pnpm --filter @repo/db support:query",

@@ -65,6 +65,8 @@ type RunFailureType = 'timeout' | 'network' | 'validation' | 'parse' | 'callback
 type RunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 type CatalogRecommendationAction = 'scrape' | 'rematch' | 'blocked';
 type RunEventSeverity = 'info' | 'warning' | 'error';
+type RunStoryPhase = 'completed' | 'partial' | 'blocked' | 'empty' | 'failed' | 'running' | 'queued';
+type RunStoryVisibility = 'positive' | 'warning' | 'danger' | 'neutral';
 type WorkerSignaturePayload = {
   sourceRunId: string;
   status: string;
@@ -231,6 +233,32 @@ const deriveFailureType = (error?: string | null) => {
     return 'callback';
   }
   return 'unknown';
+};
+
+const classifySilentFailure = (input: {
+  status: string;
+  totalFound?: number | null;
+  scrapedCount?: number | null;
+  classifiedOutcome?: string | null;
+  sourceQuality?: string | null;
+  diagnostics?: Record<string, unknown> | null;
+}) => {
+  if (input.status !== 'COMPLETED') {
+    return false;
+  }
+
+  if (input.diagnostics?.silentFailure === true) {
+    return true;
+  }
+
+  const totalFound = Math.max(0, Number(input.totalFound ?? 0));
+  const scrapedCount = Math.max(0, Number(input.scrapedCount ?? 0));
+  const classifiedOutcome = normalizeString(input.classifiedOutcome);
+  if (totalFound === 0 || scrapedCount > 0) {
+    return false;
+  }
+
+  return classifiedOutcome !== 'filters_exhausted' && classifiedOutcome !== 'listing_empty';
 };
 
 const toRunFailureType = (value?: string | null): RunFailureType | null => {
@@ -2270,6 +2298,187 @@ export class JobSourcesService {
     };
   }
 
+  private normalizeArtifacts(value: unknown) {
+    const artifacts = this.toNullableRecord(value);
+    if (!artifacts) {
+      return null;
+    }
+
+    const rawPages = this.toNullableRecord(artifacts.rawPages);
+    const listing = this.toNullableRecord(artifacts.listing);
+
+    return {
+      outputPath: normalizeString(String(artifacts.outputPath ?? '')) ?? null,
+      retentionExpiresAt: normalizeString(String(artifacts.retentionExpiresAt ?? '')) ?? null,
+      rawPages: {
+        count: Number(rawPages?.count ?? 0),
+        directory: normalizeString(String(rawPages?.directory ?? '')) ?? null,
+        samplePaths: Array.isArray(rawPages?.samplePaths)
+          ? rawPages.samplePaths.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+          : [],
+      },
+      listing: {
+        htmlPath: normalizeString(String(listing?.htmlPath ?? '')) ?? null,
+        dataPath: normalizeString(String(listing?.dataPath ?? '')) ?? null,
+      },
+    };
+  }
+
+  private normalizeStageMetrics(value: unknown) {
+    const metrics = this.toNullableRecord(value);
+    const fetch = this.toNullableRecord(metrics?.fetch);
+    const parse = this.toNullableRecord(metrics?.parse);
+    const finalize = this.toNullableRecord(metrics?.finalize);
+
+    return {
+      fetch: {
+        pagesVisited: Number(fetch?.pagesVisited ?? 0),
+        jobLinksDiscovered: Number(fetch?.jobLinksDiscovered ?? 0),
+        blockedPages: Number(fetch?.blockedPages ?? 0),
+        browserFallbacks: Number(fetch?.browserFallbacks ?? 0),
+        detailAttemptedCount: Number(fetch?.detailAttemptedCount ?? 0),
+      },
+      parse: {
+        acceptedOfferCount: Number(parse?.acceptedOfferCount ?? 0),
+        rejectedOfferCount: Number(parse?.rejectedOfferCount ?? 0),
+        dedupedInRunCount: Number(parse?.dedupedInRunCount ?? 0),
+        salvagedOfferCount: Number(parse?.salvagedOfferCount ?? 0),
+      },
+      finalize: {
+        blockedRate: Number(finalize?.blockedRate ?? 0),
+        attemptCount: Number(finalize?.attemptCount ?? 0),
+        stopReason: normalizeString(String(finalize?.stopReason ?? '')) ?? null,
+        resultKind: normalizeString(String(finalize?.resultKind ?? '')) ?? null,
+      },
+    };
+  }
+
+  private buildRunStory(input: {
+    status: string;
+    totalFound?: number | null;
+    scrapedCount?: number | null;
+    classifiedOutcome?: string | null;
+    sourceQuality?: string | null;
+    failureType?: string | null;
+    error?: string | null;
+    silentFailure?: boolean;
+  }) {
+    const status = input.status;
+    const totalFound = Math.max(0, Number(input.totalFound ?? 0));
+    const scrapedCount = Math.max(0, Number(input.scrapedCount ?? 0));
+    const classifiedOutcome = normalizeString(input.classifiedOutcome);
+    const failureType = normalizeString(input.failureType);
+    const silentFailure = Boolean(input.silentFailure);
+
+    if (status === 'PENDING') {
+      return {
+        phase: 'queued' as RunStoryPhase,
+        summary: 'Run is queued and waiting for the worker.',
+        recommendedAction: 'Wait for the worker to start the run.',
+        userVisibility: 'neutral' as RunStoryVisibility,
+      };
+    }
+
+    if (status === 'RUNNING') {
+      return {
+        phase: 'running' as RunStoryPhase,
+        summary: 'Run is in progress. Listing fetch and detail extraction are still underway.',
+        recommendedAction: 'Wait for completion before judging notebook impact.',
+        userVisibility: 'neutral' as RunStoryVisibility,
+      };
+    }
+
+    if (status === 'FAILED') {
+      const summary =
+        failureType === 'timeout'
+          ? 'Run timed out before it could return useful offers.'
+          : failureType === 'network'
+            ? 'Run failed on source access or network transport.'
+            : failureType === 'parse'
+              ? 'Run failed while parsing source content.'
+              : input.error?.trim() || 'Run failed before completing scrape delivery.';
+      return {
+        phase: 'failed' as RunStoryPhase,
+        summary,
+        recommendedAction: 'Retry after checking source blockers and browser-fallback cost.',
+        userVisibility: 'danger' as RunStoryVisibility,
+      };
+    }
+
+    if (classifiedOutcome === 'partial_success' || (scrapedCount > 0 && input.sourceQuality === 'degraded')) {
+      return {
+        phase: 'partial' as RunStoryPhase,
+        summary: `Run completed with ${scrapedCount} usable offer${scrapedCount === 1 ? '' : 's'}, but source blocking or degraded detail fetch reduced quality.`,
+        recommendedAction: 'Review the offers, but expect partial listing-salvage data.',
+        userVisibility: 'warning' as RunStoryVisibility,
+      };
+    }
+
+    if (classifiedOutcome === 'source_http_blocked' || classifiedOutcome === 'blocked_by_source') {
+      return {
+        phase: 'blocked' as RunStoryPhase,
+        summary: 'Source blocking prevented the worker from collecting usable offer details.',
+        recommendedAction: 'Reduce acquisition cost or retry later when the source is less aggressive.',
+        userVisibility: 'danger' as RunStoryVisibility,
+      };
+    }
+
+    if (classifiedOutcome === 'filters_exhausted') {
+      return {
+        phase: 'empty' as RunStoryPhase,
+        summary: 'The run completed, but the current acquisition filters produced no candidates.',
+        recommendedAction: 'Broaden acquisition filters or rely on profile-derived sourcing.',
+        userVisibility: 'neutral' as RunStoryVisibility,
+      };
+    }
+
+    if (silentFailure || classifiedOutcome === 'detail_parse_gap') {
+      return {
+        phase: 'blocked' as RunStoryPhase,
+        summary: `The run found ${totalFound} listing${totalFound === 1 ? '' : 's'}, but none became usable offers.`,
+        recommendedAction: 'Inspect blocked detail fetches and salvage quality before retrying.',
+        userVisibility: 'warning' as RunStoryVisibility,
+      };
+    }
+
+    if (scrapedCount > 0) {
+      return {
+        phase: 'completed' as RunStoryPhase,
+        summary: `Run completed and produced ${scrapedCount} usable offer${scrapedCount === 1 ? '' : 's'}.`,
+        recommendedAction: 'Open the notebook and triage the latest offers.',
+        userVisibility: 'positive' as RunStoryVisibility,
+      };
+    }
+
+    return {
+      phase: 'empty' as RunStoryPhase,
+      summary: 'Run completed without producing notebook-ready offers.',
+      recommendedAction: 'Inspect diagnostics before retrying.',
+      userVisibility: 'warning' as RunStoryVisibility,
+    };
+  }
+
+  private buildNotebookVisibility(input: {
+    progress: Record<string, unknown> | null;
+    scrapedCount: number;
+    totalFound: number;
+  }) {
+    const progress = input.progress ?? {};
+    const candidateOffers = Number(progress.candidateOffers ?? 0);
+    const matchedOffers = Number(progress.matchedOffers ?? 0);
+    const userInsertedOffers = Number(progress.userInsertedOffers ?? 0);
+    const hiddenByStrict = Math.max(0, matchedOffers - userInsertedOffers);
+
+    return {
+      candidateOffers,
+      matchedOffers,
+      userInsertedOffers,
+      hiddenByStrict,
+      usefulOfferCount: Math.max(0, input.scrapedCount),
+      listingsFound: Math.max(0, input.totalFound),
+    };
+  }
+
   private extractEventMeta(meta: unknown) {
     if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
       return null;
@@ -2512,6 +2721,30 @@ export class JobSourcesService {
         ...item,
         finalizedAt: item.finalizedAt ?? item.completedAt,
         failureType: toRunFailureType(item.failureType) ?? deriveFailureType(item.error),
+        silentFailure: classifySilentFailure({
+          status: item.status,
+          totalFound: item.totalFound,
+          scrapedCount: item.scrapedCount,
+          classifiedOutcome: item.classifiedOutcome,
+          sourceQuality: item.sourceQuality,
+        }),
+        usefulOfferCount: Math.max(0, Number(item.scrapedCount ?? 0)),
+        story: this.buildRunStory({
+          status: item.status,
+          totalFound: item.totalFound,
+          scrapedCount: item.scrapedCount,
+          classifiedOutcome: item.classifiedOutcome,
+          sourceQuality: item.sourceQuality,
+          failureType: toRunFailureType(item.failureType) ?? deriveFailureType(item.error),
+          error: item.error,
+          silentFailure: classifySilentFailure({
+            status: item.status,
+            totalFound: item.totalFound,
+            scrapedCount: item.scrapedCount,
+            classifiedOutcome: item.classifiedOutcome,
+            sourceQuality: item.sourceQuality,
+          }),
+        }),
       })),
       total: Number(total ?? 0),
     };
@@ -2575,6 +2808,8 @@ export class JobSourcesService {
         failureType: jobSourceRunsTable.failureType,
         classifiedOutcome: jobSourceRunsTable.classifiedOutcome,
         sourceQuality: jobSourceRunsTable.sourceQuality,
+        totalFound: jobSourceRunsTable.totalFound,
+        scrapedCount: jobSourceRunsTable.scrapedCount,
         createdAt: jobSourceRunsTable.createdAt,
         lastHeartbeatAt: jobSourceRunsTable.lastHeartbeatAt,
       })
@@ -2603,6 +2838,8 @@ export class JobSourcesService {
         listingEmptyRuns: number;
         filtersExhaustedRuns: number;
         detailParseGapRuns: number;
+        silentFailureRuns: number;
+        usefulOfferCountTotal: number;
         latestRunAt: Date | null;
         latestRunStatus: string | null;
       }
@@ -2630,6 +2867,8 @@ export class JobSourcesService {
         listingEmptyRuns: 0,
         filtersExhaustedRuns: 0,
         detailParseGapRuns: 0,
+        silentFailureRuns: 0,
+        usefulOfferCountTotal: 0,
         latestRunAt: null,
         latestRunStatus: null,
       };
@@ -2652,6 +2891,16 @@ export class JobSourcesService {
       current.listingEmptyRuns += run.classifiedOutcome === 'listing_empty' ? 1 : 0;
       current.filtersExhaustedRuns += run.classifiedOutcome === 'filters_exhausted' ? 1 : 0;
       current.detailParseGapRuns += run.classifiedOutcome === 'detail_parse_gap' ? 1 : 0;
+      current.silentFailureRuns += classifySilentFailure({
+        status: run.status,
+        totalFound: run.totalFound,
+        scrapedCount: run.scrapedCount,
+        classifiedOutcome: run.classifiedOutcome,
+        sourceQuality: run.sourceQuality,
+      })
+        ? 1
+        : 0;
+      current.usefulOfferCountTotal += Math.max(0, Number(run.scrapedCount ?? 0));
       if (!current.latestRunAt || run.createdAt > current.latestRunAt) {
         current.latestRunAt = run.createdAt;
         current.latestRunStatus = run.status;
@@ -2664,6 +2913,10 @@ export class JobSourcesService {
       items: Array.from(grouped.values()).map((item) => ({
         ...item,
         successRate: item.totalRuns ? Number((item.completedRuns / item.totalRuns).toFixed(4)) : 0,
+        usableRunRate: item.totalRuns
+          ? Number((((item.completedRuns - item.silentFailureRuns) / item.totalRuns) * 1).toFixed(4))
+          : 0,
+        avgUsefulOfferCount: item.totalRuns ? Number((item.usefulOfferCountTotal / item.totalRuns).toFixed(2)) : 0,
       })),
     };
   }
@@ -2841,6 +3094,14 @@ export class JobSourcesService {
     }
 
     const diagnostics = (parsedPayload?.diagnostics as Record<string, unknown> | undefined) ?? {};
+    const silentFailure = classifySilentFailure({
+      status: run.status,
+      totalFound: run.totalFound,
+      scrapedCount: run.scrapedCount,
+      classifiedOutcome: run.classifiedOutcome,
+      sourceQuality: run.sourceQuality,
+      diagnostics,
+    });
     let executionEvents: Array<{
       stage: string;
       status: string;
@@ -2882,6 +3143,24 @@ export class JobSourcesService {
       normalizeString(run.classifiedOutcome) ??
       normalizeString(String(diagnostics.resultKind ?? '')) ??
       (run.status === 'COMPLETED' ? 'success' : deriveFailureType(run.error));
+    const stageMetrics = this.normalizeStageMetrics(diagnostics.stageMetrics);
+    const notebookVisibility = this.buildNotebookVisibility({
+      progress: (run.progress as Record<string, unknown> | null) ?? null,
+      scrapedCount: Number(run.scrapedCount ?? 0),
+      totalFound: Number(run.totalFound ?? 0),
+    });
+    const story = this.buildRunStory({
+      status: run.status,
+      totalFound: run.totalFound,
+      scrapedCount: run.scrapedCount,
+      classifiedOutcome,
+      sourceQuality:
+        normalizeScrapeSourceQuality(String(diagnostics.sourceQuality ?? '')) ??
+        normalizeScrapeSourceQuality(run.sourceQuality),
+      failureType: toRunFailureType(run.failureType) ?? deriveFailureType(run.error),
+      error: run.error,
+      silentFailure,
+    });
 
     return {
       runId: run.id,
@@ -2897,6 +3176,7 @@ export class JobSourcesService {
         run.status === 'FAILED' && run.error === '[timeout] run stale watchdog' ? 'STALE_HEARTBEAT_OR_CALLBACK' : null,
       lastEventAt: latestRunEvent?.createdAt ?? null,
       progress: (run.progress as Record<string, unknown> | null) ?? null,
+      story,
       executionStages,
       diagnostics: {
         relaxationTrail: Array.isArray(diagnostics.relaxationTrail)
@@ -2918,6 +3198,10 @@ export class JobSourcesService {
           normalizeScrapeSourceQuality(String(diagnostics.sourceQuality ?? '')) ??
           normalizeScrapeSourceQuality(run.sourceQuality),
         classifiedOutcome,
+        silentFailure,
+        artifacts: this.normalizeArtifacts(diagnostics.artifacts),
+        stageMetrics,
+        notebookVisibility,
         transportSummary,
         browserSummary,
         queryPlan:
@@ -3155,6 +3439,8 @@ export class JobSourcesService {
         status: jobSourceRunsTable.status,
         error: jobSourceRunsTable.error,
         failureType: jobSourceRunsTable.failureType,
+        classifiedOutcome: jobSourceRunsTable.classifiedOutcome,
+        sourceQuality: jobSourceRunsTable.sourceQuality,
         retryOfRunId: jobSourceRunsTable.retryOfRunId,
         totalFound: jobSourceRunsTable.totalFound,
         scrapedCount: jobSourceRunsTable.scrapedCount,
@@ -3196,6 +3482,35 @@ export class JobSourcesService {
       ? Math.round(finalized.reduce((sum, run) => sum + Number(run.totalFound ?? 0), 0) / finalized.length)
       : null;
     const successRate = status.total ? Number((status.completed / status.total).toFixed(4)) : 0;
+    const silentFailureCount = finalized.filter((run) =>
+      classifySilentFailure({
+        status: run.status,
+        totalFound: run.totalFound,
+        scrapedCount: run.scrapedCount,
+        classifiedOutcome: run.classifiedOutcome,
+        sourceQuality: run.sourceQuality,
+      }),
+    ).length;
+    const usableRunRate = finalized.length
+      ? Number(
+          (
+            finalized.filter(
+              (run) =>
+                run.status === 'COMPLETED' &&
+                !classifySilentFailure({
+                  status: run.status,
+                  totalFound: run.totalFound,
+                  scrapedCount: run.scrapedCount,
+                  classifiedOutcome: run.classifiedOutcome,
+                  sourceQuality: run.sourceQuality,
+                }),
+            ).length / finalized.length
+          ).toFixed(4),
+        )
+      : 0;
+    const avgUsefulOfferCount = finalized.length
+      ? Number((finalized.reduce((sum, run) => sum + Number(run.scrapedCount ?? 0), 0) / finalized.length).toFixed(2))
+      : 0;
 
     const failures = runs
       .filter((run) => run.status === 'FAILED')
@@ -3239,8 +3554,17 @@ export class JobSourcesService {
         avgScrapedCount,
         avgTotalFound,
         successRate,
+        usableRunRate,
+        avgUsefulOfferCount,
       },
       failures,
+      outcomes: {
+        silentFailureCount,
+        partialSuccessRuns: runs.filter((run) => run.classifiedOutcome === 'partial_success').length,
+        blockedRuns: runs.filter(
+          (run) => run.classifiedOutcome === 'blocked_by_source' || run.classifiedOutcome === 'source_http_blocked',
+        ).length,
+      },
       lifecycle,
       ...(includeTimeline ? { timeline: this.buildTimeline(finalized, bucket) } : {}),
     };

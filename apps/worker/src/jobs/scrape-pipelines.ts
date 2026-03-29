@@ -7,6 +7,7 @@ import { resolveTransportPolicy } from './transport-policy';
 
 import type { ScrapeSourceJob } from '../types/jobs';
 import type { ListingJobSummary, ParsedJob } from '../sources/types';
+import type { Logger } from 'pino';
 
 export type ScrapePipelineId = 'pracuj-pl' | 'pracuj-pl-it' | 'pracuj-pl-general';
 
@@ -104,17 +105,21 @@ export const runPipeline = async (
     headless: boolean;
     listingUrl: string;
     limit?: number;
-    logger: Parameters<typeof crawlPracujPl>[3];
+    logger: Logger | undefined;
     options?: Parameters<typeof crawlPracujPl>[4];
   },
 ) => {
   const pipeline = resolvePipeline(source);
-  const crawlResult = await crawlPracujPl(input.headless, input.listingUrl, input.limit, input.logger, input.options);
-  const detailParsedJobs = crawlResult.pages.length > 0 ? parsePracujPl(crawlResult.pages) : [];
-  const parsedJobs = input.options?.listingOnly
-    ? []
-    : mergeParsedJobsWithListingSalvage(detailParsedJobs, crawlResult.listingSummaries, crawlResult.skippedUrls);
-  const normalized = normalizePracujPl(parsedJobs, pipeline.normalizeSource);
+  const crawlResult = await runFetchStage({
+    headless: input.headless,
+    listingUrl: input.listingUrl,
+    limit: input.limit,
+    logger: input.logger,
+    options: input.options,
+  });
+  const detailParsedJobs = runParseStage(crawlResult);
+  const parsedJobs = runPostProcessStage(detailParsedJobs, crawlResult, Boolean(input.options?.listingOnly));
+  const normalized = runNormalizeStage(parsedJobs, pipeline.normalizeSource);
 
   return {
     pipeline,
@@ -123,3 +128,26 @@ export const runPipeline = async (
     normalized,
   };
 };
+
+export const runFetchStage = async (input: {
+  headless: boolean;
+  listingUrl: string;
+  limit?: number;
+  logger: Logger | undefined;
+  options?: Parameters<typeof crawlPracujPl>[4];
+}) => crawlPracujPl(input.headless, input.listingUrl, input.limit, input.logger, input.options);
+
+export const runParseStage = (crawlResult: Awaited<ReturnType<typeof runFetchStage>>) =>
+  crawlResult.pages.length > 0 ? parsePracujPl(crawlResult.pages) : [];
+
+export const runPostProcessStage = (
+  detailParsedJobs: ParsedJob[],
+  crawlResult: Awaited<ReturnType<typeof runFetchStage>>,
+  listingOnly = false,
+) =>
+  listingOnly
+    ? []
+    : mergeParsedJobsWithListingSalvage(detailParsedJobs, crawlResult.listingSummaries, crawlResult.skippedUrls);
+
+export const runNormalizeStage = (parsedJobs: ParsedJob[], normalizeSource: string) =>
+  normalizePracujPl(parsedJobs, normalizeSource);

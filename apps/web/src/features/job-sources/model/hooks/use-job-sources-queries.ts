@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import {
   getJobSourceRunDiagnostics,
+  getJobSourceHealth,
   getScrapePreflight,
   getScrapeSchedule,
   listJobSourceRuns,
@@ -14,6 +15,7 @@ import { queryKeys } from '@/shared/lib/query/query-keys';
 
 import type {
   JobSourceRunDiagnosticsDto,
+  JobSourceHealthDto,
   JobSourceRunsListDto,
   ScrapePreflightDto,
   ScrapeScheduleDto,
@@ -65,6 +67,15 @@ export const useJobSourcesQueries = (
     }),
   );
 
+  const sourceHealthQuery = useQuery(
+    buildAuthedQueryOptions<JobSourceHealthDto>({
+      token,
+      queryKey: ['job-sources', 'source-health', token],
+      queryFn: (authToken) => getJobSourceHealth(authToken, 72),
+      ...mutableQueryPreset(),
+    }),
+  );
+
   const preflightQuery = useQuery(
     buildAuthedQueryOptions<ScrapePreflightDto>({
       token,
@@ -77,6 +88,7 @@ export const useJobSourcesQueries = (
   return {
     runsQuery,
     diagnosticsQuery,
+    sourceHealthQuery,
     scheduleQuery,
     preflightQuery,
   };

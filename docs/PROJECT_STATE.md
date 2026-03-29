@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-03-21
+Last updated: 2026-03-29
 
 ## Milestone Progress Snapshot
 
@@ -10,10 +10,12 @@ Last updated: 2026-03-21
   - canonical profile schema, deterministic matching, persisted match audit metadata
 - M3 BE + Worker Hardening: completed
   - worker callback safety, retry taxonomy, stale-run reconciliation, diagnostics, queue/deploy hardening
-- M4 Frontend Workflow Completion: substantially implemented, still being polished
-  - onboarding, notebook-first dashboard, persisted notebook preferences, recovery guidance, schedule/preflight controls
-- M5 Robust Job Assistant Service: started
-  - notebook triage summary, ops surfaces, workflow recovery, support-grade exports
+- Reliability tranche in progress
+  - run stories, artifact-backed diagnostics, silent-failure detection, and notebook-visible scrape explanations are now the active priority before broader product expansion
+- M4 Frontend Workflow Completion: implemented
+  - onboarding, notebook-first dashboard, persisted notebook preferences, recovery guidance, schedule/preflight controls, action-oriented notebook surfaces
+- M5 Robust Job Assistant Service: in progress
+  - notebook triage summary, action-plan read models, normalized follow-up workflow fields, prep packets, ops surfaces, workflow recovery, support-grade exports
 - M6 Automation + Cloud Readiness: partially implemented
   - scheduler wiring, Cloud Run release path, post-deploy health checks, smoke/readiness hardening
 
@@ -78,9 +80,13 @@ That framing should guide future implementation more than raw source count.
   - list/pipeline views
   - strict/approx/explore ranking modes
   - persisted filters and saved preset
+  - normalized follow-up fields plus compatibility hydration back into `pipelineMeta`
   - persisted follow-up filters and reminder metadata
   - summary counts for quick triage
   - dashboard focus queue for follow-up due, strict top matches, and unscored leads
+  - dashboard action-plan buckets for due, upcoming, missing-next-step, stale, and strict-top work
+  - one-click follow-up complete/snooze/clear actions
+  - prep packet read model for reply/interview preparation
   - bulk status flows, metadata, scoring, prep generation
 - Scraping and automation
   - manual enqueue
@@ -107,10 +113,12 @@ That framing should guide future implementation more than raw source count.
 - Worker
   - scrape lifecycle visibility is materially stronger
   - diagnostics now distinguish degraded/empty/blocked/partial outcomes
+  - diagnostics now also expose artifact manifests, stage metrics, and silent-failure classification so completed-but-useless runs are not treated as healthy success
   - source-specific alias normalization is now deterministic for contract type, work mode, and seniority fields
   - callback envelope is replay-safe and increasingly support-friendly
 - Web
   - major move from panel-heavy internal tooling toward guided product workflow
+  - notebook now carries more of the real product value via workflow actions, dashboard handoff, and prep support
   - still contains mixed maturity areas where some screens feel productized and some remain utilitarian
 - Database and migrations
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields

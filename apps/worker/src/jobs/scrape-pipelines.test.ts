@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildSalvagedListingJobs, mergeParsedJobsWithListingSalvage } from './scrape-pipelines';
+import {
+  buildSalvagedListingJobs,
+  mergeParsedJobsWithListingSalvage,
+  runNormalizeStage,
+  runParseStage,
+  runPostProcessStage,
+} from './scrape-pipelines';
 
 test('buildSalvagedListingJobs keeps only high-confidence listing summaries and tags them as degraded', () => {
   const jobs = buildSalvagedListingJobs([
@@ -76,4 +82,72 @@ test('mergeParsedJobsWithListingSalvage excludes URLs skipped as fresh cache hit
   );
 
   assert.equal(jobs.length, 0);
+});
+
+test('runParseStage returns empty when no detail pages were fetched', () => {
+  const parsed = runParseStage({
+    pages: [],
+    blockedUrls: [],
+    jobLinks: [],
+    skippedUrls: [],
+    recommendedJobLinks: [],
+    hasZeroOffers: false,
+    listingHtml: '<html></html>',
+    listingData: null,
+    listingSummaries: [],
+    detailDiagnostics: [],
+    detailAttemptedCount: 0,
+    detailBudget: null,
+    detailStopReason: 'completed',
+  });
+
+  assert.deepEqual(parsed, []);
+});
+
+test('runPostProcessStage keeps listing-only mode empty and otherwise merges salvage', () => {
+  const crawlResult = {
+    pages: [],
+    blockedUrls: [],
+    jobLinks: ['https://it.pracuj.pl/praca/frontend,oferta,1'],
+    skippedUrls: [],
+    recommendedJobLinks: [],
+    hasZeroOffers: false,
+    listingHtml: '<html></html>',
+    listingData: null,
+    listingSummaries: [
+      {
+        url: 'https://it.pracuj.pl/praca/frontend,oferta,1',
+        title: 'Frontend Developer',
+        description: 'Recovered from listing',
+      },
+    ],
+    detailDiagnostics: [],
+    detailAttemptedCount: 0,
+    detailBudget: null,
+    detailStopReason: 'completed' as const,
+  };
+
+  assert.deepEqual(runPostProcessStage([], crawlResult, true), []);
+  const merged = runPostProcessStage([], crawlResult, false);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0]?.title, 'Frontend Developer');
+});
+
+test('runNormalizeStage converts parsed jobs into source-normalized jobs', () => {
+  const normalized = runNormalizeStage(
+    [
+      {
+        title: 'Frontend Developer',
+        company: 'ACME',
+        description: 'React and TypeScript role',
+        url: 'https://it.pracuj.pl/praca/frontend,oferta,1',
+        requirements: ['React'],
+      },
+    ],
+    'pracuj-pl-it',
+  );
+
+  assert.equal(normalized.length, 1);
+  assert.equal(normalized[0]?.source, 'pracuj-pl-it');
+  assert.equal(normalized[0]?.title, 'Frontend Developer');
 });

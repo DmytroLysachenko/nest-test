@@ -27,6 +27,21 @@ ADR-lite log for major architectural and contract decisions.
   - A shared catalog benefits from broader acquisition even when strict notebook mode remains conservative.
   - Adaptive probing makes under-fetching explainable and reduces dependence on brittle keyword-first source queries.
 
+## 2026-03-24: Scrape Reliability Means Predictable, Observable, And Graceful
+
+- Decision:
+  - Do not treat scrape reliability as "every run succeeds".
+  - Treat a scrape run as working correctly when it is understandable, observable, and failure-tolerant.
+  - Extend run diagnostics with:
+    - artifact manifest metadata
+    - stage metrics
+    - silent-failure detection
+    - human-readable run story and recommended next action
+- Why:
+  - A completed scrape with zero usable offers is not a healthy success.
+  - Source blocking and browser fallback make deterministic perfect-success expectations unrealistic.
+  - The product must explain what happened in prod without requiring log archaeology.
+
 ## 2026-02-21: Canonical Career Profile Schema
 
 - Decision:

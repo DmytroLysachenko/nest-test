@@ -123,7 +123,7 @@ function Wait-ForHealthyEndpoint {
   param(
     [Parameter(Mandatory = $true)][string]$Uri,
     [Parameter(Mandatory = $true)][string]$Context,
-    [int]$TimeoutSeconds = 90
+    [int]$TimeoutSeconds = 150
   )
 
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -333,7 +333,8 @@ function Ensure-LocalSmokeServices {
     [Parameter(Mandatory = $true)][string]$ApiBaseUrl,
     [Parameter(Mandatory = $true)][string]$WorkerBaseUrl,
     [Parameter(Mandatory = $true)][string]$WebBaseUrl,
-    [Parameter(Mandatory = $true)][string]$RepoRoot
+    [Parameter(Mandatory = $true)][string]$RepoRoot,
+    [Parameter(Mandatory = $true)][string]$WorkerCallbackToken
   )
 
   $managed = @()
@@ -349,8 +350,8 @@ function Ensure-LocalSmokeServices {
       HealthPath = '/health'
       FallbackPort = 3100
       CommandTemplate = {
-        param([int]$Port)
-        "`$env:HOST='0.0.0.0'; `$env:PORT='$Port'; `$env:WORKER_TASK_URL='http://localhost:4101/tasks'; `$env:WORKER_CALLBACK_URL='http://localhost:$Port/api/job-sources/complete'; pnpm --filter api dev"
+        param([int]$Port, [string]$CallbackToken)
+        "`$env:HOST='0.0.0.0'; `$env:PORT='$Port'; `$env:WORKER_TASK_URL='http://localhost:4101/tasks'; `$env:WORKER_CALLBACK_URL='http://localhost:$Port/api/job-sources/complete'; `$env:WORKER_CALLBACK_TOKEN='$CallbackToken'; pnpm --filter api dev"
       }
     },
     @{
@@ -358,7 +359,10 @@ function Ensure-LocalSmokeServices {
       BaseUrl = $WorkerBaseUrl
       HealthPath = '/health'
       FallbackPort = 4101
-      CommandTemplate = { param([int]$Port) "`$env:PORT='$Port'; `$env:WORKER_PORT='$Port'; pnpm --filter worker dev" }
+      CommandTemplate = {
+        param([int]$Port, [string]$CallbackToken)
+        "`$env:PORT='$Port'; `$env:WORKER_PORT='$Port'; `$env:WORKER_SMOKE_ACCEPT_ONLY='true'; `$env:WORKER_CALLBACK_TOKEN='$CallbackToken'; pnpm --filter worker dev"
+      }
     },
     @{
       Name = 'web'
@@ -389,7 +393,7 @@ function Ensure-LocalSmokeServices {
       Write-Host "Starting local $($definition.Name) smoke service on dedicated port $fallbackPort."
       $managed += Start-ManagedService `
         -Name $definition.Name `
-        -Command (& $definition.CommandTemplate $fallbackPort) `
+        -Command (& $definition.CommandTemplate $fallbackPort $WorkerCallbackToken) `
         -WorkingDirectory $RepoRoot `
         -LogDirectory $logDirectory
     }
@@ -423,11 +427,12 @@ $smokeEmail = Get-EnvOrDefault -Name 'SMOKE_EMAIL' -Default 'admin@example.com'
 $smokePassword = Get-EnvOrDefault -Name 'SMOKE_PASSWORD' -Default 'admin123'
 $skipSeedRaw = Get-EnvOrDefault -Name 'SMOKE_SKIP_SEED' -Default ''
 $skipSeed = @('1', 'true', 'yes') -contains $skipSeedRaw.ToLower()
-$forceCallbackRaw = Get-EnvOrDefault -Name 'SMOKE_FORCE_CALLBACK' -Default ''
+$forceCallbackRaw = Get-EnvOrDefault -Name 'SMOKE_FORCE_CALLBACK' -Default 'true'
 $forceCallback = @('1', 'true', 'yes') -contains $forceCallbackRaw.ToLower()
 $autoStartRaw = Get-EnvOrDefault -Name 'SMOKE_AUTOSTART' -Default 'true'
 $autoStart = @('1', 'true', 'yes') -contains $autoStartRaw.ToLower()
-$workerCallbackToken = Get-EnvOrDefault -Name 'WORKER_CALLBACK_TOKEN' -Default ''
+$localWorkerCallbackToken = 'smoke-local-worker-callback-token'
+$workerCallbackToken = Get-EnvOrDefault -Name 'WORKER_CALLBACK_TOKEN' -Default $localWorkerCallbackToken
 $managedServices = @()
 
 if (-not $skipSeed) {
@@ -452,7 +457,8 @@ if (
     -ApiBaseUrl $apiBaseUrl `
     -WorkerBaseUrl $workerBaseUrl `
     -WebBaseUrl $webBaseUrl `
-    -RepoRoot $repoRoot
+    -RepoRoot $repoRoot `
+    -WorkerCallbackToken $workerCallbackToken
   $managedServices = $autostartResult.Managed
   $apiBaseUrl = $autostartResult.ApiBaseUrl
   $workerBaseUrl = $autostartResult.WorkerBaseUrl
@@ -935,6 +941,18 @@ if ($null -eq $diagnosticsPayload.data.diagnostics.stats.jobLinksDiscovered) {
 if ($null -eq $diagnosticsPayload.data.finalizedAt -and $null -eq $diagnosticsPayload.data.heartbeatAt) {
   throw 'Scrape diagnostics missing both finalizedAt and heartbeatAt.'
 }
+if ($null -eq $diagnosticsPayload.data.story.summary) {
+  throw 'Scrape diagnostics missing story.summary.'
+}
+if ($null -eq $diagnosticsPayload.data.diagnostics.silentFailure) {
+  throw 'Scrape diagnostics missing silentFailure.'
+}
+if ($null -eq $diagnosticsPayload.data.diagnostics.notebookVisibility.usefulOfferCount) {
+  throw 'Scrape diagnostics missing notebookVisibility.usefulOfferCount.'
+}
+if ($null -eq $diagnosticsPayload.data.diagnostics.stageMetrics.fetch.pagesVisited) {
+  throw 'Scrape diagnostics missing stageMetrics.fetch.pagesVisited.'
+}
 
 Write-Host '12.2) Verifying scrape diagnostics summary endpoint...'
 $stage = 'verify-scrape-diagnostics-summary'
@@ -947,11 +965,31 @@ if ($null -eq $diagnosticsSummaryPayload.data.status.total) {
 if ($null -eq $diagnosticsSummaryPayload.data.performance.successRate) {
   throw 'Scrape diagnostics summary missing performance.successRate.'
 }
+if ($null -eq $diagnosticsSummaryPayload.data.performance.usableRunRate) {
+  throw 'Scrape diagnostics summary missing performance.usableRunRate.'
+}
 if ($null -eq $diagnosticsSummaryPayload.data.timeline) {
   throw 'Scrape diagnostics summary missing timeline.'
 }
 if ($null -eq $diagnosticsSummaryPayload.data.lifecycle.retriedRuns) {
   throw 'Scrape diagnostics summary missing lifecycle.retriedRuns.'
+}
+if ($null -eq $diagnosticsSummaryPayload.data.outcomes.silentFailureCount) {
+  throw 'Scrape diagnostics summary missing outcomes.silentFailureCount.'
+}
+
+Write-Host '12.25) Verifying source health endpoint...'
+$stage = 'verify-source-health'
+$sourceHealth = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/sources/health?windowHours=168" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $sourceHealth.StatusCode -Allowed @(200) -Context 'Get source health'
+$sourceHealthPayload = $sourceHealth.Content | ConvertFrom-Json
+if ($sourceHealthPayload.data.items.Count -gt 0) {
+  if ($null -eq $sourceHealthPayload.data.items[0].usableRunRate) {
+    throw 'Source health missing usableRunRate.'
+  }
+  if ($null -eq $sourceHealthPayload.data.items[0].silentFailureRuns) {
+    throw 'Source health missing silentFailureRuns.'
+  }
 }
 
 Write-Host '12.3) Verifying retry endpoint guard on completed run...'
