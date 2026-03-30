@@ -696,6 +696,12 @@ export type JobOfferListItemDto = {
   createdAt: string;
 };
 
+export type DiscoveryJobOfferListItemDto = JobOfferListItemDto & {
+  fitSummary: string | null;
+  fitHighlights: string[];
+  isInPipeline: boolean;
+};
+
 export type JobOffersListDto = {
   items: JobOfferListItemDto[];
   total: number;
@@ -715,12 +721,20 @@ export type JobOffersListDto = {
   };
 };
 
+export type DiscoveryJobOffersListDto = {
+  items: DiscoveryJobOfferListItemDto[];
+  total: number;
+  mode: 'strict' | 'approx' | 'explore';
+};
+
 export type JobOfferSummaryDto = {
   total: number;
   scored: number;
   unscored: number;
   highConfidenceStrict: number;
   staleUntriaged: number;
+  missingNextStep: number;
+  stalePipeline: number;
   followUpDue: number;
   followUpUpcoming: number;
   buckets: Array<{
@@ -737,6 +751,18 @@ export type JobOfferSummaryDto = {
     label: string;
     description: string;
     href: string;
+    count: number;
+  }>;
+};
+
+export type DiscoverySummaryDto = {
+  total: number;
+  unseen: number;
+  reviewed: number;
+  inPipeline: number;
+  buckets: Array<{
+    key: string;
+    label: string;
     count: number;
   }>;
 };

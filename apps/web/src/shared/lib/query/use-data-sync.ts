@@ -53,8 +53,9 @@ export const useDataSync = (token: string | null) => {
    * Sync Job Offers state (Tier 2)
    */
   const syncJobOffers = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['job-offers', token] });
+    queryClient.invalidateQueries({ queryKey: ['job-offers'] });
     queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.summary(token), exact: true });
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.discoverySummary(token), exact: true });
     queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.focus(token), exact: true });
     syncWorkspace();
   }, [queryClient, token, syncWorkspace]);
