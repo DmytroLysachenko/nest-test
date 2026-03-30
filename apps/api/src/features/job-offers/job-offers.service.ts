@@ -171,11 +171,15 @@ const getHumanFitHighlights = (
   }
 
   const violations = Array.isArray(matchMeta?.hardConstraintViolations)
-    ? matchMeta.hardConstraintViolations.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    ? matchMeta.hardConstraintViolations.filter(
+        (item): item is string => typeof item === 'string' && item.trim().length > 0,
+      )
     : [];
 
   if (typeof matchScore === 'number') {
-    highlights.push(matchScore >= 75 ? 'Strong overall fit' : matchScore >= 60 ? 'Promising fit' : 'Needs a closer look');
+    highlights.push(
+      matchScore >= 75 ? 'Strong overall fit' : matchScore >= 60 ? 'Promising fit' : 'Needs a closer look',
+    );
   }
 
   if (explanationTags.includes('skill_strong')) {
@@ -568,7 +572,9 @@ export class JobOffersService {
       });
 
     return {
-      items: prioritized.slice(offset, offset + limit).map(({ __include, __statusPriority, __createdAtMs, ...item }) => item),
+      items: prioritized
+        .slice(offset, offset + limit)
+        .map(({ __include, __statusPriority, __createdAtMs, ...item }) => item),
       total: prioritized.length,
       mode,
     };
@@ -585,7 +591,9 @@ export class JobOffersService {
     const activeItems = items.filter((item) => !['DISMISSED', 'ARCHIVED', 'REJECTED'].includes(item.status));
     const unseen = activeItems.filter((item) => item.status === 'NEW').length;
     const reviewed = activeItems.filter((item) => item.status === 'SEEN').length;
-    const inPipeline = activeItems.filter((item) => ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'].includes(item.status)).length;
+    const inPipeline = activeItems.filter((item) =>
+      ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'].includes(item.status),
+    ).length;
 
     return {
       total: activeItems.length,

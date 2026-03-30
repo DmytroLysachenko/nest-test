@@ -22,7 +22,6 @@ For the complete local + production inventory, use:
 | `GCP_WEB_SERVICE` | deploy-prod-on-main, promote-to-prod | Cloud Run service name for Web |
 | `GCP_API_BASE_URL` | release-candidate | Public API base URL (`https://...`) for web image build |
 | `GCP_WORKER_BASE_URL` | release-candidate | Public Worker base URL (`https://...`) for web image build |
-| `GCP_WEB_BASE_URL` | optional reference only | Public Web base URL if you track it in vars |
 | `GOOGLE_OAUTH_CLIENT_ID` | release-candidate, deploy-prod-on-main, promote-to-prod | Public Google OAuth client id used by web build and API token verification |
 | `GEMINI_MODEL` | deploy-prod-on-main, promote-to-prod | Vertex AI model id injected into API runtime |
 | `GCS_BUCKET` | deploy-prod-on-main, promote-to-prod | document storage bucket |

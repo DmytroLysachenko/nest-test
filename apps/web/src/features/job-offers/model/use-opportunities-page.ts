@@ -3,10 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import {
-  getDiscoverySummary,
-  listDiscoveryJobOffers,
-} from '@/features/job-offers/api/job-offers-api';
+import { getDiscoverySummary, listDiscoveryJobOffers } from '@/features/job-offers/api/job-offers-api';
 import { useNotebookMutations } from '@/features/job-offers/model/hooks/use-notebook-mutations';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
@@ -15,11 +12,7 @@ import { queryKeys } from '@/shared/lib/query/query-keys';
 
 type UseOpportunitiesPageArgs = {
   token: string;
-  initialQuickAction?:
-    | 'unscored'
-    | 'strictTop'
-    | 'staleUntriaged'
-    | null;
+  initialQuickAction?: 'unscored' | 'strictTop' | 'staleUntriaged' | null;
   initialOfferId?: string | null;
 };
 

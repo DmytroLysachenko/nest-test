@@ -17,7 +17,13 @@ type OpportunityDetailsRailProps = {
   onDismiss: (id: string) => void;
 };
 
-export const OpportunityDetailsRail = ({ offer, isBusy, onSave, onMarkSeen, onDismiss }: OpportunityDetailsRailProps) => {
+export const OpportunityDetailsRail = ({
+  offer,
+  isBusy,
+  onSave,
+  onMarkSeen,
+  onDismiss,
+}: OpportunityDetailsRailProps) => {
   if (!offer) {
     return (
       <Card title="Opportunity details" description="Select a role from the discovery queue to inspect it.">
@@ -39,7 +45,9 @@ export const OpportunityDetailsRail = ({ offer, isBusy, onSave, onMarkSeen, onDi
             <span className="app-badge">score: {offer.matchScore ?? 'n/a'}</span>
             {offer.isInPipeline ? <span className="app-badge">already in pipeline</span> : null}
           </div>
-          <p className="text-secondary-foreground font-medium">{offer.company ?? 'Unknown company'} | {offer.location ?? 'Unknown location'}</p>
+          <p className="text-secondary-foreground font-medium">
+            {offer.company ?? 'Unknown company'} | {offer.location ?? 'Unknown location'}
+          </p>
           <p className="text-text-strong text-sm font-semibold">{offer.fitSummary ?? 'Review this role manually.'}</p>
         </div>
 
@@ -56,7 +64,7 @@ export const OpportunityDetailsRail = ({ offer, isBusy, onSave, onMarkSeen, onDi
 
         <div className="app-inset-stack space-y-2">
           <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Role summary</p>
-          <p className="text-text-soft text-sm leading-6 line-clamp-6">
+          <p className="text-text-soft line-clamp-6 text-sm leading-6">
             {offer.description?.trim() || 'Open the source listing if you need the full job description.'}
           </p>
           {offer.url ? (

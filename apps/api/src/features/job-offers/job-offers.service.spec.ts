@@ -732,13 +732,15 @@ describe('JobOffersService', () => {
   it('returns discovery summary counts for unseen, reviewed, and pipeline buckets', async () => {
     const select = jest.fn().mockReturnValue({
       from: jest.fn().mockReturnValue({
-        where: jest.fn().mockResolvedValue([
-          { status: 'NEW' },
-          { status: 'SEEN' },
-          { status: 'SAVED' },
-          { status: 'APPLIED' },
-          { status: 'DISMISSED' },
-        ]),
+        where: jest
+          .fn()
+          .mockResolvedValue([
+            { status: 'NEW' },
+            { status: 'SEEN' },
+            { status: 'SAVED' },
+            { status: 'APPLIED' },
+            { status: 'DISMISSED' },
+          ]),
       }),
     });
     const service = new JobOffersService(

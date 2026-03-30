@@ -35,7 +35,12 @@ test('opportunities page renders discovery queue and sends save action', async (
             lastUpdatedAt: '2026-02-01T00:00:00.000Z',
           },
           documents: { total: 1, ready: 1, pending: 0, failed: 0 },
-          scrape: { lastRunStatus: 'COMPLETED', lastRunAt: '2026-02-01T00:00:00.000Z', lastRunProgress: null, totalRuns: 1 },
+          scrape: {
+            lastRunStatus: 'COMPLETED',
+            lastRunAt: '2026-02-01T00:00:00.000Z',
+            lastRunProgress: null,
+            totalRuns: 1,
+          },
           workflow: { needsOnboarding: false },
           nextAction: {
             key: 'review-opportunities',
@@ -61,7 +66,12 @@ test('opportunities page renders discovery queue and sends save action', async (
           ? [{ id: 'doc-1', extractionStatus: 'READY' }]
           : endpoint === 'career-profiles/latest'
             ? { id: 'cp-1', status: 'READY' }
-            : { id: 'pi-1', targetRoles: 'Frontend Developer', notes: 'fixture', createdAt: '2026-02-01T00:00:00.000Z' };
+            : {
+                id: 'pi-1',
+                targetRoles: 'Frontend Developer',
+                notes: 'fixture',
+                createdAt: '2026-02-01T00:00:00.000Z',
+              };
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

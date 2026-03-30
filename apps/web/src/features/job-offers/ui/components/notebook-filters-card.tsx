@@ -395,7 +395,9 @@ export const NotebookFiltersCard = ({
         ) : null}
 
         <p className="text-text-soft ml-auto text-xs">
-          {isPipeline ? 'Use the board arrows to move roles forward or backward instantly.' : 'Shortcuts: S save, D dismiss, M seen, A applied.'}
+          {isPipeline
+            ? 'Use the board arrows to move roles forward or backward instantly.'
+            : 'Shortcuts: S save, D dismiss, M seen, A applied.'}
         </p>
       </div>
     </Card>

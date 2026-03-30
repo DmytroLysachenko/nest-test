@@ -438,7 +438,10 @@ test('notebook pipeline renders active offers and sends workflow actions', async
   const scrapePayload = (await scrapeRequest).postDataJSON();
   expect(scrapePayload).toEqual({ limit: 20 });
 
-  await page.getByRole('button', { name: /Backend Developer/ }).first().click();
+  await page
+    .getByRole('button', { name: /Backend Developer/ })
+    .first()
+    .click();
 
   await expect(page.getByText('Follow-up plan', { exact: true })).toBeVisible();
   await expect(page.getByText('Next step: Send follow-up email').first()).toBeVisible();

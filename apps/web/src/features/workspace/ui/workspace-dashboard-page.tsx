@@ -123,7 +123,10 @@ export const WorkspaceDashboardPage = () => {
               <p className="text-text-strong mt-2 text-lg font-semibold">Run now or schedule</p>
               <p className="text-text-soft mt-2 text-sm leading-6">{scrapeSetupHint}</p>
             </Link>
-            <Link href="/opportunities" className="app-glass-panel block p-4 transition-transform hover:-translate-y-0.5">
+            <Link
+              href="/opportunities"
+              className="app-glass-panel block p-4 transition-transform hover:-translate-y-0.5"
+            >
               <p className="text-text-soft text-xs uppercase tracking-[0.14em]">Opportunities</p>
               <p className="text-text-strong mt-2 text-lg font-semibold">{summary.offers.total} matched leads</p>
               <p className="text-text-soft mt-2 text-sm leading-6">
@@ -161,7 +164,8 @@ export const WorkspaceDashboardPage = () => {
             <div className="app-inset-stack">
               <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Operator note</p>
               <p className="text-text-soft mt-2 text-sm leading-6">
-                Use Opportunities for discovery and Notebook for active pipeline management. Keep this page for orientation.
+                Use Opportunities for discovery and Notebook for active pipeline management. Keep this page for
+                orientation.
               </p>
             </div>
           </div>
@@ -253,7 +257,8 @@ export const WorkspaceDashboardPage = () => {
           {
             key: 'triage',
             title: 'Continue in workflow surfaces',
-            description: 'Once the run is complete, review new matches in Opportunities, then continue active roles in Notebook.',
+            description:
+              'Once the run is complete, review new matches in Opportunities, then continue active roles in Notebook.',
             status: summary.offers.total > 0 ? 'done' : 'upcoming',
           },
         ]}
@@ -347,7 +352,10 @@ export const WorkspaceDashboardPage = () => {
             )}
           </Card>
 
-          <Card title="Today's Focus" description="Server-driven focus lanes split between discovery and active-work queues.">
+          <Card
+            title="Today's Focus"
+            description="Server-driven focus lanes split between discovery and active-work queues."
+          >
             {dashboard.isFocusLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, index) => (

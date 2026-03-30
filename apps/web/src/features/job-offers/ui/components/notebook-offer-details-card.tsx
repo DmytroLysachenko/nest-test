@@ -165,7 +165,9 @@ export const NotebookOfferDetailsCard = ({
             ) : null}
             <DataFreshnessBadge updatedAt={updatedAt} label="Offer data" />
           </div>
-          <p className="text-secondary-foreground font-medium">{offer.company ?? 'Unknown company'} | {offer.location ?? 'Unknown location'}</p>
+          <p className="text-secondary-foreground font-medium">
+            {offer.company ?? 'Unknown company'} | {offer.location ?? 'Unknown location'}
+          </p>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
@@ -544,7 +546,8 @@ export const NotebookOfferDetailsCard = ({
           </summary>
           <div className="mt-3 space-y-3">
             <p className="text-text-soft text-xs">
-              This is internal match metadata. Keep it out of the normal review flow unless you are debugging why a role was ranked this way.
+              This is internal match metadata. Keep it out of the normal review flow unless you are debugging why a role
+              was ranked this way.
             </p>
             <pre className="app-code">{JSON.stringify(matchMeta, null, 2)}</pre>
           </div>

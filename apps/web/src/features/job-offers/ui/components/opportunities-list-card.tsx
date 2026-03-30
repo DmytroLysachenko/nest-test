@@ -185,7 +185,12 @@ export const OpportunitiesListCard = ({
             <Label htmlFor="opportunity-tag" className="app-inline-label">
               Tag
             </Label>
-            <Input id="opportunity-tag" value={tag} placeholder="backend" onChange={(event) => onTagChange(event.target.value)} />
+            <Input
+              id="opportunity-tag"
+              value={tag}
+              placeholder="backend"
+              onChange={(event) => onTagChange(event.target.value)}
+            />
           </div>
           <div className="app-field-group md:col-span-2 lg:col-span-3">
             <Label htmlFor="opportunity-search" className="app-inline-label">

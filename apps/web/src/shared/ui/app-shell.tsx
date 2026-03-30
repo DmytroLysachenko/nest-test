@@ -130,7 +130,10 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
   const navItems = useMemo(() => {
     const items: AppNavItem[] = [
       ...baseNavItems.map((item) =>
-        item.href === '/notebook' || item.href === '/opportunities' || item.href === '/planning' || item.href === '/activity'
+        item.href === '/notebook' ||
+        item.href === '/opportunities' ||
+        item.href === '/planning' ||
+        item.href === '/activity'
           ? {
               ...item,
               hidden: !workspaceReady,

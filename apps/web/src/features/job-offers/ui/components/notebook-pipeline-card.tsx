@@ -73,7 +73,7 @@ const PipelineColumn = ({
             className={`group relative w-full rounded-[1.25rem] border p-3 text-left transition-all duration-200 ${
               selectedId === offer.id
                 ? 'border-primary/30 bg-[linear-gradient(135deg,color-mix(in_oklab,var(--primary)_8%,white),color-mix(in_oklab,var(--surface-elevated)_72%,transparent))] shadow-sm'
-                : 'border-transparent bg-surface-muted/70 hover:border-primary/15 hover:shadow-sm'
+                : 'bg-surface-muted/70 hover:border-primary/15 border-transparent hover:shadow-sm'
             }`}
           >
             <button type="button" className="w-full text-left" onClick={() => onSelect(offer.id)}>
