@@ -1,5 +1,13 @@
 # Decisions
 
+Last updated: 2026-03-30
+
+## Purpose
+
+This document records major architectural, contract, and implementation-boundary decisions.
+
+Use it to explain why the system is shaped a certain way, not to restate implementation details already visible in code.
+
 ADR-lite log for major architectural and contract decisions.
 
 ## 2026-03-22: Scraping Is Acquisition Infrastructure, Not The Product
@@ -417,7 +425,7 @@ ADR-lite log for major architectural and contract decisions.
 ## 2026-03-02: Canonical GCP Deploy Matrix
 
 - Decision:
-  - Introduce `docs/GCP_DEPLOY_MATRIX.md` as the single source of truth for:
+  - Introduce `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md` as the single source of truth for:
     - repository-level CI/CD variables and secrets
     - service-level runtime env and secret mapping
     - Cloud Run baseline settings and rollout sequence

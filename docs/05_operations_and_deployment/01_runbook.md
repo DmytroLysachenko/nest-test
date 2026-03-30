@@ -4,7 +4,7 @@ Day-to-day engineering runbook for local development and verification.
 
 Canonical environment inventory:
 
-- `docs/ENV_MATRIX.md`
+- `docs/05_operations_and_deployment/05_env_matrix.md`
 
 ## Prerequisites
 
@@ -291,7 +291,7 @@ Use this flow before changing scraper code randomly:
 
 Canonical source for deployment/runtime values is:
 
-- `docs/GCP_DEPLOY_MATRIX.md`
+- `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md`
 
 Configure repository/environment variables:
 
@@ -314,7 +314,7 @@ Configure repository/environment secrets:
 
 For exact variable-level mapping and secret sources, use:
 
-- `docs/GCP_DEPLOY_MATRIX.md`
+- `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md`
 
 1. API:
    - `PORT` is provided by Cloud Run (app already binds from env).
@@ -382,7 +382,7 @@ For exact variable-level mapping and secret sources, use:
 28. Notebook summary: `GET /api/job-offers/summary`
 29. Notebook bulk follow-up update: `POST /api/job-offers/pipeline/bulk-follow-up`
 30. Scrape run event timeline: `GET /api/job-sources/runs/:id/events`
-31. Year plan doc: `docs/YEAR_PLAN.md`
+31. Year plan doc: `docs/03_plans_and_roadmaps/03_year_plan.md`
 
 ## Smoke Coverage (Current)
 
@@ -470,7 +470,7 @@ For exact variable-level mapping and secret sources, use:
 2. Run package-level tests/build.
 3. Run `pnpm smoke:e2e`.
 4. Update:
-   - `docs/PROJECT_STATE.md`
-   - `docs/ROADMAP.md`
-   - `docs/SPRINT_PLAN.md` when future sprint sequencing changes materially
-   - `docs/DECISIONS.md` (if architecture/contracts changed)
+   - `docs/01_project_context/02_project_state.md`
+   - `docs/03_plans_and_roadmaps/01_roadmap.md`
+   - `docs/03_plans_and_roadmaps/02_sprint_plan.md` when future sprint sequencing changes materially
+   - `docs/04_architecture_and_data/01_decisions.md` (if architecture/contracts changed)

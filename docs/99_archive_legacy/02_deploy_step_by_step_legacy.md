@@ -1,5 +1,12 @@
 # Deploy 3 Services To GCP From GitHub (Step By Step)
 
+Superseded by:
+
+- `docs/05_operations_and_deployment/03_prod_deploy_guide.md`
+- `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md`
+
+This file is retained only as historical reference.
+
 This is a beginner-friendly checklist for your repo `DmytroLysachenko/nest-test`.
 
 Services:

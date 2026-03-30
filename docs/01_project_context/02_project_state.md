@@ -2,6 +2,17 @@
 
 Last updated: 2026-03-29
 
+## Purpose
+
+This document describes current reality.
+
+It should answer:
+
+1. what is already implemented
+2. what is stable
+3. what is still in progress
+4. what product and platform risks remain
+
 ## Milestone Progress Snapshot
 
 - M1 Core Intake + AI: completed
@@ -298,7 +309,7 @@ That framing should guide future implementation more than raw source count.
 
 - Global API throttling defaults are safer now, but aggressive overrides can still interfere with intensive manual test loops.
 - Some e2e scenarios still rely on live external scraping source behavior.
-- Frontend standards are now explicitly documented in `docs/FRONTEND_STANDARDS.md`; continue enforcing via ESLint and reviews.
+- Frontend standards are now explicitly documented in `docs/06_engineering_standards/01_frontend_standards.md`; continue enforcing via ESLint and reviews.
 - Worker queue is still in-memory (acceptable for now, not crash-resilient across process restarts).
 - Matching remains trust-first and now applies stronger ambiguity/context penalties for low-quality offer metadata.
 - CI now uses split quality gates (`CI Verify`, `Smoke Gate`) and release candidate + manual promote workflows.
@@ -309,7 +320,7 @@ That framing should guide future implementation more than raw source count.
 - Deployment verification now uses retry-based service probes and emits machine-readable summary artifacts.
 - Web production runtime now binds `0.0.0.0:$PORT` for Cloud Run compatibility.
 - Worker runtime now prioritizes Cloud Run `PORT` with local fallback to `WORKER_PORT`.
-- Canonical deployment/runtime env+secret contract is documented in `docs/GCP_DEPLOY_MATRIX.md`.
+- Canonical deployment/runtime env+secret contract is documented in `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md`.
 - New table `job_source_run_attempts` captures per-run attempt outcomes for deterministic callback auditing.
 - Recovery and automation smoke still require local API/worker/web services to be started before the readiness probes can succeed.
 - Neon or branch-specific migration drift can still happen operationally, but it is now surfaced through `/health` and startup validation instead of remaining silent until support endpoints are queried.

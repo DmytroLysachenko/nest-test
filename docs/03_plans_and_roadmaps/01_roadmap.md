@@ -2,6 +2,17 @@
 
 Last updated: 2026-03-29
 
+## Purpose
+
+This document is the main forward-looking product and delivery roadmap.
+
+It should stay high signal:
+
+1. current priorities
+2. next priorities
+3. later priorities
+4. sequencing rules and guardrails
+
 ## Product Direction
 
 The current direction is to finish turning the repo from a technically capable internal tool into a reliable job-assistant product. That means prioritizing:

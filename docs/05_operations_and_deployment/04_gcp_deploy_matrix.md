@@ -6,7 +6,7 @@ Last updated: 2026-03-29
 
 For the complete local + production inventory, use:
 
-- `docs/ENV_MATRIX.md`
+- `docs/05_operations_and_deployment/05_env_matrix.md`
 
 ## 1) Repository-Level CI/CD Inputs
 

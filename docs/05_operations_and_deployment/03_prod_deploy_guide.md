@@ -53,7 +53,7 @@ Create secrets and versions for values used by API/Worker:
 
 ## 4) Configure Cloud Run runtime env
 
-Use `docs/GCP_DEPLOY_MATRIX.md` as canonical source.
+Use `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md` as canonical source.
 
 Required core values:
 

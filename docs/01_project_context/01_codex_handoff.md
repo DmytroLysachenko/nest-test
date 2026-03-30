@@ -5,14 +5,14 @@ Use this file as the first read for a fresh Codex session.
 ## 1) Load Order (keep context small)
 
 1. `AGENTS.md`
-2. `docs/CODEX_HANDOFF.md` (this file)
-3. `docs/PROJECT_STATE.md`
-4. `docs/ROADMAP.md`
-5. `docs/SPRINT_PLAN.md`
-6. `docs/YEAR_PLAN.md` (for longer-horizon planning)
-7. `docs/DECISIONS.md` (only if architecture/contract work)
-8. `docs/FRONTEND_STANDARDS.md` (for FE tasks)
-9. `docs/RUNBOOK.md` (only when running stack/tests)
+2. `docs/01_project_context/01_codex_handoff.md` (this file)
+3. `docs/01_project_context/02_project_state.md`
+4. `docs/03_plans_and_roadmaps/01_roadmap.md`
+5. `docs/03_plans_and_roadmaps/02_sprint_plan.md`
+6. `docs/03_plans_and_roadmaps/03_year_plan.md` (for longer-horizon planning)
+7. `docs/04_architecture_and_data/01_decisions.md` (only if architecture/contract work)
+8. `docs/06_engineering_standards/01_frontend_standards.md` (for FE tasks)
+9. `docs/05_operations_and_deployment/01_runbook.md` (only when running stack/tests)
 
 ## 2) Current System Shape
 

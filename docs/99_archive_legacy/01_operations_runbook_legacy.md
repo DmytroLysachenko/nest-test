@@ -1,5 +1,9 @@
 # Operations Runbook
 
+Superseded by `docs/05_operations_and_deployment/01_runbook.md`.
+
+This file is retained only as historical reference.
+
 This runbook documents core operational procedures for API + worker.
 
 ## Service Health
