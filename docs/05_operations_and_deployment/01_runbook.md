@@ -82,6 +82,7 @@ Canonical environment inventory:
    - `JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS` (default summary window)
    - `SCRAPE_STALE_PENDING_MINUTES` (stale pending run timeout threshold)
    - `SCRAPE_STALE_RUNNING_MINUTES` (stale running run timeout threshold)
+   - `SCRAPE_MIN_FRESH_CANDIDATES` (minimum fresh user-linkable offers required before cache/catalog reuse should satisfy a scrape)
    - `DOCUMENT_DIAGNOSTICS_WINDOW_HOURS` (default document diagnostics window)
    - `NOTEBOOK_APPROX_VIOLATION_PENALTY`
    - `NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY`
@@ -228,10 +229,13 @@ Interpretation rule:
 7. `stats.totalFound` stays low while the run is otherwise healthy
    - This is typically acquisition underreach, not worker failure.
    - Compare broad acquisition filters with post-scrape matching rules before tightening the notebook.
-8. `silentFailure = true`
+8. Reuse path returns few or zero new notebook links
+   - Check fresh-candidate gating before blaming the worker.
+   - Shared catalog or recent-run reuse now needs enough fresh user-linkable offers, not only enough gross candidate rows.
+9. `silentFailure = true`
    - The run completed and found listings, but none became usable offers.
    - Treat this as a reliability problem, not as a healthy zero-result scrape.
-9. `story.phase = partial` or `classifiedOutcome = partial_success`
+10. `story.phase = partial` or `classifiedOutcome = partial_success`
    - The run returned usable offers, but source blocking or detail degradation reduced quality.
    - Review salvage-backed offers in notebook `approx` or `explore` before changing acquisition rules.
 
@@ -244,6 +248,7 @@ Use this flow before changing scraper code randomly:
 2. Check `diagnostics.productivity`.
    - `candidateOffers` low: acquisition or normalization is underperforming.
    - `candidateOffers` healthy but `userInsertedOffers` low: inspect matching and notebook strictness.
+   - `candidateOffers` healthy but reuse still falls through to a new scrape: verify fresh-candidate gate and already-linked offer count.
    - `detailAttemptedCount` low with `stopReason=budget_reached`: tune detail budget or fetch ordering.
 3. Check `hiddenByModeCount` and `degradedResultCount` in notebook responses.
    - Empty UI can still mean usable but strict-hidden or degraded results exist.

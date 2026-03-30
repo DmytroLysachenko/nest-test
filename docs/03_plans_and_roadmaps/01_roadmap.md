@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-03-29
+Last updated: 2026-03-30
 
 ## Purpose
 
@@ -75,6 +75,7 @@ The project should not drift into:
 2. Tighten scrape output usefulness, not just scrape completion.
    - Scope:
      - adaptive broad-acquisition query planning with target listing windows
+     - minimum fresh-candidate gating before catalog/db reuse can satisfy a user scrape
      - configurable source target windows and detail-fetch budgets
      - productivity diagnostics that explain output loss after healthy runs
      - fetch-order prioritization from listing-summary richness
@@ -172,5 +173,6 @@ When scrape runs are healthy but output is weak, tune in this order:
    - Soften only wording-driven false blockers; keep strict notebook trust-first.
 4. Catalog quality protection always.
    - Prefer richer detail-backed rows over salvage or low-context updates.
+   - Do not let already-linked or stale reused offers satisfy fresh-result expectations too cheaply.
 5. Notebook strictness last.
    - Prefer hidden/degraded-result messaging over weakening default strict mode.

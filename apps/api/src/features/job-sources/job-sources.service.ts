@@ -413,6 +413,11 @@ export class JobSourcesService {
     return { min, max };
   }
 
+  private resolveMinimumFreshCandidateTarget(limit: number) {
+    const configured = this.configService.get('SCRAPE_MIN_FRESH_CANDIDATES', { infer: true });
+    return Math.max(1, Math.min(limit, configured));
+  }
+
   constructor(
     private readonly configService: ConfigService<Env, true>,
     private readonly logger: Logger,
@@ -525,7 +530,14 @@ export class JobSourcesService {
 
     const requestedLimit = dto.limit ?? 20;
     const catalogEligibleCount = profileContext.profile
-      ? await this.countCatalogMatchesForProfile(profileContext.profile, mapSource(source), requestedLimit)
+      ? await this.countFreshCatalogMatchesForProfile({
+          userId,
+          careerProfileId: profileContext.careerProfileId ?? '',
+          profile: profileContext.profile,
+          source: mapSource(source),
+          limit: requestedLimit,
+          origin: 'CATALOG_REMATCH',
+        })
       : 0;
     const sourceBackoff = await this.getSourceAutomationBackoff(mapSource(source));
     if (sourceBackoff.active) {
@@ -973,6 +985,7 @@ export class JobSourcesService {
 
     const intentFingerprint = this.computeIntentFingerprint(source, listingUrl, normalizedFilters ?? null);
     const resolvedFromProfile = !dto.filters && !dto.source && Boolean(profileContext.profile);
+    const minimumFreshCandidateTarget = this.resolveMinimumFreshCandidateTarget(requestedLimit);
     if (this.shouldSuppressDuplicateEnqueue(userId, intentFingerprint)) {
       throw new HttpException(
         'Duplicate scrape enqueue detected for the same intent. Retry after a short delay.',
@@ -987,6 +1000,7 @@ export class JobSourcesService {
         profile: profileContext.profile,
         source: sourceEnum,
         limit: requestedLimit,
+        minimumFreshCandidateTarget,
       });
 
       if (catalogReuse) {
@@ -1025,6 +1039,7 @@ export class JobSourcesService {
         normalizedFilters: normalizedFilters ?? null,
         intentFingerprint,
         limit: dto.limit,
+        minimumFreshCandidateTarget,
       });
 
       if (reuse) {
@@ -3671,6 +3686,7 @@ export class JobSourcesService {
     normalizedFilters: Record<string, unknown> | null;
     intentFingerprint: string;
     limit?: number;
+    minimumFreshCandidateTarget: number;
   }) {
     const reuseHours = this.configService.get('SCRAPE_DB_REUSE_HOURS', { infer: true });
     const cutoff = new Date(Date.now() - reuseHours * 60 * 60 * 1000);
@@ -3758,6 +3774,19 @@ export class JobSourcesService {
     });
 
     const profileContext = await this.getCareerProfileContext(input.userId, input.careerProfileId);
+    if (profileContext.profile) {
+      const freshProjection = await this.prepareLinkableCatalogOffers({
+        userId: input.userId,
+        careerProfileId: input.careerProfileId,
+        source: input.source,
+        profile: profileContext.profile,
+        specificOfferIds: offers.map((offer) => offer.id),
+        origin: 'DB_REUSE',
+      });
+      if (freshProjection.matchingOffers.length < input.minimumFreshCandidateTarget) {
+        return null;
+      }
+    }
     const inserted = profileContext.profile
       ? await this.linkCatalogOffersToUser({
           userId: input.userId,
@@ -3790,6 +3819,7 @@ export class JobSourcesService {
         candidateOffers: offers.length,
         matchedOffers: inserted.matchedCount,
         insertedOffers: inserted.insertedCount,
+        minimumFreshCandidateTarget: input.minimumFreshCandidateTarget,
         origin: 'DB_REUSE',
       },
     });
@@ -3907,37 +3937,22 @@ export class JobSourcesService {
     }
   }
 
-  private async countCatalogMatchesForProfile(profile: CandidateProfile, source: 'PRACUJ_PL', limit: number) {
-    const minScore =
-      this.configService.get('CATALOG_REMATCH_MIN_SCORE', { infer: true }) ?? DEFAULT_CATALOG_REMATCH_MIN_SCORE;
-    const candidates = await this.loadCatalogCandidateOffers(source, profile);
-    let matched = 0;
-    for (const offer of candidates) {
-      const deterministic = scoreCandidateAgainstJob(profile, {
-        text: offer.description,
-        title: offer.title,
-        location: offer.location,
-        employmentType: offer.employmentType,
-        contractType: offer.contractType,
-        employmentSchedule: offer.employmentSchedule,
-        workModes: offer.workMode ? [offer.workMode] : [],
-        jobCategory: offer.jobCategory,
-        salaryText: offer.salary,
-      });
-      if (!deterministic.blockedByHardConstraints && deterministic.score >= minScore) {
-        matched += 1;
-      }
-      if (matched >= limit) {
-        break;
-      }
-    }
-    return matched;
-  }
-
-  private async linkCatalogOffersToUser(input: {
+  private async countFreshCatalogMatchesForProfile(input: {
     userId: string;
     careerProfileId: string;
-    sourceRunId: string;
+    profile: CandidateProfile;
+    source: 'PRACUJ_PL';
+    limit: number;
+    specificOfferIds?: string[];
+    origin: 'DB_REUSE' | 'CATALOG_REMATCH';
+  }) {
+    const prepared = await this.prepareLinkableCatalogOffers(input);
+    return prepared.matchingOffers.length;
+  }
+
+  private async prepareLinkableCatalogOffers(input: {
+    userId: string;
+    careerProfileId: string;
     source: 'PRACUJ_PL';
     profile: CandidateProfile;
     origin: 'SCRAPE' | 'DB_REUSE' | 'CATALOG_REMATCH';
@@ -3946,7 +3961,6 @@ export class JobSourcesService {
   }) {
     const minScore =
       this.configService.get('CATALOG_REMATCH_MIN_SCORE', { infer: true }) ?? DEFAULT_CATALOG_REMATCH_MIN_SCORE;
-    const now = new Date();
     const includeAllScrapeCandidates = input.origin === 'SCRAPE' || input.origin === 'DB_REUSE';
     const candidates = await this.loadCatalogCandidateOffers(
       input.source,
@@ -3955,7 +3969,13 @@ export class JobSourcesService {
       input.limit,
     );
     if (!candidates.length) {
-      return { insertedCount: 0, totalCandidateCount: 0, matchedCount: 0 };
+      return {
+        candidates,
+        matchingOffers: [] as Array<{
+          offer: CatalogOfferRow;
+          deterministic: ReturnType<typeof scoreCandidateAgainstJob>;
+        }>,
+      };
     }
 
     const existingLinks = await this.db
@@ -3992,6 +4012,25 @@ export class JobSourcesService {
       .filter(({ deterministic }) =>
         includeAllScrapeCandidates ? true : !deterministic.blockedByHardConstraints && deterministic.score >= minScore,
       );
+
+    return { candidates, matchingOffers };
+  }
+
+  private async linkCatalogOffersToUser(input: {
+    userId: string;
+    careerProfileId: string;
+    sourceRunId: string;
+    source: 'PRACUJ_PL';
+    profile: CandidateProfile;
+    origin: 'SCRAPE' | 'DB_REUSE' | 'CATALOG_REMATCH';
+    specificOfferIds?: string[];
+    limit?: number;
+  }) {
+    const now = new Date();
+    const { candidates, matchingOffers } = await this.prepareLinkableCatalogOffers(input);
+    if (!candidates.length) {
+      return { insertedCount: 0, totalCandidateCount: 0, matchedCount: 0 };
+    }
 
     if (!matchingOffers.length) {
       return {
@@ -4047,7 +4086,14 @@ export class JobSourcesService {
 
     const source = mapSource(inferPracujSource(profileContext.profile));
     const requestedLimit = Math.max(1, limit);
-    const matchedCount = await this.countCatalogMatchesForProfile(profileContext.profile, source, requestedLimit);
+    const matchedCount = await this.countFreshCatalogMatchesForProfile({
+      userId,
+      careerProfileId: profileContext.careerProfileId,
+      profile: profileContext.profile,
+      source,
+      limit: requestedLimit,
+      origin: 'CATALOG_REMATCH',
+    });
     if (matchedCount === 0) {
       return { ok: true, inserted: 0, totalOffers: 0, matchedOffers: 0, status: 'empty' as const };
     }
@@ -4135,12 +4181,20 @@ export class JobSourcesService {
     profile: CandidateProfile | null;
     source: 'PRACUJ_PL';
     limit: number;
+    minimumFreshCandidateTarget: number;
   }) {
     if (!input.profile) {
       return null;
     }
-    const matchedCount = await this.countCatalogMatchesForProfile(input.profile, input.source, input.limit);
-    if (matchedCount < input.limit) {
+    const matchedCount = await this.countFreshCatalogMatchesForProfile({
+      userId: input.userId,
+      careerProfileId: input.careerProfileId,
+      profile: input.profile,
+      source: input.source,
+      limit: input.limit,
+      origin: 'CATALOG_REMATCH',
+    });
+    if (matchedCount < input.minimumFreshCandidateTarget) {
       return null;
     }
     return this.rematchCatalogForUser(input.userId, input.careerProfileId, input.limit);

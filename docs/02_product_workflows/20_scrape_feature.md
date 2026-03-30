@@ -51,6 +51,7 @@ Current standardization direction:
 
 - scrape ingestion now preserves raw offer snapshot fields while also resolving structured catalog references when confidence is acceptable
 - first active structured refs are company, contract type, employment type, work mode, and selected category context
+- cache/catalog reuse now requires a minimum fresh candidate yield instead of relying only on gross reused result counts
 
 Schema references:
 
