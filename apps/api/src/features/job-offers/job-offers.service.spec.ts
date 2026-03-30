@@ -385,12 +385,12 @@ describe('JobOffersService', () => {
       }),
       expect.objectContaining({
         key: 'strict-top',
-        href: '/notebook?focus=strictTop',
+        href: '/opportunities?focus=strictTop',
         count: 2,
       }),
       expect.objectContaining({
         key: 'unscored-fresh',
-        href: '/notebook?focus=unscored',
+        href: '/opportunities?focus=unscored',
         count: 1,
         items: [expect.objectContaining({ id: 'ujo-unscored', matchScore: null })],
       }),
@@ -413,7 +413,7 @@ describe('JobOffersService', () => {
       }),
       expect.objectContaining({
         key: 'stale-untriaged',
-        href: '/notebook?focus=staleUntriaged',
+        href: '/opportunities?focus=staleUntriaged',
         count: 1,
       }),
     ]);
@@ -465,7 +465,7 @@ describe('JobOffersService', () => {
 
     expect(result.quickActions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ key: 'unscored', href: '/notebook?focus=unscored', count: 1 }),
+        expect.objectContaining({ key: 'unscored', href: '/opportunities?focus=unscored', count: 1 }),
         expect.objectContaining({ key: 'saved', href: '/notebook?focus=saved', count: 1 }),
         expect.objectContaining({ key: 'followUpDue', href: '/notebook?focus=followUpDue', count: 1 }),
       ]),
@@ -529,7 +529,7 @@ describe('JobOffersService', () => {
       expect.arrayContaining([
         expect.objectContaining({ key: 'due-now', href: '/notebook?focus=followUpDue', count: 1 }),
         expect.objectContaining({ key: 'missing-next-step', href: '/notebook?focus=missingNextStep', count: 2 }),
-        expect.objectContaining({ key: 'strict-top-unreviewed', href: '/notebook?focus=strictTop', count: 1 }),
+        expect.objectContaining({ key: 'strict-top-unreviewed', href: '/opportunities?focus=strictTop', count: 1 }),
       ]),
     );
   });
@@ -644,6 +644,132 @@ describe('JobOffersService', () => {
 
     expect(result.total).toBe(1);
     expect(result.degradedResultCount).toBe(1);
+  });
+
+  it('builds discovery queue with friendly fit copy and keeps active pipeline items marked', async () => {
+    const select = jest.fn().mockReturnValue(
+      createListQuery([
+        {
+          id: 'ujo-new',
+          jobOfferId: 'job-new',
+          sourceRunId: 'run-new',
+          status: 'NEW',
+          matchScore: 82,
+          matchMeta: { hardConstraintViolations: [], llmSummary: 'Strong React fit for your current profile.' },
+          pipelineMeta: null,
+          notes: null,
+          tags: null,
+          statusHistory: [],
+          lastStatusAt: new Date('2026-03-22T13:38:32.201Z'),
+          source: 'PRACUJ_PL',
+          url: 'https://www.pracuj.pl/oferta/10',
+          title: 'Frontend Engineer',
+          company: 'Acme',
+          location: 'Remote',
+          salary: null,
+          employmentType: 'B2B',
+          description: 'Frontend role',
+          requirements: [],
+          details: null,
+          createdAt: new Date('2026-03-22T13:38:32.201Z'),
+        },
+        {
+          id: 'ujo-saved',
+          jobOfferId: 'job-saved',
+          sourceRunId: 'run-saved',
+          status: 'SAVED',
+          matchScore: 76,
+          matchMeta: { hardConstraintViolations: [] },
+          pipelineMeta: { nextStep: 'Reply to recruiter' },
+          notes: null,
+          tags: null,
+          statusHistory: [],
+          lastStatusAt: new Date('2026-03-21T13:38:32.201Z'),
+          source: 'PRACUJ_PL',
+          url: 'https://www.pracuj.pl/oferta/11',
+          title: 'Platform Frontend Engineer',
+          company: 'Globex',
+          location: 'Warsaw',
+          salary: null,
+          employmentType: 'B2B',
+          description: 'Platform frontend role',
+          requirements: [],
+          details: null,
+          createdAt: new Date('2026-03-21T13:38:32.201Z'),
+        },
+      ]),
+    );
+    const service = new JobOffersService(
+      { select } as any,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'NOTEBOOK_APPROX_VIOLATION_PENALTY') return 15;
+          if (key === 'NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY') return 45;
+          if (key === 'NOTEBOOK_APPROX_SCORED_BONUS') return 5;
+          if (key === 'NOTEBOOK_EXPLORE_UNSCORED_BASE') return 55;
+          if (key === 'NOTEBOOK_EXPLORE_RECENCY_WEIGHT') return 12;
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          return undefined;
+        }),
+      } as any,
+    );
+
+    const result = await service.getDiscovery('user-1', { mode: 'strict', limit: 20, offset: 0 });
+
+    expect(result.total).toBe(2);
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        id: 'ujo-new',
+        fitSummary: 'Strong React fit for your current profile.',
+        fitHighlights: expect.arrayContaining(['Strong React fit for your current profile.', 'Strong overall fit']),
+        isInPipeline: false,
+      }),
+    );
+    expect(result.items[1]).toEqual(expect.objectContaining({ id: 'ujo-saved', isInPipeline: true }));
+  });
+
+  it('returns discovery summary counts for unseen, reviewed, and pipeline buckets', async () => {
+    const select = jest.fn().mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        where: jest.fn().mockResolvedValue([
+          { status: 'NEW' },
+          { status: 'SEEN' },
+          { status: 'SAVED' },
+          { status: 'APPLIED' },
+          { status: 'DISMISSED' },
+        ]),
+      }),
+    });
+    const service = new JobOffersService(
+      { select } as any,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'NOTEBOOK_APPROX_VIOLATION_PENALTY') return 15;
+          if (key === 'NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY') return 45;
+          if (key === 'NOTEBOOK_APPROX_SCORED_BONUS') return 5;
+          if (key === 'NOTEBOOK_EXPLORE_UNSCORED_BASE') return 55;
+          if (key === 'NOTEBOOK_EXPLORE_RECENCY_WEIGHT') return 12;
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          return undefined;
+        }),
+      } as any,
+    );
+
+    const result = await service.getDiscoverySummary('user-1');
+
+    expect(result).toEqual({
+      total: 4,
+      unseen: 1,
+      reviewed: 1,
+      inPipeline: 2,
+      buckets: [
+        { key: 'new', label: 'Unseen', count: 1 },
+        { key: 'seen', label: 'Reviewed', count: 1 },
+        { key: 'pipeline', label: 'In pipeline', count: 2 },
+      ],
+    });
   });
 
   it('bulk updates follow-up metadata while preserving existing pipeline fields', async () => {

@@ -81,6 +81,8 @@ const notebookSummary: JobOfferSummaryDto = {
   unscored: 0,
   highConfidenceStrict: 1,
   staleUntriaged: 0,
+  missingNextStep: 0,
+  stalePipeline: 0,
   followUpDue: 0,
   followUpUpcoming: 0,
   buckets: [],
@@ -88,7 +90,7 @@ const notebookSummary: JobOfferSummaryDto = {
   quickActions: [],
 };
 
-describe('NotebookPage mobile sheet', () => {
+describe('NotebookPage pipeline workspace', () => {
   beforeEach(() => {
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
@@ -100,7 +102,7 @@ describe('NotebookPage mobile sheet', () => {
     });
   });
 
-  it('opens the selected offer inside the mobile workspace sheet', () => {
+  it('renders the selected offer workspace below the board', () => {
     mockedUseNotebookPage.mockReturnValue({
       listQuery: {
         isLoading: false,
@@ -127,7 +129,7 @@ describe('NotebookPage mobile sheet', () => {
       filters: {
         status: 'ALL',
         mode: 'strict',
-        view: 'LIST',
+        view: 'PIPELINE',
         search: '',
         tag: '',
         hasScore: 'all',
@@ -158,6 +160,9 @@ describe('NotebookPage mobile sheet', () => {
       updateMeta: vi.fn(),
       updateFeedback: vi.fn(),
       updatePipeline: vi.fn(),
+      completeFollowUp: vi.fn(),
+      snoozeFollowUp: vi.fn(),
+      clearFollowUp: vi.fn(),
       rescore: vi.fn(),
       generatePrep: vi.fn(),
       isGeneratingPrep: false,
@@ -167,10 +172,8 @@ describe('NotebookPage mobile sheet', () => {
     render(<NotebookPage token="token" />);
 
     expect(screen.getAllByText('Senior Backend Engineer').length).toBeGreaterThan(0);
-    expect(
-      screen.getByText(
-        'Keep the selected offer, fit context, and next action together without losing the notebook list.',
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Notebook Pipeline')).toBeInTheDocument();
+    expect(screen.getByText('Selected offer workspace')).toBeInTheDocument();
+    expect(screen.getByText('Keep one clear next move attached to this role')).toBeInTheDocument();
   });
 });
