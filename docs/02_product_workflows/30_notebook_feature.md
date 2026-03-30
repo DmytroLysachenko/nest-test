@@ -66,5 +66,6 @@ Used by dashboard, opportunities, follow-up workflow, and future company-aware/o
 - `docs/01_project_context/00_product_and_system_overview.md`
 - `docs/01_project_context/02_project_state.md`
 - `docs/03_plans_and_roadmaps/01_roadmap.md`
+- `docs/03_plans_and_roadmaps/05_catalog_standardization_implementation_plan.md`
 - `docs/06_engineering_standards/01_frontend_standards.md`
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md`

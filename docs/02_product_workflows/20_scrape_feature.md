@@ -71,6 +71,7 @@ Used by opportunities, notebook, dashboard summary, and support/ops tools.
 - `docs/01_project_context/00_product_and_system_overview.md`
 - `docs/01_project_context/02_project_state.md`
 - `docs/03_plans_and_roadmaps/01_roadmap.md`
+- `docs/03_plans_and_roadmaps/05_catalog_standardization_implementation_plan.md`
 - `docs/04_architecture_and_data/01_decisions.md`
 - `docs/04_architecture_and_data/02_pracuj_query_mapping.md`
 - `docs/05_operations_and_deployment/01_runbook.md`

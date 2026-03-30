@@ -138,3 +138,4 @@ Primary code areas:
 Related docs:
 
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md`
+- `docs/03_plans_and_roadmaps/05_catalog_standardization_implementation_plan.md`

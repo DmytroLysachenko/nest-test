@@ -66,6 +66,7 @@ Responsible docs:
 - `docs/04_architecture_and_data/01_decisions.md`
 - `docs/01_project_context/02_project_state.md`
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md` for catalog/company/history changes
+- `docs/03_plans_and_roadmaps/05_catalog_standardization_implementation_plan.md` for the current standardization stream
 - `docs/00_documentation_system/02_implementation_history.md` for meaningful schema shifts
 
 ### `packages/db/src/migrations`
