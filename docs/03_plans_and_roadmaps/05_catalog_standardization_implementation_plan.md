@@ -68,6 +68,7 @@ The implementation stream uses these defaults:
   - work mode
   - job category
 - keep mapping conservative
+- keep source-specific Pracuj ids separate from internal canonical labels
 
 ### 4. `feat: persist normalized entities during scrape ingestion`
 
