@@ -43,6 +43,7 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       suppressUndoToast?: boolean;
     }) => updateJobOfferStatus(token, id, status),
     onMutate: async ({ id, status }) => {
+      const changedAt = new Date().toISOString();
       await queryClient.cancelQueries({
         queryKey: ['job-offers', token],
       });
@@ -65,9 +66,30 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
 
           return {
             ...current,
-            items: current.items.map((offer) => (offer.id === id ? { ...offer, status } : offer)),
+            items: current.items.map((offer) => {
+              if (offer.id !== id) {
+                return offer;
+              }
+
+              const history = Array.isArray(offer.statusHistory) ? offer.statusHistory : [];
+              const nextHistory = [...history, { status, changedAt }];
+
+              return {
+                ...offer,
+                status,
+                lastStatusAt: changedAt,
+                statusHistory: nextHistory,
+              };
+            }),
           };
         },
+      );
+
+      queryClient.setQueryData<{ statusHistory: Array<{ status: JobOfferStatus; changedAt: string }> } | undefined>(
+        ['job-offers', 'history', token, id],
+        (current) => ({
+          statusHistory: [...(current?.statusHistory ?? []), { status, changedAt }],
+        }),
       );
 
       return {

@@ -11,8 +11,6 @@ jobs:
   promote:
     runs-on: ubuntu-latest
     environment: production
-    env:
-      IMAGE_BASE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
@@ -29,136 +27,115 @@ jobs:
           GCP_API_SERVICE: ${{ vars.GCP_API_SERVICE }}
           GCP_WORKER_SERVICE: ${{ vars.GCP_WORKER_SERVICE }}
           GCP_WEB_SERVICE: ${{ vars.GCP_WEB_SERVICE }}
-          GCP_API_BASE_URL: ${{ vars.GCP_API_BASE_URL }}
-          GCP_WORKER_BASE_URL: ${{ vars.GCP_WORKER_BASE_URL }}
-          GCP_WEB_BASE_URL: ${{ vars.GCP_WEB_BASE_URL }}
           GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           GCP_DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+          GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          SCHEDULER_AUTH_TOKEN: ${{ secrets.SCHEDULER_AUTH_TOKEN }}
+          OPS_INTERNAL_TOKEN: ${{ secrets.OPS_INTERNAL_TOKEN }}
         run: |
           chmod +x ./scripts/validate-deploy-contract.sh
           ./scripts/validate-deploy-contract.sh promote-to-prod
-          require_https() {
-            case "$1" in
-              https://*) return 0 ;;
-              *) echo "Expected https URL, got: $1" && return 1 ;;
-            esac
-          }
           test -n "${{ inputs.release_sha }}" || (echo "release_sha is required" && exit 1)
           echo "${{ inputs.release_sha }}" | grep -Eq '^[0-9a-f]{40}$' || (echo "release_sha must be a full 40-char git SHA" && exit 1)
-          test -n "${{ vars.GCP_PROJECT_ID }}" || (echo "Missing vars.GCP_PROJECT_ID" && exit 1)
-          test -n "${{ vars.GCP_REGION }}" || (echo "Missing vars.GCP_REGION" && exit 1)
-          test -n "${{ vars.GAR_REPOSITORY }}" || (echo "Missing vars.GAR_REPOSITORY" && exit 1)
-          test -n "${{ vars.GCP_API_SERVICE }}" || (echo "Missing vars.GCP_API_SERVICE" && exit 1)
-          test -n "${{ vars.GCP_WORKER_SERVICE }}" || (echo "Missing vars.GCP_WORKER_SERVICE" && exit 1)
-          test -n "${{ vars.GCP_WEB_SERVICE }}" || (echo "Missing vars.GCP_WEB_SERVICE" && exit 1)
-          test -n "${{ vars.GCP_API_BASE_URL }}" || (echo "Missing vars.GCP_API_BASE_URL" && exit 1)
-          test -n "${{ vars.GCP_WORKER_BASE_URL }}" || (echo "Missing vars.GCP_WORKER_BASE_URL" && exit 1)
-          test -n "${{ vars.GCP_WEB_BASE_URL }}" || (echo "Missing vars.GCP_WEB_BASE_URL" && exit 1)
-          require_https "${{ vars.GCP_API_BASE_URL }}" || exit 1
-          require_https "${{ vars.GCP_WORKER_BASE_URL }}" || exit 1
-          require_https "${{ vars.GCP_WEB_BASE_URL }}" || exit 1
           echo "Promoting release SHA=${{ inputs.release_sha }}"
-      - name: Deploy API image
+      - name: Deploy promoted release
         run: |
-          gcloud run deploy "${{ vars.GCP_API_SERVICE }}" \
-            --project="${{ vars.GCP_PROJECT_ID }}" \
-            --region="${{ vars.GCP_REGION }}" \
-            --image="${IMAGE_BASE}/api:${{ inputs.release_sha }}" \
-            --platform=managed
-      - name: Deploy Worker image
-        run: |
-          gcloud run deploy "${{ vars.GCP_WORKER_SERVICE }}" \
-            --project="${{ vars.GCP_PROJECT_ID }}" \
-            --region="${{ vars.GCP_REGION }}" \
-            --image="${IMAGE_BASE}/worker:${{ inputs.release_sha }}" \
-            --platform=managed
-      - name: Deploy Web image
-        run: |
-          gcloud run deploy "${{ vars.GCP_WEB_SERVICE }}" \
-            --project="${{ vars.GCP_PROJECT_ID }}" \
-            --region="${{ vars.GCP_REGION }}" \
-            --image="${IMAGE_BASE}/web:${{ inputs.release_sha }}" \
-            --platform=managed
-      - name: Capture promotion deployment metadata
-        run: |
-          resolve_revision() {
-            gcloud run services describe "$1" \
-              --project="${{ vars.GCP_PROJECT_ID }}" \
-              --region="${{ vars.GCP_REGION }}" \
-              --format='value(status.latestReadyRevisionName)'
-          }
-          resolve_image() {
-            gcloud run services describe "$1" \
-              --project="${{ vars.GCP_PROJECT_ID }}" \
-              --region="${{ vars.GCP_REGION }}" \
-              --format='value(spec.template.spec.containers[0].image)'
-          }
-          resolve_url() {
-            gcloud run services describe "$1" \
-              --project="${{ vars.GCP_PROJECT_ID }}" \
-              --region="${{ vars.GCP_REGION }}" \
-              --format='value(status.url)'
-          }
-
-          API_REVISION="$(resolve_revision "${{ vars.GCP_API_SERVICE }}")"
-          WORKER_REVISION="$(resolve_revision "${{ vars.GCP_WORKER_SERVICE }}")"
-          WEB_REVISION="$(resolve_revision "${{ vars.GCP_WEB_SERVICE }}")"
-          API_IMAGE="$(resolve_image "${{ vars.GCP_API_SERVICE }}")"
-          WORKER_IMAGE="$(resolve_image "${{ vars.GCP_WORKER_SERVICE }}")"
-          WEB_IMAGE="$(resolve_image "${{ vars.GCP_WEB_SERVICE }}")"
-          API_URL="$(resolve_url "${{ vars.GCP_API_SERVICE }}")"
-          WORKER_URL="$(resolve_url "${{ vars.GCP_WORKER_SERVICE }}")"
-          WEB_URL="$(resolve_url "${{ vars.GCP_WEB_SERVICE }}")"
-          DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-          cat > promote-release-metadata.json <<JSON
-          {
-            "releaseSha": "${{ inputs.release_sha }}",
-            "deployedAt": "${DEPLOYED_AT}",
-            "api": {
-              "service": "${{ vars.GCP_API_SERVICE }}",
-              "url": "${API_URL}",
-              "revision": "${API_REVISION}",
-              "image": "${API_IMAGE}"
-            },
-            "worker": {
-              "service": "${{ vars.GCP_WORKER_SERVICE }}",
-              "url": "${WORKER_URL}",
-              "revision": "${WORKER_REVISION}",
-              "image": "${WORKER_IMAGE}"
-            },
-            "web": {
-              "service": "${{ vars.GCP_WEB_SERVICE }}",
-              "url": "${WEB_URL}",
-              "revision": "${WEB_REVISION}",
-              "image": "${WEB_IMAGE}"
-            }
-          }
-JSON
-
-          {
-            echo "API_SERVICE_NAME=${{ vars.GCP_API_SERVICE }}"
-            echo "WORKER_SERVICE_NAME=${{ vars.GCP_WORKER_SERVICE }}"
-            echo "WEB_SERVICE_NAME=${{ vars.GCP_WEB_SERVICE }}"
-            echo "API_DEPLOYED_URL=${API_URL}"
-            echo "WORKER_DEPLOYED_URL=${WORKER_URL}"
-            echo "WEB_DEPLOYED_URL=${WEB_URL}"
-            echo "API_DEPLOYED_REVISION=${API_REVISION}"
-            echo "WORKER_DEPLOYED_REVISION=${WORKER_REVISION}"
-            echo "WEB_DEPLOYED_REVISION=${WEB_REVISION}"
-            echo "API_DEPLOYED_IMAGE=${API_IMAGE}"
-            echo "WORKER_DEPLOYED_IMAGE=${WORKER_IMAGE}"
-            echo "WEB_DEPLOYED_IMAGE=${WEB_IMAGE}"
-          } >> "${GITHUB_ENV}"
-      - name: Post-deploy verify
-        run: |
+          chmod +x ./scripts/deploy-cloud-run-prod.sh
           chmod +x ./scripts/verify-deployment.sh
-          RELEASE_SHA="${{ inputs.release_sha }}" \
-          API_BASE_URL="${{ vars.GCP_API_BASE_URL }}" \
-          WORKER_BASE_URL="${{ vars.GCP_WORKER_BASE_URL }}" \
-          WEB_BASE_URL="${{ vars.GCP_WEB_BASE_URL }}" \
-          VERIFY_SUMMARY_FILE="promote-verify-summary.json" \
-          ./scripts/verify-deployment.sh
+          ./scripts/deploy-cloud-run-prod.sh
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          DEPLOY_API: true
+          DEPLOY_WORKER: true
+          DEPLOY_WEB: true
+          DEPLOY_METADATA_FILE: promote-release-metadata.json
+          VERIFY_SUMMARY_FILE: promote-verify-summary.json
+          GCP_API_SERVICE: ${{ vars.GCP_API_SERVICE }}
+          GCP_WORKER_SERVICE: ${{ vars.GCP_WORKER_SERVICE }}
+          GCP_WEB_SERVICE: ${{ vars.GCP_WEB_SERVICE }}
+          GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GCP_API_RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_API_RUNTIME_SERVICE_ACCOUNT }}
+          GCP_WORKER_RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_WORKER_RUNTIME_SERVICE_ACCOUNT }}
+          GCP_WEB_RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_WEB_RUNTIME_SERVICE_ACCOUNT }}
+          ACCESS_TOKEN_EXPIRATION: ${{ vars.ACCESS_TOKEN_EXPIRATION }}
+          REFRESH_TOKEN_EXPIRATION: ${{ vars.REFRESH_TOKEN_EXPIRATION }}
+          MAIL_HOST: ${{ vars.MAIL_HOST }}
+          MAIL_PORT: ${{ vars.MAIL_PORT }}
+          MAIL_SECURE: ${{ vars.MAIL_SECURE }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+          API_THROTTLE_TTL_MS: ${{ vars.API_THROTTLE_TTL_MS }}
+          API_THROTTLE_LIMIT: ${{ vars.API_THROTTLE_LIMIT }}
+          AUTH_LOGIN_THROTTLE_TTL_MS: ${{ vars.AUTH_LOGIN_THROTTLE_TTL_MS }}
+          AUTH_LOGIN_THROTTLE_LIMIT: ${{ vars.AUTH_LOGIN_THROTTLE_LIMIT }}
+          AUTH_REFRESH_THROTTLE_TTL_MS: ${{ vars.AUTH_REFRESH_THROTTLE_TTL_MS }}
+          AUTH_REFRESH_THROTTLE_LIMIT: ${{ vars.AUTH_REFRESH_THROTTLE_LIMIT }}
+          AUTH_REGISTER_THROTTLE_TTL_MS: ${{ vars.AUTH_REGISTER_THROTTLE_TTL_MS }}
+          AUTH_REGISTER_THROTTLE_LIMIT: ${{ vars.AUTH_REGISTER_THROTTLE_LIMIT }}
+          AUTH_OTP_THROTTLE_TTL_MS: ${{ vars.AUTH_OTP_THROTTLE_TTL_MS }}
+          AUTH_OTP_THROTTLE_LIMIT: ${{ vars.AUTH_OTP_THROTTLE_LIMIT }}
+          WORKER_REQUEST_TIMEOUT_MS: ${{ vars.WORKER_REQUEST_TIMEOUT_MS }}
+          WORKER_TASK_MAX_PAYLOAD_BYTES: ${{ vars.WORKER_TASK_MAX_PAYLOAD_BYTES }}
+          API_BODY_LIMIT: ${{ vars.API_BODY_LIMIT }}
+          DISK_HEALTH_THRESHOLD: ${{ vars.DISK_HEALTH_THRESHOLD }}
+          SCHEDULER_TRIGGER_BATCH_SIZE: ${{ vars.SCHEDULER_TRIGGER_BATCH_SIZE }}
+          WORKSPACE_SUMMARY_CACHE_TTL_SEC: ${{ vars.WORKSPACE_SUMMARY_CACHE_TTL_SEC }}
+          JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS: ${{ vars.JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS }}
+          DOCUMENT_DIAGNOSTICS_WINDOW_HOURS: ${{ vars.DOCUMENT_DIAGNOSTICS_WINDOW_HOURS }}
+          SCRAPE_DB_REUSE_HOURS: ${{ vars.SCRAPE_DB_REUSE_HOURS }}
+          SCRAPE_MAX_ACTIVE_RUNS_PER_USER: ${{ vars.SCRAPE_MAX_ACTIVE_RUNS_PER_USER }}
+          SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER: ${{ vars.SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER }}
+          SCRAPE_ENQUEUE_IDEMPOTENCY_TTL_SEC: ${{ vars.SCRAPE_ENQUEUE_IDEMPOTENCY_TTL_SEC }}
+          SCRAPE_MAX_RETRY_CHAIN_DEPTH: ${{ vars.SCRAPE_MAX_RETRY_CHAIN_DEPTH }}
+          SCRAPE_STALE_PENDING_MINUTES: ${{ vars.SCRAPE_STALE_PENDING_MINUTES }}
+          SCRAPE_STALE_RUNNING_MINUTES: ${{ vars.SCRAPE_STALE_RUNNING_MINUTES }}
+          AUTO_SCORE_ON_INGEST: ${{ vars.AUTO_SCORE_ON_INGEST }}
+          AUTO_SCORE_CONCURRENCY: ${{ vars.AUTO_SCORE_CONCURRENCY }}
+          AUTO_SCORE_MIN_SCORE: ${{ vars.AUTO_SCORE_MIN_SCORE }}
+          AUTO_SCORE_RETRY_ATTEMPTS: ${{ vars.AUTO_SCORE_RETRY_ATTEMPTS }}
+          NOTEBOOK_APPROX_VIOLATION_PENALTY: ${{ vars.NOTEBOOK_APPROX_VIOLATION_PENALTY }}
+          NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY: ${{ vars.NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY }}
+          NOTEBOOK_APPROX_SCORED_BONUS: ${{ vars.NOTEBOOK_APPROX_SCORED_BONUS }}
+          NOTEBOOK_EXPLORE_UNSCORED_BASE: ${{ vars.NOTEBOOK_EXPLORE_UNSCORED_BASE }}
+          NOTEBOOK_EXPLORE_RECENCY_WEIGHT: ${{ vars.NOTEBOOK_EXPLORE_RECENCY_WEIGHT }}
+          WORKER_TASKS_QUEUE: ${{ vars.WORKER_TASKS_QUEUE }}
+          WORKER_TASKS_DLQ: ${{ vars.WORKER_TASKS_DLQ }}
+          TASKS_MAX_ATTEMPTS: ${{ vars.TASKS_MAX_ATTEMPTS }}
+          TASKS_MIN_BACKOFF_SEC: ${{ vars.TASKS_MIN_BACKOFF_SEC }}
+          TASKS_MAX_BACKOFF_SEC: ${{ vars.TASKS_MAX_BACKOFF_SEC }}
+          TASKS_MAX_DOUBLINGS: ${{ vars.TASKS_MAX_DOUBLINGS }}
+          TASKS_MAX_RETRY_DURATION_SEC: ${{ vars.TASKS_MAX_RETRY_DURATION_SEC }}
+          ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
+          WORKER_ALLOWED_ORIGINS: ${{ vars.WORKER_ALLOWED_ORIGINS }}
+          WORKER_CPU: ${{ vars.WORKER_CPU }}
+          WORKER_MEMORY: ${{ vars.WORKER_MEMORY }}
+          WORKER_MAX_INSTANCES: ${{ vars.WORKER_MAX_INSTANCES }}
+          WORKER_MIN_INSTANCES: ${{ vars.WORKER_MIN_INSTANCES }}
+          WEB_QUERY_STALE_TIME_MS: ${{ vars.WEB_QUERY_STALE_TIME_MS }}
+          WEB_QUERY_REFETCH_ON_WINDOW_FOCUS: ${{ vars.WEB_QUERY_REFETCH_ON_WINDOW_FOCUS }}
+          WEB_QUERY_DIAGNOSTICS_REFETCH_MS: ${{ vars.WEB_QUERY_DIAGNOSTICS_REFETCH_MS }}
+          SCHEDULER_JOB_NAME: ${{ vars.SCHEDULER_JOB_NAME }}
+          SCHEDULER_CRON: ${{ vars.SCHEDULER_CRON }}
+          SCHEDULER_TIMEZONE: ${{ vars.SCHEDULER_TIMEZONE }}
+          OPS_RECONCILE_JOB_NAME: ${{ vars.OPS_RECONCILE_JOB_NAME }}
+          OPS_RECONCILE_CRON: ${{ vars.OPS_RECONCILE_CRON }}
+          OPS_RECONCILE_TIMEZONE: ${{ vars.OPS_RECONCILE_TIMEZONE }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+          REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          WORKER_SHARED_TOKEN: ${{ secrets.WORKER_SHARED_TOKEN }}
+          WORKER_CALLBACK_TOKEN: ${{ secrets.WORKER_CALLBACK_TOKEN }}
+          SCHEDULER_AUTH_TOKEN: ${{ secrets.SCHEDULER_AUTH_TOKEN }}
+          OPS_INTERNAL_TOKEN: ${{ secrets.OPS_INTERNAL_TOKEN }}
 
       - name: Upload promotion verify summary
         if: always()

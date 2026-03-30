@@ -24,6 +24,8 @@ import { ListJobOffersQuery } from './dto/list-job-offers.query';
 import { UpdateJobOfferStatusDto } from './dto/update-job-offer-status.dto';
 import { ScoreJobOfferDto } from './dto/score-job-offer.dto';
 import {
+  DiscoveryJobOfferListResponse,
+  DiscoverySummaryResponse,
   JobOfferActionPlanResponse,
   JobOfferFocusResponse,
   JobOfferListResponse,
@@ -53,6 +55,20 @@ export class JobOffersController {
   @ApiOkResponse({ type: JobOfferListResponse })
   async list(@CurrentUser() user: JwtValidateUser, @Query() query: ListJobOffersQuery) {
     return this.jobOffersService.list(user.userId, query);
+  }
+
+  @Get('discovery')
+  @ApiOperation({ summary: 'List discovery offers for review' })
+  @ApiOkResponse({ type: DiscoveryJobOfferListResponse })
+  async listDiscovery(@CurrentUser() user: JwtValidateUser, @Query() query: ListJobOffersQuery) {
+    return this.jobOffersService.getDiscovery(user.userId, query);
+  }
+
+  @Get('discovery/summary')
+  @ApiOperation({ summary: 'Get discovery summary for current user' })
+  @ApiOkResponse({ type: DiscoverySummaryResponse })
+  async getDiscoverySummary(@CurrentUser() user: JwtValidateUser) {
+    return this.jobOffersService.getDiscoverySummary(user.userId);
   }
 
   @Get('summary')

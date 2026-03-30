@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('notebook page renders offers and sends actions', async ({ page }) => {
+test('notebook pipeline renders active offers and sends workflow actions', async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem('career_assistant_access_token', 'test-access-token');
     window.localStorage.setItem('career_assistant_refresh_token', 'test-refresh-token');
@@ -281,8 +281,8 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
           workflow: { needsOnboarding: false },
           nextAction: {
             key: 'triage-notebook',
-            title: 'Review notebook',
-            description: 'Triage the newest opportunities first.',
+            title: 'Continue active pipeline',
+            description: 'Use notebook for active workflow and opportunities for review.',
             href: '/notebook',
             priority: 'info',
           },
@@ -316,7 +316,7 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
           followUpUpcoming: 0,
           buckets: [{ key: 'saved', label: 'Saved', count: 0 }],
           topExplanationTags: [{ tag: 'hard_constraints_ok', count: 1 }],
-          quickActions: [{ key: 'strictTop', label: 'Strict top', count: 1, href: '/notebook?focus=strictTop' }],
+          quickActions: [{ key: 'strictTop', label: 'Strict top', count: 1, href: '/opportunities?focus=strictTop' }],
         },
       }),
     });
@@ -429,7 +429,7 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
 
   await page.goto('/notebook', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByText('Job Notebook')).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText('Notebook Pipeline')).toBeVisible({ timeout: 15000 });
   await expect(page.getByText('Backend Developer')).toBeVisible();
   await expect(page.getByLabel('Mode')).toHaveValue('strict');
 
@@ -445,16 +445,8 @@ test('notebook page renders offers and sends actions', async ({ page }) => {
 
   await expect(page.getByText('Follow-up plan', { exact: true })).toBeVisible();
   await expect(page.getByText('Next step: Send follow-up email').first()).toBeVisible();
-  await expect(page.getByText('Prep packet')).toBeVisible();
+  await expect(page.getByText('Prep packet', { exact: true })).toBeVisible();
   await expect(page.getByText('Lead with your TypeScript and NestJS experience.')).toBeVisible();
-
-  await page.getByLabel('Select Backend Developer').check();
-  await page.getByRole('button', { name: 'Edit bulk plan' }).click();
-  await page.getByLabel('Bulk next step').fill('Prepare recruiter follow-up');
-  await page.getByLabel('Bulk follow-up note').fill('Share updated portfolio link');
-  const bulkFollowUpRequest = page.waitForRequest('**/api/job-offers/pipeline/bulk-follow-up');
-  await page.getByRole('button', { name: 'Save bulk follow-up' }).click();
-  await bulkFollowUpRequest;
 
   const statusRequest = page.waitForRequest('**/api/job-offers/ujo-1/status');
   await page.getByRole('button', { name: 'SAVED' }).first().click();

@@ -109,6 +109,17 @@ export class JobOfferItem {
   createdAt!: string;
 }
 
+export class DiscoveryJobOfferItem extends JobOfferItem {
+  @ApiProperty({ required: false })
+  fitSummary!: string | null;
+
+  @ApiProperty({ type: [String] })
+  fitHighlights!: string[];
+
+  @ApiProperty()
+  isInPipeline!: boolean;
+}
+
 export class JobOfferListResponse {
   @ApiProperty({ type: [JobOfferItem] })
   items!: JobOfferItem[];
@@ -127,6 +138,17 @@ export class JobOfferListResponse {
 
   @ApiProperty({ required: false, type: [String] })
   stateReasons?: string[];
+}
+
+export class DiscoveryJobOfferListResponse {
+  @ApiProperty({ type: [DiscoveryJobOfferItem] })
+  items!: DiscoveryJobOfferItem[];
+
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty({ enum: ['strict', 'approx', 'explore'] })
+  mode!: 'strict' | 'approx' | 'explore';
 }
 
 class JobOfferSummaryBucket {
@@ -331,6 +353,12 @@ export class JobOfferSummaryResponse {
   staleUntriaged!: number;
 
   @ApiProperty()
+  missingNextStep!: number;
+
+  @ApiProperty()
+  stalePipeline!: number;
+
+  @ApiProperty()
   followUpDue!: number;
 
   @ApiProperty()
@@ -344,6 +372,34 @@ export class JobOfferSummaryResponse {
 
   @ApiProperty({ type: [JobOfferQuickAction] })
   quickActions!: JobOfferQuickAction[];
+}
+
+class DiscoverySummaryBucket {
+  @ApiProperty()
+  key!: string;
+
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  count!: number;
+}
+
+export class DiscoverySummaryResponse {
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  unseen!: number;
+
+  @ApiProperty()
+  reviewed!: number;
+
+  @ApiProperty()
+  inPipeline!: number;
+
+  @ApiProperty({ type: [DiscoverySummaryBucket] })
+  buckets!: DiscoverySummaryBucket[];
 }
 
 export class JobOfferFocusResponse {

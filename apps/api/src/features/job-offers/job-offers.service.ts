@@ -159,6 +159,77 @@ const buildVerifyBeforeReply = ({
   return items;
 };
 
+const getHumanFitHighlights = (
+  matchMeta: Record<string, unknown> | null,
+  explanationTags: string[],
+  matchScore: number | null,
+) => {
+  const highlights: string[] = [];
+  const llmSummary = typeof matchMeta?.llmSummary === 'string' ? matchMeta.llmSummary.trim() : '';
+  if (llmSummary) {
+    highlights.push(llmSummary);
+  }
+
+  const violations = Array.isArray(matchMeta?.hardConstraintViolations)
+    ? matchMeta.hardConstraintViolations.filter(
+        (item): item is string => typeof item === 'string' && item.trim().length > 0,
+      )
+    : [];
+
+  if (typeof matchScore === 'number') {
+    highlights.push(
+      matchScore >= 75 ? 'Strong overall fit' : matchScore >= 60 ? 'Promising fit' : 'Needs a closer look',
+    );
+  }
+
+  if (explanationTags.includes('skill_strong')) {
+    highlights.push('Strong skills overlap');
+  } else if (explanationTags.includes('skill_partial')) {
+    highlights.push('Partial skills overlap');
+  }
+
+  if (violations.some((item) => item.toLowerCase().includes('seniority'))) {
+    highlights.push('Possible seniority mismatch');
+  }
+
+  if (violations.some((item) => item.toLowerCase().includes('employment'))) {
+    highlights.push('Contract preference gap');
+  }
+
+  return Array.from(new Set(highlights)).slice(0, 4);
+};
+
+const buildHumanFitSummary = (
+  matchMeta: Record<string, unknown> | null,
+  explanationTags: string[],
+  matchScore: number | null,
+) => {
+  const llmSummary = typeof matchMeta?.llmSummary === 'string' ? matchMeta.llmSummary.trim() : '';
+  if (llmSummary) {
+    return llmSummary;
+  }
+
+  if (typeof matchScore !== 'number') {
+    return 'This role still needs a fuller fit review.';
+  }
+
+  if (explanationTags.includes('hard_constraints_failed')) {
+    return matchScore >= 70
+      ? 'The role looks attractive, but one or more hard preferences may not line up.'
+      : 'Some fit is visible, but the role breaks one or more hard preferences.';
+  }
+
+  if (matchScore >= 75) {
+    return 'This role looks like a strong match for your current profile.';
+  }
+
+  if (matchScore >= 60) {
+    return 'This role looks promising and is worth a quick first-pass review.';
+  }
+
+  return 'This role may still be worth checking, but the fit signal is weaker.';
+};
+
 @Injectable()
 export class JobOffersService {
   private readonly scoringModel: string;
@@ -373,6 +444,170 @@ export class JobOffersService {
     };
   }
 
+  async getDiscovery(userId: string, query: ListJobOffersQuery) {
+    const limit = query.limit ? Number(query.limit) : 20;
+    const offset = query.offset ? Number(query.offset) : 0;
+    const mode: NotebookRankingMode = query.mode ?? 'strict';
+    const fetchWindow = Math.max(limit * 4, limit + offset + 20);
+
+    const conditions = [eq(userJobOffersTable.userId, userId)];
+    if (query.status) {
+      conditions.push(eq(userJobOffersTable.status, query.status));
+    }
+    if (query.source) {
+      conditions.push(eq(jobOffersTable.source, query.source as JobSource));
+    }
+    if (query.minScore !== undefined) {
+      conditions.push(sql`${userJobOffersTable.matchScore} >= ${query.minScore}`);
+    }
+    if (query.hasScore !== undefined) {
+      const wantsScore = query.hasScore === 'true';
+      conditions.push(wantsScore ? not(isNull(userJobOffersTable.matchScore)) : isNull(userJobOffersTable.matchScore));
+    }
+    const tagFilters = [...(query.tag ? [query.tag] : []), ...(query.tags ?? [])].filter(Boolean);
+    if (tagFilters.length) {
+      const tagsSql = sql.join(
+        tagFilters.map((tag) => sql`${tag}`),
+        sql`, `,
+      );
+      conditions.push(sql`${userJobOffersTable.tags} ?| ARRAY[${tagsSql}]`);
+    }
+    if (query.search) {
+      const term = `%${query.search}%`;
+      conditions.push(
+        sql`(${jobOffersTable.title} ILIKE ${term} OR ${jobOffersTable.company} ILIKE ${term} OR ${userJobOffersTable.notes} ILIKE ${term} OR ${userJobOffersTable.tags}::text ILIKE ${term})`,
+      );
+    }
+
+    const rows = await this.db
+      .select({
+        id: userJobOffersTable.id,
+        jobOfferId: jobOffersTable.id,
+        sourceRunId: userJobOffersTable.sourceRunId,
+        status: userJobOffersTable.status,
+        matchScore: userJobOffersTable.matchScore,
+        matchMeta: userJobOffersTable.matchMeta,
+        aiFeedbackScore: userJobOffersTable.aiFeedbackScore,
+        aiFeedbackNotes: userJobOffersTable.aiFeedbackNotes,
+        pipelineMeta: userJobOffersTable.pipelineMeta,
+        followUpAt: userJobOffersTable.followUpAt,
+        nextStep: userJobOffersTable.nextStep,
+        followUpNote: userJobOffersTable.followUpNote,
+        applicationUrl: userJobOffersTable.applicationUrl,
+        contactName: userJobOffersTable.contactName,
+        lastFollowUpCompletedAt: userJobOffersTable.lastFollowUpCompletedAt,
+        lastFollowUpSnoozedAt: userJobOffersTable.lastFollowUpSnoozedAt,
+        prepMaterials: userJobOffersTable.prepMaterials,
+        notes: userJobOffersTable.notes,
+        tags: userJobOffersTable.tags,
+        statusHistory: userJobOffersTable.statusHistory,
+        lastStatusAt: userJobOffersTable.lastStatusAt,
+        source: jobOffersTable.source,
+        url: jobOffersTable.url,
+        title: jobOffersTable.title,
+        company: jobOffersTable.company,
+        location: jobOffersTable.location,
+        salary: jobOffersTable.salary,
+        employmentType: jobOffersTable.employmentType,
+        description: jobOffersTable.description,
+        requirements: jobOffersTable.requirements,
+        details: jobOffersTable.details,
+        qualityReason: jobOffersTable.qualityReason,
+        createdAt: jobOffersTable.fetchedAt,
+      })
+      .from(userJobOffersTable)
+      .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .where(and(...conditions))
+      .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt))
+      .limit(fetchWindow)
+      .offset(0);
+
+    const followUpNow = new Date();
+    const prioritized = rows
+      .filter((item) => !['DISMISSED', 'ARCHIVED', 'REJECTED'].includes(item.status))
+      .map((item) => {
+        const followUpFields = extractFollowUpFields(item);
+        const ranking = computeNotebookOfferRanking(
+          {
+            matchScore: item.matchScore,
+            matchMeta: (item.matchMeta as Record<string, unknown> | null) ?? null,
+          },
+          mode,
+          this.rankingTuning,
+        );
+        const matchMeta = (item.matchMeta as Record<string, unknown> | null) ?? null;
+        const fitHighlights = getHumanFitHighlights(matchMeta, ranking.explanationTags, item.matchScore);
+
+        return {
+          ...item,
+          rankingScore: ranking.rankingScore,
+          explanationTags: ranking.explanationTags,
+          followUpState: resolveFollowUpState(item.status, item, followUpNow),
+          pipelineMeta: buildPipelineMetaWithFollowUp(item.pipelineMeta, followUpFields),
+          followUpAt: toIsoString(followUpFields.followUpAt),
+          nextStep: followUpFields.nextStep,
+          followUpNote: followUpFields.followUpNote,
+          applicationUrl: followUpFields.applicationUrl,
+          contactName: followUpFields.contactName,
+          lastFollowUpCompletedAt: toIsoString(followUpFields.lastFollowUpCompletedAt),
+          lastFollowUpSnoozedAt: toIsoString(followUpFields.lastFollowUpSnoozedAt),
+          fitSummary: buildHumanFitSummary(matchMeta, ranking.explanationTags, item.matchScore),
+          fitHighlights,
+          isInPipeline: ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'].includes(item.status),
+          __include: ranking.include || mode !== 'strict',
+          __statusPriority: ['NEW', 'SEEN'].includes(item.status) ? 0 : 1,
+          __createdAtMs: new Date(item.createdAt).getTime(),
+        };
+      })
+      .filter((item) => item.__include)
+      .sort((a, b) => {
+        if (a.__statusPriority !== b.__statusPriority) {
+          return a.__statusPriority - b.__statusPriority;
+        }
+        const rankingDiff = (b.rankingScore ?? 0) - (a.rankingScore ?? 0);
+        if (rankingDiff !== 0) {
+          return rankingDiff;
+        }
+        return b.__createdAtMs - a.__createdAtMs;
+      });
+
+    return {
+      items: prioritized
+        .slice(offset, offset + limit)
+        .map(({ __include, __statusPriority, __createdAtMs, ...item }) => item),
+      total: prioritized.length,
+      mode,
+    };
+  }
+
+  async getDiscoverySummary(userId: string) {
+    const items = await this.db
+      .select({
+        status: userJobOffersTable.status,
+      })
+      .from(userJobOffersTable)
+      .where(eq(userJobOffersTable.userId, userId));
+
+    const activeItems = items.filter((item) => !['DISMISSED', 'ARCHIVED', 'REJECTED'].includes(item.status));
+    const unseen = activeItems.filter((item) => item.status === 'NEW').length;
+    const reviewed = activeItems.filter((item) => item.status === 'SEEN').length;
+    const inPipeline = activeItems.filter((item) =>
+      ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'].includes(item.status),
+    ).length;
+
+    return {
+      total: activeItems.length,
+      unseen,
+      reviewed,
+      inPipeline,
+      buckets: [
+        { key: 'new', label: 'Unseen', count: unseen },
+        { key: 'seen', label: 'Reviewed', count: reviewed },
+        { key: 'pipeline', label: 'In pipeline', count: inPipeline },
+      ],
+    };
+  }
+
   async getNotebookSummary(userId: string) {
     const items = await this.db
       .select({
@@ -424,6 +659,12 @@ export class JobOffersService {
         (item.status === 'NEW' || item.status === 'SEEN') &&
         new Date(item.lastStatusAt ?? item.createdAt) < staleCutoff,
     ).length;
+    const missingNextStep = items.filter((item) => hasMissingNextStep(item.status, item)).length;
+    const stalePipeline = items.filter(
+      (item) =>
+        ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'].includes(item.status) &&
+        new Date(item.lastStatusAt ?? item.createdAt) < staleCutoff,
+    ).length;
     const savedCount = items.filter((item) => item.status === 'SAVED').length;
     const appliedCount = items.filter((item) => item.status === 'APPLIED').length;
 
@@ -453,6 +694,8 @@ export class JobOffersService {
       unscored,
       highConfidenceStrict,
       staleUntriaged,
+      missingNextStep,
+      stalePipeline,
       followUpDue,
       followUpUpcoming,
       buckets: bucketDefinitions,
@@ -465,14 +708,14 @@ export class JobOffersService {
           key: 'unscored',
           label: 'Review unscored',
           description: 'Score fresh notebook offers before moving them deeper into the funnel.',
-          href: '/notebook?focus=unscored',
+          href: '/opportunities?focus=unscored',
           count: unscored,
         },
         {
           key: 'strictTop',
           label: 'Strict top matches',
           description: 'Work the highest-confidence strict matches first.',
-          href: '/notebook?focus=strictTop',
+          href: '/opportunities?focus=strictTop',
           count: highConfidenceStrict,
         },
         {
@@ -493,7 +736,7 @@ export class JobOffersService {
           key: 'staleUntriaged',
           label: 'Stale untriaged',
           description: 'Clear old NEW or SEEN offers that have been sitting too long.',
-          href: '/notebook?focus=staleUntriaged',
+          href: '/opportunities?focus=staleUntriaged',
           count: staleUntriaged,
         },
         {
@@ -656,7 +899,7 @@ export class JobOffersService {
           key: 'strict-top',
           label: 'Strict top matches',
           description: 'Review the highest-confidence strict matches first.',
-          href: '/notebook?focus=strictTop',
+          href: '/opportunities?focus=strictTop',
           count: strictTopMatchesItems.length,
           items: strictTopMatches,
         },
@@ -664,7 +907,7 @@ export class JobOffersService {
           key: 'unscored-fresh',
           label: 'Unscored fresh leads',
           description: 'Score the newest leads before they get stale.',
-          href: '/notebook?focus=unscored',
+          href: '/opportunities?focus=unscored',
           count: unscoredFreshItems.length,
           items: unscoredFresh,
         },
@@ -696,7 +939,7 @@ export class JobOffersService {
           key: 'stale-untriaged',
           label: 'Stale untriaged',
           description: 'Clear old NEW or SEEN offers that still have no decision.',
-          href: '/notebook?focus=staleUntriaged',
+          href: '/opportunities?focus=staleUntriaged',
           count: staleUntriagedItems.length,
           items: staleUntriaged,
         },
@@ -790,7 +1033,7 @@ export class JobOffersService {
         key: 'strict-top-unreviewed',
         label: 'Strict-top unreviewed',
         description: 'High-confidence strict matches are waiting for first-pass triage.',
-        href: '/notebook?focus=strictTop',
+        href: '/opportunities?focus=strictTop',
         count: strictTopUnreviewed,
         ctaLabel: 'Work strict-top matches',
         reasons: ['strict ranking found high-signal offers that are still unreviewed'],

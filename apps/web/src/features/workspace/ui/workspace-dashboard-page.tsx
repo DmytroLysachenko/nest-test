@@ -58,9 +58,9 @@ export const WorkspaceDashboardPage = () => {
   const schedule = dashboard.schedule;
   const nextAction = summary.nextAction ?? {
     key: 'triage-notebook',
-    title: 'Review your notebook',
-    description: 'Use notebook and profile tools to keep the workspace moving.',
-    href: '/notebook',
+    title: 'Review fresh opportunities',
+    description: 'Use opportunities for discovery and notebook for active workflow.',
+    href: '/opportunities',
     priority: 'info' as const,
   };
   const health = summary.health ?? {
@@ -93,8 +93,8 @@ export const WorkspaceDashboardPage = () => {
             <Link href="/planning">
               <Button variant="secondary">Open planning</Button>
             </Link>
-            <Link href="/notebook">
-              <Button>Open notebook</Button>
+            <Link href="/opportunities">
+              <Button>Open opportunities</Button>
             </Link>
             <StatusPill value={latestRunStatus} tone={getWorkspaceRunStatusTone(summary.scrape.lastRunStatus)} />
           </div>
@@ -123,11 +123,14 @@ export const WorkspaceDashboardPage = () => {
               <p className="text-text-strong mt-2 text-lg font-semibold">Run now or schedule</p>
               <p className="text-text-soft mt-2 text-sm leading-6">{scrapeSetupHint}</p>
             </Link>
-            <Link href="/notebook" className="app-glass-panel block p-4 transition-transform hover:-translate-y-0.5">
-              <p className="text-text-soft text-xs uppercase tracking-[0.14em]">Notebook</p>
-              <p className="text-text-strong mt-2 text-lg font-semibold">{summary.offers.followUpDue} follow-ups due</p>
+            <Link
+              href="/opportunities"
+              className="app-glass-panel block p-4 transition-transform hover:-translate-y-0.5"
+            >
+              <p className="text-text-soft text-xs uppercase tracking-[0.14em]">Opportunities</p>
+              <p className="text-text-strong mt-2 text-lg font-semibold">{summary.offers.total} matched leads</p>
               <p className="text-text-soft mt-2 text-sm leading-6">
-                Triage due follow-ups and strict-top matches before opening broader discovery modes.
+                Review fresh matches and save only the roles worth active pipeline work.
               </p>
             </Link>
             <Link href="/activity" className="app-glass-panel block p-4 transition-transform hover:-translate-y-0.5">
@@ -161,7 +164,8 @@ export const WorkspaceDashboardPage = () => {
             <div className="app-inset-stack">
               <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Operator note</p>
               <p className="text-text-soft mt-2 text-sm leading-6">
-                Use Planning for deliberate sourcing changes. Use Notebook for triage. Keep this page for orientation.
+                Use Opportunities for discovery and Notebook for active pipeline management. Keep this page for
+                orientation.
               </p>
             </div>
           </div>
@@ -252,8 +256,9 @@ export const WorkspaceDashboardPage = () => {
           },
           {
             key: 'triage',
-            title: 'Finish in Notebook',
-            description: 'Once the run is complete, handle strict-top matches and due follow-ups first.',
+            title: 'Continue in workflow surfaces',
+            description:
+              'Once the run is complete, review new matches in Opportunities, then continue active roles in Notebook.',
             status: summary.offers.total > 0 ? 'done' : 'upcoming',
           },
         ]}
@@ -299,7 +304,7 @@ export const WorkspaceDashboardPage = () => {
           title="Focus lane"
           description="Short operational blocks that tell you what deserves the next session."
         >
-          <Card title="Today" description="Action-plan buckets for the next notebook session.">
+          <Card title="Today" description="Action-plan buckets for the next active-work session.">
             {dashboard.isActionPlanLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, index) => (
@@ -347,7 +352,10 @@ export const WorkspaceDashboardPage = () => {
             )}
           </Card>
 
-          <Card title="Today's Focus" description="Server-driven focus lanes for the next notebook session.">
+          <Card
+            title="Today's Focus"
+            description="Server-driven focus lanes split between discovery and active-work queues."
+          >
             {dashboard.isFocusLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, index) => (
@@ -381,7 +389,7 @@ export const WorkspaceDashboardPage = () => {
                       </div>
                       <p className="text-text-soft mt-2 text-sm leading-6">{group.description}</p>
                       <p className="text-primary mt-3 text-xs font-semibold uppercase tracking-[0.16em]">
-                        Open in notebook
+                        Open workflow
                       </p>
                     </Link>
                   ))}
@@ -390,7 +398,7 @@ export const WorkspaceDashboardPage = () => {
               <EmptyState
                 icon={<Inbox className="h-8 w-8" />}
                 title="No focus lanes waiting"
-                description="Your notebook does not have any urgent focus groups right now."
+                description="You do not have any urgent discovery or pipeline focus groups right now."
               />
             )}
           </Card>
@@ -418,6 +426,11 @@ export const WorkspaceDashboardPage = () => {
           >
             <div className="space-y-3">
               {[
+                {
+                  href: '/opportunities',
+                  title: 'Opportunities',
+                  description: 'Review fresh matched roles, then save only the keepers into your workflow.',
+                },
                 {
                   href: '/planning',
                   title: 'Planning',

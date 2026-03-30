@@ -33,7 +33,7 @@ The project should not drift into:
 ## Now (Execution Priority)
 
 1. Workflow differentiation in dashboard + notebook.
-   - Status: in progress (normalized follow-up fields, action-plan read model, prep packet read model, and one-click notebook follow-up actions shipped; remaining work is deeper reminder reliability and richer prep support).
+   - Status: in progress (normalized follow-up fields, action-plan read model, prep packet read model, discovery/opportunities split, grouped discovery queues, and notebook Kanban-first pipeline workflow shipped; remaining work is deeper reminder reliability and richer prep support).
 2. Matching quality tuning (score calibration, stricter seniority/constraints behavior).
    - Status: in progress (capped approx penalties + explore recency weighting shipped; threshold tuning ongoing).
 3. Scraper quality hardening and source-specific reliability.
@@ -59,6 +59,7 @@ The project should not drift into:
      - stronger "today's focus" / "needs attention" queues
      - richer application prep and next-step support
      - explicit hidden/degraded result messaging
+     - continued quality improvements for Kanban throughput and active-offer workspace ergonomics
    - Status: in progress.
 2. Tighten scrape output usefulness, not just scrape completion.
    - Scope:

@@ -59,6 +59,19 @@ export const queryKeys = {
       ['job-sources', 'preflight', token, params] as const,
   },
   jobOffers: {
+    discovery: (
+      token: string | null,
+      params: {
+        limit?: number;
+        offset?: number;
+        status?: string;
+        mode?: 'strict' | 'approx' | 'explore';
+        minScore?: number;
+        search?: string;
+        tag?: string;
+        hasScore?: boolean;
+      },
+    ) => ['job-offers', 'discovery', token, params] as const,
     list: (
       token: string | null,
       params: {
@@ -76,6 +89,7 @@ export const queryKeys = {
     ) => ['job-offers', token, params] as const,
     history: (token: string | null, offerId: string | null) => ['job-offers', 'history', token, offerId] as const,
     preferences: (token: string | null) => ['job-offers', 'preferences', token] as const,
+    discoverySummary: (token: string | null) => ['job-offers', 'discovery-summary', token] as const,
     summary: (token: string | null) => ['job-offers', 'summary', token] as const,
     focus: (token: string | null) => ['job-offers', 'focus', token] as const,
     actionPlan: (token: string | null) => ['job-offers', 'action-plan', token] as const,

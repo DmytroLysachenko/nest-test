@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('dashboard renders the action plan and links into notebook focus', async ({ page }) => {
+test('dashboard renders the action plan and links into the split workflow surfaces', async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem('career_assistant_access_token', 'test-access-token');
     window.localStorage.setItem('career_assistant_refresh_token', 'test-refresh-token');
@@ -44,9 +44,9 @@ test('dashboard renders the action plan and links into notebook focus', async ({
           workflow: { needsOnboarding: false },
           nextAction: {
             key: 'triage-notebook',
-            title: 'Review notebook',
-            description: 'Handle due follow-ups first.',
-            href: '/notebook?focus=followUpDue',
+            title: 'Review fresh opportunities',
+            description: 'Use opportunities for discovery and notebook for active workflow.',
+            href: '/opportunities?focus=strictTop',
             priority: 'recommended',
           },
           activity: [],
@@ -57,7 +57,7 @@ test('dashboard renders the action plan and links into notebook focus', async ({
           },
           readinessBreakdown: [],
           blockerDetails: [],
-          recommendedSequence: ['planning', 'notebook'],
+          recommendedSequence: ['planning', 'opportunities', 'notebook'],
         },
       }),
     });
@@ -219,6 +219,7 @@ test('dashboard renders the action plan and links into notebook focus', async ({
 
   await expect(page.getByText('Today', { exact: true })).toBeVisible();
   await expect(page.getByText('Due now')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Opportunities/i }).first()).toBeVisible();
 
   const actionLink = page.getByRole('link', { name: /Due now/i }).first();
   await expect(actionLink).toHaveAttribute('href', '/notebook?focus=followUpDue');

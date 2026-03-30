@@ -65,6 +65,8 @@ const defaultNotebookSummary: JobOfferSummaryDto = {
   unscored: 0,
   highConfidenceStrict: 0,
   staleUntriaged: 0,
+  missingNextStep: 0,
+  stalePipeline: 0,
   followUpDue: 0,
   followUpUpcoming: 0,
   buckets: [],

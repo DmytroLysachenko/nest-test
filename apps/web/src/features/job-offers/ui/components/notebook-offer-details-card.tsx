@@ -11,7 +11,6 @@ import { ConfirmActionDialog } from '@/shared/ui/confirm-action-dialog';
 import { DataFreshnessBadge } from '@/shared/ui/data-freshness-badge';
 import { WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 import { Input } from '@/shared/ui/input';
-import { InspectorRow } from '@/shared/ui/inspector-row';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
 import { EmptyState } from '@/shared/ui/empty-state';
@@ -167,7 +166,7 @@ export const NotebookOfferDetailsCard = ({
             <DataFreshnessBadge updatedAt={updatedAt} label="Offer data" />
           </div>
           <p className="text-secondary-foreground font-medium">
-            {offer.company ?? 'Unknown company'} · {offer.location ?? 'Unknown location'}
+            {offer.company ?? 'Unknown company'} | {offer.location ?? 'Unknown location'}
           </p>
         </div>
 
@@ -504,15 +503,6 @@ export const NotebookOfferDetailsCard = ({
 
         <details className="group">
           <summary className="text-text-strong hover:text-primary cursor-pointer text-sm font-medium transition-colors">
-            Score explanation
-          </summary>
-          <div className="mt-3">
-            <pre className="app-code">{JSON.stringify(matchMeta, null, 2)}</pre>
-          </div>
-        </details>
-
-        <details className="group">
-          <summary className="text-text-strong hover:text-primary cursor-pointer text-sm font-medium transition-colors">
             Job Description
           </summary>
           <div className="mt-3">
@@ -530,17 +520,38 @@ export const NotebookOfferDetailsCard = ({
               Status history
             </summary>
             <div className="mt-3 space-y-2">
-              {(history.statusHistory ?? []).map((entry, index) => (
-                <InspectorRow
-                  key={`${entry.status}-${entry.changedAt}-${index}`}
-                  label={new Date(entry.changedAt).toLocaleDateString()}
-                  value={entry.status}
-                  className="px-3 py-2"
-                />
-              ))}
+              {(history.statusHistory ?? []).length ? (
+                (history.statusHistory ?? []).map((entry, index) => (
+                  <div
+                    key={`${entry.status}-${entry.changedAt}-${index}`}
+                    className="border-border/60 bg-surface-muted/35 flex items-start justify-between gap-4 rounded-2xl border px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-text-strong text-sm font-semibold">Moved to {entry.status}</p>
+                      <p className="text-text-soft mt-1 text-xs">{new Date(entry.changedAt).toLocaleString()}</p>
+                    </div>
+                    <span className="app-badge">{entry.status}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-text-soft text-sm">No status changes recorded yet for this role.</p>
+              )}
             </div>
           </details>
         ) : null}
+
+        <details className="group">
+          <summary className="text-text-strong hover:text-primary cursor-pointer text-sm font-medium transition-colors">
+            Advanced fit diagnostics
+          </summary>
+          <div className="mt-3 space-y-3">
+            <p className="text-text-soft text-xs">
+              This is internal match metadata. Keep it out of the normal review flow unless you are debugging why a role
+              was ranked this way.
+            </p>
+            <pre className="app-code">{JSON.stringify(matchMeta, null, 2)}</pre>
+          </div>
+        </details>
       </div>
 
       <ConfirmActionDialog

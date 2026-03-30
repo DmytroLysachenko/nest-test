@@ -1,6 +1,8 @@
 import { apiRequest } from '@/shared/lib/http/api-client';
 
 import type {
+  DiscoveryJobOffersListDto,
+  DiscoverySummaryDto,
   JobOfferHistoryDto,
   JobOfferFocusDto,
   JobOfferActionPlanDto,
@@ -65,6 +67,12 @@ const toQuery = (params: ListJobOffersParams) => {
 
 export const listJobOffers = (token: string, params: ListJobOffersParams) =>
   apiRequest<JobOffersListDto>(`/job-offers${toQuery(params)}`, {
+    method: 'GET',
+    token,
+  });
+
+export const listDiscoveryJobOffers = (token: string, params: ListJobOffersParams) =>
+  apiRequest<DiscoveryJobOffersListDto>(`/job-offers/discovery${toQuery(params)}`, {
     method: 'GET',
     token,
   });
@@ -163,6 +171,12 @@ export const getNotebookPreferences = (token: string) =>
 
 export const getNotebookSummary = (token: string) =>
   apiRequest<JobOfferSummaryDto>('/job-offers/summary', {
+    method: 'GET',
+    token,
+  });
+
+export const getDiscoverySummary = (token: string) =>
+  apiRequest<DiscoverySummaryDto>('/job-offers/discovery/summary', {
     method: 'GET',
     token,
   });

@@ -301,9 +301,9 @@ Configure repository/environment variables:
 4. `vars.GCP_API_SERVICE`
 5. `vars.GCP_WORKER_SERVICE`
 6. `vars.GCP_WEB_SERVICE`
-7. `vars.GCP_API_BASE_URL`
-8. `vars.GCP_WORKER_BASE_URL`
-9. `vars.GCP_WEB_BASE_URL`
+7. `vars.GCS_BUCKET`
+8. `vars.GOOGLE_OAUTH_CLIENT_ID`
+9. `vars.GEMINI_MODEL`
 
 Configure repository/environment secrets:
 

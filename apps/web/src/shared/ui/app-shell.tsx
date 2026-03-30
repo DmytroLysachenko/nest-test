@@ -29,6 +29,7 @@ const testerEnabled = process.env.NODE_ENV !== 'production' && env.NEXT_PUBLIC_E
 const baseNavItems: AppNavItem[] = [
   { href: '/', label: 'Dashboard', shortLabel: 'DB' },
   { href: '/planning', label: 'Planning', shortLabel: 'PL' },
+  { href: '/opportunities', label: 'Opportunities', shortLabel: 'OC' },
   { href: '/notebook', label: 'Notebook', shortLabel: 'NB' },
   { href: '/activity', label: 'Activity Board', shortLabel: 'AC' },
   { href: '/profile', label: 'Profile Studio', shortLabel: 'PS' },
@@ -129,7 +130,10 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
   const navItems = useMemo(() => {
     const items: AppNavItem[] = [
       ...baseNavItems.map((item) =>
-        item.href === '/notebook' || item.href === '/planning' || item.href === '/activity'
+        item.href === '/notebook' ||
+        item.href === '/opportunities' ||
+        item.href === '/planning' ||
+        item.href === '/activity'
           ? {
               ...item,
               hidden: !workspaceReady,
