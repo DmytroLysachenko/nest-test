@@ -239,6 +239,13 @@
       "when": 1774652400000,
       "tag": "0033_user_job_offer_follow_up_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1774897200000,
+      "tag": "0034_catalog_standardization_core",
+      "breakpoints": true
     }
   ]
 }

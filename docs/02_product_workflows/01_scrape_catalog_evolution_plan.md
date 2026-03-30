@@ -138,6 +138,21 @@ Suggested supporting tables:
 - later, if justified: `company_source_profiles`
   - source-specific profile links and metadata
 
+### Phase-1 standardization decision
+
+The first implementation slice should standardize only the highest-value repeated dimensions:
+
+- `companies`
+- `company_aliases`
+- `job_categories`
+- `employment_types`
+- `contract_types`
+- `work_modes`
+
+This is intentionally smaller than a full entity graph.
+
+The goal is to unlock better SQL-backed matching and filtering without over-modeling too early.
+
 ### Extend `job_offers`
 
 `job_offers` should reference `companies.id`, but keep denormalized snapshots too.

@@ -12,11 +12,16 @@ import * as apiRequestEvents from './api-request-events';
 import * as authorizationEvents from './authorization-events';
 import * as documentStageMetrics from './document-stage-metrics';
 import * as careerProfiles from './career-profiles';
+import * as companies from './companies';
+import * as companyAliases from './company-aliases';
+import * as contractTypes from './contract-types';
 import * as jobMatches from './job-matches';
+import * as employmentTypes from './employment-types';
 import * as jobSourceRuns from './job-source-runs';
 import * as jobSourceRunEvents from './job-source-run-events';
 import * as jobSourceRunAttempts from './job-source-run-attempts';
 import * as jobSourceCallbackEvents from './job-source-callback-events';
+import * as jobCategories from './job-categories';
 import * as scrapeSchedules from './scrape-schedules';
 import * as scrapeScheduleEvents from './scrape-schedule-events';
 import * as jobOffers from './job-offers';
@@ -26,6 +31,7 @@ import * as roles from './roles';
 import * as scrapeOutcomes from './scrape-outcomes';
 import * as scrapeExecutionEvents from './scrape-execution-events';
 import * as userJobOffers from './user-job-offers';
+import * as workModes from './work-modes';
 import * as relations from './_relations';
 
 export * from './_enums';
@@ -42,11 +48,16 @@ export * from './api-request-events';
 export * from './authorization-events';
 export * from './document-stage-metrics';
 export * from './career-profiles';
+export * from './companies';
+export * from './company-aliases';
+export * from './contract-types';
 export * from './job-matches';
+export * from './employment-types';
 export * from './job-source-runs';
 export * from './job-source-run-events';
 export * from './job-source-run-attempts';
 export * from './job-source-callback-events';
+export * from './job-categories';
 export * from './scrape-schedules';
 export * from './scrape-schedule-events';
 export * from './job-offers';
@@ -56,6 +67,7 @@ export * from './roles';
 export * from './scrape-outcomes';
 export * from './scrape-execution-events';
 export * from './user-job-offers';
+export * from './work-modes';
 export * from './_relations';
 export * from '../pracuj-filters';
 
@@ -76,11 +88,16 @@ const schema = {
   ...authorizationEvents,
   ...documentStageMetrics,
   ...careerProfiles,
+  ...companies,
+  ...companyAliases,
+  ...contractTypes,
   ...jobMatches,
+  ...employmentTypes,
   ...jobSourceRuns,
   ...jobSourceRunEvents,
   ...jobSourceRunAttempts,
   ...jobSourceCallbackEvents,
+  ...jobCategories,
   ...scrapeSchedules,
   ...scrapeScheduleEvents,
   ...jobOffers,
@@ -90,6 +107,7 @@ const schema = {
   ...scrapeOutcomes,
   ...scrapeExecutionEvents,
   ...userJobOffers,
+  ...workModes,
   ...relations,
 };
 export default schema;

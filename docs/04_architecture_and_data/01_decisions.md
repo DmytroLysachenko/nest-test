@@ -50,6 +50,23 @@ ADR-lite log for major architectural and contract decisions.
   - Source blocking and browser fallback make deterministic perfect-success expectations unrealistic.
   - The product must explain what happened in prod without requiring log archaeology.
 
+## 2026-03-30: Phase-1 Catalog Standardization Uses Company And Taxonomy Core
+
+- Decision:
+  - Start catalog standardization with a small reusable entity layer:
+    - `companies`
+    - `company_aliases`
+    - `job_categories`
+    - `employment_types`
+    - `contract_types`
+    - `work_modes`
+  - Extend `job_offers` with nullable normalized foreign keys for those entities.
+  - Keep raw source snapshot fields during migration instead of replacing them immediately.
+- Why:
+  - Matching and query logic should gradually move from substring scans toward SQL-backed structured fields.
+  - The phase-1 model must support future non-IT domains, so taxonomy should stay domain-neutral.
+  - Keeping raw snapshot fields reduces migration risk and preserves offer-history context.
+
 ## 2026-02-21: Canonical Career Profile Schema
 
 - Decision:
