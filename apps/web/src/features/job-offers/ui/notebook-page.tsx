@@ -1,18 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { LayoutGrid, List } from 'lucide-react';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@repo/ui/components/sheet';
+import React from 'react';
 
 import { useNotebookPage } from '@/features/job-offers/model/use-notebook-page';
 import { NotebookFiltersCard } from '@/features/job-offers/ui/components/notebook-filters-card';
 import { NotebookOfferDetailsCard } from '@/features/job-offers/ui/components/notebook-offer-details-card';
-import { NotebookOffersListCard } from '@/features/job-offers/ui/components/notebook-offers-list-card';
 import { NotebookPipelineCard } from '@/features/job-offers/ui/components/notebook-pipeline-card';
 import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
-import { HeroHeader, UtilityRail } from '@/shared/ui/dashboard-primitives';
+import { HeroHeader } from '@/shared/ui/dashboard-primitives';
 import { GuidancePanel } from '@/shared/ui/guidance-panels';
-import { Button } from '@/shared/ui/button';
 
 type NotebookPageProps = {
   token: string;
@@ -32,19 +28,9 @@ type NotebookPageProps = {
 
 export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId = null }: NotebookPageProps) => {
   const notebook = useNotebookPage({ token, initialQuickAction, initialOfferId });
-  const [isDesktopRail, setIsDesktopRail] = useState(false);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 1280px)');
-    const updateBreakpoint = () => setIsDesktopRail(mediaQuery.matches);
-
-    updateBreakpoint();
-    mediaQuery.addEventListener('change', updateBreakpoint);
-
-    return () => {
-      mediaQuery.removeEventListener('change', updateBreakpoint);
-    };
-  }, []);
+  const pipelineOffers = (notebook.listQuery.data?.items ?? []).filter((offer) =>
+    ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'].includes(offer.status),
+  );
 
   const renderOfferWorkspace = () => (
     <NotebookOfferDetailsCard
@@ -119,37 +105,15 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
   return (
     <main className="app-page space-y-6">
       <HeroHeader
-        eyebrow="Triage & Tracking"
-        title="Job Notebook"
-        subtitle="Review fresh offers, move the best ones through your pipeline, and only widen the search when strict matches are exhausted."
-        action={
-          <div className="bg-surface-muted border-border/60 flex rounded-2xl border p-1">
-            <Button
-              variant={notebook.filters.view === 'LIST' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-8 rounded-xl px-3"
-              onClick={() => notebook.setNotebookFilter('view', 'LIST')}
-            >
-              <List className="mr-2 h-4 w-4" />
-              List
-            </Button>
-            <Button
-              variant={notebook.filters.view === 'PIPELINE' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-8 rounded-xl px-3"
-              onClick={() => notebook.setNotebookFilter('view', 'PIPELINE')}
-            >
-              <LayoutGrid className="mr-2 h-4 w-4" />
-              Pipeline
-            </Button>
-          </div>
-        }
+        eyebrow="Active Workflow"
+        title="Notebook Pipeline"
+        subtitle="Keep chosen roles moving forward, recover stale applications, and manage follow-up and prep work in one pipeline-first workspace."
       />
 
       <GuidancePanel
-        eyebrow="Triage tip"
-        title="Start narrow, then widen"
-        description="Review strict-top and follow-up-due offers first. Explore mode is useful later, but it should not replace the first-pass workflow for high-signal opportunities."
+        eyebrow="Pipeline tip"
+        title="Use opportunities for review, notebook for active work"
+        description="This page is for roles you kept. Review fresh matches in Opportunities, then use this workspace to move saved and applied roles forward or backward as the real process changes."
         tone="info"
       />
 
@@ -183,125 +147,35 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
         onAutoArchive={notebook.autoArchive}
       />
 
-      <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.9fr)]">
-        <div>
-          {notebook.listQuery.isLoading ? (
-            <SectionLoadingState title="Offers" description="Loading notebook data..." rows={7} />
-          ) : notebook.listError ? (
-            <SectionErrorState
-              title="Offers"
-              message={notebook.listError}
-              onRetry={() => {
-                void notebook.listQuery.refetch();
-              }}
-            />
-          ) : notebook.filters.view === 'PIPELINE' ? (
-            <NotebookPipelineCard
-              offers={notebook.listQuery.data?.items ?? []}
-              selectedId={notebook.selectedId}
-              onSelectOffer={notebook.setNotebookSelectedOffer}
-              onUpdateStatus={notebook.updateStatus}
-            />
-          ) : (
-            <NotebookOffersListCard
-              offers={notebook.listQuery.data?.items ?? []}
-              hiddenByModeCount={notebook.listQuery.data?.hiddenByModeCount ?? 0}
-              degradedResultCount={notebook.listQuery.data?.degradedResultCount ?? 0}
-              lastScrapeStatus={notebook.workspaceSummary?.scrape.lastRunStatus ?? null}
-              selectedId={notebook.selectedId}
-              selectedOfferIds={notebook.selectedOfferIds}
-              isBusy={notebook.isBusy}
-              offset={notebook.pagination.offset}
-              canPrev={notebook.canPrev}
-              canNext={notebook.canNext}
-              isAllVisibleSelected={notebook.isAllVisibleSelected}
-              mode={notebook.filters.mode}
-              onSelectOffer={notebook.setNotebookSelectedOffer}
-              onToggleOfferSelection={notebook.toggleNotebookSelectedOfferId}
-              onSelectAllVisible={() => {
-                if (notebook.isAllVisibleSelected) {
-                  notebook.clearNotebookSelectedOfferIds();
-                  return;
-                }
-                notebook.setNotebookSelectedOfferIds(notebook.selectedVisibleIds);
-              }}
-              onClearSelected={notebook.clearNotebookSelectedOfferIds}
-              onBulkStatusChange={(status) => {
-                notebook.bulkUpdateStatus({
-                  ids: notebook.selectedOfferIds,
-                  status,
-                });
-              }}
-              onBulkFollowUpSave={(payload) => {
-                notebook.bulkUpdateFollowUp(payload);
-              }}
-              onBulkSnooze={(durationHours) => {
-                notebook.bulkUpdateFollowUp({
-                  ids: notebook.selectedOfferIds,
-                  followUpAt: new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString(),
-                });
-              }}
-              onBulkClearFollowUp={() => {
-                notebook.bulkUpdateFollowUp({
-                  ids: notebook.selectedOfferIds,
-                  followUpAt: null,
-                  nextStep: null,
-                  note: null,
-                });
-              }}
-              onModeChange={(value) => notebook.setNotebookFilter('mode', value)}
-              onOpenPlanning={() => {
-                window.location.href = '/planning';
-              }}
-              onPrev={() => notebook.setNotebookOffset(notebook.pagination.offset - notebook.pagination.limit)}
-              onNext={() => notebook.setNotebookOffset(notebook.pagination.offset + notebook.pagination.limit)}
-            />
-          )}
-        </div>
-
-        <div className="hidden xl:sticky xl:top-24 xl:block xl:self-start">
-          <UtilityRail
-            title={notebook.selectedOffer ? 'Offer workspace' : 'Details rail'}
-            description={
-              notebook.selectedOffer
-                ? 'Keep the selected offer, fit context, and next action in one quieter side workspace.'
-                : 'Select an offer to open notes, fit reasoning, and pipeline controls.'
-            }
-            className="bg-transparent p-0"
-          >
-            {renderOfferWorkspace()}
-          </UtilityRail>
-        </div>
-      </div>
-
-      {!isDesktopRail ? (
-        <Sheet
-          open={Boolean(notebook.selectedId)}
-          onOpenChange={(open) => (!open ? notebook.setNotebookSelectedOffer(null) : null)}
-        >
-          <SheetContent side="bottom" className="h-[92vh] rounded-t-[1.8rem] border-none px-0">
-            <SheetHeader className="px-5 pb-0 pt-5">
-              <SheetTitle>{notebook.selectedOffer?.title ?? 'Offer workspace'}</SheetTitle>
-              <SheetDescription>
-                Keep the selected offer, fit context, and next action together without losing the notebook list.
-              </SheetDescription>
-            </SheetHeader>
-            <div className="overflow-y-auto px-5 pb-5">
-              <UtilityRail
-                title={notebook.selectedOffer ? 'Offer workspace' : 'Details rail'}
-                description={
-                  notebook.selectedOffer
-                    ? 'Edit status, follow-up, and notes while keeping the list context in the background.'
-                    : 'Select an offer to open notes, fit reasoning, and pipeline controls.'
-                }
-                className="bg-transparent p-0"
-              >
-                {renderOfferWorkspace()}
-              </UtilityRail>
+      {notebook.listQuery.isLoading ? (
+        <SectionLoadingState title="Pipeline" description="Loading notebook data..." rows={7} />
+      ) : notebook.listError ? (
+        <SectionErrorState
+          title="Pipeline"
+          message={notebook.listError}
+          onRetry={() => {
+            void notebook.listQuery.refetch();
+          }}
+        />
+      ) : (
+        <>
+          <NotebookPipelineCard
+            offers={pipelineOffers}
+            selectedId={notebook.selectedId}
+            onSelectOffer={notebook.setNotebookSelectedOffer}
+            onUpdateStatus={notebook.updateStatus}
+          />
+          <section className="space-y-3">
+            <div>
+              <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Selected offer workspace</p>
+              <p className="text-text-soft mt-1 text-sm">
+                Keep more context here than in discovery: notes, next actions, prep packet, and status history.
+              </p>
             </div>
-          </SheetContent>
-        </Sheet>
-      ) : null}
+            {renderOfferWorkspace()}
+          </section>
+        </>
+      )}
     </main>
   );
 };
