@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { jobOffersTable, jobSourceRunsTable } from '@repo/db';
+import { jobOffersTable, jobSourceRunsTable, resolveCatalogNormalizationRefs } from '@repo/db';
 
 import { getDb } from './client';
 
@@ -158,15 +158,26 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
   const source = mapSource(input.source);
 
   if (input.jobs.length) {
+    const catalogNormalizationRefs = await resolveCatalogNormalizationRefs(db, input.jobs, {
+      source,
+      listingUrl: input.listingUrl,
+      filters: input.filters ?? null,
+    });
+
     await db
       .insert(jobOffersTable)
       .values(
-        input.jobs.map((job) => ({
+        input.jobs.map((job, index) => ({
           source,
           sourceId: job.sourceId,
           runId,
           url: job.url,
           title: job.title,
+          companyId: catalogNormalizationRefs[index]?.companyId ?? null,
+          jobCategoryId: catalogNormalizationRefs[index]?.jobCategoryId ?? null,
+          employmentTypeId: catalogNormalizationRefs[index]?.employmentTypeId ?? null,
+          contractTypeId: catalogNormalizationRefs[index]?.contractTypeId ?? null,
+          workModeId: catalogNormalizationRefs[index]?.workModeId ?? null,
           company: job.company,
           location: job.location,
           salary: job.salary,
@@ -190,6 +201,11 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
             THEN excluded."title"
             ELSE "job_offers"."title"
           END`,
+          companyId: sql`coalesce("job_offers"."company_id", excluded."company_id")`,
+          jobCategoryId: sql`coalesce("job_offers"."job_category_id", excluded."job_category_id")`,
+          employmentTypeId: sql`coalesce("job_offers"."employment_type_id", excluded."employment_type_id")`,
+          contractTypeId: sql`coalesce("job_offers"."contract_type_id", excluded."contract_type_id")`,
+          workModeId: sql`coalesce("job_offers"."work_mode_id", excluded."work_mode_id")`,
           company: sql`CASE
             WHEN excluded."company" IS NOT NULL AND excluded."company" != ''
             THEN excluded."company"

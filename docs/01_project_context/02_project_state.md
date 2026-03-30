@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-03-29
+Last updated: 2026-03-30
 
 ## Purpose
 
@@ -136,6 +136,7 @@ That framing should guide future implementation more than raw source count.
   - still contains mixed maturity areas where some screens feel productized and some remain utilitarian
 - Database and migrations
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields
+  - catalog ingestion now starts resolving normalized company and taxonomy references alongside raw offer snapshots
 - CI/CD and smoke
   - split verify/smoke gates exist
 - release candidate and manual production promotion exist

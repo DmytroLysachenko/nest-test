@@ -47,12 +47,19 @@ Does not own notebook status workflow or follow-up planning.
 
 Primary tables: `job_source_runs`, `job_offers`, `user_job_offers`, `scrape_schedule_events`, and scrape event tables.
 
+Current standardization direction:
+
+- scrape ingestion now preserves raw offer snapshot fields while also resolving structured catalog references when confidence is acceptable
+- first active structured refs are company, contract type, employment type, work mode, and selected category context
+
 Schema references:
 
 - `packages/db/src/schema/job-source-runs.ts`
 - `packages/db/src/schema/job-offers.ts`
 - `packages/db/src/schema/user-job-offers.ts`
 - `packages/db/src/schema/scrape-schedule-events.ts`
+- `packages/db/src/catalog-normalization.ts`
+- `packages/db/src/catalog-persistence.ts`
 
 ## APIs/events
 

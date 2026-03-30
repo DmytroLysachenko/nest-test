@@ -69,6 +69,7 @@ export * from './scrape-execution-events';
 export * from './user-job-offers';
 export * from './work-modes';
 export * from './_relations';
+export * from '../catalog-persistence';
 export * from '../catalog-normalization';
 export * from '../pracuj-filters';
 

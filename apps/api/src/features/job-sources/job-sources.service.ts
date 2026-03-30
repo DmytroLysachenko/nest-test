@@ -32,6 +32,7 @@ import {
   type UserJobOfferOrigin,
   buildPracujListingUrl,
   classifyScrapeOutcome,
+  resolveCatalogNormalizationRefs,
   normalizePracujFilters,
   normalizeScrapeEmptyReason,
   normalizeScrapeResultKind,
@@ -1630,8 +1631,13 @@ export class JobSourcesService {
         },
       });
       const jobsToPersist = await this.reuseExistingUrlsBySourceId(run.source, sanitizedJobs);
+      const catalogNormalizationRefs = await resolveCatalogNormalizationRefs(this.db, jobsToPersist, {
+        source: run.source,
+        listingUrl: run.listingUrl,
+        filters: (run.filters as Record<string, unknown> | null) ?? null,
+      });
       const cols = getTableColumns(jobOffersTable);
-      const catalogOfferValues: JobOfferInsert[] = jobsToPersist.map((job) => ({
+      const catalogOfferValues: JobOfferInsert[] = jobsToPersist.map((job, index) => ({
         source: run.source,
         sourceId: job.sourceId ?? null,
         offerIdentityKey: computeOfferIdentityKey({
@@ -1641,6 +1647,11 @@ export class JobSourcesService {
         runId: run.id,
         url: job.url,
         title: job.title,
+        companyId: catalogNormalizationRefs[index]?.companyId ?? null,
+        jobCategoryId: catalogNormalizationRefs[index]?.jobCategoryId ?? null,
+        employmentTypeId: catalogNormalizationRefs[index]?.employmentTypeId ?? null,
+        contractTypeId: catalogNormalizationRefs[index]?.contractTypeId ?? null,
+        workModeId: catalogNormalizationRefs[index]?.workModeId ?? null,
         company: job.company ?? null,
         location: job.location ?? null,
         salary: job.salary ?? null,
@@ -1676,6 +1687,11 @@ export class JobSourcesService {
               THEN ${excludedColumn(cols.title)}
               ELSE ${jobOffersTable.title}
             END`,
+            companyId: sql`coalesce(${jobOffersTable.companyId}, ${excludedColumn(cols.companyId)})`,
+            jobCategoryId: sql`coalesce(${jobOffersTable.jobCategoryId}, ${excludedColumn(cols.jobCategoryId)})`,
+            employmentTypeId: sql`coalesce(${jobOffersTable.employmentTypeId}, ${excludedColumn(cols.employmentTypeId)})`,
+            contractTypeId: sql`coalesce(${jobOffersTable.contractTypeId}, ${excludedColumn(cols.contractTypeId)})`,
+            workModeId: sql`coalesce(${jobOffersTable.workModeId}, ${excludedColumn(cols.workModeId)})`,
             company: sql`CASE
               WHEN ${excludedColumn(cols.company)} IS NOT NULL AND ${excludedColumn(cols.company)} != ''
               THEN ${excludedColumn(cols.company)}
