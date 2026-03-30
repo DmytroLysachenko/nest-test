@@ -79,6 +79,7 @@ The implementation stream uses these defaults:
 
 - add idempotent backfill logic for normalized catalog columns
 - report resolved vs unresolved rows
+- keep reusable backfill logic in package code and expose a thin executable script
 
 ### 6. `feat: move matching and filtering onto normalized fields`
 

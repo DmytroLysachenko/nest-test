@@ -139,3 +139,24 @@ Related docs:
 
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md`
 - `docs/03_plans_and_roadmaps/05_catalog_standardization_implementation_plan.md`
+
+### `008` Catalog normalization persistence and backfill path
+
+Summary:
+
+- added shared catalog normalization helpers
+- ingestion now persists normalized company and taxonomy refs when confidence is acceptable
+- added reusable backfill path for existing `job_offers`
+
+Primary code areas:
+
+- `packages/db/src/catalog-normalization.ts`
+- `packages/db/src/catalog-persistence.ts`
+- `packages/db/src/catalog-backfill.ts`
+- `apps/api/src/features/job-sources/job-sources.service.ts`
+- `apps/worker/src/db/persist-scrape.ts`
+
+Related docs:
+
+- `docs/03_plans_and_roadmaps/05_catalog_standardization_implementation_plan.md`
+- `docs/02_product_workflows/20_scrape_feature.md`
