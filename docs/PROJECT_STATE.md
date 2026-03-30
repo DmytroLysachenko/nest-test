@@ -77,7 +77,9 @@ That framing should guide future implementation more than raw source count.
   - retry single failed extraction
   - retry all failed extractions
 - Notebook and applications
-  - list/pipeline views
+  - opportunities review surface for matched-role discovery
+  - notebook pipeline surface for active kept roles
+  - discovery now uses grouped review queues while notebook uses a Kanban-first board with a full-width active-offer workspace
   - strict/approx/explore ranking modes
   - persisted filters and saved preset
   - normalized follow-up fields plus compatibility hydration back into `pipelineMeta`
@@ -118,7 +120,8 @@ That framing should guide future implementation more than raw source count.
   - callback envelope is replay-safe and increasingly support-friendly
 - Web
   - major move from panel-heavy internal tooling toward guided product workflow
-  - notebook now carries more of the real product value via workflow actions, dashboard handoff, and prep support
+  - opportunities now handles first-pass discovery while notebook is now a distinct active pipeline workspace
+  - notebook board cards now prioritize due work and active next-step context instead of acting like a generic status grid
   - still contains mixed maturity areas where some screens feel productized and some remain utilitarian
 - Database and migrations
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields
