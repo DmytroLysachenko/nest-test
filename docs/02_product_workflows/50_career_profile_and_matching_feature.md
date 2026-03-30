@@ -14,6 +14,11 @@ It improves relevance and trust by ranking opportunities against a structured re
 
 Includes profile input, career profile generation, schema validation, matching logic, and explanation metadata.
 
+Current matching direction:
+
+- prefer normalized contract/work-mode/category context when the catalog has it
+- keep raw-text fallback for unresolved legacy offers
+
 Does not own raw scrape transport, notebook status workflow, or auth.
 
 ## Main workflow
@@ -37,6 +42,7 @@ Does not own raw scrape transport, notebook status workflow, or auth.
 
 - `apps/api/src/features/profile-inputs`
 - `apps/api/src/features/career-profiles`
+- `apps/api/src/features/job-matching`
 - `apps/api/src/features/job-offers`
 - `apps/api/src/common/modules/gemini`
 

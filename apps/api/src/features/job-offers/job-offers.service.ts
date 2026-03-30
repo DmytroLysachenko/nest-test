@@ -2,7 +2,16 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, desc, eq, inArray, isNull, lt, not, sql } from 'drizzle-orm';
-import { careerProfilesTable, jobOffersTable, notebookPreferencesTable, userJobOffersTable } from '@repo/db';
+import {
+  careerProfilesTable,
+  contractTypesTable,
+  employmentTypesTable,
+  jobOffersTable,
+  jobCategoriesTable,
+  notebookPreferencesTable,
+  userJobOffersTable,
+  workModesTable,
+} from '@repo/db';
 import { z } from 'zod';
 
 import { Drizzle } from '@/common/decorators';
@@ -1595,12 +1604,20 @@ export class JobOffersService {
         company: jobOffersTable.company,
         location: jobOffersTable.location,
         employmentType: jobOffersTable.employmentType,
+        contractType: contractTypesTable.slug,
+        employmentSchedule: employmentTypesTable.slug,
+        workMode: workModesTable.slug,
+        jobCategory: jobCategoriesTable.slug,
         salary: jobOffersTable.salary,
         requirements: jobOffersTable.requirements,
         details: jobOffersTable.details,
       })
       .from(userJobOffersTable)
       .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .leftJoin(contractTypesTable, eq(jobOffersTable.contractTypeId, contractTypesTable.id))
+      .leftJoin(employmentTypesTable, eq(jobOffersTable.employmentTypeId, employmentTypesTable.id))
+      .leftJoin(workModesTable, eq(jobOffersTable.workModeId, workModesTable.id))
+      .leftJoin(jobCategoriesTable, eq(jobOffersTable.jobCategoryId, jobCategoriesTable.id))
       .where(and(eq(userJobOffersTable.id, id), eq(userJobOffersTable.userId, userId)))
       .limit(1)
       .then(([result]) => result);
@@ -1637,6 +1654,10 @@ export class JobOffersService {
       title: offer.title,
       location: offer.location,
       employmentType: offer.employmentType,
+      contractType: offer.contractType,
+      employmentSchedule: offer.employmentSchedule,
+      workModes: offer.workMode ? [offer.workMode] : [],
+      jobCategory: offer.jobCategory,
       salaryText: offer.salary,
     });
 

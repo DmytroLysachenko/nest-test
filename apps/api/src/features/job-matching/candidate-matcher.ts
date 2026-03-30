@@ -5,6 +5,10 @@ type JobContext = {
   title?: string | null;
   location?: string | null;
   employmentType?: string | null;
+  contractType?: string | null;
+  employmentSchedule?: string | null;
+  workModes?: string[] | null;
+  jobCategory?: string | null;
   salaryText?: string | null;
 };
 
@@ -102,11 +106,26 @@ const hasAnyAlias = (normalizedText: string, aliasesByKey: Record<string, string
   Object.values(aliasesByKey).some((aliases) => aliases.some((alias) => normalizedText.includes(alias)));
 
 export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: JobContext) => {
-  const text = [context.title, context.text, context.location, context.employmentType, context.salaryText]
+  const structuredWorkModes = (context.workModes ?? []).filter(Boolean);
+  const text = [
+    context.title,
+    context.text,
+    context.location,
+    context.employmentType,
+    context.contractType,
+    context.employmentSchedule,
+    context.jobCategory,
+    ...structuredWorkModes,
+    context.salaryText,
+  ]
     .filter(Boolean)
     .join(' ');
   const normalizedText = normalizeAscii(text);
   const jobTokens = asTokenSet(text);
+  const structuredWorkModeSet = new Set(structuredWorkModes.map((item) => normalizeAscii(item)));
+  const structuredEmploymentTypeSet = new Set(
+    [context.contractType, context.employmentSchedule].map((item) => normalizeString(item)).filter(Boolean),
+  );
   const hardViolations: string[] = [];
   const softGaps: string[] = [];
   const matchedCompetencies: Array<{ name: string; confidenceScore: number; importance: string }> = [];
@@ -157,9 +176,9 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
   if (hardWorkModes.length) {
     const modes = hardWorkModes.filter((mode) => {
       const aliases = WORK_MODE_ALIASES[mode] ?? [mode];
-      return aliases.some((alias) => normalizedText.includes(alias));
+      return structuredWorkModeSet.has(normalizeAscii(mode)) || aliases.some((alias) => normalizedText.includes(alias));
     });
-    if (!modes.length && hasAnyAlias(normalizedText, WORK_MODE_ALIASES)) {
+    if (!modes.length && (structuredWorkModeSet.size > 0 || hasAnyAlias(normalizedText, WORK_MODE_ALIASES))) {
       hardViolations.push('workModes');
     } else if (!modes.length) {
       softGaps.push('workModes:unspecified');
@@ -170,9 +189,12 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
   if (hardEmploymentTypes.length) {
     const aliasHits = hardEmploymentTypes.filter((type) => {
       const aliases = EMPLOYMENT_ALIASES[type] ?? [type];
-      return aliases.some((alias) => normalizedText.includes(alias));
+      return structuredEmploymentTypeSet.has(type) || aliases.some((alias) => normalizedText.includes(alias));
     });
-    if (!aliasHits.length && hasAnyAlias(normalizedText, EMPLOYMENT_ALIASES)) {
+    if (
+      !aliasHits.length &&
+      (structuredEmploymentTypeSet.size > 0 || hasAnyAlias(normalizedText, EMPLOYMENT_ALIASES))
+    ) {
       hardViolations.push('employmentTypes');
     } else if (!aliasHits.length) {
       softGaps.push('employmentTypes:unspecified');
@@ -189,7 +211,8 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
 
   const softWorkModeScore = profile.workPreferences.softPreferences.workModes.reduce((acc, item) => {
     const aliases = WORK_MODE_ALIASES[item.value] ?? [item.value];
-    const matched = aliases.some((alias) => normalizedText.includes(alias));
+    const matched =
+      structuredWorkModeSet.has(normalizeAscii(item.value)) || aliases.some((alias) => normalizedText.includes(alias));
     if (!matched) {
       softGaps.push(`workMode:${item.value}`);
       return acc;
@@ -199,7 +222,8 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
 
   const softEmploymentTypeScore = profile.workPreferences.softPreferences.employmentTypes.reduce((acc, item) => {
     const aliases = EMPLOYMENT_ALIASES[item.value] ?? [item.value];
-    const matched = aliases.some((alias) => normalizedText.includes(alias));
+    const matched =
+      structuredEmploymentTypeSet.has(item.value) || aliases.some((alias) => normalizedText.includes(alias));
     if (!matched) {
       softGaps.push(`employmentType:${item.value}`);
       return acc;

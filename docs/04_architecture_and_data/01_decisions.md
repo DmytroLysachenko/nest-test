@@ -67,6 +67,15 @@ ADR-lite log for major architectural and contract decisions.
   - The phase-1 model must support future non-IT domains, so taxonomy should stay domain-neutral.
   - Keeping raw snapshot fields reduces migration risk and preserves offer-history context.
 
+## 2026-03-30: Matching Should Prefer Structured Catalog Refs With Raw Fallback
+
+- Decision:
+  - Matching and catalog-rematch candidate selection should prefer normalized contract type and work mode refs when those refs exist.
+  - Keep unresolved legacy offers eligible through raw-text fallback instead of excluding them.
+- Why:
+  - Structured refs improve query efficiency and reduce noisy substring heuristics.
+  - Raw fallback avoids sudden recall loss while catalog backfill is still incomplete.
+
 ## 2026-02-21: Canonical Career Profile Schema
 
 - Decision:

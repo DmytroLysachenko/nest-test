@@ -18,7 +18,10 @@ import { CloudTasksClient } from '@google-cloud/tasks';
 import { Logger } from 'nestjs-pino';
 import {
   careerProfilesTable,
+  contractTypesTable,
+  employmentTypesTable,
   jobOffersTable,
+  jobCategoriesTable,
   jobSourceCallbackEventsTable,
   jobSourceRunEventsTable,
   jobSourceRunAttemptsTable,
@@ -28,6 +31,7 @@ import {
   scrapeExecutionEventsTable,
   userJobOffersTable,
   usersTable,
+  workModesTable,
   type JobOfferQualityState,
   type UserJobOfferOrigin,
   buildPracujListingUrl,
@@ -121,6 +125,10 @@ type CatalogOfferRow = {
   location: string | null;
   salary: string | null;
   employmentType: string | null;
+  contractType: string | null;
+  employmentSchedule: string | null;
+  workMode: string | null;
+  jobCategory: string | null;
   description: string;
   requirements: unknown;
   details: unknown;
@@ -1404,6 +1412,8 @@ export class JobSourcesService {
         status: jobSourceRunsTable.status,
         totalFound: jobSourceRunsTable.totalFound,
         scrapedCount: jobSourceRunsTable.scrapedCount,
+        listingUrl: jobSourceRunsTable.listingUrl,
+        filters: jobSourceRunsTable.filters,
         startedAt: jobSourceRunsTable.startedAt,
         failureType: jobSourceRunsTable.failureType,
         progress: jobSourceRunsTable.progress,
@@ -3833,6 +3843,7 @@ export class JobSourcesService {
 
   private async loadCatalogCandidateOffers(
     source: 'PRACUJ_PL',
+    profile?: CandidateProfile,
     specificOfferIds?: string[],
     explicitLimit?: number,
   ): Promise<CatalogOfferRow[]> {
@@ -3850,6 +3861,14 @@ export class JobSourcesService {
     if (specificOfferIds?.length) {
       conditions.push(inArray(jobOffersTable.id, specificOfferIds));
     }
+    const hardEmploymentTypes = profile?.workPreferences.hardConstraints.employmentTypes ?? [];
+    if (hardEmploymentTypes.length) {
+      conditions.push(or(inArray(contractTypesTable.slug, hardEmploymentTypes), isNull(jobOffersTable.contractTypeId)));
+    }
+    const hardWorkModes = profile?.workPreferences.hardConstraints.workModes ?? [];
+    if (hardWorkModes.length) {
+      conditions.push(or(inArray(workModesTable.slug, hardWorkModes), isNull(jobOffersTable.workModeId)));
+    }
     try {
       return await this.db
         .select({
@@ -3859,12 +3878,20 @@ export class JobSourcesService {
           location: jobOffersTable.location,
           salary: jobOffersTable.salary,
           employmentType: jobOffersTable.employmentType,
+          contractType: contractTypesTable.slug,
+          employmentSchedule: employmentTypesTable.slug,
+          workMode: workModesTable.slug,
+          jobCategory: jobCategoriesTable.slug,
           description: jobOffersTable.description,
           requirements: jobOffersTable.requirements,
           details: jobOffersTable.details,
           lastSeenAt: jobOffersTable.lastSeenAt,
         })
         .from(jobOffersTable)
+        .leftJoin(contractTypesTable, eq(jobOffersTable.contractTypeId, contractTypesTable.id))
+        .leftJoin(employmentTypesTable, eq(jobOffersTable.employmentTypeId, employmentTypesTable.id))
+        .leftJoin(workModesTable, eq(jobOffersTable.workModeId, workModesTable.id))
+        .leftJoin(jobCategoriesTable, eq(jobOffersTable.jobCategoryId, jobCategoriesTable.id))
         .where(and(...conditions))
         .orderBy(desc(jobOffersTable.lastSeenAt), desc(jobOffersTable.fetchedAt))
         .limit(specificOfferIds?.length ? specificOfferIds.length : (explicitLimit ?? limit));
@@ -3883,7 +3910,7 @@ export class JobSourcesService {
   private async countCatalogMatchesForProfile(profile: CandidateProfile, source: 'PRACUJ_PL', limit: number) {
     const minScore =
       this.configService.get('CATALOG_REMATCH_MIN_SCORE', { infer: true }) ?? DEFAULT_CATALOG_REMATCH_MIN_SCORE;
-    const candidates = await this.loadCatalogCandidateOffers(source);
+    const candidates = await this.loadCatalogCandidateOffers(source, profile);
     let matched = 0;
     for (const offer of candidates) {
       const deterministic = scoreCandidateAgainstJob(profile, {
@@ -3891,6 +3918,10 @@ export class JobSourcesService {
         title: offer.title,
         location: offer.location,
         employmentType: offer.employmentType,
+        contractType: offer.contractType,
+        employmentSchedule: offer.employmentSchedule,
+        workModes: offer.workMode ? [offer.workMode] : [],
+        jobCategory: offer.jobCategory,
         salaryText: offer.salary,
       });
       if (!deterministic.blockedByHardConstraints && deterministic.score >= minScore) {
@@ -3917,7 +3948,12 @@ export class JobSourcesService {
       this.configService.get('CATALOG_REMATCH_MIN_SCORE', { infer: true }) ?? DEFAULT_CATALOG_REMATCH_MIN_SCORE;
     const now = new Date();
     const includeAllScrapeCandidates = input.origin === 'SCRAPE' || input.origin === 'DB_REUSE';
-    const candidates = await this.loadCatalogCandidateOffers(input.source, input.specificOfferIds, input.limit);
+    const candidates = await this.loadCatalogCandidateOffers(
+      input.source,
+      input.profile,
+      input.specificOfferIds,
+      input.limit,
+    );
     if (!candidates.length) {
       return { insertedCount: 0, totalCandidateCount: 0, matchedCount: 0 };
     }
@@ -3946,6 +3982,10 @@ export class JobSourcesService {
           title: offer.title,
           location: offer.location,
           employmentType: offer.employmentType,
+          contractType: offer.contractType,
+          employmentSchedule: offer.employmentSchedule,
+          workModes: offer.workMode ? [offer.workMode] : [],
+          jobCategory: offer.jobCategory,
           salaryText: offer.salary,
         }),
       }))
