@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { normalizeCompanyName, resolvePracujCategoryDefinition } from '@repo/db';
 
 import { normalizePracujPl } from './normalize';
@@ -47,7 +48,7 @@ test('normalizePracujPl preserves unknown aliases as normalized lowercase text',
 
   assert.equal(job?.employmentType, 'fractional');
   assert.deepEqual(job?.details?.contractTypes, ['fractional']);
-  assert.deepEqual(job?.details?.workModes, ['field']);
+  assert.deepEqual(job?.details?.workModes, ['mobile']);
   assert.deepEqual(job?.details?.positionLevels, ['staff']);
 });
 
