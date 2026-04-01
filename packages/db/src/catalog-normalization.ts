@@ -107,10 +107,32 @@ export const CANONICAL_JOB_CATEGORIES: CanonicalTaxonomyDefinition[] = [
   { slug: 'other', label: 'Other', aliases: ['inne'] },
 ];
 
+export const CANONICAL_SENIORITY_LEVELS: CanonicalTaxonomyDefinition[] = [
+  { slug: 'intern', label: 'Intern', aliases: ['praktykant', 'stazysta', 'trainee', 'intern'] },
+  { slug: 'junior', label: 'Junior', aliases: ['mlodszy specjalista', 'junior', 'associate'] },
+  { slug: 'mid', label: 'Mid', aliases: ['specjalista', 'mid', 'regular'] },
+  { slug: 'senior', label: 'Senior', aliases: ['starszy specjalista', 'senior'] },
+  { slug: 'lead', label: 'Lead', aliases: ['ekspert', 'lead', 'principal', 'architekt'] },
+  { slug: 'manager', label: 'Manager', aliases: ['manager', 'menedzer', 'kierownik', 'koordynator', 'head'] },
+  { slug: 'director', label: 'Director', aliases: ['dyrektor', 'director'] },
+  { slug: 'executive', label: 'Executive', aliases: ['prezes', 'executive', 'vp', 'chief'] },
+];
+
+export const CANONICAL_WORK_SCHEDULES: CanonicalTaxonomyDefinition[] = [
+  { slug: 'full-time', label: 'Full-time', aliases: ['pelny etat', 'full time'] },
+  { slug: 'part-time', label: 'Part-time', aliases: ['czesc etatu', 'part time'] },
+  { slug: 'temporary', label: 'Temporary', aliases: ['tymczasowa', 'temporary', 'dodatkowa'] },
+  { slug: 'shift', label: 'Shift work', aliases: ['zmianowa', 'shift'] },
+  { slug: 'flexible', label: 'Flexible schedule', aliases: ['elastyczny czas pracy', 'flexible'] },
+  { slug: 'internship', label: 'Internship schedule', aliases: ['praktyki', 'staz'] },
+];
+
 const WORK_MODE_ALIASES = buildAliasMap(CANONICAL_WORK_MODES);
 const CONTRACT_TYPE_ALIASES = buildAliasMap(CANONICAL_CONTRACT_TYPES);
 const EMPLOYMENT_TYPE_ALIASES = buildAliasMap(CANONICAL_EMPLOYMENT_TYPES);
 const JOB_CATEGORY_ALIASES = buildAliasMap(CANONICAL_JOB_CATEGORIES);
+const SENIORITY_LEVEL_ALIASES = buildAliasMap(CANONICAL_SENIORITY_LEVELS);
+const WORK_SCHEDULE_ALIASES = buildAliasMap(CANONICAL_WORK_SCHEDULES);
 
 export const normalizeCompanyName = (value?: string | null) => {
   const normalized = normalizeText(value);
@@ -149,6 +171,24 @@ export const canonicalizeEmploymentType = (value?: string | null) =>
 export const canonicalizeJobCategory = (value?: string | null) =>
   resolveCanonicalDefinition(value, JOB_CATEGORY_ALIASES)?.slug ?? null;
 
+export const canonicalizeSeniorityLevel = (value?: string | null) =>
+  resolveCanonicalDefinition(value, SENIORITY_LEVEL_ALIASES)?.slug ?? null;
+
+export const canonicalizeWorkSchedule = (value?: string | null) =>
+  resolveCanonicalDefinition(value, WORK_SCHEDULE_ALIASES)?.slug ?? null;
+
+export const canonicalizeTechnology = (value?: string | null) => {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return null;
+  }
+
+  return {
+    slug: fallbackSlug(normalized),
+    label: collapseWhitespace(normalized),
+  };
+};
+
 export const resolveCanonicalWorkMode = (value?: string | null) => resolveCanonicalDefinition(value, WORK_MODE_ALIASES);
 export const resolveCanonicalContractType = (value?: string | null) =>
   resolveCanonicalDefinition(value, CONTRACT_TYPE_ALIASES);
@@ -156,6 +196,10 @@ export const resolveCanonicalEmploymentType = (value?: string | null) =>
   resolveCanonicalDefinition(value, EMPLOYMENT_TYPE_ALIASES);
 export const resolveCanonicalJobCategory = (value?: string | null) =>
   resolveCanonicalDefinition(value, JOB_CATEGORY_ALIASES);
+export const resolveCanonicalSeniorityLevel = (value?: string | null) =>
+  resolveCanonicalDefinition(value, SENIORITY_LEVEL_ALIASES);
+export const resolveCanonicalWorkSchedule = (value?: string | null) =>
+  resolveCanonicalDefinition(value, WORK_SCHEDULE_ALIASES);
 
 const PRACUJ_GENERAL_CATEGORY_BY_ID: Record<string, string> = {
   '5001': 'research-and-development',
@@ -236,4 +280,49 @@ export const resolvePracujCategoryDefinition = (value?: string | null, source?: 
   }
 
   return CANONICAL_JOB_CATEGORIES.find((item) => item.slug === mappedSlug) ?? { slug: mappedSlug, label: mappedSlug };
+};
+
+export type ParsedSalary = {
+  salaryMin: number | null;
+  salaryMax: number | null;
+  salaryCurrency: string | null;
+  salaryPeriod: string | null;
+  salaryKind: string | null;
+};
+
+export const parseSalaryText = (value?: string | null): ParsedSalary => {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return {
+      salaryMin: null,
+      salaryMax: null,
+      salaryCurrency: null,
+      salaryPeriod: null,
+      salaryKind: null,
+    };
+  }
+
+  const amountMatches = Array.from(normalized.matchAll(/(\d[\d\s]*)/g))
+    .map((match) => match[1] ?? null)
+    .filter((value): value is string => Boolean(value))
+    .map((value) => Number(value.replace(/\s+/g, '')))
+    .filter((item) => Number.isFinite(item));
+  const salaryCurrency =
+    /\b(pln|zł|zl|eur|usd|gbp)\b/i.exec(normalized)?.[1]?.toUpperCase().replace('ZŁ', 'PLN') ?? null;
+  const salaryPeriod = normalized.match(/\/\s*(godz|godz\.|h|mies|mies\.|month|rok|year)/i)?.[1]?.toLowerCase() ?? null;
+  const salaryKind = /\bnetto\b/i.test(normalized)
+    ? 'net'
+    : /\bbrutto\b/i.test(normalized)
+      ? 'gross'
+      : /\+?\s*vat/i.test(normalized)
+        ? 'net-plus-vat'
+        : null;
+
+  return {
+    salaryMin: amountMatches[0] ?? null,
+    salaryMax: amountMatches[1] ?? amountMatches[0] ?? null,
+    salaryCurrency,
+    salaryPeriod,
+    salaryKind,
+  };
 };
