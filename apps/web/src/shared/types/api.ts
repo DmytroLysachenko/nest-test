@@ -414,6 +414,11 @@ export type JobSourceHealthDto = {
     filtersExhaustedRuns: number;
     detailParseGapRuns: number;
     silentFailureRuns: number;
+    observationCount: number;
+    missingEmploymentTypeRate: number;
+    emptyRequirementsRate: number;
+    sourceCompanyProfileCoverageRate: number;
+    applyUrlCoverageRate: number;
     latestRunAt: string | null;
     latestRunStatus: string | null;
   }>;
@@ -727,6 +732,14 @@ export type JobOfferListItemDto = {
     employmentTypeLabel: string | null;
     contractTypeLabel: string | null;
     workModeLabel: string | null;
+    contractTypes: string[];
+    workModes: string[];
+    workSchedules: string[];
+    seniorityLevels: string[];
+    technologies: Array<{
+      label: string;
+      category: 'required' | 'nice_to_have' | 'all';
+    }>;
   } | null;
   createdAt: string;
 };
