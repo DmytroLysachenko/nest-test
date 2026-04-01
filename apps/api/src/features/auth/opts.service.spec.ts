@@ -2,8 +2,13 @@ import { OptsService } from './opts.service';
 
 describe('OptsService', () => {
   it('generates OTP with 10-minute expiration window', async () => {
+    const updateWhere = jest.fn().mockResolvedValue(undefined);
+    const updateSet = jest.fn().mockReturnValue({ where: updateWhere });
     const values = jest.fn().mockResolvedValue(undefined);
     const db = {
+      update: jest.fn().mockReturnValue({
+        set: updateSet,
+      }),
       insert: jest.fn().mockReturnValue({
         values,
       }),
@@ -15,6 +20,7 @@ describe('OptsService', () => {
     const after = Date.now();
 
     expect(values).toHaveBeenCalledTimes(1);
+    expect(updateSet).toHaveBeenCalledWith({ isUsed: true });
     const inserted = values.mock.calls[0][0];
     const expiresAt = new Date(inserted.expiresAt).getTime();
     const minExpected = before + 9.5 * 60 * 1000;
@@ -24,14 +30,22 @@ describe('OptsService', () => {
     expect(expiresAt).toBeLessThan(maxExpected);
   });
 
-  it('verifies OTP with type and non-expired constraint', async () => {
+  it('verifies OTP with type and non-expired constraint and consumes it', async () => {
     const then = jest.fn((cb: (rows: unknown[]) => unknown) => Promise.resolve(cb([{ id: 'otp-1' }])));
     const limit = jest.fn().mockReturnValue({ then });
     const orderBy = jest.fn().mockReturnValue({ limit });
     const where = jest.fn().mockReturnValue({ orderBy });
     const from = jest.fn().mockReturnValue({ where });
     const select = jest.fn().mockReturnValue({ from });
-    const db = { select } as any;
+    const updateReturning = jest.fn().mockResolvedValue([{ id: 'otp-1', isUsed: true }]);
+    const updateWhere = jest.fn().mockReturnValue({ returning: updateReturning });
+    const updateSet = jest.fn().mockReturnValue({ where: updateWhere });
+    const db = {
+      select,
+      update: jest.fn().mockReturnValue({
+        set: updateSet,
+      }),
+    } as any;
 
     const service = new OptsService(db);
     const result = await service.verifyOtp('user@example.com', '123456', 'PASSWORD_RESET');
@@ -40,6 +54,7 @@ describe('OptsService', () => {
     expect(where).toHaveBeenCalledTimes(1);
     expect(orderBy).toHaveBeenCalledTimes(1);
     expect(limit).toHaveBeenCalledWith(1);
-    expect(result).toEqual({ id: 'otp-1' });
+    expect(updateSet).toHaveBeenCalledWith({ isUsed: true });
+    expect(result).toEqual({ id: 'otp-1', isUsed: true });
   });
 });
