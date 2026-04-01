@@ -133,11 +133,26 @@ export const normalizePracujPl = (jobs: ParsedJob[], source = 'pracuj-pl'): Norm
     location: normalizeText(job.location),
     description: job.description.trim(),
     url: job.url,
-    tags: job.tags?.map((item) => item.trim()).filter(Boolean) ?? [],
+    applyUrl: normalizeText(job.applyUrl),
+    postedAt: normalizeText(job.postedAt),
+    sourceCompanyProfileUrl: normalizeText(job.sourceCompanyProfileUrl),
+    tags: Array.from(
+      new Set(
+        [
+          ...(job.tags?.map((item) => item.trim()).filter(Boolean) ?? []),
+          ...(job.employmentType ? [] : ['missing-employment-type']),
+          ...((job.requirements?.length ?? 0) > 0 ? [] : ['missing-requirements']),
+          ...(job.details?.technologies?.all?.length || job.details?.technologies?.required?.length
+            ? []
+            : ['sparse-technologies']),
+        ].filter(Boolean),
+      ),
+    ),
     salary: normalizeText(job.salary),
     employmentType: canonicalizeContractType(job.employmentType),
     requirements: job.requirements?.map((item) => item.trim()).filter(Boolean) ?? [],
     details: normalizeDetails(job.details),
     isExpired: job.isExpired,
+    rawPayload: job.rawPayload,
   }));
 };
