@@ -123,7 +123,7 @@ body {
   }
 
   .app-shell-sidebar-link-active {
-    @apply bg-sidebar-primary text-sidebar-primary-foreground shadow-[0_20px_36px_-24px_color-mix(in_oklab,var(--sidebar-primary)_75%,black)];
+    @apply bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground shadow-[0_20px_36px_-24px_color-mix(in_oklab,var(--sidebar-primary)_75%,black)];
   }
 
   .app-page {

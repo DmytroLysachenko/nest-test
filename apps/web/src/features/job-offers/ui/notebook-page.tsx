@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 import { useNotebookPage } from '@/features/job-offers/model/use-notebook-page';
 import { NotebookFiltersCard } from '@/features/job-offers/ui/components/notebook-filters-card';
@@ -31,6 +31,15 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
   const pipelineOffers = (notebook.listQuery.data?.items ?? []).filter((offer) =>
     ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'].includes(offer.status),
   );
+  const mobileWorkspaceRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches || !notebook.selectedOffer) {
+      return;
+    }
+
+    mobileWorkspaceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [notebook.selectedOffer]);
 
   const renderOfferWorkspace = () => (
     <NotebookOfferDetailsCard
@@ -165,7 +174,7 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
             onSelectOffer={notebook.setNotebookSelectedOffer}
             onUpdateStatus={notebook.updateStatus}
           />
-          <section className="space-y-3">
+          <section ref={mobileWorkspaceRef} className="space-y-3">
             <div>
               <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Selected offer workspace</p>
               <p className="text-text-soft mt-1 text-sm">
