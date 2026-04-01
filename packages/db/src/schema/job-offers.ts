@@ -1,4 +1,15 @@
-import { boolean, index, jsonb, pgTable, text, timestamp, uuid, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  uniqueIndex,
+  varchar,
+} from 'drizzle-orm/pg-core';
 
 import { jobOfferQualityStateEnum, jobSourceEnum } from './_enums';
 import { companiesTable } from './companies';
@@ -26,7 +37,15 @@ export const jobOffersTable = pgTable(
     company: text('company'),
     location: text('location'),
     salary: text('salary'),
+    salaryMin: integer('salary_min'),
+    salaryMax: integer('salary_max'),
+    salaryCurrency: varchar('salary_currency', { length: 16 }),
+    salaryPeriod: varchar('salary_period', { length: 32 }),
+    salaryKind: varchar('salary_kind', { length: 32 }),
     employmentType: text('employment_type'),
+    sourceCompanyProfileUrl: text('source_company_profile_url'),
+    applyUrl: text('apply_url'),
+    postedAt: timestamp('posted_at', { withTimezone: true }),
     description: text('description').notNull(),
     requirements: jsonb('requirements'),
     details: jsonb('details'),
@@ -63,5 +82,8 @@ export const jobOffersTable = pgTable(
     employmentTypeIdIdx: index('job_offers_employment_type_id_idx').on(table.employmentTypeId),
     contractTypeIdIdx: index('job_offers_contract_type_id_idx').on(table.contractTypeId),
     workModeIdIdx: index('job_offers_work_mode_id_idx').on(table.workModeId),
+    sourceCompanyProfileUrlIdx: index('job_offers_source_company_profile_url_idx').on(table.sourceCompanyProfileUrl),
+    salaryRangeIdx: index('job_offers_salary_range_idx').on(table.salaryCurrency, table.salaryMin, table.salaryMax),
+    postedAtIdx: index('job_offers_posted_at_idx').on(table.postedAt.desc()),
   }),
 );

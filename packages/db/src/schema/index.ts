@@ -14,6 +14,7 @@ import * as documentStageMetrics from './document-stage-metrics';
 import * as careerProfiles from './career-profiles';
 import * as companies from './companies';
 import * as companyAliases from './company-aliases';
+import * as companySourceProfiles from './company-source-profiles';
 import * as contractTypes from './contract-types';
 import * as jobMatches from './job-matches';
 import * as employmentTypes from './employment-types';
@@ -25,13 +26,23 @@ import * as jobCategories from './job-categories';
 import * as scrapeSchedules from './scrape-schedules';
 import * as scrapeScheduleEvents from './scrape-schedule-events';
 import * as jobOffers from './job-offers';
+import * as jobOfferSourceObservations from './job-offer-source-observations';
+import * as jobOfferRawPayloads from './job-offer-raw-payloads';
+import * as jobOfferContractTypes from './job-offer-contract-types';
+import * as jobOfferWorkModes from './job-offer-work-modes';
+import * as jobOfferWorkSchedules from './job-offer-work-schedules';
+import * as jobOfferSeniorityLevels from './job-offer-seniority-levels';
+import * as jobOfferTechnologies from './job-offer-technologies';
 import * as permissions from './permissions';
 import * as rolePermissions from './role-permissions';
 import * as roles from './roles';
 import * as scrapeOutcomes from './scrape-outcomes';
 import * as scrapeExecutionEvents from './scrape-execution-events';
+import * as seniorityLevels from './seniority-levels';
+import * as technologies from './technologies';
 import * as userJobOffers from './user-job-offers';
 import * as workModes from './work-modes';
+import * as workSchedules from './work-schedules';
 import * as relations from './_relations';
 
 export * from './_enums';
@@ -50,6 +61,7 @@ export * from './document-stage-metrics';
 export * from './career-profiles';
 export * from './companies';
 export * from './company-aliases';
+export * from './company-source-profiles';
 export * from './contract-types';
 export * from './job-matches';
 export * from './employment-types';
@@ -61,13 +73,23 @@ export * from './job-categories';
 export * from './scrape-schedules';
 export * from './scrape-schedule-events';
 export * from './job-offers';
+export * from './job-offer-source-observations';
+export * from './job-offer-raw-payloads';
+export * from './job-offer-contract-types';
+export * from './job-offer-work-modes';
+export * from './job-offer-work-schedules';
+export * from './job-offer-seniority-levels';
+export * from './job-offer-technologies';
 export * from './permissions';
 export * from './role-permissions';
 export * from './roles';
 export * from './scrape-outcomes';
 export * from './scrape-execution-events';
+export * from './seniority-levels';
+export * from './technologies';
 export * from './user-job-offers';
 export * from './work-modes';
+export * from './work-schedules';
 export * from './_relations';
 export * from '../catalog-persistence';
 export * from '../catalog-backfill';
@@ -93,6 +115,7 @@ const schema = {
   ...careerProfiles,
   ...companies,
   ...companyAliases,
+  ...companySourceProfiles,
   ...contractTypes,
   ...jobMatches,
   ...employmentTypes,
@@ -104,13 +127,23 @@ const schema = {
   ...scrapeSchedules,
   ...scrapeScheduleEvents,
   ...jobOffers,
+  ...jobOfferSourceObservations,
+  ...jobOfferRawPayloads,
+  ...jobOfferContractTypes,
+  ...jobOfferWorkModes,
+  ...jobOfferWorkSchedules,
+  ...jobOfferSeniorityLevels,
+  ...jobOfferTechnologies,
   ...permissions,
   ...rolePermissions,
   ...roles,
   ...scrapeOutcomes,
   ...scrapeExecutionEvents,
+  ...seniorityLevels,
+  ...technologies,
   ...userJobOffers,
   ...workModes,
+  ...workSchedules,
   ...relations,
 };
 export default schema;

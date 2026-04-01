@@ -246,6 +246,13 @@
       "when": 1774897200000,
       "tag": "0034_catalog_standardization_core",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1774994400000,
+      "tag": "0035_scrape_data_hardening",
+      "breakpoints": true
     }
   ]
 }
