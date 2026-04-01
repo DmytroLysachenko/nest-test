@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-03-30
+Last updated: 2026-04-01
 
 ## Purpose
 
@@ -91,6 +91,7 @@ That framing should guide future implementation more than raw source count.
   - opportunities review surface for matched-role discovery
   - notebook pipeline surface for active kept roles
   - discovery now uses grouped review queues while notebook uses a Kanban-first board with a full-width active-offer workspace
+  - normalized company and taxonomy context is now exposed directly in notebook and discovery offer details
   - strict/approx/explore ranking modes
   - persisted filters and saved preset
   - normalized follow-up fields plus compatibility hydration back into `pipelineMeta`
@@ -107,6 +108,7 @@ That framing should guide future implementation more than raw source count.
   - preflight blockers/warnings before enqueue
   - user-managed scrape schedule
   - trigger-now for enabled schedule
+  - enqueue responses and notebook-adjacent job-source UX now expose explicit reuse diagnostics when catalog rematch or DB reuse is skipped because fresh-candidate minimums were not met
 - Admin/support operations
   - metrics dashboard
   - run history and callback event export
@@ -123,6 +125,8 @@ That framing should guide future implementation more than raw source count.
   - explicit DTO coverage has improved for notebook, ops, schedule, and workspace summary
   - contract surface is now broad enough to support a product UI instead of internal-tool panels
   - support-facing read models now provide LLM-friendly incident bundles instead of forcing raw endpoint composition
+  - job-offer read models now expose normalized company and taxonomy summaries in addition to raw listing fields
+  - scrape enqueue responses now return explicit catalog-rematch and DB-reuse diagnostics so fresh-result gating is visible instead of silently falling through to worker dispatch
 - Worker
   - scrape lifecycle visibility is materially stronger
   - diagnostics now distinguish degraded/empty/blocked/partial outcomes
@@ -179,6 +183,7 @@ That framing should guide future implementation more than raw source count.
 - Shared `job_offers` catalog now persists `content_hash`, `quality_state`, `first_seen_at`, `last_seen_at`, and `last_matched_at` so scrape ingestion and reuse share one canonical store.
 - `user_job_offers` now records `origin` (`SCRAPE`, `DB_REUSE`, `CATALOG_REMATCH`) and `match_version` for auditability of notebook links.
 - Scrape enqueue now prefers fresh catalog rematch before worker dispatch when the active profile already has enough eligible offers in the shared catalog.
+- Scrape enqueue now returns explicit reuse diagnostics (`accepted`, `insufficient-fresh-candidates`, `no-matchable-catalog-offers`, `no-cached-run`, `no-cached-offers`) for catalog-rematch and DB-reuse decisions.
 - Career-profile READY/restore flows now trigger catalog rematch without forcing a new scrape.
 - Automated scheduled scrapes now pause temporarily when recent runs indicate source-health degradation (`parse`/`network`/`callback`/`timeout` failure cluster).
 - Scrape retry now enforces configurable retry-chain depth cap.
@@ -201,6 +206,7 @@ That framing should guide future implementation more than raw source count.
 - Worker scrape execution audit now also records callback retry scheduling, dead-letter moves, and dead-letter replay attempts/outcomes.
 - Ops now exposes scrape forensic drill-down via `GET /api/ops/support/scrape-runs/:id/forensics`.
 - Auth/runtime access control now resolves permissions from persisted `roles`, `permissions`, and `role_permissions` tables instead of relying only on inline role checks.
+- OTP verification codes are now single-use and remain observable in persistence by being marked used instead of only being deleted after successful verification.
 - Ops now exposes authorization audit listing via `GET /api/ops/authorization-events`.
 - Ops now exposes CSV export for scrape forensics and authorization audit listings to support incident handoff.
 - Admins can inspect and update user roles through `GET /api/user/admin/users/:id/role` and `PUT /api/user/admin/users/:id/role`.

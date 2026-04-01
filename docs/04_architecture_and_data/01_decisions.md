@@ -1,6 +1,6 @@
 # Decisions
 
-Last updated: 2026-03-30
+Last updated: 2026-04-01
 
 ## Purpose
 
@@ -75,6 +75,33 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Structured refs improve query efficiency and reduce noisy substring heuristics.
   - Raw fallback avoids sudden recall loss while catalog backfill is still incomplete.
+
+## 2026-04-01: Structured Catalog Context Should Be Additive In User-Facing Read Models
+
+- Decision:
+  - Extend notebook/discovery/prep read models with normalized company and taxonomy summaries while keeping existing raw listing fields.
+  - Treat the normalized fields as additive API contract surface, not a breaking replacement.
+- Why:
+  - Users need structured context during review without losing the raw historical listing snapshot.
+  - Additive contracts let older UI paths and tests continue working during the catalog-standardization stream.
+
+## 2026-04-01: OTP Verification Must Consume Rows Instead Of Acting As Read-Only Lookup
+
+- Decision:
+  - OTP verification should mark the verified row as used and return success only for a still-unused row.
+  - Issuing a new OTP should retire older active OTP rows for the same receiver and type.
+- Why:
+  - The previous read-only verification path did not enforce true single-use semantics.
+  - Keeping used rows persisted improves auditability and makes runtime OTP behavior observable.
+
+## 2026-04-01: Fresh-Candidate Reuse Rejection Must Be Visible To The Caller
+
+- Decision:
+  - When scrape enqueue rejects catalog rematch or DB reuse because fresh-candidate minimums are not met, return explicit reuse diagnostics in the enqueue response instead of silently falling through.
+  - Keep worker dispatch behavior unchanged when reuse is rejected; only the caller-facing explanation becomes richer.
+- Why:
+  - Product and support surfaces need to distinguish "reuse was considered and rejected" from "reuse was never available".
+  - Fresh-result gating is part of the scrape-quality contract, so it should be observable in user-facing and support-facing flows.
 
 ## 2026-02-21: Canonical Career Profile Schema
 

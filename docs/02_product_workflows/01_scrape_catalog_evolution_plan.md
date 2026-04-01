@@ -1,6 +1,6 @@
 # Scrape Catalog Evolution Plan
 
-Last updated: 2026-03-30
+Last updated: 2026-04-01
 
 ## Executive summary
 
@@ -37,6 +37,9 @@ The repo already has:
 - a `user_job_offers` table for notebook status, notes, tags, follow-up, and user-specific ranking metadata
 - `job_source_runs` with `user_id` and explicit scrape lifecycle
 - catalog-rematch logic so the app can reuse previously scraped offers instead of always scraping again
+- normalized company and taxonomy references persisted on `job_offers` when confidence is acceptable
+- user-facing offer read models that expose additive structured company and taxonomy context
+- enqueue responses that explain when catalog rematch or DB reuse was rejected because fresh-candidate minimums were not met
 
 ### Answer to "is scrape data still connected to the user?"
 

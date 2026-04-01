@@ -1,6 +1,6 @@
 # Notebook Feature
 
-Last updated: 2026-03-30
+Last updated: 2026-04-01
 
 ## Purpose
 
@@ -45,6 +45,11 @@ Does not own raw scrape execution, document extraction, or authentication.
 Primary tables: `user_job_offers` and `job_offers`.
 
 Important owned data: status, match metadata, notes, tags, follow-up fields, pipeline metadata, and prep materials.
+
+Current catalog-facing read model additions:
+
+- notebook and discovery offer details now include additive structured company and taxonomy summaries
+- prep packet offer summaries now expose the same structured catalog context alongside raw listing fields
 
 Schema references:
 

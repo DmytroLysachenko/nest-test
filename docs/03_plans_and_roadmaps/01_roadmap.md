@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-03-30
+Last updated: 2026-04-01
 
 ## Purpose
 
@@ -58,7 +58,7 @@ The project should not drift into:
 7. Request-budget guardrails (API throttling + FE query traffic controls).
    - Status: completed (env-driven global API throttle and frontend query refetch/stale controls shipped).
 8. Authentication hardening and OAuth onboarding.
-   - Status: in progress (normalized API error taxonomy + env-tunable auth throttles + Google OAuth login flow shipped).
+   - Status: in progress (normalized API error taxonomy + env-tunable auth throttles + Google OAuth login flow shipped; OTP lifecycle now consumes and preserves used verification rows).
 9. Scrape automation scheduling.
    - Status: completed (user schedule model + secure trigger endpoint + deploy-managed Cloud Scheduler wiring shipped).
 
@@ -69,9 +69,10 @@ The project should not drift into:
      - follow-up and reminder reliability
      - stronger "today's focus" / "needs attention" queues
      - richer application prep and next-step support
+     - structured company and taxonomy context in offer review surfaces
      - explicit hidden/degraded result messaging
      - continued quality improvements for Kanban throughput and active-offer workspace ergonomics
-   - Status: in progress.
+   - Status: in progress (structured catalog context is now visible in notebook and discovery detail surfaces; reminder reliability and richer prep support remain).
 2. Tighten scrape output usefulness, not just scrape completion.
    - Scope:
      - adaptive broad-acquisition query planning with target listing windows
@@ -83,7 +84,8 @@ The project should not drift into:
      - stronger salvage rules
      - clearer zero-result vs blocked-result semantics
      - better run-to-notebook linking visibility
-   - Status: in progress.
+     - explicit reuse diagnostics when catalog/db reuse is rejected before worker dispatch
+   - Status: in progress (fresh-candidate gating is now exposed through enqueue reuse diagnostics; broader productivity tuning remains).
 3. Improve deterministic ranking calibration and cross-source trust handling.
    - Scope:
      - mode thresholds + penalty tuning

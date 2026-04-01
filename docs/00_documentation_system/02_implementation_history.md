@@ -1,6 +1,6 @@
 # Implementation History
 
-Last updated: 2026-03-30
+Last updated: 2026-04-01
 
 ## Purpose
 
@@ -160,3 +160,41 @@ Related docs:
 
 - `docs/03_plans_and_roadmaps/05_catalog_standardization_implementation_plan.md`
 - `docs/02_product_workflows/20_scrape_feature.md`
+
+### `009` Structured catalog read models and single-use OTP lifecycle
+
+Summary:
+
+- extended notebook/discovery read models with normalized company and taxonomy context
+- added a thin structured-offer UX slice in discovery and notebook details
+- made OTP codes single-use by consuming rows on verification instead of treating them as read-only
+
+Primary code areas:
+
+- `apps/api/src/features/job-offers`
+- `apps/web/src/features/job-offers`
+- `apps/api/src/features/auth`
+
+Related docs:
+
+- `docs/01_project_context/02_project_state.md`
+- `docs/03_plans_and_roadmaps/01_roadmap.md`
+- `docs/04_architecture_and_data/01_decisions.md`
+
+### `010` Visible fresh-candidate reuse diagnostics
+
+Summary:
+
+- made scrape enqueue responses explain when catalog rematch or DB reuse was rejected before worker dispatch
+- surfaced fresh-candidate gating decisions in product-facing job-source metadata
+
+Primary code areas:
+
+- `apps/api/src/features/job-sources`
+- `apps/web/src/features/job-sources`
+
+Related docs:
+
+- `docs/01_project_context/02_project_state.md`
+- `docs/03_plans_and_roadmaps/01_roadmap.md`
+- `docs/04_architecture_and_data/01_decisions.md`

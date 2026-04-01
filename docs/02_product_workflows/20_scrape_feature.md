@@ -1,6 +1,6 @@
 # Scrape Feature
 
-Last updated: 2026-03-30
+Last updated: 2026-04-01
 
 ## Purpose
 
@@ -52,6 +52,7 @@ Current standardization direction:
 - scrape ingestion now preserves raw offer snapshot fields while also resolving structured catalog references when confidence is acceptable
 - first active structured refs are company, contract type, employment type, work mode, and selected category context
 - cache/catalog reuse now requires a minimum fresh candidate yield instead of relying only on gross reused result counts
+- enqueue responses now return explicit reuse diagnostics when catalog rematch or DB reuse is rejected before worker dispatch
 
 Schema references:
 
@@ -65,6 +66,11 @@ Schema references:
 ## APIs/events
 
 Representative endpoints include `/api/job-sources/preflight`, `/api/job-sources/schedule`, `/api/job-sources/schedule/trigger-now`, and `/api/job-sources/runs/:id/events`.
+
+Current enqueue contract direction:
+
+- `/api/job-sources/scrape` may satisfy a request from catalog rematch, DB reuse, or worker dispatch
+- when reuse is considered but rejected, `reuseDiagnostics` explains whether the cause was insufficient fresh candidates, no matchable catalog rows, no cached run, or no cached offers
 
 Operational and recovery endpoints live under `apps/api/src/features/ops`.
 
