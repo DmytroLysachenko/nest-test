@@ -291,6 +291,57 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               </pre>
             </details>
           ) : null}
+          {jobSourcesPanel.enqueueResult.reuseDiagnostics ? (
+            <div className="space-y-2">
+              <p className="text-text-strong font-medium">Reuse diagnostics</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
+                  <InspectorRow
+                    label="Catalog rematch"
+                    value={
+                      jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.accepted
+                        ? 'accepted'
+                        : (jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.reason ?? 'skipped')
+                    }
+                  />
+                  <InspectorRow
+                    label="Fresh matches"
+                    value={String(
+                      jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.matchedFreshCandidates ?? 0,
+                    )}
+                  />
+                  <InspectorRow
+                    label="Minimum target"
+                    value={String(
+                      jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.minimumFreshCandidateTarget ?? 0,
+                    )}
+                  />
+                </div>
+                <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
+                  <InspectorRow
+                    label="DB reuse"
+                    value={
+                      jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.accepted
+                        ? 'accepted'
+                        : (jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.reason ?? 'skipped')
+                    }
+                  />
+                  <InspectorRow
+                    label="Fresh matches"
+                    value={String(
+                      jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.matchedFreshCandidates ?? 0,
+                    )}
+                  />
+                  <InspectorRow
+                    label="Minimum target"
+                    value={String(
+                      jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.minimumFreshCandidateTarget ?? 0,
+                    )}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
