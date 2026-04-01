@@ -37,6 +37,14 @@ class JobOfferCompanySummary {
   hqLocation!: string | null;
 }
 
+class JobOfferTechnologyItem {
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty({ enum: ['required', 'nice_to_have', 'all'] })
+  category!: 'required' | 'nice_to_have' | 'all';
+}
+
 class JobOfferStructuredDetails {
   @ApiProperty({ required: false, type: JobOfferCompanySummary })
   companySummary!: JobOfferCompanySummary | null;
@@ -52,6 +60,21 @@ class JobOfferStructuredDetails {
 
   @ApiProperty({ required: false })
   workModeLabel!: string | null;
+
+  @ApiProperty({ type: [String] })
+  contractTypes!: string[];
+
+  @ApiProperty({ type: [String] })
+  workModes!: string[];
+
+  @ApiProperty({ type: [String] })
+  workSchedules!: string[];
+
+  @ApiProperty({ type: [String] })
+  seniorityLevels!: string[];
+
+  @ApiProperty({ type: [JobOfferTechnologyItem] })
+  technologies!: Array<{ label: string; category: 'required' | 'nice_to_have' | 'all' }>;
 }
 
 export class JobOfferItem {

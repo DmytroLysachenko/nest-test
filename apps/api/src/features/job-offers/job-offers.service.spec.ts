@@ -718,7 +718,7 @@ describe('JobOffersService', () => {
 
     expect(result.items[0]).toEqual(
       expect.objectContaining({
-        structuredDetails: {
+        structuredDetails: expect.objectContaining({
           companySummary: expect.objectContaining({
             id: 'company-1',
             canonicalName: 'Acme',
@@ -731,7 +731,12 @@ describe('JobOffersService', () => {
           employmentTypeLabel: 'Full-time',
           contractTypeLabel: 'B2B contract',
           workModeLabel: 'Remote',
-        },
+          contractTypes: [],
+          workModes: [],
+          workSchedules: [],
+          seniorityLevels: [],
+          technologies: [],
+        }),
       }),
     );
   });

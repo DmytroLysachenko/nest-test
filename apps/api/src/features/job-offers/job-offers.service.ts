@@ -7,10 +7,18 @@ import {
   companiesTable,
   contractTypesTable,
   employmentTypesTable,
+  jobOfferContractTypesTable,
+  jobOfferSeniorityLevelsTable,
+  jobOfferTechnologiesTable,
+  jobOfferWorkModesTable,
+  jobOfferWorkSchedulesTable,
   jobOffersTable,
   jobCategoriesTable,
   notebookPreferencesTable,
+  seniorityLevelsTable,
+  technologiesTable,
   userJobOffersTable,
+  workSchedulesTable,
   workModesTable,
 } from '@repo/db';
 import { z } from 'zod';
@@ -64,6 +72,7 @@ const normalizeNotebookFilters = (value: unknown) => {
 const toIsoString = (value: Date | null) => (value ? value.toISOString() : null);
 
 type StructuredOfferSelectRow = {
+  jobOfferId?: string;
   companySummaryId?: string | null;
   companyCanonicalName?: string | null;
   companyWebsiteUrl?: string | null;
@@ -77,7 +86,23 @@ type StructuredOfferSelectRow = {
   workModeLabel?: string | null;
 };
 
-const buildStructuredOfferDetails = (row: StructuredOfferSelectRow) => {
+type StructuredOfferRelations = {
+  contractTypes: string[];
+  workModes: string[];
+  workSchedules: string[];
+  seniorityLevels: string[];
+  technologies: Array<{ label: string; category: 'required' | 'nice_to_have' | 'all' }>;
+};
+
+const EMPTY_STRUCTURED_RELATIONS: StructuredOfferRelations = {
+  contractTypes: [],
+  workModes: [],
+  workSchedules: [],
+  seniorityLevels: [],
+  technologies: [],
+};
+
+const buildStructuredOfferDetails = (row: StructuredOfferSelectRow, relations?: StructuredOfferRelations | null) => {
   const companySummary = row.companySummaryId
     ? {
         id: row.companySummaryId,
@@ -94,8 +119,20 @@ const buildStructuredOfferDetails = (row: StructuredOfferSelectRow) => {
   const employmentTypeLabel = row.employmentTypeLabel ?? null;
   const contractTypeLabel = row.contractTypeLabel ?? null;
   const workModeLabel = row.workModeLabel ?? null;
+  const mergedRelations = relations ?? EMPTY_STRUCTURED_RELATIONS;
 
-  if (!companySummary && !jobCategory && !employmentTypeLabel && !contractTypeLabel && !workModeLabel) {
+  if (
+    !companySummary &&
+    !jobCategory &&
+    !employmentTypeLabel &&
+    !contractTypeLabel &&
+    !workModeLabel &&
+    !mergedRelations.contractTypes.length &&
+    !mergedRelations.workModes.length &&
+    !mergedRelations.workSchedules.length &&
+    !mergedRelations.seniorityLevels.length &&
+    !mergedRelations.technologies.length
+  ) {
     return null;
   }
 
@@ -105,6 +142,11 @@ const buildStructuredOfferDetails = (row: StructuredOfferSelectRow) => {
     employmentTypeLabel,
     contractTypeLabel,
     workModeLabel,
+    contractTypes: mergedRelations.contractTypes,
+    workModes: mergedRelations.workModes,
+    workSchedules: mergedRelations.workSchedules,
+    seniorityLevels: mergedRelations.seniorityLevels,
+    technologies: mergedRelations.technologies,
   };
 };
 
@@ -305,6 +347,143 @@ export class JobOffersService {
     };
   }
 
+  private async loadStructuredOfferRelations(jobOfferIds: string[]) {
+    const ids = Array.from(new Set(jobOfferIds.filter(Boolean)));
+    if (!ids.length) {
+      return new Map<string, StructuredOfferRelations>();
+    }
+
+    try {
+      const [contractTypeRows, workModeRows, workScheduleRows, seniorityLevelRows, technologyRows] = await Promise.all([
+        this.db
+          .select({
+            jobOfferId: jobOfferContractTypesTable.jobOfferId,
+            label: contractTypesTable.label,
+          })
+          .from(jobOfferContractTypesTable)
+          .innerJoin(contractTypesTable, eq(jobOfferContractTypesTable.contractTypeId, contractTypesTable.id))
+          .where(inArray(jobOfferContractTypesTable.jobOfferId, ids)),
+        this.db
+          .select({
+            jobOfferId: jobOfferWorkModesTable.jobOfferId,
+            label: workModesTable.label,
+          })
+          .from(jobOfferWorkModesTable)
+          .innerJoin(workModesTable, eq(jobOfferWorkModesTable.workModeId, workModesTable.id))
+          .where(inArray(jobOfferWorkModesTable.jobOfferId, ids)),
+        this.db
+          .select({
+            jobOfferId: jobOfferWorkSchedulesTable.jobOfferId,
+            label: workSchedulesTable.label,
+          })
+          .from(jobOfferWorkSchedulesTable)
+          .innerJoin(workSchedulesTable, eq(jobOfferWorkSchedulesTable.workScheduleId, workSchedulesTable.id))
+          .where(inArray(jobOfferWorkSchedulesTable.jobOfferId, ids)),
+        this.db
+          .select({
+            jobOfferId: jobOfferSeniorityLevelsTable.jobOfferId,
+            label: seniorityLevelsTable.label,
+          })
+          .from(jobOfferSeniorityLevelsTable)
+          .innerJoin(seniorityLevelsTable, eq(jobOfferSeniorityLevelsTable.seniorityLevelId, seniorityLevelsTable.id))
+          .where(inArray(jobOfferSeniorityLevelsTable.jobOfferId, ids)),
+        this.db
+          .select({
+            jobOfferId: jobOfferTechnologiesTable.jobOfferId,
+            label: technologiesTable.label,
+            category: jobOfferTechnologiesTable.category,
+          })
+          .from(jobOfferTechnologiesTable)
+          .innerJoin(technologiesTable, eq(jobOfferTechnologiesTable.technologyId, technologiesTable.id))
+          .where(inArray(jobOfferTechnologiesTable.jobOfferId, ids)),
+      ]);
+
+      const relationMap = new Map<string, StructuredOfferRelations>();
+      const ensureEntry = (jobOfferId: string) => {
+        const existing = relationMap.get(jobOfferId);
+        if (existing) {
+          return existing;
+        }
+        const created: StructuredOfferRelations = {
+          contractTypes: [],
+          workModes: [],
+          workSchedules: [],
+          seniorityLevels: [],
+          technologies: [],
+        };
+        relationMap.set(jobOfferId, created);
+        return created;
+      };
+
+      for (const row of contractTypeRows) {
+        if (!row.label) {
+          continue;
+        }
+        const entry = ensureEntry(row.jobOfferId);
+        if (!entry.contractTypes.includes(row.label)) {
+          entry.contractTypes.push(row.label);
+        }
+      }
+      for (const row of workModeRows) {
+        if (!row.label) {
+          continue;
+        }
+        const entry = ensureEntry(row.jobOfferId);
+        if (!entry.workModes.includes(row.label)) {
+          entry.workModes.push(row.label);
+        }
+      }
+      for (const row of workScheduleRows) {
+        if (!row.label) {
+          continue;
+        }
+        const entry = ensureEntry(row.jobOfferId);
+        if (!entry.workSchedules.includes(row.label)) {
+          entry.workSchedules.push(row.label);
+        }
+      }
+      for (const row of seniorityLevelRows) {
+        if (!row.label) {
+          continue;
+        }
+        const entry = ensureEntry(row.jobOfferId);
+        if (!entry.seniorityLevels.includes(row.label)) {
+          entry.seniorityLevels.push(row.label);
+        }
+      }
+      for (const row of technologyRows) {
+        if (!row.label) {
+          continue;
+        }
+        const entry = ensureEntry(row.jobOfferId);
+        if (
+          !entry.technologies.some(
+            (technology) => technology.label === row.label && technology.category === row.category,
+          )
+        ) {
+          entry.technologies.push({
+            label: row.label,
+            category: row.category as 'required' | 'nice_to_have' | 'all',
+          });
+        }
+      }
+
+      for (const entry of relationMap.values()) {
+        entry.contractTypes.sort((a, b) => a.localeCompare(b));
+        entry.workModes.sort((a, b) => a.localeCompare(b));
+        entry.workSchedules.sort((a, b) => a.localeCompare(b));
+        entry.seniorityLevels.sort((a, b) => a.localeCompare(b));
+        entry.technologies.sort((a, b) =>
+          a.category === b.category ? a.label.localeCompare(b.label) : a.category.localeCompare(b.category),
+        );
+      }
+
+      return relationMap;
+    } catch {
+      return new Map<string, StructuredOfferRelations>();
+    }
+  }
+
   async list(userId: string, query: ListJobOffersQuery) {
     const limit = query.limit ? Number(query.limit) : 20;
     const offset = query.offset ? Number(query.offset) : 0;
@@ -401,6 +580,7 @@ export class JobOffersService {
       .offset(fetchOffset);
 
     const followUpNow = new Date();
+    const structuredRelationMap = await this.loadStructuredOfferRelations(items.map((item) => item.jobOfferId));
     const modeEligibleItems = items
       .map((item) => {
         const followUpFields = extractFollowUpFields(item);
@@ -412,7 +592,7 @@ export class JobOffersService {
           mode,
           this.rankingTuning,
         );
-        const structuredDetails = buildStructuredOfferDetails(item);
+        const structuredDetails = buildStructuredOfferDetails(item, structuredRelationMap.get(item.jobOfferId) ?? null);
         const {
           companySummaryId,
           companyCanonicalName,
@@ -626,6 +806,7 @@ export class JobOffersService {
       .offset(0);
 
     const followUpNow = new Date();
+    const structuredRelationMap = await this.loadStructuredOfferRelations(rows.map((item) => item.jobOfferId));
     const prioritized = rows
       .filter((item) => !['DISMISSED', 'ARCHIVED', 'REJECTED'].includes(item.status))
       .map((item) => {
@@ -640,7 +821,7 @@ export class JobOffersService {
         );
         const matchMeta = (item.matchMeta as Record<string, unknown> | null) ?? null;
         const fitHighlights = getHumanFitHighlights(matchMeta, ranking.explanationTags, item.matchScore);
-        const structuredDetails = buildStructuredOfferDetails(item);
+        const structuredDetails = buildStructuredOfferDetails(item, structuredRelationMap.get(item.jobOfferId) ?? null);
         const {
           companySummaryId,
           companyCanonicalName,
@@ -1568,6 +1749,8 @@ export class JobOffersService {
 
     const fields = extractFollowUpFields(offer);
     const profileSummary = summarizeActiveProfile(profile?.contentJson ?? null);
+    const structuredRelationMap = await this.loadStructuredOfferRelations([offer.jobOfferId]);
+    const structuredDetails = buildStructuredOfferDetails(offer, structuredRelationMap.get(offer.jobOfferId) ?? null);
 
     return {
       offer: {
@@ -1578,7 +1761,7 @@ export class JobOffersService {
         url: offer.url,
         description: offer.description,
         requirements: offer.requirements,
-        structuredDetails: buildStructuredOfferDetails(offer),
+        structuredDetails,
       },
       matchRationale: (offer.matchMeta as Record<string, unknown> | null) ?? null,
       tags: Array.isArray(offer.tags) ? (offer.tags as string[]) : [],
@@ -1626,6 +1809,9 @@ export class JobOffersService {
     if (!offer) {
       throw new NotFoundException('Job offer not found');
     }
+
+    const structuredRelationMap = await this.loadStructuredOfferRelations([offer.jobOfferId]);
+    const structuredRelations = structuredRelationMap.get(offer.jobOfferId) ?? EMPTY_STRUCTURED_RELATIONS;
 
     const profile = await this.db
       .select()
@@ -1776,15 +1962,26 @@ export class JobOffersService {
       throw new BadRequestException('Career profile JSON does not match canonical schema');
     }
 
+    const structuredRelationMap = await this.loadStructuredOfferRelations([offer.jobOfferId]);
+    const structuredRelations = structuredRelationMap.get(offer.jobOfferId) ?? EMPTY_STRUCTURED_RELATIONS;
+
     const deterministic = scoreCandidateAgainstJob(parsedProfile.data, {
       text: offer.description,
       title: offer.title,
       location: offer.location,
       employmentType: offer.employmentType,
       contractType: offer.contractType,
+      contractTypes: structuredRelations.contractTypes,
       employmentSchedule: offer.employmentSchedule,
-      workModes: offer.workMode ? [offer.workMode] : [],
+      employmentSchedules: structuredRelations.workSchedules,
+      workModes: structuredRelations.workModes.length
+        ? structuredRelations.workModes
+        : offer.workMode
+          ? [offer.workMode]
+          : [],
       jobCategory: offer.jobCategory,
+      seniorityLevels: structuredRelations.seniorityLevels,
+      technologies: structuredRelations.technologies.map((technology) => technology.label),
       salaryText: offer.salary,
     });
 

@@ -6,9 +6,13 @@ type JobContext = {
   location?: string | null;
   employmentType?: string | null;
   contractType?: string | null;
+  contractTypes?: string[] | null;
   employmentSchedule?: string | null;
+  employmentSchedules?: string[] | null;
   workModes?: string[] | null;
   jobCategory?: string | null;
+  seniorityLevels?: string[] | null;
+  technologies?: string[] | null;
   salaryText?: string | null;
 };
 
@@ -107,15 +111,21 @@ const hasAnyAlias = (normalizedText: string, aliasesByKey: Record<string, string
 
 export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: JobContext) => {
   const structuredWorkModes = (context.workModes ?? []).filter(Boolean);
+  const structuredContractTypes = (context.contractTypes ?? []).filter(Boolean);
+  const structuredEmploymentSchedules = (context.employmentSchedules ?? []).filter(Boolean);
   const text = [
     context.title,
     context.text,
     context.location,
     context.employmentType,
     context.contractType,
+    ...structuredContractTypes,
     context.employmentSchedule,
+    ...structuredEmploymentSchedules,
     context.jobCategory,
     ...structuredWorkModes,
+    ...(context.seniorityLevels ?? []).filter(Boolean),
+    ...(context.technologies ?? []).filter(Boolean),
     context.salaryText,
   ]
     .filter(Boolean)
@@ -124,7 +134,9 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
   const jobTokens = asTokenSet(text);
   const structuredWorkModeSet = new Set(structuredWorkModes.map((item) => normalizeAscii(item)));
   const structuredEmploymentTypeSet = new Set(
-    [context.contractType, context.employmentSchedule].map((item) => normalizeString(item)).filter(Boolean),
+    [context.contractType, context.employmentSchedule, ...structuredContractTypes, ...structuredEmploymentSchedules]
+      .map((item) => normalizeString(item))
+      .filter(Boolean),
   );
   const hardViolations: string[] = [];
   const softGaps: string[] = [];
