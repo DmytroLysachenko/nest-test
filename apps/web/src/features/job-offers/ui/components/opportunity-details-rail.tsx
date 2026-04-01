@@ -7,8 +7,9 @@ import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
 
-import type { DiscoveryJobOfferListItemDto } from '@/shared/types/api';
 import { OfferStructuredDetailsPanel } from './offer-structured-details-panel';
+
+import type { DiscoveryJobOfferListItemDto } from '@/shared/types/api';
 
 type OpportunityDetailsRailProps = {
   offer: DiscoveryJobOfferListItemDto | null;

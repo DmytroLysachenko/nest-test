@@ -15,9 +15,10 @@ import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
 import { EmptyState } from '@/shared/ui/empty-state';
 
+import { OfferStructuredDetailsPanel } from './offer-structured-details-panel';
+
 import type { getJobOfferHistory } from '@/features/job-offers/api/job-offers-api';
 import type { JobOfferListItemDto, JobOfferPrepPacketDto, JobOfferStatus } from '@/shared/types/api';
-import { OfferStructuredDetailsPanel } from './offer-structured-details-panel';
 
 const STATUSES: JobOfferStatus[] = [
   'NEW',
