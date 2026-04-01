@@ -1,5 +1,13 @@
 # Decisions
 
+Last updated: 2026-04-01
+
+## Purpose
+
+This document records major architectural, contract, and implementation-boundary decisions.
+
+Use it to explain why the system is shaped a certain way, not to restate implementation details already visible in code.
+
 ADR-lite log for major architectural and contract decisions.
 
 ## 2026-03-22: Scraping Is Acquisition Infrastructure, Not The Product
@@ -41,6 +49,59 @@ ADR-lite log for major architectural and contract decisions.
   - A completed scrape with zero usable offers is not a healthy success.
   - Source blocking and browser fallback make deterministic perfect-success expectations unrealistic.
   - The product must explain what happened in prod without requiring log archaeology.
+
+## 2026-03-30: Phase-1 Catalog Standardization Uses Company And Taxonomy Core
+
+- Decision:
+  - Start catalog standardization with a small reusable entity layer:
+    - `companies`
+    - `company_aliases`
+    - `job_categories`
+    - `employment_types`
+    - `contract_types`
+    - `work_modes`
+  - Extend `job_offers` with nullable normalized foreign keys for those entities.
+  - Keep raw source snapshot fields during migration instead of replacing them immediately.
+- Why:
+  - Matching and query logic should gradually move from substring scans toward SQL-backed structured fields.
+  - The phase-1 model must support future non-IT domains, so taxonomy should stay domain-neutral.
+  - Keeping raw snapshot fields reduces migration risk and preserves offer-history context.
+
+## 2026-03-30: Matching Should Prefer Structured Catalog Refs With Raw Fallback
+
+- Decision:
+  - Matching and catalog-rematch candidate selection should prefer normalized contract type and work mode refs when those refs exist.
+  - Keep unresolved legacy offers eligible through raw-text fallback instead of excluding them.
+- Why:
+  - Structured refs improve query efficiency and reduce noisy substring heuristics.
+  - Raw fallback avoids sudden recall loss while catalog backfill is still incomplete.
+
+## 2026-04-01: Structured Catalog Context Should Be Additive In User-Facing Read Models
+
+- Decision:
+  - Extend notebook/discovery/prep read models with normalized company and taxonomy summaries while keeping existing raw listing fields.
+  - Treat the normalized fields as additive API contract surface, not a breaking replacement.
+- Why:
+  - Users need structured context during review without losing the raw historical listing snapshot.
+  - Additive contracts let older UI paths and tests continue working during the catalog-standardization stream.
+
+## 2026-04-01: OTP Verification Must Consume Rows Instead Of Acting As Read-Only Lookup
+
+- Decision:
+  - OTP verification should mark the verified row as used and return success only for a still-unused row.
+  - Issuing a new OTP should retire older active OTP rows for the same receiver and type.
+- Why:
+  - The previous read-only verification path did not enforce true single-use semantics.
+  - Keeping used rows persisted improves auditability and makes runtime OTP behavior observable.
+
+## 2026-04-01: Fresh-Candidate Reuse Rejection Must Be Visible To The Caller
+
+- Decision:
+  - When scrape enqueue rejects catalog rematch or DB reuse because fresh-candidate minimums are not met, return explicit reuse diagnostics in the enqueue response instead of silently falling through.
+  - Keep worker dispatch behavior unchanged when reuse is rejected; only the caller-facing explanation becomes richer.
+- Why:
+  - Product and support surfaces need to distinguish "reuse was considered and rejected" from "reuse was never available".
+  - Fresh-result gating is part of the scrape-quality contract, so it should be observable in user-facing and support-facing flows.
 
 ## 2026-02-21: Canonical Career Profile Schema
 
@@ -417,7 +478,7 @@ ADR-lite log for major architectural and contract decisions.
 ## 2026-03-02: Canonical GCP Deploy Matrix
 
 - Decision:
-  - Introduce `docs/GCP_DEPLOY_MATRIX.md` as the single source of truth for:
+  - Introduce `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md` as the single source of truth for:
     - repository-level CI/CD variables and secrets
     - service-level runtime env and secret mapping
     - Cloud Run baseline settings and rollout sequence

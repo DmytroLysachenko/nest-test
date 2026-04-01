@@ -9,11 +9,17 @@ import { documentsTable } from './documents';
 import { documentEventsTable } from './document-events';
 import { documentStageMetricsTable } from './document-stage-metrics';
 import { careerProfilesTable } from './career-profiles';
+import { companiesTable } from './companies';
+import { companyAliasesTable } from './company-aliases';
+import { contractTypesTable } from './contract-types';
 import { jobMatchesTable } from './job-matches';
+import { employmentTypesTable } from './employment-types';
 import { jobSourceRunsTable } from './job-source-runs';
 import { jobSourceRunAttemptsTable } from './job-source-run-attempts';
 import { jobOffersTable } from './job-offers';
+import { jobCategoriesTable } from './job-categories';
 import { userJobOffersTable } from './user-job-offers';
+import { workModesTable } from './work-modes';
 
 export const usersRelations = relations(usersTable, ({ one, many }) => ({
   profile: one(profilesTable, {
@@ -103,6 +109,34 @@ export const careerProfilesRelations = relations(careerProfilesTable, ({ one, ma
   jobOffers: many(userJobOffersTable),
 }));
 
+export const companiesRelations = relations(companiesTable, ({ many }) => ({
+  aliases: many(companyAliasesTable),
+  jobOffers: many(jobOffersTable),
+}));
+
+export const companyAliasesRelations = relations(companyAliasesTable, ({ one }) => ({
+  company: one(companiesTable, {
+    fields: [companyAliasesTable.companyId],
+    references: [companiesTable.id],
+  }),
+}));
+
+export const jobCategoriesRelations = relations(jobCategoriesTable, ({ many }) => ({
+  jobOffers: many(jobOffersTable),
+}));
+
+export const employmentTypesRelations = relations(employmentTypesTable, ({ many }) => ({
+  jobOffers: many(jobOffersTable),
+}));
+
+export const contractTypesRelations = relations(contractTypesTable, ({ many }) => ({
+  jobOffers: many(jobOffersTable),
+}));
+
+export const workModesRelations = relations(workModesTable, ({ many }) => ({
+  jobOffers: many(jobOffersTable),
+}));
+
 export const jobMatchesRelations = relations(jobMatchesTable, ({ one }) => ({
   user: one(usersTable, {
     fields: [jobMatchesTable.userId],
@@ -139,6 +173,26 @@ export const jobOffersRelations = relations(jobOffersTable, ({ one, many }) => (
   run: one(jobSourceRunsTable, {
     fields: [jobOffersTable.runId],
     references: [jobSourceRunsTable.id],
+  }),
+  company: one(companiesTable, {
+    fields: [jobOffersTable.companyId],
+    references: [companiesTable.id],
+  }),
+  jobCategory: one(jobCategoriesTable, {
+    fields: [jobOffersTable.jobCategoryId],
+    references: [jobCategoriesTable.id],
+  }),
+  employmentTypeRef: one(employmentTypesTable, {
+    fields: [jobOffersTable.employmentTypeId],
+    references: [employmentTypesTable.id],
+  }),
+  contractTypeRef: one(contractTypesTable, {
+    fields: [jobOffersTable.contractTypeId],
+    references: [contractTypesTable.id],
+  }),
+  workModeRef: one(workModesTable, {
+    fields: [jobOffersTable.workModeId],
+    references: [workModesTable.id],
   }),
   userJobOffers: many(userJobOffersTable),
 }));

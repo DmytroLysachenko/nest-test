@@ -1,3 +1,5 @@
+import { canonicalizeContractType, canonicalizeWorkMode } from '@repo/db';
+
 import type { JobDetails, NormalizedJob, ParsedJob } from '../types';
 
 const normalizeText = (value?: string) => (value ? value.trim() : null);
@@ -18,70 +20,6 @@ const normalizeList = (value?: string[]) => {
 const dedupeList = (value?: Array<string | null | undefined>) => {
   const items = Array.from(new Set((value ?? []).filter((item): item is string => Boolean(item))));
   return items.length ? items : undefined;
-};
-
-const canonicalizeContractType = (value?: string | null) => {
-  const trimmed = normalizeText(value);
-  if (!trimmed) {
-    return null;
-  }
-
-  const normalized = normalizeAscii(trimmed).replace(/[^a-z0-9]+/g, '');
-  if (normalized.includes('b2b') || normalized.includes('kontrakt')) {
-    return 'b2b';
-  }
-  if (normalized.includes('uop') || normalized.includes('umowaoprace') || normalized.includes('employmentcontract')) {
-    return 'uop';
-  }
-  if (normalized.includes('umowazlecenie') || normalized.includes('zlecenie') || normalized.includes('mandate')) {
-    return 'mandate';
-  }
-  if (normalized.includes('umowaodzielo') || normalized.includes('specifictask') || normalized.includes('dzielo')) {
-    return 'specific-task';
-  }
-  if (
-    normalized.includes('staz') ||
-    normalized.includes('praktyk') ||
-    normalized.includes('internship') ||
-    normalized.includes('trainee')
-  ) {
-    return 'internship';
-  }
-
-  return trimmed.toLowerCase();
-};
-
-const canonicalizeWorkMode = (value?: string | null) => {
-  const trimmed = normalizeText(value);
-  if (!trimmed) {
-    return null;
-  }
-
-  const normalized = normalizeAscii(trimmed).replace(/[^a-z0-9]+/g, '');
-  if (
-    normalized.includes('remote') ||
-    normalized.includes('zdal') ||
-    normalized.includes('homeoffice') ||
-    normalized.includes('homeofficework')
-  ) {
-    return 'remote';
-  }
-  if (normalized.includes('hybrid') || normalized.includes('hybryd')) {
-    return 'hybrid';
-  }
-  if (normalized.includes('mobile')) {
-    return 'mobile';
-  }
-  if (
-    normalized.includes('office') ||
-    normalized.includes('onsite') ||
-    normalized.includes('stacjon') ||
-    normalized.includes('biur')
-  ) {
-    return 'onsite';
-  }
-
-  return trimmed.toLowerCase();
 };
 
 const canonicalizePositionLevel = (value?: string | null) => {

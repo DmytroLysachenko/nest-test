@@ -2,7 +2,7 @@
 
 Last updated: 2026-03-21
 
-This document translates the current roadmap into implementation-oriented sprint slices. It is intentionally more detailed than `docs/ROADMAP.md` and should be updated whenever priorities or dependencies shift materially.
+This document translates the current roadmap into implementation-oriented sprint slices. It is intentionally more detailed than `docs/03_plans_and_roadmaps/01_roadmap.md` and should be updated whenever priorities or dependencies shift materially.
 
 ## Current Delivery Position
 
@@ -220,7 +220,7 @@ Make local setup, CI smoke, and production promotion reliable enough that operat
 ### Likely Files/Areas
 
 - `scripts/**`
-- `docs/RUNBOOK.md`
+- `docs/05_operations_and_deployment/01_runbook.md`
 - `.github/workflows/**`
 - `apps/api/src/features/ops/**`
 - deploy scripts/docs

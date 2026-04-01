@@ -14,6 +14,46 @@ class JobOfferDetails {
   technologies?: unknown;
 }
 
+class JobOfferCompanySummary {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  canonicalName!: string;
+
+  @ApiProperty({ required: false })
+  websiteUrl!: string | null;
+
+  @ApiProperty({ required: false })
+  sourceProfileUrl!: string | null;
+
+  @ApiProperty({ required: false })
+  logoUrl!: string | null;
+
+  @ApiProperty({ required: false })
+  description!: string | null;
+
+  @ApiProperty({ required: false })
+  hqLocation!: string | null;
+}
+
+class JobOfferStructuredDetails {
+  @ApiProperty({ required: false, type: JobOfferCompanySummary })
+  companySummary!: JobOfferCompanySummary | null;
+
+  @ApiProperty({ required: false })
+  jobCategory!: string | null;
+
+  @ApiProperty({ required: false })
+  employmentTypeLabel!: string | null;
+
+  @ApiProperty({ required: false })
+  contractTypeLabel!: string | null;
+
+  @ApiProperty({ required: false })
+  workModeLabel!: string | null;
+}
+
 export class JobOfferItem {
   @ApiProperty()
   id!: string;
@@ -104,6 +144,9 @@ export class JobOfferItem {
 
   @ApiProperty({ required: false })
   details!: JobOfferDetails | null;
+
+  @ApiProperty({ required: false, type: JobOfferStructuredDetails })
+  structuredDetails!: JobOfferStructuredDetails | null;
 
   @ApiProperty()
   createdAt!: string;
@@ -271,6 +314,9 @@ class PrepPacketSummary {
 
   @ApiProperty({ required: false })
   requirements!: unknown | null;
+
+  @ApiProperty({ required: false, type: JobOfferStructuredDetails })
+  structuredDetails!: JobOfferStructuredDetails | null;
 }
 
 class PrepPacketProfileSummary {

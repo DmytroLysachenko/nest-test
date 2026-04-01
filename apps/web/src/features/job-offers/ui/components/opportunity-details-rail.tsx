@@ -7,6 +7,8 @@ import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
 
+import { OfferStructuredDetailsPanel } from './offer-structured-details-panel';
+
 import type { DiscoveryJobOfferListItemDto } from '@/shared/types/api';
 
 type OpportunityDetailsRailProps = {
@@ -61,6 +63,8 @@ export const OpportunityDetailsRail = ({
             ))}
           </div>
         ) : null}
+
+        <OfferStructuredDetailsPanel structuredDetails={offer.structuredDetails} />
 
         <div className="app-inset-stack space-y-2">
           <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Role summary</p>

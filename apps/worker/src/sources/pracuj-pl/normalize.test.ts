@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { normalizeCompanyName, resolvePracujCategoryDefinition } from '@repo/db';
+
 import { normalizePracujPl } from './normalize';
 
 test('normalizePracujPl canonicalizes contract, work mode, and seniority aliases', () => {
@@ -46,6 +48,25 @@ test('normalizePracujPl preserves unknown aliases as normalized lowercase text',
 
   assert.equal(job?.employmentType, 'fractional');
   assert.deepEqual(job?.details?.contractTypes, ['fractional']);
-  assert.deepEqual(job?.details?.workModes, ['field']);
+  assert.deepEqual(job?.details?.workModes, ['mobile']);
   assert.deepEqual(job?.details?.positionLevels, ['staff']);
+});
+
+test('shared catalog normalization resolves company names and pracuj categories conservatively', () => {
+  assert.deepEqual(normalizeCompanyName(' ACME sp. z o.o. '), {
+    canonicalName: 'ACME sp. z o.o.',
+    normalizedName: 'acme',
+  });
+
+  assert.deepEqual(resolvePracujCategoryDefinition('5015', 'general'), {
+    slug: 'software-development',
+    label: 'Software development',
+    aliases: ['it - rozwoj oprogramowania', 'software engineering', 'development'],
+  });
+
+  assert.deepEqual(resolvePracujCategoryDefinition('devops', 'it'), {
+    slug: 'it-administration',
+    label: 'IT administration',
+    aliases: ['it - administracja', 'system administration', 'security'],
+  });
 });

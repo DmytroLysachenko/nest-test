@@ -34,6 +34,7 @@
   "packageManager": "pnpm@10.11.0",
   "scripts": {
     "build": "tsup",
+    "backfill:catalog-normalization": "tsx src/seeds/backfill-catalog-normalization.ts",
     "generate": "drizzle-kit generate",
     "lint:fix": "eslint . --ext .ts,.js --fix",
     "migrate": "drizzle-kit migrate",

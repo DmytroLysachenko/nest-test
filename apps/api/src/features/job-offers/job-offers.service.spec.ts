@@ -1,16 +1,22 @@
 import { JobOffersService } from './job-offers.service';
 
-const createSelectOfferQuery = (offer: Record<string, unknown> | undefined) => ({
-  from: jest.fn().mockReturnValue({
-    innerJoin: jest.fn().mockReturnValue({
-      where: jest.fn().mockReturnValue({
-        limit: jest.fn().mockReturnValue({
-          then: (cb: (rows: unknown[]) => unknown) => Promise.resolve(cb(offer ? [offer] : [])),
-        }),
+const createSelectOfferQuery = (offer: Record<string, unknown> | undefined) => {
+  const joinChain: Record<string, jest.Mock> = {
+    leftJoin: jest.fn(),
+    where: jest.fn().mockReturnValue({
+      limit: jest.fn().mockReturnValue({
+        then: (cb: (rows: unknown[]) => unknown) => Promise.resolve(cb(offer ? [offer] : [])),
       }),
     }),
-  }),
-});
+  };
+  joinChain.leftJoin.mockReturnValue(joinChain);
+
+  return {
+    from: jest.fn().mockReturnValue({
+      innerJoin: jest.fn().mockReturnValue(joinChain),
+    }),
+  };
+};
 
 const createSelectProfileQuery = (profile: Record<string, unknown> | undefined) => ({
   from: jest.fn().mockReturnValue({
@@ -42,19 +48,25 @@ const createSummaryQuery = (items: Array<Record<string, unknown>>) => ({
   }),
 });
 
-const createListQuery = (items: Array<Record<string, unknown>>) => ({
-  from: jest.fn().mockReturnValue({
-    innerJoin: jest.fn().mockReturnValue({
-      where: jest.fn().mockReturnValue({
-        orderBy: jest.fn().mockReturnValue({
-          limit: jest.fn().mockReturnValue({
-            offset: jest.fn().mockResolvedValue(items),
-          }),
+const createListQuery = (items: Array<Record<string, unknown>>) => {
+  const joinChain: Record<string, jest.Mock> = {
+    leftJoin: jest.fn(),
+    where: jest.fn().mockReturnValue({
+      orderBy: jest.fn().mockReturnValue({
+        limit: jest.fn().mockReturnValue({
+          offset: jest.fn().mockResolvedValue(items),
         }),
       }),
     }),
-  }),
-});
+  };
+  joinChain.leftJoin.mockReturnValue(joinChain);
+
+  return {
+    from: jest.fn().mockReturnValue({
+      innerJoin: jest.fn().mockReturnValue(joinChain),
+    }),
+  };
+};
 
 const createBulkFollowUpTransaction = (rows: Array<Record<string, unknown>>, setMock: jest.Mock) => ({
   select: jest.fn().mockReturnValue({
@@ -644,6 +656,84 @@ describe('JobOffersService', () => {
 
     expect(result.total).toBe(1);
     expect(result.degradedResultCount).toBe(1);
+  });
+
+  it('exposes structured company and taxonomy details in notebook list responses', async () => {
+    const select = jest.fn().mockReturnValue(
+      createListQuery([
+        {
+          id: 'ujo-structured-1',
+          jobOfferId: 'job-structured-1',
+          sourceRunId: 'run-structured-1',
+          status: 'NEW',
+          matchScore: 79,
+          matchMeta: { hardConstraintViolations: [] },
+          pipelineMeta: null,
+          notes: null,
+          tags: null,
+          statusHistory: [],
+          lastStatusAt: new Date('2026-03-22T13:38:32.201Z'),
+          source: 'PRACUJ_PL',
+          url: 'https://www.pracuj.pl/oferta/12',
+          title: 'Frontend Engineer',
+          company: 'Acme sp. z o.o.',
+          location: 'Remote',
+          salary: null,
+          employmentType: 'B2B',
+          companySummaryId: 'company-1',
+          companyCanonicalName: 'Acme',
+          companyWebsiteUrl: 'https://acme.example',
+          companySourceProfileUrl: 'https://pracuj.pl/acme',
+          companyLogoUrl: null,
+          companyDescription: 'Product company',
+          companyHqLocation: 'Warsaw',
+          jobCategoryLabel: 'Software development',
+          employmentTypeLabel: 'Full-time',
+          contractTypeLabel: 'B2B contract',
+          workModeLabel: 'Remote',
+          description: 'Frontend role',
+          requirements: [],
+          details: null,
+          createdAt: new Date('2026-03-22T13:38:32.201Z'),
+        },
+      ]),
+    );
+    const service = new JobOffersService(
+      { select } as any,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'NOTEBOOK_APPROX_VIOLATION_PENALTY') return 15;
+          if (key === 'NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY') return 45;
+          if (key === 'NOTEBOOK_APPROX_SCORED_BONUS') return 5;
+          if (key === 'NOTEBOOK_EXPLORE_UNSCORED_BASE') return 55;
+          if (key === 'NOTEBOOK_EXPLORE_RECENCY_WEIGHT') return 12;
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          return undefined;
+        }),
+      } as any,
+    );
+
+    const result = await service.list('user-1', { mode: 'strict', limit: 20, offset: 0 });
+
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        structuredDetails: {
+          companySummary: expect.objectContaining({
+            id: 'company-1',
+            canonicalName: 'Acme',
+            websiteUrl: 'https://acme.example',
+            sourceProfileUrl: 'https://pracuj.pl/acme',
+            description: 'Product company',
+            hqLocation: 'Warsaw',
+          }),
+          jobCategory: 'Software development',
+          employmentTypeLabel: 'Full-time',
+          contractTypeLabel: 'B2B contract',
+          workModeLabel: 'Remote',
+        },
+      }),
+    );
   });
 
   it('builds discovery queue with friendly fit copy and keeps active pipeline items marked', async () => {

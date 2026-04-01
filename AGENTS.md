@@ -7,13 +7,13 @@ This file defines how agents should work in this monorepo to keep delivery consi
 Primary project context lives in:
 
 - `README.md`
-- `docs/CODEX_HANDOFF.md`
+- `docs/01_project_context/01_codex_handoff.md`
 - `storypoints.md`
-- `docs/PROJECT_STATE.md`
-- `docs/ROADMAP.md`
-- `docs/DECISIONS.md`
-- `docs/FRONTEND_STANDARDS.md`
-- `docs/RUNBOOK.md`
+- `docs/01_project_context/02_project_state.md`
+- `docs/03_plans_and_roadmaps/01_roadmap.md`
+- `docs/04_architecture_and_data/01_decisions.md`
+- `docs/06_engineering_standards/01_frontend_standards.md`
+- `docs/05_operations_and_deployment/01_runbook.md`
 
 If instructions conflict, follow this order:
 
@@ -65,6 +65,12 @@ For each implementation task:
 4. Run relevant checks.
 5. Update docs when behavior/contract changes.
 
+Documentation expectation:
+
+- Follow the numbered docs system under `docs/`.
+- Update the owning feature/plan/ops doc instead of adding ad-hoc new docs.
+- Prefer references to code paths over copied implementation detail.
+
 Do not:
 
 - Introduce speculative abstractions without immediate use.
@@ -106,7 +112,7 @@ When changing specific areas:
 - Use shared UI primitives (`@repo/ui`, shadcn-style approach) instead of ad-hoc duplicated components.
 - Keep test/support tooling separated from production UX when needed.
 - Use env-driven API base URLs; no hardcoded prod/dev URLs.
-- For FE architecture and conventions, follow `docs/FRONTEND_STANDARDS.md` as canonical.
+- For FE architecture and conventions, follow `docs/06_engineering_standards/01_frontend_standards.md` as canonical.
 
 ## Commit and PR Discipline
 

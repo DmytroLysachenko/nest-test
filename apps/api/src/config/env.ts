@@ -57,6 +57,7 @@ export const EnvSchema = z.object({
     .regex(/^\d+(b|kb|mb)$/i)
     .default('1mb'),
   SCRAPE_DB_REUSE_HOURS: z.coerce.number().int().min(1).max(720).default(24),
+  SCRAPE_MIN_FRESH_CANDIDATES: z.coerce.number().int().min(1).max(100).default(10),
   CATALOG_REMATCH_HOURS: z.coerce.number().int().min(1).max(720).default(72),
   CATALOG_REMATCH_BATCH_SIZE: z.coerce.number().int().min(1).max(1000).default(250),
   CATALOG_REMATCH_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(60),

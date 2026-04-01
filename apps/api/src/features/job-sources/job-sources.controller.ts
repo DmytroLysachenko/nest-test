@@ -8,7 +8,7 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public.decorator';
 import { JwtValidateUser } from '@/types/interface/jwt';
 
-import { EnqueueScrapeDto } from './dto/enqueue-scrape.dto';
+import { EnqueueScrapeDto, EnqueueScrapeResponseDto } from './dto/enqueue-scrape.dto';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { JobSourcesService } from './job-sources.service';
@@ -33,6 +33,7 @@ export class JobSourcesController {
 
   @Post('scrape')
   @ApiOperation({ summary: 'Enqueue a scrape job for job listings' })
+  @ApiOkResponse({ type: EnqueueScrapeResponseDto })
   @Throttle({ default: { limit: 6, ttl: 60000 } })
   async enqueueScrape(
     @CurrentUser() user: JwtValidateUser,

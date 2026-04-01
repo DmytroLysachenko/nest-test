@@ -2,7 +2,7 @@
 
 import { BadRequestException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { otpsTable, profilesTable, passportTable, usersTable } from '@repo/db';
+import { profilesTable, passportTable, usersTable } from '@repo/db';
 import { eq } from 'drizzle-orm';
 import { pickBy } from 'lodash';
 import { Logger } from 'nestjs-pino';
@@ -204,8 +204,6 @@ export class AuthService {
           })
           .returning();
 
-        await trx.delete(otpsTable).where(eq(otpsTable.receiver, email));
-
         return user;
       });
     } catch (error) {
@@ -237,8 +235,6 @@ export class AuthService {
           .set({ password: await hashPassword(password) })
           .where(eq(usersTable.email, email))
           .returning();
-
-        await trx.delete(otpsTable).where(eq(otpsTable.receiver, email));
       });
     } catch (error) {
       this.logger.error(error);

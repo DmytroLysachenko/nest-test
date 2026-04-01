@@ -436,6 +436,12 @@ $workerCallbackToken = Get-EnvOrDefault -Name 'WORKER_CALLBACK_TOKEN' -Default $
 $managedServices = @()
 
 if (-not $skipSeed) {
+  Write-Host '0.5) Applying database migrations...'
+  $stage = 'db-migrate'
+  Invoke-WithRetry -Context 'Database migrate' -Attempts 3 -DelaySeconds 4 -Action {
+    pnpm --filter @repo/db migrate | Out-Host
+  }
+
   Write-Host '1) Seeding minimal fixture data...'
   $stage = 'seed-fixtures'
   Invoke-WithRetry -Context 'Fixture seed' -Attempts 3 -DelaySeconds 4 -Action {

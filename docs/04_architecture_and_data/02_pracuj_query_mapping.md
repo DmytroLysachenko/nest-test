@@ -269,3 +269,16 @@ Recommendation:
 
 - Keep shared dictionaries where IDs are confirmed equal (`tc`),
 - keep source-specific dictionaries where divergence is known (`et`).
+
+## Internal Canonicalization Direction
+
+Pracuj filter identifiers should stay source-specific inside the adapter layer.
+
+Catalog persistence should map those values onto internal canonical entities exposed from `@repo/db`:
+
+- `contract_types`
+- `employment_types`
+- `work_modes`
+- `job_categories`
+
+This keeps source adapters decoupled from app search and matching logic.

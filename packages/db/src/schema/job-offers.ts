@@ -1,7 +1,12 @@
 import { boolean, index, jsonb, pgTable, text, timestamp, uuid, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { jobOfferQualityStateEnum, jobSourceEnum } from './_enums';
+import { companiesTable } from './companies';
+import { contractTypesTable } from './contract-types';
+import { employmentTypesTable } from './employment-types';
 import { jobSourceRunsTable } from './job-source-runs';
+import { jobCategoriesTable } from './job-categories';
+import { workModesTable } from './work-modes';
 
 export const jobOffersTable = pgTable(
   'job_offers',
@@ -13,6 +18,11 @@ export const jobOffersTable = pgTable(
     runId: uuid('run_id').references(() => jobSourceRunsTable.id, { onDelete: 'set null' }),
     url: text('url').notNull(),
     title: text('title').notNull(),
+    companyId: uuid('company_id').references(() => companiesTable.id, { onDelete: 'set null' }),
+    jobCategoryId: uuid('job_category_id').references(() => jobCategoriesTable.id, { onDelete: 'set null' }),
+    employmentTypeId: uuid('employment_type_id').references(() => employmentTypesTable.id, { onDelete: 'set null' }),
+    contractTypeId: uuid('contract_type_id').references(() => contractTypesTable.id, { onDelete: 'set null' }),
+    workModeId: uuid('work_mode_id').references(() => workModesTable.id, { onDelete: 'set null' }),
     company: text('company'),
     location: text('location'),
     salary: text('salary'),
@@ -48,5 +58,10 @@ export const jobOffersTable = pgTable(
       table.runId,
       table.fetchedAt.desc(),
     ),
+    companyIdIdx: index('job_offers_company_id_idx').on(table.companyId),
+    jobCategoryIdIdx: index('job_offers_job_category_id_idx').on(table.jobCategoryId),
+    employmentTypeIdIdx: index('job_offers_employment_type_id_idx').on(table.employmentTypeId),
+    contractTypeIdIdx: index('job_offers_contract_type_id_idx').on(table.contractTypeId),
+    workModeIdIdx: index('job_offers_work_mode_id_idx').on(table.workModeId),
   }),
 );

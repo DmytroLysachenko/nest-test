@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, desc, eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { onboardingDraftsTable } from '@repo/db';
 
@@ -21,29 +21,22 @@ export class OnboardingDraftsService {
   }
 
   async upsert(userId: string, payload: Record<string, unknown>) {
-    const existing = await this.getLatest(userId);
-    if (!existing) {
-      const [created] = await this.db
-        .insert(onboardingDraftsTable)
-        .values({
-          userId,
-          payload,
-        })
-        .returning();
-
-      return created;
-    }
-
-    const [updated] = await this.db
-      .update(onboardingDraftsTable)
-      .set({
+    const [draft] = await this.db
+      .insert(onboardingDraftsTable)
+      .values({
+        userId,
         payload,
-        updatedAt: new Date(),
       })
-      .where(and(eq(onboardingDraftsTable.id, existing.id), eq(onboardingDraftsTable.userId, userId)))
+      .onConflictDoUpdate({
+        target: onboardingDraftsTable.userId,
+        set: {
+          payload,
+          updatedAt: new Date(),
+        },
+      })
       .returning();
 
-    return updated ?? existing;
+    return draft ?? this.getLatest(userId);
   }
 
   async remove(userId: string) {

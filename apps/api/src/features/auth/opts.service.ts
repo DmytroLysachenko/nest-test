@@ -14,6 +14,11 @@ export class OptsService {
   async generateOtpCode(email: string, type: OTPType) {
     const code = generateCode();
     const now = new Date();
+    await this.db
+      .update(otpsTable)
+      .set({ isUsed: true })
+      .where(and(eq(otpsTable.receiver, email), eq(otpsTable.type, type), eq(otpsTable.isUsed, false)));
+
     await this.db.insert(otpsTable).values({
       receiver: email,
       code: code,
@@ -27,7 +32,7 @@ export class OptsService {
 
   async verifyOtp(email: string, code: string, type: OTPType) {
     const now = new Date();
-    const record = await this.db
+    const candidate = await this.db
       .select()
       .from(otpsTable)
       .where(
@@ -43,6 +48,17 @@ export class OptsService {
       .limit(1)
       .then((res) => res[0]);
 
-    return record;
+    if (!candidate) {
+      return null;
+    }
+
+    const consumed = await this.db
+      .update(otpsTable)
+      .set({ isUsed: true })
+      .where(and(eq(otpsTable.id, candidate.id), eq(otpsTable.isUsed, false)))
+      .returning()
+      .then((res) => res[0] ?? null);
+
+    return consumed;
   }
 }

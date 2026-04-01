@@ -4,7 +4,7 @@ Day-to-day engineering runbook for local development and verification.
 
 Canonical environment inventory:
 
-- `docs/ENV_MATRIX.md`
+- `docs/05_operations_and_deployment/05_env_matrix.md`
 
 ## Prerequisites
 
@@ -82,6 +82,7 @@ Canonical environment inventory:
    - `JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS` (default summary window)
    - `SCRAPE_STALE_PENDING_MINUTES` (stale pending run timeout threshold)
    - `SCRAPE_STALE_RUNNING_MINUTES` (stale running run timeout threshold)
+   - `SCRAPE_MIN_FRESH_CANDIDATES` (minimum fresh user-linkable offers required before cache/catalog reuse should satisfy a scrape)
    - `DOCUMENT_DIAGNOSTICS_WINDOW_HOURS` (default document diagnostics window)
    - `NOTEBOOK_APPROX_VIOLATION_PENALTY`
    - `NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY`
@@ -228,10 +229,13 @@ Interpretation rule:
 7. `stats.totalFound` stays low while the run is otherwise healthy
    - This is typically acquisition underreach, not worker failure.
    - Compare broad acquisition filters with post-scrape matching rules before tightening the notebook.
-8. `silentFailure = true`
+8. Reuse path returns few or zero new notebook links
+   - Check fresh-candidate gating before blaming the worker.
+   - Shared catalog or recent-run reuse now needs enough fresh user-linkable offers, not only enough gross candidate rows.
+9. `silentFailure = true`
    - The run completed and found listings, but none became usable offers.
    - Treat this as a reliability problem, not as a healthy zero-result scrape.
-9. `story.phase = partial` or `classifiedOutcome = partial_success`
+10. `story.phase = partial` or `classifiedOutcome = partial_success`
    - The run returned usable offers, but source blocking or detail degradation reduced quality.
    - Review salvage-backed offers in notebook `approx` or `explore` before changing acquisition rules.
 
@@ -244,6 +248,7 @@ Use this flow before changing scraper code randomly:
 2. Check `diagnostics.productivity`.
    - `candidateOffers` low: acquisition or normalization is underperforming.
    - `candidateOffers` healthy but `userInsertedOffers` low: inspect matching and notebook strictness.
+   - `candidateOffers` healthy but reuse still falls through to a new scrape: verify fresh-candidate gate and already-linked offer count.
    - `detailAttemptedCount` low with `stopReason=budget_reached`: tune detail budget or fetch ordering.
 3. Check `hiddenByModeCount` and `degradedResultCount` in notebook responses.
    - Empty UI can still mean usable but strict-hidden or degraded results exist.
@@ -291,7 +296,7 @@ Use this flow before changing scraper code randomly:
 
 Canonical source for deployment/runtime values is:
 
-- `docs/GCP_DEPLOY_MATRIX.md`
+- `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md`
 
 Configure repository/environment variables:
 
@@ -314,7 +319,7 @@ Configure repository/environment secrets:
 
 For exact variable-level mapping and secret sources, use:
 
-- `docs/GCP_DEPLOY_MATRIX.md`
+- `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md`
 
 1. API:
    - `PORT` is provided by Cloud Run (app already binds from env).
@@ -382,7 +387,7 @@ For exact variable-level mapping and secret sources, use:
 28. Notebook summary: `GET /api/job-offers/summary`
 29. Notebook bulk follow-up update: `POST /api/job-offers/pipeline/bulk-follow-up`
 30. Scrape run event timeline: `GET /api/job-sources/runs/:id/events`
-31. Year plan doc: `docs/YEAR_PLAN.md`
+31. Year plan doc: `docs/03_plans_and_roadmaps/03_year_plan.md`
 
 ## Smoke Coverage (Current)
 
@@ -470,7 +475,7 @@ For exact variable-level mapping and secret sources, use:
 2. Run package-level tests/build.
 3. Run `pnpm smoke:e2e`.
 4. Update:
-   - `docs/PROJECT_STATE.md`
-   - `docs/ROADMAP.md`
-   - `docs/SPRINT_PLAN.md` when future sprint sequencing changes materially
-   - `docs/DECISIONS.md` (if architecture/contracts changed)
+   - `docs/01_project_context/02_project_state.md`
+   - `docs/03_plans_and_roadmaps/01_roadmap.md`
+   - `docs/03_plans_and_roadmaps/02_sprint_plan.md` when future sprint sequencing changes materially
+   - `docs/04_architecture_and_data/01_decisions.md` (if architecture/contracts changed)

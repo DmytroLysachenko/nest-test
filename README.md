@@ -230,18 +230,20 @@ The smoke script expects local API, worker, and web services to be running.
 
 Use these as the source of truth instead of stretching this README into an operations manual:
 
+- [docs/00_documentation_system/00_docs_index.md](./docs/00_documentation_system/00_docs_index.md)
 - [AGENTS.md](./AGENTS.md)
-- [docs/CODEX_HANDOFF.md](./docs/CODEX_HANDOFF.md)
-- [docs/PROJECT_STATE.md](./docs/PROJECT_STATE.md)
-- [docs/ROADMAP.md](./docs/ROADMAP.md)
-- [docs/YEAR_PLAN.md](./docs/YEAR_PLAN.md)
-- [docs/SPRINT_PLAN.md](./docs/SPRINT_PLAN.md)
-- [docs/DECISIONS.md](./docs/DECISIONS.md)
-- [docs/FRONTEND_STANDARDS.md](./docs/FRONTEND_STANDARDS.md)
-- [docs/RUNBOOK.md](./docs/RUNBOOK.md)
-- [docs/GCP_DEPLOY_MATRIX.md](./docs/GCP_DEPLOY_MATRIX.md)
-- [docs/PROD_DEPLOY_GUIDE.md](./docs/PROD_DEPLOY_GUIDE.md)
-- [docs/E2E_DEBUGGING.md](./docs/E2E_DEBUGGING.md)
+- [docs/01_project_context/00_product_and_system_overview.md](./docs/01_project_context/00_product_and_system_overview.md)
+- [docs/01_project_context/01_codex_handoff.md](./docs/01_project_context/01_codex_handoff.md)
+- [docs/01_project_context/02_project_state.md](./docs/01_project_context/02_project_state.md)
+- [docs/03_plans_and_roadmaps/01_roadmap.md](./docs/03_plans_and_roadmaps/01_roadmap.md)
+- [docs/03_plans_and_roadmaps/03_year_plan.md](./docs/03_plans_and_roadmaps/03_year_plan.md)
+- [docs/03_plans_and_roadmaps/02_sprint_plan.md](./docs/03_plans_and_roadmaps/02_sprint_plan.md)
+- [docs/04_architecture_and_data/01_decisions.md](./docs/04_architecture_and_data/01_decisions.md)
+- [docs/06_engineering_standards/01_frontend_standards.md](./docs/06_engineering_standards/01_frontend_standards.md)
+- [docs/05_operations_and_deployment/01_runbook.md](./docs/05_operations_and_deployment/01_runbook.md)
+- [docs/05_operations_and_deployment/04_gcp_deploy_matrix.md](./docs/05_operations_and_deployment/04_gcp_deploy_matrix.md)
+- [docs/05_operations_and_deployment/03_prod_deploy_guide.md](./docs/05_operations_and_deployment/03_prod_deploy_guide.md)
+- [docs/05_operations_and_deployment/02_e2e_debugging.md](./docs/05_operations_and_deployment/02_e2e_debugging.md)
 
 ## Development Rules
 
