@@ -17,6 +17,7 @@ import { EmptyState } from '@/shared/ui/empty-state';
 
 import type { getJobOfferHistory } from '@/features/job-offers/api/job-offers-api';
 import type { JobOfferListItemDto, JobOfferPrepPacketDto, JobOfferStatus } from '@/shared/types/api';
+import { OfferStructuredDetailsPanel } from './offer-structured-details-panel';
 
 const STATUSES: JobOfferStatus[] = [
   'NEW',
@@ -201,6 +202,8 @@ export const NotebookOfferDetailsCard = ({
             ) : null}
           </div>
         </div>
+
+        <OfferStructuredDetailsPanel structuredDetails={offer.structuredDetails} />
 
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="secondary" size="sm" disabled={isBusy} onClick={onRescore}>
