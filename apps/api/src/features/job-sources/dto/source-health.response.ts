@@ -75,6 +75,21 @@ class JobSourceHealthItemResponse {
 
   @ApiProperty()
   silentFailureRuns!: number;
+
+  @ApiProperty()
+  observationCount!: number;
+
+  @ApiProperty()
+  missingEmploymentTypeRate!: number;
+
+  @ApiProperty()
+  emptyRequirementsRate!: number;
+
+  @ApiProperty()
+  sourceCompanyProfileCoverageRate!: number;
+
+  @ApiProperty()
+  applyUrlCoverageRate!: number;
 }
 
 export class JobSourceHealthResponse {

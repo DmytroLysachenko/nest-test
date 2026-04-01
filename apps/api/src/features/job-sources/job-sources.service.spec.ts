@@ -2505,6 +2505,19 @@ describe('JobSourcesService', () => {
         employmentTypeId: null,
         contractTypeId: null,
         workModeId: null,
+        contractTypeIds: [],
+        workModeIds: [],
+        workScheduleIds: [],
+        seniorityLevelIds: [],
+        technologies: [],
+        parsedSalary: {
+          salaryMin: null,
+          salaryMax: null,
+          salaryCurrency: null,
+          salaryPeriod: null,
+          salaryKind: null,
+        },
+        sourceCompanyProfileUrl: null,
       },
     ]);
     jest.spyOn(service as any, 'getCareerProfileContext').mockResolvedValue({
