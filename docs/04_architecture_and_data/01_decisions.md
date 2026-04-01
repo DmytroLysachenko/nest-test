@@ -103,6 +103,18 @@ ADR-lite log for major architectural and contract decisions.
   - Product and support surfaces need to distinguish "reuse was considered and rejected" from "reuse was never available".
   - Fresh-result gating is part of the scrape-quality contract, so it should be observable in user-facing and support-facing flows.
 
+## 2026-04-01: Canonical Offers Must Be Separated From Source Observations
+
+- Decision:
+  - Keep `job_offers` as the canonical current-state offer row.
+  - Persist scrape-run-specific observations in `job_offer_source_observations`.
+  - Persist forensic raw payloads in `job_offer_raw_payloads`.
+  - Move repeated structured offer facts into normalized relation tables instead of relying on `job_offers.details` as the long-term source of truth.
+- Why:
+  - Canonical offer reads, historical scrape facts, and raw parser forensics are different concerns and should not compete inside one JSON column.
+  - Observation history is required for parser regression analysis, backfill safety, and future cross-source identity work.
+  - Multi-value relations like schedules, seniority, and technologies are more queryable, more indexable, and safer for non-IT data than source-shaped blobs.
+
 ## 2026-02-21: Canonical Career Profile Schema
 
 - Decision:

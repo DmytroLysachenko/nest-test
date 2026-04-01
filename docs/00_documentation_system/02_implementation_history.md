@@ -198,3 +198,32 @@ Related docs:
 - `docs/01_project_context/02_project_state.md`
 - `docs/03_plans_and_roadmaps/01_roadmap.md`
 - `docs/04_architecture_and_data/01_decisions.md`
+
+### `011` Scrape observation ledger and normalized multi-value offer model
+
+Summary:
+
+- split canonical current offer state from per-run source observations and raw payload forensics
+- added normalized multi-value relations for contract types, work modes, schedules, seniority, and technologies
+- extended read models and source-health diagnostics to prefer and report the richer structured model
+
+Primary code areas:
+
+- `packages/db/src/schema/job-offer-source-observations.ts`
+- `packages/db/src/schema/job-offer-raw-payloads.ts`
+- `packages/db/src/schema/job-offer-contract-types.ts`
+- `packages/db/src/schema/job-offer-work-modes.ts`
+- `packages/db/src/schema/job-offer-work-schedules.ts`
+- `packages/db/src/schema/job-offer-seniority-levels.ts`
+- `packages/db/src/schema/job-offer-technologies.ts`
+- `packages/db/src/catalog-persistence.ts`
+- `packages/db/src/catalog-backfill.ts`
+- `apps/api/src/features/job-offers`
+- `apps/api/src/features/job-sources`
+- `apps/worker/src/sources/pracuj-pl`
+
+Related docs:
+
+- `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md`
+- `docs/02_product_workflows/20_scrape_feature.md`
+- `docs/04_architecture_and_data/01_decisions.md`

@@ -48,7 +48,7 @@ The project should not drift into:
 2. Matching quality tuning (score calibration, stricter seniority/constraints behavior).
    - Status: in progress (capped approx penalties + explore recency weighting shipped; threshold tuning ongoing).
 3. Scraper quality hardening and source-specific reliability.
-   - Status: in progress (callback attempt ordering + payload hash validation + deterministic offer identity key + ops replay/reconcile endpoints added; worker alias normalization and blocked/degraded/partial classification tightened; source-health rollups expanded).
+   - Status: in progress (callback attempt ordering + payload hash validation + deterministic offer identity key + ops replay/reconcile endpoints added; worker alias normalization and blocked/degraded/partial classification tightened; source-health rollups expanded; source observations/raw payload ledgers and normalized multi-value offer relations are now in place).
 4. CI quality gates (API/worker/web tests + smoke on protected branches).
    - Status: in progress (split verify/smoke workflows implemented; protected-branch policy enforcement pending repo settings).
 5. Reliability guardrails for scrape intake + admin ops visibility.
@@ -85,7 +85,9 @@ The project should not drift into:
      - clearer zero-result vs blocked-result semantics
      - better run-to-notebook linking visibility
      - explicit reuse diagnostics when catalog/db reuse is rejected before worker dispatch
-   - Status: in progress (fresh-candidate gating is now exposed through enqueue reuse diagnostics; broader productivity tuning remains).
+     - structured observation coverage metrics for missing employment type, empty requirements, apply links, and source profile capture
+     - migration of legacy `job_offers.details` usage toward normalized relation tables and observation history
+   - Status: in progress (fresh-candidate gating is now exposed through enqueue reuse diagnostics; canonical offer rows now persist observation history, raw payloads, structured salary, and multi-value relations; broader productivity tuning remains).
 3. Improve deterministic ranking calibration and cross-source trust handling.
    - Scope:
      - mode thresholds + penalty tuning
