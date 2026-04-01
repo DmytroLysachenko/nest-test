@@ -599,6 +599,26 @@ export type EnqueueScrapeResponseDto = {
   resolvedFromProfile?: boolean;
   retriedFromRunId?: string;
   retryCount?: number;
+  reuseDiagnostics?: {
+    catalogRematch: {
+      attempted: boolean;
+      accepted: boolean;
+      reason?: string | null;
+      matchedFreshCandidates?: number | null;
+      minimumFreshCandidateTarget?: number | null;
+      totalOffers?: number | null;
+      reusedFromRunId?: string | null;
+    };
+    databaseReuse: {
+      attempted: boolean;
+      accepted: boolean;
+      reason?: string | null;
+      matchedFreshCandidates?: number | null;
+      minimumFreshCandidateTarget?: number | null;
+      totalOffers?: number | null;
+      reusedFromRunId?: string | null;
+    };
+  };
 };
 
 export type ScrapePreflightDto = {
@@ -693,6 +713,21 @@ export type JobOfferListItemDto = {
   description: string;
   requirements: unknown | null;
   details: Record<string, unknown> | null;
+  structuredDetails?: {
+    companySummary: {
+      id: string;
+      canonicalName: string;
+      websiteUrl: string | null;
+      sourceProfileUrl: string | null;
+      logoUrl: string | null;
+      description: string | null;
+      hqLocation: string | null;
+    } | null;
+    jobCategory: string | null;
+    employmentTypeLabel: string | null;
+    contractTypeLabel: string | null;
+    workModeLabel: string | null;
+  } | null;
   createdAt: string;
 };
 
@@ -806,6 +841,7 @@ export type JobOfferPrepPacketDto = {
     url: string | null;
     description: string | null;
     requirements: unknown | null;
+    structuredDetails?: JobOfferListItemDto['structuredDetails'];
   };
   matchRationale: Record<string, unknown> | null;
   tags: string[];
