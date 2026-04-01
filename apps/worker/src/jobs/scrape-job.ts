@@ -168,6 +168,9 @@ export const computeNormalizedJobContentHash = (
     | 'sourceId'
     | 'url'
     | 'title'
+    | 'applyUrl'
+    | 'postedAt'
+    | 'sourceCompanyProfileUrl'
     | 'company'
     | 'location'
     | 'description'
@@ -183,6 +186,9 @@ export const computeNormalizedJobContentHash = (
         sourceId: normalizeString(job.sourceId),
         url: normalizeString(job.url),
         title: normalizeString(job.title),
+        applyUrl: normalizeString(job.applyUrl),
+        postedAt: normalizeString(job.postedAt),
+        sourceCompanyProfileUrl: normalizeString(job.sourceCompanyProfileUrl),
         company: normalizeString(job.company),
         location: normalizeString(job.location),
         description: normalizeString(job.description),
@@ -190,6 +196,7 @@ export const computeNormalizedJobContentHash = (
         employmentType: normalizeString(job.employmentType),
         requirements: sanitizeStringArray(job.requirements),
         details: job.details ?? null,
+        rawPayload: job.rawPayload ?? null,
       }),
     )
     .digest('hex');
@@ -340,8 +347,12 @@ export const sanitizeCallbackJobs = (jobs: NormalizedJob[] | undefined) => {
       tags: sanitizeStringArray(job.tags),
       salary: normalizeString(job.salary),
       employmentType: normalizeString(job.employmentType),
+      applyUrl: normalizeString(job.applyUrl),
+      postedAt: normalizeString(job.postedAt),
+      sourceCompanyProfileUrl: normalizeString(job.sourceCompanyProfileUrl),
       requirements: sanitizeStringArray(job.requirements),
       isExpired: job.isExpired,
+      rawPayload: job.rawPayload,
     });
   }
 
