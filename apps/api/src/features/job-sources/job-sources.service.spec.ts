@@ -1,4 +1,5 @@
 import { CloudTasksClient } from '@google-cloud/tasks';
+import * as repoDb from '@repo/db';
 import { jobOffersTable, jobSourceCallbackEventsTable, jobSourceRunsTable, userJobOffersTable } from '@repo/db';
 import { OAuth2Client } from 'google-auth-library';
 import { PgDialect } from 'drizzle-orm/pg-core';
@@ -698,7 +699,7 @@ describe('JobSourcesService', () => {
       createLogger(),
       db,
     );
-    jest.spyOn(service as any, 'countCatalogMatchesForProfile').mockResolvedValue(0);
+    jest.spyOn(service as any, 'countFreshCatalogMatchesForProfile').mockResolvedValue(0);
     jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
       active: false,
       pausedUntil: null,
@@ -754,8 +755,15 @@ describe('JobSourcesService', () => {
     } as any;
 
     const fetchMock = jest.spyOn(global, 'fetch' as any);
-    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const service = new JobSourcesService(
+      createConfigService({
+        WORKER_TASK_URL: 'http://worker.internal/tasks',
+      }),
+      createLogger(),
+      db,
+    );
     jest.spyOn(service as any, 'tryServeFromCatalog').mockResolvedValue({
+      accepted: true,
       ok: true,
       sourceRunId: 'catalog-run-1',
       traceId: 'catalog-trace-1',
@@ -764,6 +772,15 @@ describe('JobSourcesService', () => {
       totalOffers: 3,
       matchedOffers: 3,
       status: 'reused',
+      diagnostics: {
+        attempted: true,
+        accepted: true,
+        reason: 'accepted',
+        matchedFreshCandidates: 3,
+        minimumFreshCandidateTarget: 3,
+        totalOffers: 3,
+        reusedFromRunId: null,
+      },
     });
 
     const result = await service.enqueueScrape(
@@ -807,7 +824,13 @@ describe('JobSourcesService', () => {
       update: jest.fn(),
     } as any;
 
-    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const service = new JobSourcesService(
+      createConfigService({
+        WORKER_TASK_URL: 'http://worker.internal/tasks',
+      }),
+      createLogger(),
+      db,
+    );
     jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
       active: true,
       pausedUntil: new Date('2026-03-16T11:00:00.000Z'),
@@ -908,14 +931,35 @@ describe('JobSourcesService', () => {
       createLogger(),
       db,
     );
-    jest.spyOn(service as any, 'tryServeFromCatalog').mockResolvedValue(null);
+    jest.spyOn(service as any, 'tryServeFromCatalog').mockResolvedValue({
+      accepted: false,
+      diagnostics: {
+        attempted: true,
+        accepted: false,
+        reason: 'insufficient-fresh-candidates',
+        matchedFreshCandidates: 1,
+        minimumFreshCandidateTarget: 10,
+        totalOffers: null,
+        reusedFromRunId: null,
+      },
+    });
     jest.spyOn(service as any, 'tryReuseFromDatabase').mockResolvedValue({
+      accepted: true,
       sourceRunId: 'reused-run-uuid',
       traceId: 'reuse-trace-id',
       acceptedAt: '2026-02-20T00:00:00.000Z',
       inserted: 2,
       totalOffers: 2,
       reusedFromRunId: 'cached-run-1',
+      diagnostics: {
+        attempted: true,
+        accepted: true,
+        reason: 'accepted',
+        matchedFreshCandidates: 2,
+        minimumFreshCandidateTarget: 10,
+        totalOffers: 2,
+        reusedFromRunId: 'cached-run-1',
+      },
     });
 
     const result = await service.enqueueScrape(
@@ -937,6 +981,107 @@ describe('JobSourcesService', () => {
       reusedFromRunId: 'cached-run-1',
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('returns reuse diagnostics when both catalog and db reuse are skipped before worker enqueue', async () => {
+    const db = {
+      select: jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([
+                {
+                  careerProfileId: 'profile-id',
+                  contentJson: candidateProfileFixture,
+                },
+              ]),
+            }),
+          }),
+        }),
+      }),
+      insert: jest.fn().mockReturnValue({
+        values: jest.fn().mockReturnValue({
+          returning: jest.fn().mockResolvedValue([
+            {
+              id: 'run-enqueued-1',
+              traceId: 'trace-enqueued-1',
+              createdAt: new Date('2026-02-20T00:00:00.000Z'),
+            },
+          ]),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+    } as any;
+
+    const fetchMock = jest.spyOn(global, 'fetch' as any).mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ ok: true, queueProvider: 'worker-http' }),
+    } as any);
+
+    const service = new JobSourcesService(
+      createConfigService({
+        WORKER_TASK_URL: 'http://worker.internal/tasks',
+      }),
+      createLogger(),
+      db,
+    );
+    jest.spyOn(service as any, 'tryServeFromCatalog').mockResolvedValue({
+      accepted: false,
+      diagnostics: {
+        attempted: true,
+        accepted: false,
+        reason: 'insufficient-fresh-candidates',
+        matchedFreshCandidates: 2,
+        minimumFreshCandidateTarget: 10,
+        totalOffers: null,
+        reusedFromRunId: null,
+      },
+    });
+    jest.spyOn(service as any, 'tryReuseFromDatabase').mockResolvedValue({
+      accepted: false,
+      diagnostics: {
+        attempted: true,
+        accepted: false,
+        reason: 'no-cached-run',
+        matchedFreshCandidates: null,
+        minimumFreshCandidateTarget: 10,
+        totalOffers: null,
+        reusedFromRunId: null,
+      },
+    });
+
+    const result = await service.enqueueScrape(
+      'user-id',
+      {
+        source: 'pracuj-pl-it',
+        filters: { keywords: 'frontend developer' },
+        limit: 10,
+      },
+      'request-id',
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      sourceRunId: 'run-enqueued-1',
+      status: 'accepted',
+      reuseDiagnostics: {
+        catalogRematch: expect.objectContaining({
+          reason: 'insufficient-fresh-candidates',
+          matchedFreshCandidates: 2,
+          minimumFreshCandidateTarget: 10,
+        }),
+        databaseReuse: expect.objectContaining({
+          reason: 'no-cached-run',
+          minimumFreshCandidateTarget: 10,
+        }),
+      },
+    });
+
+    fetchMock.mockRestore();
   });
 
   it('handles failed callback without creating user offers', async () => {
@@ -2353,6 +2498,15 @@ describe('JobSourcesService', () => {
     } as any;
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(repoDb, 'resolveCatalogNormalizationRefs').mockResolvedValue([
+      {
+        companyId: null,
+        jobCategoryId: null,
+        employmentTypeId: null,
+        contractTypeId: null,
+        workModeId: null,
+      },
+    ]);
     jest.spyOn(service as any, 'getCareerProfileContext').mockResolvedValue({
       careerProfileId: 'profile-upsert-1',
       profile: candidateProfileFixture,
@@ -2401,35 +2555,11 @@ describe('JobSourcesService', () => {
 
   it('links freshly scraped offers into the notebook even when rematch threshold would reject them', async () => {
     const db = {
-      select: jest
-        .fn()
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              orderBy: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue([
-                  {
-                    id: 'offer-low-score-1',
-                    title: 'Junior QA Engineer',
-                    company: 'Example Inc',
-                    location: 'Onsite',
-                    salary: null,
-                    employmentType: 'umowa o prace',
-                    description: 'Manual testing role with limited frontend overlap.',
-                    requirements: [],
-                    details: null,
-                    lastSeenAt: new Date('2026-03-10T00:00:00.000Z'),
-                  },
-                ]),
-              }),
-            }),
-          }),
-        })
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockResolvedValue([]),
-          }),
+      select: jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
         }),
+      }),
       insert: jest.fn().mockImplementation((table) => {
         if (table === userJobOffersTable) {
           return {
@@ -2473,6 +2603,24 @@ describe('JobSourcesService', () => {
       createLogger(),
       db,
     );
+    jest.spyOn(service as any, 'loadCatalogCandidateOffers').mockResolvedValue([
+      {
+        id: 'offer-low-score-1',
+        title: 'Junior QA Engineer',
+        company: 'Example Inc',
+        location: 'Onsite',
+        salary: null,
+        employmentType: 'umowa o prace',
+        contractType: null,
+        employmentSchedule: null,
+        workMode: null,
+        jobCategory: null,
+        description: 'Manual testing role with limited frontend overlap.',
+        requirements: [],
+        details: null,
+        lastSeenAt: new Date('2026-03-10T00:00:00.000Z'),
+      },
+    ]);
 
     const result = await (service as any).linkCatalogOffersToUser({
       userId: 'user-1',
@@ -2493,35 +2641,11 @@ describe('JobSourcesService', () => {
 
   it('links db-reuse offers into the notebook even when rematch threshold would reject them', async () => {
     const db = {
-      select: jest
-        .fn()
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              orderBy: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue([
-                  {
-                    id: 'offer-low-score-1',
-                    title: 'Junior QA Engineer',
-                    company: 'Example Inc',
-                    location: 'Onsite',
-                    salary: null,
-                    employmentType: 'umowa o prace',
-                    description: 'Manual testing role with limited frontend overlap.',
-                    requirements: [],
-                    details: null,
-                    lastSeenAt: new Date('2026-03-10T00:00:00.000Z'),
-                  },
-                ]),
-              }),
-            }),
-          }),
-        })
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockResolvedValue([]),
-          }),
+      select: jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
         }),
+      }),
       insert: jest.fn().mockImplementation((table) => {
         if (table === userJobOffersTable) {
           return {
@@ -2565,6 +2689,24 @@ describe('JobSourcesService', () => {
       createLogger(),
       db,
     );
+    jest.spyOn(service as any, 'loadCatalogCandidateOffers').mockResolvedValue([
+      {
+        id: 'offer-low-score-1',
+        title: 'Junior QA Engineer',
+        company: 'Example Inc',
+        location: 'Onsite',
+        salary: null,
+        employmentType: 'umowa o prace',
+        contractType: null,
+        employmentSchedule: null,
+        workMode: null,
+        jobCategory: null,
+        description: 'Manual testing role with limited frontend overlap.',
+        requirements: [],
+        details: null,
+        lastSeenAt: new Date('2026-03-10T00:00:00.000Z'),
+      },
+    ]);
 
     const result = await (service as any).linkCatalogOffersToUser({
       userId: 'user-1',
@@ -2616,7 +2758,7 @@ describe('JobSourcesService', () => {
       careerProfileId: 'profile-rematch-1',
       profile: candidateProfileFixture,
     });
-    jest.spyOn(service as any, 'countCatalogMatchesForProfile').mockResolvedValue(2);
+    jest.spyOn(service as any, 'countFreshCatalogMatchesForProfile').mockResolvedValue(2);
     jest.spyOn(service as any, 'linkCatalogOffersToUser').mockResolvedValue({
       insertedCount: 0,
       totalCandidateCount: 2,
