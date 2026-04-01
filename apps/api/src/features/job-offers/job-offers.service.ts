@@ -4,6 +4,7 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, desc, eq, inArray, isNull, lt, not, sql } from 'drizzle-orm';
 import {
   careerProfilesTable,
+  companiesTable,
   contractTypesTable,
   employmentTypesTable,
   jobOffersTable,
@@ -61,6 +62,51 @@ const normalizeNotebookFilters = (value: unknown) => {
 };
 
 const toIsoString = (value: Date | null) => (value ? value.toISOString() : null);
+
+type StructuredOfferSelectRow = {
+  companySummaryId?: string | null;
+  companyCanonicalName?: string | null;
+  companyWebsiteUrl?: string | null;
+  companySourceProfileUrl?: string | null;
+  companyLogoUrl?: string | null;
+  companyDescription?: string | null;
+  companyHqLocation?: string | null;
+  jobCategoryLabel?: string | null;
+  employmentTypeLabel?: string | null;
+  contractTypeLabel?: string | null;
+  workModeLabel?: string | null;
+};
+
+const buildStructuredOfferDetails = (row: StructuredOfferSelectRow) => {
+  const companySummary = row.companySummaryId
+    ? {
+        id: row.companySummaryId,
+        canonicalName: row.companyCanonicalName ?? 'Unknown company',
+        websiteUrl: row.companyWebsiteUrl ?? null,
+        sourceProfileUrl: row.companySourceProfileUrl ?? null,
+        logoUrl: row.companyLogoUrl ?? null,
+        description: row.companyDescription ?? null,
+        hqLocation: row.companyHqLocation ?? null,
+      }
+    : null;
+
+  const jobCategory = row.jobCategoryLabel ?? null;
+  const employmentTypeLabel = row.employmentTypeLabel ?? null;
+  const contractTypeLabel = row.contractTypeLabel ?? null;
+  const workModeLabel = row.workModeLabel ?? null;
+
+  if (!companySummary && !jobCategory && !employmentTypeLabel && !contractTypeLabel && !workModeLabel) {
+    return null;
+  }
+
+  return {
+    companySummary,
+    jobCategory,
+    employmentTypeLabel,
+    contractTypeLabel,
+    workModeLabel,
+  };
+};
 
 const summarizeActiveProfile = (contentJson: unknown) => {
   if (!contentJson || typeof contentJson !== 'object' || Array.isArray(contentJson)) {
@@ -325,6 +371,17 @@ export class JobOffersService {
         location: jobOffersTable.location,
         salary: jobOffersTable.salary,
         employmentType: jobOffersTable.employmentType,
+        companySummaryId: companiesTable.id,
+        companyCanonicalName: companiesTable.canonicalName,
+        companyWebsiteUrl: companiesTable.websiteUrl,
+        companySourceProfileUrl: companiesTable.sourceProfileUrl,
+        companyLogoUrl: companiesTable.logoUrl,
+        companyDescription: companiesTable.description,
+        companyHqLocation: companiesTable.hqLocation,
+        jobCategoryLabel: jobCategoriesTable.label,
+        employmentTypeLabel: employmentTypesTable.label,
+        contractTypeLabel: contractTypesTable.label,
+        workModeLabel: workModesTable.label,
         description: jobOffersTable.description,
         requirements: jobOffersTable.requirements,
         details: jobOffersTable.details,
@@ -333,6 +390,11 @@ export class JobOffersService {
       })
       .from(userJobOffersTable)
       .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .leftJoin(companiesTable, eq(jobOffersTable.companyId, companiesTable.id))
+      .leftJoin(jobCategoriesTable, eq(jobOffersTable.jobCategoryId, jobCategoriesTable.id))
+      .leftJoin(employmentTypesTable, eq(jobOffersTable.employmentTypeId, employmentTypesTable.id))
+      .leftJoin(contractTypesTable, eq(jobOffersTable.contractTypeId, contractTypesTable.id))
+      .leftJoin(workModesTable, eq(jobOffersTable.workModeId, workModesTable.id))
       .where(and(...conditions))
       .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt))
       .limit(fetchWindow)
@@ -350,9 +412,25 @@ export class JobOffersService {
           mode,
           this.rankingTuning,
         );
+        const structuredDetails = buildStructuredOfferDetails(item);
+        const {
+          companySummaryId,
+          companyCanonicalName,
+          companyWebsiteUrl,
+          companySourceProfileUrl,
+          companyLogoUrl,
+          companyDescription,
+          companyHqLocation,
+          jobCategoryLabel,
+          employmentTypeLabel,
+          contractTypeLabel,
+          workModeLabel,
+          ...responseItem
+        } = item;
 
         return {
-          ...item,
+          ...responseItem,
+          structuredDetails,
           rankingScore: ranking.rankingScore,
           explanationTags: ranking.explanationTags,
           followUpState: resolveFollowUpState(item.status, item, followUpNow),
@@ -518,6 +596,17 @@ export class JobOffersService {
         location: jobOffersTable.location,
         salary: jobOffersTable.salary,
         employmentType: jobOffersTable.employmentType,
+        companySummaryId: companiesTable.id,
+        companyCanonicalName: companiesTable.canonicalName,
+        companyWebsiteUrl: companiesTable.websiteUrl,
+        companySourceProfileUrl: companiesTable.sourceProfileUrl,
+        companyLogoUrl: companiesTable.logoUrl,
+        companyDescription: companiesTable.description,
+        companyHqLocation: companiesTable.hqLocation,
+        jobCategoryLabel: jobCategoriesTable.label,
+        employmentTypeLabel: employmentTypesTable.label,
+        contractTypeLabel: contractTypesTable.label,
+        workModeLabel: workModesTable.label,
         description: jobOffersTable.description,
         requirements: jobOffersTable.requirements,
         details: jobOffersTable.details,
@@ -526,6 +615,11 @@ export class JobOffersService {
       })
       .from(userJobOffersTable)
       .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .leftJoin(companiesTable, eq(jobOffersTable.companyId, companiesTable.id))
+      .leftJoin(jobCategoriesTable, eq(jobOffersTable.jobCategoryId, jobCategoriesTable.id))
+      .leftJoin(employmentTypesTable, eq(jobOffersTable.employmentTypeId, employmentTypesTable.id))
+      .leftJoin(contractTypesTable, eq(jobOffersTable.contractTypeId, contractTypesTable.id))
+      .leftJoin(workModesTable, eq(jobOffersTable.workModeId, workModesTable.id))
       .where(and(...conditions))
       .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt))
       .limit(fetchWindow)
@@ -546,9 +640,25 @@ export class JobOffersService {
         );
         const matchMeta = (item.matchMeta as Record<string, unknown> | null) ?? null;
         const fitHighlights = getHumanFitHighlights(matchMeta, ranking.explanationTags, item.matchScore);
+        const structuredDetails = buildStructuredOfferDetails(item);
+        const {
+          companySummaryId,
+          companyCanonicalName,
+          companyWebsiteUrl,
+          companySourceProfileUrl,
+          companyLogoUrl,
+          companyDescription,
+          companyHqLocation,
+          jobCategoryLabel,
+          employmentTypeLabel,
+          contractTypeLabel,
+          workModeLabel,
+          ...responseItem
+        } = item;
 
         return {
-          ...item,
+          ...responseItem,
+          structuredDetails,
           rankingScore: ranking.rankingScore,
           explanationTags: ranking.explanationTags,
           followUpState: resolveFollowUpState(item.status, item, followUpNow),
@@ -1413,9 +1523,25 @@ export class JobOffersService {
         url: jobOffersTable.url,
         description: jobOffersTable.description,
         requirements: jobOffersTable.requirements,
+        companySummaryId: companiesTable.id,
+        companyCanonicalName: companiesTable.canonicalName,
+        companyWebsiteUrl: companiesTable.websiteUrl,
+        companySourceProfileUrl: companiesTable.sourceProfileUrl,
+        companyLogoUrl: companiesTable.logoUrl,
+        companyDescription: companiesTable.description,
+        companyHqLocation: companiesTable.hqLocation,
+        jobCategoryLabel: jobCategoriesTable.label,
+        employmentTypeLabel: employmentTypesTable.label,
+        contractTypeLabel: contractTypesTable.label,
+        workModeLabel: workModesTable.label,
       })
       .from(userJobOffersTable)
       .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .leftJoin(companiesTable, eq(jobOffersTable.companyId, companiesTable.id))
+      .leftJoin(jobCategoriesTable, eq(jobOffersTable.jobCategoryId, jobCategoriesTable.id))
+      .leftJoin(employmentTypesTable, eq(jobOffersTable.employmentTypeId, employmentTypesTable.id))
+      .leftJoin(contractTypesTable, eq(jobOffersTable.contractTypeId, contractTypesTable.id))
+      .leftJoin(workModesTable, eq(jobOffersTable.workModeId, workModesTable.id))
       .where(and(eq(userJobOffersTable.id, id), eq(userJobOffersTable.userId, userId)))
       .limit(1)
       .then(([result]) => result);
@@ -1452,6 +1578,7 @@ export class JobOffersService {
         url: offer.url,
         description: offer.description,
         requirements: offer.requirements,
+        structuredDetails: buildStructuredOfferDetails(offer),
       },
       matchRationale: (offer.matchMeta as Record<string, unknown> | null) ?? null,
       tags: Array.isArray(offer.tags) ? (offer.tags as string[]) : [],
