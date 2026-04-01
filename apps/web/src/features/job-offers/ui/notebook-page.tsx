@@ -38,7 +38,9 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
       return;
     }
 
-    mobileWorkspaceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (typeof mobileWorkspaceRef.current?.scrollIntoView === 'function') {
+      mobileWorkspaceRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }, [notebook.selectedOffer]);
 
   const renderOfferWorkspace = () => (

@@ -36,7 +36,9 @@ export const OpportunitiesPage = ({
       return;
     }
 
-    mobileDetailsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (typeof mobileDetailsRef.current.scrollIntoView === 'function') {
+      mobileDetailsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }, [opportunities.selectedOffer, showRail]);
 
   return (
