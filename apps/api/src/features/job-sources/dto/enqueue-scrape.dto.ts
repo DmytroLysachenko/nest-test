@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsBoolean, IsIn, IsInt, IsOptional, IsUrl, IsUUID, Max, Min, ValidateNested } from 'class-validator';
 
@@ -44,4 +44,85 @@ export class EnqueueScrapeDto {
   @Type(() => Boolean)
   @IsBoolean()
   forceRefresh?: boolean;
+}
+
+class EnqueueReuseDecisionDto {
+  @ApiProperty()
+  attempted!: boolean;
+
+  @ApiProperty()
+  accepted!: boolean;
+
+  @ApiPropertyOptional()
+  reason!: string | null;
+
+  @ApiPropertyOptional()
+  matchedFreshCandidates!: number | null;
+
+  @ApiPropertyOptional()
+  minimumFreshCandidateTarget!: number | null;
+
+  @ApiPropertyOptional()
+  totalOffers!: number | null;
+
+  @ApiPropertyOptional()
+  reusedFromRunId!: string | null;
+}
+
+class EnqueueReuseDiagnosticsDto {
+  @ApiProperty({ type: EnqueueReuseDecisionDto })
+  catalogRematch!: EnqueueReuseDecisionDto;
+
+  @ApiProperty({ type: EnqueueReuseDecisionDto })
+  databaseReuse!: EnqueueReuseDecisionDto;
+}
+
+export class EnqueueScrapeResponseDto {
+  @ApiProperty()
+  ok!: boolean;
+
+  @ApiProperty()
+  sourceRunId!: string;
+
+  @ApiPropertyOptional()
+  traceId?: string;
+
+  @ApiProperty()
+  status!: string;
+
+  @ApiPropertyOptional()
+  acceptedAt?: string;
+
+  @ApiPropertyOptional()
+  warning?: string;
+
+  @ApiPropertyOptional()
+  inserted?: number;
+
+  @ApiPropertyOptional()
+  totalOffers?: number;
+
+  @ApiPropertyOptional()
+  reusedFromRunId?: string | null;
+
+  @ApiPropertyOptional()
+  droppedFilters?: Record<string, string[]>;
+
+  @ApiPropertyOptional()
+  acceptedFilters?: Record<string, unknown> | null;
+
+  @ApiPropertyOptional()
+  intentFingerprint?: string;
+
+  @ApiPropertyOptional()
+  resolvedFromProfile?: boolean;
+
+  @ApiPropertyOptional()
+  retriedFromRunId?: string;
+
+  @ApiPropertyOptional()
+  retryCount?: number;
+
+  @ApiPropertyOptional({ type: EnqueueReuseDiagnosticsDto })
+  reuseDiagnostics?: EnqueueReuseDiagnosticsDto;
 }
