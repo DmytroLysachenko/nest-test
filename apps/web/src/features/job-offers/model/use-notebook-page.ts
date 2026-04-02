@@ -20,6 +20,9 @@ type UseNotebookPageArgs = {
     | 'followUpUpcoming'
     | 'missingNextStep'
     | 'stalePipeline'
+    | 'followUpDueToday'
+    | 'prepRecommended'
+    | 'awaitingDecision'
     | null;
   initialOfferId?: string | null;
 };
@@ -81,6 +84,7 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     statusMutation,
     bulkStatusMutation,
     bulkFollowUpMutation,
+    bulkWorkflowMutation,
     dismissAllSeenMutation,
     autoArchiveMutation,
     metaMutation,
@@ -194,7 +198,15 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
                   ? 'Attention: missing next step'
                   : filters.attention === 'stalePipeline'
                     ? 'Attention: stale pipeline'
-                    : 'Attention: stale untriaged',
+                    : filters.attention === 'followUpOverdue'
+                      ? 'Attention: follow-up overdue'
+                      : filters.attention === 'followUpDueToday'
+                        ? 'Attention: due today'
+                        : filters.attention === 'prepRecommended'
+                          ? 'Attention: prep recommended'
+                          : filters.attention === 'awaitingDecision'
+                            ? 'Attention: awaiting decision'
+                            : 'Attention: stale untriaged',
               onClear: () => setNotebookFilter('attention', 'all'),
             },
           ]
@@ -244,7 +256,10 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
       | 'followUpDue'
       | 'followUpUpcoming'
       | 'missingNextStep'
-      | 'stalePipeline',
+      | 'stalePipeline'
+      | 'followUpDueToday'
+      | 'prepRecommended'
+      | 'awaitingDecision',
   ) => {
     setNotebookSelectedOffer(null);
     clearNotebookSelectedOfferIds();
@@ -314,6 +329,30 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
       return;
     }
 
+    if (action === 'followUpDueToday') {
+      setNotebookFilter('status', 'ALL');
+      setNotebookFilter('mode', 'strict');
+      setNotebookFilter('hasScore', 'all');
+      setNotebookFilter('attention', 'followUpDueToday');
+      return;
+    }
+
+    if (action === 'prepRecommended') {
+      setNotebookFilter('status', 'ALL');
+      setNotebookFilter('mode', 'strict');
+      setNotebookFilter('hasScore', 'all');
+      setNotebookFilter('attention', 'prepRecommended');
+      return;
+    }
+
+    if (action === 'awaitingDecision') {
+      setNotebookFilter('status', 'ALL');
+      setNotebookFilter('mode', 'strict');
+      setNotebookFilter('hasScore', 'all');
+      setNotebookFilter('attention', 'awaitingDecision');
+      return;
+    }
+
     setNotebookFilter('status', 'APPLIED');
     setNotebookFilter('mode', 'strict');
     setNotebookFilter('hasScore', 'all');
@@ -362,6 +401,7 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
       statusMutation.isPending ||
       bulkStatusMutation.isPending ||
       bulkFollowUpMutation.isPending ||
+      bulkWorkflowMutation.isPending ||
       dismissAllSeenMutation.isPending ||
       autoArchiveMutation.isPending ||
       metaMutation.isPending ||
@@ -388,6 +428,7 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     updateStatusAsync: statusMutation.mutateAsync,
     bulkUpdateStatus: bulkStatusMutation.mutate,
     bulkUpdateFollowUp: bulkFollowUpMutation.mutate,
+    bulkUpdateWorkflow: bulkWorkflowMutation.mutate,
     dismissAllSeen: dismissAllSeenMutation.mutate,
     autoArchive: autoArchiveMutation.mutate,
     updateMeta: metaMutation.mutate,
