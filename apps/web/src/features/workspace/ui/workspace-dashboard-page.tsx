@@ -334,9 +334,13 @@ export const WorkspaceDashboardPage = () => {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-text-strong text-sm font-semibold">{bucket.label}</p>
-                        <span className="app-badge">{bucket.count}</span>
+                        <span className="app-badge">
+                          {bucket.priority ? `${bucket.priority}: ` : ''}
+                          {bucket.count}
+                        </span>
                       </div>
                       <p className="text-text-soft mt-2 text-sm leading-6">{bucket.description}</p>
+                      {bucket.reasons?.[0] ? <p className="text-text-soft mt-2 text-xs">{bucket.reasons[0]}</p> : null}
                       <p className="text-primary mt-3 text-xs font-semibold uppercase tracking-[0.16em]">
                         {bucket.ctaLabel}
                       </p>
@@ -388,6 +392,7 @@ export const WorkspaceDashboardPage = () => {
                         <span className="app-badge">{group.count}</span>
                       </div>
                       <p className="text-text-soft mt-2 text-sm leading-6">{group.description}</p>
+                      {group.reasons?.[0] ? <p className="text-text-soft mt-2 text-xs">{group.reasons[0]}</p> : null}
                       <p className="text-primary mt-3 text-xs font-semibold uppercase tracking-[0.16em]">
                         Open workflow
                       </p>

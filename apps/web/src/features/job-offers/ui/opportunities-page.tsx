@@ -74,6 +74,7 @@ export const OpportunitiesPage = ({
             <OpportunitiesListCard
               offers={opportunities.listQuery.data?.items ?? []}
               total={opportunities.listQuery.data?.total ?? 0}
+              collectionState={opportunities.listQuery.data?.collectionState ?? null}
               mode={opportunities.mode}
               hasScore={opportunities.hasScore}
               search={opportunities.search}
