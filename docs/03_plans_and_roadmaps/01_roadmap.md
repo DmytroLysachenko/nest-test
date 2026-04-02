@@ -72,7 +72,7 @@ The project should not drift into:
      - structured company and taxonomy context in offer review surfaces
      - explicit hidden/degraded result messaging
      - continued quality improvements for Kanban throughput and active-offer workspace ergonomics
-   - Status: in progress (structured catalog context is now visible in notebook and discovery detail surfaces; reminder reliability and richer prep support remain).
+   - Status: in progress (structured catalog context is now visible in notebook and discovery detail surfaces; attention-state read models, richer focus/action-plan queues, workflow-aware prep context, and explicit collection-state messaging are shipped; external reminder delivery and deeper pipeline automation still remain).
 2. Tighten scrape output usefulness, not just scrape completion.
    - Scope:
      - adaptive broad-acquisition query planning with target listing windows
