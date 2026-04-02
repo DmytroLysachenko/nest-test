@@ -430,7 +430,7 @@ test('notebook pipeline renders active offers and sends workflow actions', async
   await page.goto('/notebook', { waitUntil: 'domcontentloaded' });
 
   await expect(page.getByText('Notebook Pipeline')).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText('Backend Developer')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Backend Developer/ }).first()).toBeVisible();
   await expect(page.getByLabel('Mode')).toHaveValue('strict');
 
   const scrapeRequest = page.waitForRequest('**/api/job-sources/scrape');
