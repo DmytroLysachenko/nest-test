@@ -39,6 +39,7 @@ import { UpdateJobOfferPipelineDto } from './dto/update-job-offer-pipeline.dto';
 import { GeneratePrepDto } from './dto/generate-prep.dto';
 import { NotebookPreferencesResponse, UpdateNotebookPreferencesDto } from './dto/notebook-preferences.dto';
 import { BulkUpdateJobOfferFollowUpDto } from './dto/bulk-update-job-offer-follow-up.dto';
+import { BulkUpdateJobOfferWorkflowDto } from './dto/bulk-update-job-offer-workflow.dto';
 import { CompleteFollowUpDto, SnoozeFollowUpDto } from './dto/follow-up-command.dto';
 
 @ApiTags('job-offers')
@@ -186,6 +187,12 @@ export class JobOffersController {
   @ApiOperation({ summary: 'Bulk update follow-up metadata for selected offers' })
   async bulkUpdateFollowUp(@CurrentUser() user: JwtValidateUser, @Body() dto: BulkUpdateJobOfferFollowUpDto) {
     return this.jobOffersService.bulkUpdateFollowUp(user.userId, dto);
+  }
+
+  @Post('pipeline/bulk-workflow')
+  @ApiOperation({ summary: 'Bulk update workflow metadata for selected offers' })
+  async bulkUpdateWorkflow(@CurrentUser() user: JwtValidateUser, @Body() dto: BulkUpdateJobOfferWorkflowDto) {
+    return this.jobOffersService.bulkUpdateWorkflow(user.userId, dto);
   }
 
   @Post(':id/follow-up/complete')
