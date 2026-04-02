@@ -5,6 +5,7 @@ import React, { useEffect, useRef } from 'react';
 import { useNotebookPage } from '@/features/job-offers/model/use-notebook-page';
 import { NotebookFiltersCard } from '@/features/job-offers/ui/components/notebook-filters-card';
 import { NotebookOfferDetailsCard } from '@/features/job-offers/ui/components/notebook-offer-details-card';
+import { NotebookOffersListCard } from '@/features/job-offers/ui/components/notebook-offers-list-card';
 import { NotebookPipelineCard } from '@/features/job-offers/ui/components/notebook-pipeline-card';
 import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
@@ -22,6 +23,9 @@ type NotebookPageProps = {
     | 'followUpUpcoming'
     | 'missingNextStep'
     | 'stalePipeline'
+    | 'followUpDueToday'
+    | 'prepRecommended'
+    | 'awaitingDecision'
     | null;
   initialOfferId?: string | null;
 };
@@ -175,6 +179,37 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
             selectedId={notebook.selectedId}
             onSelectOffer={notebook.setNotebookSelectedOffer}
             onUpdateStatus={notebook.updateStatus}
+          />
+          <NotebookOffersListCard
+            offers={pipelineOffers}
+            hiddenByModeCount={0}
+            degradedResultCount={
+              pipelineOffers.filter((offer) =>
+                offer.attentionSignals?.some((signal) => signal.key === 'prep_recommended'),
+              ).length
+            }
+            lastScrapeStatus={notebook.workspaceSummary?.scrape.lastRunStatus ?? null}
+            selectedId={notebook.selectedId}
+            selectedOfferIds={notebook.selectedOfferIds}
+            isBusy={notebook.isBusy}
+            offset={notebook.pagination.offset}
+            canPrev={notebook.canPrev}
+            canNext={notebook.canNext}
+            isAllVisibleSelected={notebook.isAllVisibleSelected}
+            mode={notebook.filters.mode}
+            onSelectOffer={notebook.setNotebookSelectedOffer}
+            onToggleOfferSelection={notebook.toggleNotebookSelectedOfferId}
+            onSelectAllVisible={() => notebook.setNotebookSelectedOfferIds(pipelineOffers.map((offer) => offer.id))}
+            onClearSelected={notebook.clearNotebookSelectedOfferIds}
+            onBulkStatusChange={(status) => notebook.bulkUpdateStatus({ ids: notebook.selectedOfferIds, status })}
+            onBulkFollowUpSave={notebook.bulkUpdateFollowUp}
+            onBulkWorkflowSave={notebook.bulkUpdateWorkflow}
+            onBulkSnooze={(durationHours) =>
+              notebook.selectedOfferIds.forEach((id) => notebook.snoozeFollowUp({ id, durationHours }))
+            }
+            onBulkClearFollowUp={() => notebook.selectedOfferIds.forEach((id) => notebook.clearFollowUp({ id }))}
+            onPrev={() => notebook.setNotebookOffset(notebook.pagination.offset - notebook.pagination.limit)}
+            onNext={() => notebook.setNotebookOffset(notebook.pagination.offset + notebook.pagination.limit)}
           />
           <section ref={mobileWorkspaceRef} className="space-y-3">
             <div>

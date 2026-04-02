@@ -115,8 +115,12 @@ export const NotebookOfferDetailsCard = ({
         : offer.status === 'APPLIED' || offer.status === 'INTERVIEWING' || offer.status === 'OFFER'
           ? 'No follow-up is scheduled yet. Add a date, next step, and note so this role does not drift.'
           : 'Capture the next step early so this role stays actionable if it becomes a keeper.';
+  const decisionDueAt =
+    pipelineMeta && typeof pipelineMeta.decisionDueAt === 'string' ? pipelineMeta.decisionDueAt : null;
+  const prepRecommended =
+    pipelineMeta && typeof pipelineMeta.prepRecommended === 'boolean' ? pipelineMeta.prepRecommended : false;
 
-  const setStructuredPipelineField = (field: string, value: string | null) => {
+  const setStructuredPipelineField = (field: string, value: unknown) => {
     const current =
       pipelineMetaStr.trim() && hasPipelineDraftChanges
         ? (() => {
@@ -180,6 +184,9 @@ export const NotebookOfferDetailsCard = ({
             {followUpAt ? (
               <p className="text-text-soft text-sm">Scheduled for: {new Date(followUpAt).toLocaleString()}</p>
             ) : null}
+            {decisionDueAt ? (
+              <p className="text-text-soft text-sm">Decision checkpoint: {new Date(decisionDueAt).toLocaleString()}</p>
+            ) : null}
           </div>
           <div className="app-inset-stack space-y-2">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Prep context</p>
@@ -196,6 +203,9 @@ export const NotebookOfferDetailsCard = ({
               </Link>
             ) : null}
             {followUpNote ? <p className="text-text-soft text-sm">{followUpNote}</p> : null}
+            {prepRecommended ? (
+              <p className="text-text-soft text-sm">Prep is explicitly marked as recommended.</p>
+            ) : null}
             {!contactName && !applicationUrl && !followUpNote ? (
               <p className="text-text-soft text-sm">
                 Add recruiter details, thread URL, or follow-up notes for the next touch.
@@ -283,6 +293,23 @@ export const NotebookOfferDetailsCard = ({
             </div>
 
             <div className="app-field-group">
+              <Label htmlFor="decision-due-at" className="app-inline-label">
+                Decision due at
+              </Label>
+              <Input
+                id="decision-due-at"
+                type="datetime-local"
+                value={decisionDueAt ? decisionDueAt.slice(0, 16) : ''}
+                onChange={(event) =>
+                  setStructuredPipelineField(
+                    'decisionDueAt',
+                    event.target.value ? new Date(event.target.value).toISOString() : null,
+                  )
+                }
+              />
+            </div>
+
+            <div className="app-field-group">
               <Label htmlFor="application-url" className="app-inline-label">
                 Application URL
               </Label>
@@ -304,6 +331,21 @@ export const NotebookOfferDetailsCard = ({
                 placeholder="Recruiter or hiring manager"
                 onChange={(event) => setStructuredPipelineField('contactName', event.target.value || null)}
               />
+            </div>
+
+            <div className="app-field-group">
+              <Label htmlFor="prep-recommended" className="app-inline-label">
+                Prep recommended
+              </Label>
+              <select
+                id="prep-recommended"
+                className="app-select"
+                value={prepRecommended ? 'yes' : 'no'}
+                onChange={(event) => setStructuredPipelineField('prepRecommended', event.target.value === 'yes')}
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
             </div>
 
             <div className="app-field-group">
@@ -387,6 +429,33 @@ export const NotebookOfferDetailsCard = ({
                   )}
                 </div>
               </div>
+              {prepPacket.attentionContext ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="app-muted-panel space-y-2">
+                    <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Why act now</p>
+                    <p className="text-text-strong text-sm">
+                      {prepPacket.attentionContext.workflowSummary ?? 'No urgent workflow pressure yet.'}
+                    </p>
+                    {prepPacket.attentionContext.reasonsToActNow.map((item) => (
+                      <p key={item} className="text-text-soft text-sm leading-6">
+                        {item}
+                      </p>
+                    ))}
+                  </div>
+                  <div className="app-muted-panel space-y-2">
+                    <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Requirement highlights</p>
+                    {prepPacket.requirementHighlights?.length ? (
+                      prepPacket.requirementHighlights.map((item) => (
+                        <p key={item} className="text-text-soft text-sm leading-6">
+                          {item}
+                        </p>
+                      ))
+                    ) : (
+                      <p className="text-text-soft text-sm">No structured requirement highlights are available yet.</p>
+                    )}
+                  </div>
+                </div>
+              ) : null}
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="app-muted-panel space-y-2">
                   <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Verify before replying</p>
