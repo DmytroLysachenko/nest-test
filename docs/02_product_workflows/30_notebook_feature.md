@@ -50,6 +50,14 @@ Current catalog-facing read model additions:
 
 - notebook and discovery offer details now include additive structured company and taxonomy summaries
 - prep packet offer summaries now expose the same structured catalog context alongside raw listing fields
+- notebook list items now also expose additive workflow attention signals derived from persisted follow-up and pipeline state
+- notebook list responses now expose API-owned collection-state guidance for hidden/degraded/empty queue trust messaging
+
+Current workflow-facing additions:
+
+- dashboard/notebook focus lanes now include due-today, prep-next, and awaiting-decision slices
+- active pipeline bulk editing now supports decision checkpoints and prep-needed flags in addition to follow-up fields
+- prep packet responses now include workflow-aware attention context and requirement highlights
 
 Schema references:
 
