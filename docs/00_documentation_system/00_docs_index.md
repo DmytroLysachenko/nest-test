@@ -78,6 +78,7 @@ Runtime operations, debugging, deploy guidance, and env/deploy contracts.
 Coding and architecture standards.
 
 - `01_frontend_standards.md`
+- `02_backend_and_repo_standards.md`
 
 ### `99_archive_legacy`
 

@@ -15,6 +15,7 @@ Responsible docs:
 - `docs/01_project_context/02_project_state.md`
 - `docs/03_plans_and_roadmaps/01_roadmap.md`
 - `docs/04_architecture_and_data/01_decisions.md`
+- `docs/06_engineering_standards/02_backend_and_repo_standards.md`
 - `docs/05_operations_and_deployment/01_runbook.md`
 - `docs/05_operations_and_deployment/02_e2e_debugging.md`
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md` when catalog/company direction changes
@@ -26,6 +27,15 @@ Responsible docs:
 - `docs/01_project_context/02_project_state.md`
 - `docs/03_plans_and_roadmaps/01_roadmap.md`
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md`
+- `docs/06_engineering_standards/02_backend_and_repo_standards.md`
+
+### `apps/api/src/features/auth`
+
+Responsible docs:
+
+- `docs/01_project_context/02_project_state.md`
+- `docs/04_architecture_and_data/01_decisions.md`
+- `docs/06_engineering_standards/02_backend_and_repo_standards.md`
 
 ### `apps/worker/src/sources/pracuj-pl`
 
@@ -34,6 +44,7 @@ Responsible docs:
 - `docs/04_architecture_and_data/02_pracuj_query_mapping.md`
 - `docs/04_architecture_and_data/01_decisions.md`
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md`
+- `docs/06_engineering_standards/02_backend_and_repo_standards.md`
 
 ### `apps/worker/src/jobs`
 
@@ -42,6 +53,7 @@ Responsible docs:
 - `docs/05_operations_and_deployment/01_runbook.md`
 - `docs/05_operations_and_deployment/02_e2e_debugging.md`
 - `docs/01_project_context/02_project_state.md`
+- `docs/06_engineering_standards/02_backend_and_repo_standards.md`
 
 ### `apps/web/src/features/job-offers`
 
@@ -65,6 +77,7 @@ Responsible docs:
 
 - `docs/04_architecture_and_data/01_decisions.md`
 - `docs/01_project_context/02_project_state.md`
+- `docs/06_engineering_standards/02_backend_and_repo_standards.md`
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md` for catalog/company/history changes
 - `docs/03_plans_and_roadmaps/05_catalog_standardization_implementation_plan.md` for the current standardization stream
 - `docs/00_documentation_system/02_implementation_history.md` for meaningful schema shifts
