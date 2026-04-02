@@ -40,7 +40,7 @@ const parseDate = (value: unknown) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-const getPipelineMetaRecord = (pipelineMeta: unknown) =>
+export const getPipelineMetaRecord = (pipelineMeta: unknown) =>
   pipelineMeta && typeof pipelineMeta === 'object' && !Array.isArray(pipelineMeta)
     ? (pipelineMeta as Record<string, unknown>)
     : null;

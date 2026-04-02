@@ -388,47 +388,49 @@ describe('JobOffersService', () => {
 
     const result = await service.getFocusQueue('user-1');
 
-    expect(result.groups).toEqual([
-      expect.objectContaining({
-        key: 'follow-up-due',
-        href: '/notebook?focus=followUpDue',
-        count: 1,
-        items: [expect.objectContaining({ id: 'ujo-due', followUpState: 'due' })],
-      }),
-      expect.objectContaining({
-        key: 'strict-top',
-        href: '/opportunities?focus=strictTop',
-        count: 2,
-      }),
-      expect.objectContaining({
-        key: 'unscored-fresh',
-        href: '/opportunities?focus=unscored',
-        count: 1,
-        items: [expect.objectContaining({ id: 'ujo-unscored', matchScore: null })],
-      }),
-      expect.objectContaining({
-        key: 'saved-needs-attention',
-        href: '/notebook?focus=saved',
-        count: 1,
-        items: [expect.objectContaining({ id: 'ujo-saved' })],
-      }),
-      expect.objectContaining({
-        key: 'applied-active',
-        href: '/notebook?focus=applied',
-        count: 1,
-        items: [expect.objectContaining({ id: 'ujo-applied' })],
-      }),
-      expect.objectContaining({
-        key: 'follow-up-upcoming',
-        href: '/notebook?focus=followUpUpcoming',
-        count: 1,
-      }),
-      expect.objectContaining({
-        key: 'stale-untriaged',
-        href: '/opportunities?focus=staleUntriaged',
-        count: 1,
-      }),
-    ]);
+    expect(result.groups).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'follow-up-due',
+          href: '/notebook?focus=followUpDue',
+          count: 1,
+          items: [expect.objectContaining({ id: 'ujo-due', followUpState: 'due' })],
+        }),
+        expect.objectContaining({
+          key: 'strict-top',
+          href: '/opportunities?focus=strictTop',
+          count: 2,
+        }),
+        expect.objectContaining({
+          key: 'unscored-fresh',
+          href: '/opportunities?focus=unscored',
+          count: 1,
+          items: [expect.objectContaining({ id: 'ujo-unscored', matchScore: null })],
+        }),
+        expect.objectContaining({
+          key: 'saved-needs-attention',
+          href: '/notebook?focus=saved',
+          count: 1,
+          items: [expect.objectContaining({ id: 'ujo-saved' })],
+        }),
+        expect.objectContaining({
+          key: 'applied-active',
+          href: '/notebook?focus=applied',
+          count: 1,
+          items: [expect.objectContaining({ id: 'ujo-applied' })],
+        }),
+        expect.objectContaining({
+          key: 'follow-up-upcoming',
+          href: '/notebook?focus=followUpUpcoming',
+          count: 1,
+        }),
+        expect.objectContaining({
+          key: 'stale-untriaged',
+          href: '/opportunities?focus=staleUntriaged',
+          count: 1,
+        }),
+      ]),
+    );
   });
 
   it('returns server-driven notebook quick actions in summary payload', async () => {

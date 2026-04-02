@@ -35,10 +35,26 @@ import {
 } from '@/features/job-offers/notebook-ranking';
 
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
+import { buildAttentionSignals, buildCollectionState } from './job-offers-attention';
+import { defaultNotebookFilters, normalizeNotebookFilters } from './job-offers-preferences';
+import {
+  buildPrepTalkingPoints,
+  buildVerifyBeforeReply,
+  extractRequirementHighlights,
+  summarizeActiveProfile,
+} from './job-offers-prep';
+import { buildHumanFitSummary, getHumanFitHighlights } from './job-offers-fit';
+import {
+  buildStructuredOfferDetails,
+  EMPTY_STRUCTURED_RELATIONS,
+  type StructuredOfferRelations,
+  type StructuredOfferSelectRow,
+} from './job-offers-structured-details';
 import { UpdateNotebookPreferencesDto } from './dto/notebook-preferences.dto';
 import {
   buildPipelineMetaWithFollowUp,
   extractFollowUpFields,
+  getPipelineMetaRecord,
   hasMissingNextStep,
   resolveFollowUpState,
 } from './job-offer-follow-up';
@@ -47,285 +63,7 @@ import type { Env } from '@/config/env';
 import type { JobOfferStatus, JobSource } from '@repo/db';
 
 const LLM_SCORE_TIMEOUT_MS = 20000;
-const defaultNotebookFilters = {
-  status: 'ALL',
-  mode: 'strict',
-  view: 'LIST',
-  search: '',
-  tag: '',
-  hasScore: 'all',
-  followUp: 'all',
-  attention: 'all',
-} as const;
-
-const normalizeNotebookFilters = (value: unknown) => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return { ...defaultNotebookFilters };
-  }
-
-  return {
-    ...defaultNotebookFilters,
-    ...(value as Record<string, unknown>),
-  };
-};
-
 const toIsoString = (value: Date | null) => (value ? value.toISOString() : null);
-
-type StructuredOfferSelectRow = {
-  jobOfferId?: string;
-  companySummaryId?: string | null;
-  companyCanonicalName?: string | null;
-  companyWebsiteUrl?: string | null;
-  companySourceProfileUrl?: string | null;
-  companyLogoUrl?: string | null;
-  companyDescription?: string | null;
-  companyHqLocation?: string | null;
-  jobCategoryLabel?: string | null;
-  employmentTypeLabel?: string | null;
-  contractTypeLabel?: string | null;
-  workModeLabel?: string | null;
-};
-
-type StructuredOfferRelations = {
-  contractTypes: string[];
-  workModes: string[];
-  workSchedules: string[];
-  seniorityLevels: string[];
-  technologies: Array<{ label: string; category: 'required' | 'nice_to_have' | 'all' }>;
-};
-
-const EMPTY_STRUCTURED_RELATIONS: StructuredOfferRelations = {
-  contractTypes: [],
-  workModes: [],
-  workSchedules: [],
-  seniorityLevels: [],
-  technologies: [],
-};
-
-const buildStructuredOfferDetails = (row: StructuredOfferSelectRow, relations?: StructuredOfferRelations | null) => {
-  const companySummary = row.companySummaryId
-    ? {
-        id: row.companySummaryId,
-        canonicalName: row.companyCanonicalName ?? 'Unknown company',
-        websiteUrl: row.companyWebsiteUrl ?? null,
-        sourceProfileUrl: row.companySourceProfileUrl ?? null,
-        logoUrl: row.companyLogoUrl ?? null,
-        description: row.companyDescription ?? null,
-        hqLocation: row.companyHqLocation ?? null,
-      }
-    : null;
-
-  const jobCategory = row.jobCategoryLabel ?? null;
-  const employmentTypeLabel = row.employmentTypeLabel ?? null;
-  const contractTypeLabel = row.contractTypeLabel ?? null;
-  const workModeLabel = row.workModeLabel ?? null;
-  const mergedRelations = relations ?? EMPTY_STRUCTURED_RELATIONS;
-
-  if (
-    !companySummary &&
-    !jobCategory &&
-    !employmentTypeLabel &&
-    !contractTypeLabel &&
-    !workModeLabel &&
-    !mergedRelations.contractTypes.length &&
-    !mergedRelations.workModes.length &&
-    !mergedRelations.workSchedules.length &&
-    !mergedRelations.seniorityLevels.length &&
-    !mergedRelations.technologies.length
-  ) {
-    return null;
-  }
-
-  return {
-    companySummary,
-    jobCategory,
-    employmentTypeLabel,
-    contractTypeLabel,
-    workModeLabel,
-    contractTypes: mergedRelations.contractTypes,
-    workModes: mergedRelations.workModes,
-    workSchedules: mergedRelations.workSchedules,
-    seniorityLevels: mergedRelations.seniorityLevels,
-    technologies: mergedRelations.technologies,
-  };
-};
-
-const summarizeActiveProfile = (contentJson: unknown) => {
-  if (!contentJson || typeof contentJson !== 'object' || Array.isArray(contentJson)) {
-    return null;
-  }
-
-  const root = contentJson as Record<string, unknown>;
-  const candidateCore =
-    root.candidateCore && typeof root.candidateCore === 'object' && !Array.isArray(root.candidateCore)
-      ? (root.candidateCore as Record<string, unknown>)
-      : null;
-  const targetRoles = Array.isArray(root.targetRoles) ? root.targetRoles : [];
-  const searchSignals =
-    root.searchSignals && typeof root.searchSignals === 'object' && !Array.isArray(root.searchSignals)
-      ? (root.searchSignals as Record<string, unknown>)
-      : null;
-  const keywords = Array.isArray(searchSignals?.keywords) ? searchSignals.keywords : [];
-
-  return {
-    headline: typeof candidateCore?.headline === 'string' ? candidateCore.headline : null,
-    summary: typeof candidateCore?.summary === 'string' ? candidateCore.summary : null,
-    targetRoles: targetRoles
-      .map((role) =>
-        role && typeof role === 'object' && !Array.isArray(role) && typeof role.title === 'string' ? role.title : null,
-      )
-      .filter((value): value is string => Boolean(value))
-      .slice(0, 5),
-    searchableKeywords: keywords
-      .map((item) =>
-        item && typeof item === 'object' && !Array.isArray(item) && typeof item.value === 'string' ? item.value : null,
-      )
-      .filter((value): value is string => Boolean(value))
-      .slice(0, 8),
-  };
-};
-
-const buildPrepTalkingPoints = ({
-  offerTitle,
-  company,
-  nextStep,
-  followUpNote,
-  profileSummary,
-  matchMeta,
-}: {
-  offerTitle: string;
-  company: string | null;
-  nextStep: string | null;
-  followUpNote: string | null;
-  profileSummary: ReturnType<typeof summarizeActiveProfile>;
-  matchMeta: Record<string, unknown> | null;
-}) => {
-  const points: string[] = [];
-
-  if (profileSummary?.headline) {
-    points.push(`Lead with your ${profileSummary.headline} background and connect it to ${offerTitle}.`);
-  }
-
-  if (company) {
-    points.push(`Explain why ${company} is worth the next reply instead of sending a generic follow-up.`);
-  }
-
-  if (nextStep) {
-    points.push(`Keep the next move explicit: ${nextStep}.`);
-  }
-
-  if (followUpNote) {
-    points.push(`Re-use your follow-up note: ${followUpNote}.`);
-  }
-
-  const llmSummary = typeof matchMeta?.llmSummary === 'string' ? matchMeta.llmSummary : null;
-  if (llmSummary) {
-    points.push(llmSummary);
-  }
-
-  return points.slice(0, 4);
-};
-
-const buildVerifyBeforeReply = ({
-  applicationUrl,
-  contactName,
-  followUpAt,
-}: {
-  applicationUrl: string | null;
-  contactName: string | null;
-  followUpAt: Date | null;
-}) => {
-  const items: string[] = [];
-
-  if (!contactName) {
-    items.push('Confirm who should receive the next message.');
-  }
-
-  if (!applicationUrl) {
-    items.push('Save the application thread or ATS link before replying.');
-  }
-
-  if (!followUpAt) {
-    items.push('Schedule the next checkpoint so this role does not drift.');
-  }
-
-  if (!items.length) {
-    items.push('Verify the follow-up date, recipient, and thread before you send the next message.');
-  }
-
-  return items;
-};
-
-const getHumanFitHighlights = (
-  matchMeta: Record<string, unknown> | null,
-  explanationTags: string[],
-  matchScore: number | null,
-) => {
-  const highlights: string[] = [];
-  const llmSummary = typeof matchMeta?.llmSummary === 'string' ? matchMeta.llmSummary.trim() : '';
-  if (llmSummary) {
-    highlights.push(llmSummary);
-  }
-
-  const violations = Array.isArray(matchMeta?.hardConstraintViolations)
-    ? matchMeta.hardConstraintViolations.filter(
-        (item): item is string => typeof item === 'string' && item.trim().length > 0,
-      )
-    : [];
-
-  if (typeof matchScore === 'number') {
-    highlights.push(
-      matchScore >= 75 ? 'Strong overall fit' : matchScore >= 60 ? 'Promising fit' : 'Needs a closer look',
-    );
-  }
-
-  if (explanationTags.includes('skill_strong')) {
-    highlights.push('Strong skills overlap');
-  } else if (explanationTags.includes('skill_partial')) {
-    highlights.push('Partial skills overlap');
-  }
-
-  if (violations.some((item) => item.toLowerCase().includes('seniority'))) {
-    highlights.push('Possible seniority mismatch');
-  }
-
-  if (violations.some((item) => item.toLowerCase().includes('employment'))) {
-    highlights.push('Contract preference gap');
-  }
-
-  return Array.from(new Set(highlights)).slice(0, 4);
-};
-
-const buildHumanFitSummary = (
-  matchMeta: Record<string, unknown> | null,
-  explanationTags: string[],
-  matchScore: number | null,
-) => {
-  const llmSummary = typeof matchMeta?.llmSummary === 'string' ? matchMeta.llmSummary.trim() : '';
-  if (llmSummary) {
-    return llmSummary;
-  }
-
-  if (typeof matchScore !== 'number') {
-    return 'This role still needs a fuller fit review.';
-  }
-
-  if (explanationTags.includes('hard_constraints_failed')) {
-    return matchScore >= 70
-      ? 'The role looks attractive, but one or more hard preferences may not line up.'
-      : 'Some fit is visible, but the role breaks one or more hard preferences.';
-  }
-
-  if (matchScore >= 75) {
-    return 'This role looks like a strong match for your current profile.';
-  }
-
-  if (matchScore >= 60) {
-    return 'This role looks promising and is worth a quick first-pass review.';
-  }
-
-  return 'This role may still be worth checking, but the fit signal is weaker.';
-};
 
 @Injectable()
 export class JobOffersService {
@@ -613,6 +351,7 @@ export class JobOffersService {
           structuredDetails,
           rankingScore: ranking.rankingScore,
           explanationTags: ranking.explanationTags,
+          attentionSignals: buildAttentionSignals({ status: item.status, source: item, now: followUpNow }),
           followUpState: resolveFollowUpState(item.status, item, followUpNow),
           pipelineMeta: buildPipelineMetaWithFollowUp(item.pipelineMeta, followUpFields),
           followUpAt: toIsoString(followUpFields.followUpAt),
@@ -644,6 +383,12 @@ export class JobOffersService {
             new Date(item.lastStatusAt ?? item.createdAt) < staleCutoff
           );
         }
+        if (query.attention === 'followUpOverdue') {
+          return item.attentionSignals.some((signal) => signal.key === 'follow_up_overdue');
+        }
+        if (query.attention === 'followUpDueToday') {
+          return item.attentionSignals.some((signal) => signal.key === 'follow_up_due_today');
+        }
         if (query.attention === 'missingNextStep') {
           return hasMissingNextStep(item.status, item);
         }
@@ -652,6 +397,12 @@ export class JobOffersService {
             ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'].includes(item.status) &&
             new Date(item.lastStatusAt ?? item.createdAt) < staleCutoff
           );
+        }
+        if (query.attention === 'prepRecommended') {
+          return item.attentionSignals.some((signal) => signal.key === 'prep_recommended');
+        }
+        if (query.attention === 'awaitingDecision') {
+          return item.attentionSignals.some((signal) => signal.key === 'awaiting_decision');
         }
         return true;
       });
@@ -704,6 +455,12 @@ export class JobOffersService {
           ? ['stale-active-pipeline']
           : []),
       ],
+      collectionState: buildCollectionState({
+        mode,
+        hiddenByModeCount: modeEligibleItems.length - filteredRankedItems.length,
+        degradedResultCount: filteredRankedItems.filter((item) => item.__isDegradedSource).length,
+        lastScrapeStatus: null,
+      }),
       rankingMeta: {
         mode,
         tuning: this.rankingTuning,
@@ -842,6 +599,7 @@ export class JobOffersService {
           structuredDetails,
           rankingScore: ranking.rankingScore,
           explanationTags: ranking.explanationTags,
+          attentionSignals: buildAttentionSignals({ status: item.status, source: item, now: followUpNow }),
           followUpState: resolveFollowUpState(item.status, item, followUpNow),
           pipelineMeta: buildPipelineMetaWithFollowUp(item.pipelineMeta, followUpFields),
           followUpAt: toIsoString(followUpFields.followUpAt),
@@ -877,6 +635,14 @@ export class JobOffersService {
         .map(({ __include, __statusPriority, __createdAtMs, ...item }) => item),
       total: prioritized.length,
       mode,
+      collectionState: buildCollectionState({
+        mode,
+        hiddenByModeCount: 0,
+        degradedResultCount: prioritized.filter(
+          (item) => item.qualityReason === 'listing_salvage' || item.qualityReason === 'low_context',
+        ).length,
+        lastScrapeStatus: null,
+      }),
     };
   }
 
@@ -964,6 +730,17 @@ export class JobOffersService {
       (item) =>
         ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'].includes(item.status) &&
         new Date(item.lastStatusAt ?? item.createdAt) < staleCutoff,
+    ).length;
+    const followUpDueToday = items.filter((item) =>
+      buildAttentionSignals({ status: item.status, source: item }).some(
+        (signal) => signal.key === 'follow_up_due_today',
+      ),
+    ).length;
+    const prepRecommended = items.filter((item) =>
+      buildAttentionSignals({ status: item.status, source: item }).some((signal) => signal.key === 'prep_recommended'),
+    ).length;
+    const awaitingDecision = items.filter((item) =>
+      buildAttentionSignals({ status: item.status, source: item }).some((signal) => signal.key === 'awaiting_decision'),
     ).length;
     const savedCount = items.filter((item) => item.status === 'SAVED').length;
     const appliedCount = items.filter((item) => item.status === 'APPLIED').length;
@@ -1053,6 +830,27 @@ export class JobOffersService {
           href: '/notebook?focus=followUpUpcoming',
           count: followUpUpcoming,
         },
+        {
+          key: 'followUpDueToday',
+          label: 'Due today',
+          description: 'Work the follow-ups that are scheduled for today before they slip.',
+          href: '/notebook?focus=followUpDueToday',
+          count: followUpDueToday,
+        },
+        {
+          key: 'prepRecommended',
+          label: 'Prep next',
+          description: 'Open active roles that would benefit from a prep pass now.',
+          href: '/notebook?focus=prepRecommended',
+          count: prepRecommended,
+        },
+        {
+          key: 'awaitingDecision',
+          label: 'Awaiting decision',
+          description: 'Return to saved roles that still need an explicit decision checkpoint.',
+          href: '/notebook?focus=awaitingDecision',
+          count: awaitingDecision,
+        },
       ],
     };
   }
@@ -1093,8 +891,28 @@ export class JobOffersService {
         location: item.location,
         matchScore: item.matchScore,
         followUpState: 'due' as const,
+        nextStep: extractFollowUpFields(item).nextStep,
+        attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
       }));
     const followUpDue = followUpDueItems.slice(0, 5);
+
+    const followUpDueTodayItems = items
+      .filter((item) =>
+        buildAttentionSignals({ status: item.status, source: item, now }).some(
+          (signal) => signal.key === 'follow_up_due_today',
+        ),
+      )
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        company: item.company,
+        location: item.location,
+        matchScore: item.matchScore,
+        followUpState: resolveFollowUpState(item.status, item, now),
+        nextStep: extractFollowUpFields(item).nextStep,
+        attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+      }));
+    const followUpDueToday = followUpDueTodayItems.slice(0, 5);
 
     const strictTopMatchesItems = items
       .map((item) => ({
@@ -1117,6 +935,8 @@ export class JobOffersService {
         location: item.location,
         matchScore: item.matchScore,
         followUpState: item.followUpState,
+        nextStep: extractFollowUpFields(item).nextStep,
+        attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
       }));
     const strictTopMatches = strictTopMatchesItems.slice(0, 5);
 
@@ -1129,6 +949,8 @@ export class JobOffersService {
         location: item.location,
         matchScore: item.matchScore,
         followUpState: resolveFollowUpState(item.status, item, now),
+        nextStep: extractFollowUpFields(item).nextStep,
+        attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
       }));
     const unscoredFresh = unscoredFreshItems.slice(0, 5);
 
@@ -1141,6 +963,8 @@ export class JobOffersService {
         location: item.location,
         matchScore: item.matchScore,
         followUpState: 'upcoming' as const,
+        nextStep: extractFollowUpFields(item).nextStep,
+        attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
       }));
     const followUpUpcoming = followUpUpcomingItems.slice(0, 5);
 
@@ -1153,6 +977,8 @@ export class JobOffersService {
         location: item.location,
         matchScore: item.matchScore,
         followUpState: resolveFollowUpState(item.status, item, now),
+        nextStep: extractFollowUpFields(item).nextStep,
+        attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
       }));
     const savedNeedsAttention = savedNeedsAttentionItems.slice(0, 5);
 
@@ -1165,8 +991,28 @@ export class JobOffersService {
         location: item.location,
         matchScore: item.matchScore,
         followUpState: resolveFollowUpState(item.status, item, now),
+        nextStep: extractFollowUpFields(item).nextStep,
+        attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
       }));
     const appliedActive = appliedActiveItems.slice(0, 5);
+
+    const prepRecommendedItems = items
+      .filter((item) =>
+        buildAttentionSignals({ status: item.status, source: item, now }).some(
+          (signal) => signal.key === 'prep_recommended',
+        ),
+      )
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        company: item.company,
+        location: item.location,
+        matchScore: item.matchScore,
+        followUpState: resolveFollowUpState(item.status, item, now),
+        nextStep: extractFollowUpFields(item).nextStep,
+        attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+      }));
+    const prepRecommended = prepRecommendedItems.slice(0, 5);
 
     const staleCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const staleUntriagedItems = items
@@ -1182,6 +1028,8 @@ export class JobOffersService {
         location: item.location,
         matchScore: item.matchScore,
         followUpState: resolveFollowUpState(item.status, item, now),
+        nextStep: extractFollowUpFields(item).nextStep,
+        attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
       }));
     const staleUntriaged = staleUntriagedItems.slice(0, 5);
 
@@ -1193,7 +1041,17 @@ export class JobOffersService {
           description: 'Handle overdue follow-ups before widening the funnel.',
           href: '/notebook?focus=followUpDue',
           count: followUpDueItems.length,
+          reasons: ['These roles already missed their next scheduled checkpoint.'],
           items: followUpDue,
+        },
+        {
+          key: 'follow-up-due-today',
+          label: 'Due today',
+          description: 'Prepare follow-ups that are scheduled for today before they turn overdue.',
+          href: '/notebook?focus=followUpDueToday',
+          count: followUpDueTodayItems.length,
+          reasons: ['Today already contains scheduled checkpoint work.'],
+          items: followUpDueToday,
         },
         {
           key: 'strict-top',
@@ -1201,6 +1059,7 @@ export class JobOffersService {
           description: 'Review the highest-confidence strict matches first.',
           href: '/opportunities?focus=strictTop',
           count: strictTopMatchesItems.length,
+          reasons: ['Strict scoring found high-signal roles that still deserve first-pass review.'],
           items: strictTopMatches,
         },
         {
@@ -1209,6 +1068,7 @@ export class JobOffersService {
           description: 'Score the newest leads before they get stale.',
           href: '/opportunities?focus=unscored',
           count: unscoredFreshItems.length,
+          reasons: ['Fresh rows exist without a score and should be triaged before they age out.'],
           items: unscoredFresh,
         },
         {
@@ -1217,6 +1077,7 @@ export class JobOffersService {
           description: 'Return to saved leads that still need a follow-up plan or decision.',
           href: '/notebook?focus=saved',
           count: savedNeedsAttentionItems.length,
+          reasons: ['Saved roles still lack enough workflow structure to move confidently.'],
           items: savedNeedsAttention,
         },
         {
@@ -1225,7 +1086,17 @@ export class JobOffersService {
           description: 'Keep active applications moving with interview prep and next-step tracking.',
           href: '/notebook?focus=applied',
           count: appliedActiveItems.length,
+          reasons: ['These roles are already in flight and need controlled active-work handling.'],
           items: appliedActive,
+        },
+        {
+          key: 'prep-recommended',
+          label: 'Prep next',
+          description: 'Prepare active roles that are close enough to need a reply or interview briefing.',
+          href: '/notebook?focus=prepRecommended',
+          count: prepRecommendedItems.length,
+          reasons: ['These active roles would benefit from structured prep before the next touch.'],
+          items: prepRecommended,
         },
         {
           key: 'follow-up-upcoming',
@@ -1233,6 +1104,7 @@ export class JobOffersService {
           description: 'Prepare scheduled follow-ups and next-step notes in advance.',
           href: '/notebook?focus=followUpUpcoming',
           count: followUpUpcomingItems.length,
+          reasons: ['Future follow-ups are already planned and can be prepared early.'],
           items: followUpUpcoming,
         },
         {
@@ -1241,6 +1113,7 @@ export class JobOffersService {
           description: 'Clear old NEW or SEEN offers that still have no decision.',
           href: '/opportunities?focus=staleUntriaged',
           count: staleUntriagedItems.length,
+          reasons: ['Discovery has aging roles that still have no keep-or-dismiss decision.'],
           items: staleUntriaged,
         },
       ],
@@ -1287,6 +1160,21 @@ export class JobOffersService {
 
       return ranking.include && Number(item.matchScore ?? 0) >= 70;
     }).length;
+    const followUpDueToday = items.filter((item) =>
+      buildAttentionSignals({ status: item.status, source: item, now }).some(
+        (signal) => signal.key === 'follow_up_due_today',
+      ),
+    ).length;
+    const prepRecommended = items.filter((item) =>
+      buildAttentionSignals({ status: item.status, source: item, now }).some(
+        (signal) => signal.key === 'prep_recommended',
+      ),
+    ).length;
+    const awaitingDecision = items.filter((item) =>
+      buildAttentionSignals({ status: item.status, source: item, now }).some(
+        (signal) => signal.key === 'awaiting_decision',
+      ),
+    ).length;
 
     const buckets = [
       {
@@ -1297,6 +1185,17 @@ export class JobOffersService {
         count: items.filter((item) => resolveFollowUpState(item.status, item, now) === 'due').length,
         ctaLabel: 'Open due follow-ups',
         reasons: ['overdue follow-ups are blocking active pipeline work'],
+        priority: 'critical' as const,
+      },
+      {
+        key: 'due-today',
+        label: 'Due today',
+        description: 'Prepare work that already needs to happen today before it turns into overdue follow-up.',
+        href: '/notebook?focus=followUpDueToday',
+        count: followUpDueToday,
+        ctaLabel: 'Open today queue',
+        reasons: ['today already contains active checkpoint work'],
+        priority: 'recommended' as const,
       },
       {
         key: 'scheduled-soon',
@@ -1306,6 +1205,7 @@ export class JobOffersService {
         count: items.filter((item) => resolveFollowUpState(item.status, item, now) === 'upcoming').length,
         ctaLabel: 'Prepare upcoming follow-ups',
         reasons: ['upcoming checkpoints already exist and can be prepared now'],
+        priority: 'recommended' as const,
       },
       {
         key: 'missing-next-step',
@@ -1315,6 +1215,7 @@ export class JobOffersService {
         count: items.filter((item) => hasMissingNextStep(item.status, item)).length,
         ctaLabel: 'Fill in next steps',
         reasons: ['active offers are saved in the funnel but do not yet have a next step'],
+        priority: 'critical' as const,
       },
       {
         key: 'stale-active',
@@ -1328,6 +1229,27 @@ export class JobOffersService {
         ).length,
         ctaLabel: 'Review stale pipeline',
         reasons: ['recent status movement is missing on active roles'],
+        priority: 'critical' as const,
+      },
+      {
+        key: 'prep-next',
+        label: 'Prep next',
+        description: 'Prep the active roles that are close enough to need a clearer reply or interview plan.',
+        href: '/notebook?focus=prepRecommended',
+        count: prepRecommended,
+        ctaLabel: 'Open prep-ready roles',
+        reasons: ['active roles are close enough that structured prep will save time'],
+        priority: 'recommended' as const,
+      },
+      {
+        key: 'awaiting-decision',
+        label: 'Awaiting decision',
+        description: 'Saved roles need an explicit keep-or-drop checkpoint so they do not sit indefinitely.',
+        href: '/notebook?focus=awaitingDecision',
+        count: awaitingDecision,
+        ctaLabel: 'Set decision checkpoints',
+        reasons: ['saved roles still lack a decision deadline or next-step commitment'],
+        priority: 'info' as const,
       },
       {
         key: 'strict-top-unreviewed',
@@ -1337,6 +1259,7 @@ export class JobOffersService {
         count: strictTopUnreviewed,
         ctaLabel: 'Work strict-top matches',
         reasons: ['strict ranking found high-signal offers that are still unreviewed'],
+        priority: 'info' as const,
       },
     ];
 
@@ -1602,6 +1525,127 @@ export class JobOffersService {
     });
   }
 
+  async bulkUpdateWorkflow(
+    userId: string,
+    input: {
+      ids: string[];
+      followUpAt?: string | null;
+      nextStep?: string | null;
+      note?: string | null;
+      decisionDueAt?: string | null;
+      prepRecommended?: boolean | null;
+    },
+  ) {
+    const ids = Array.from(new Set(input.ids));
+    if (!ids.length) {
+      throw new BadRequestException('At least one job offer id is required');
+    }
+
+    const followUpAt = input.followUpAt ? new Date(input.followUpAt) : null;
+    const decisionDueAt = input.decisionDueAt ? new Date(input.decisionDueAt) : null;
+    const nextStep = input.nextStep?.trim() ? input.nextStep.trim() : null;
+    const note = input.note?.trim() ? input.note.trim() : null;
+
+    return this.db.transaction(async (tx) => {
+      const rows = await tx
+        .select({
+          id: userJobOffersTable.id,
+          status: userJobOffersTable.status,
+          pipelineMeta: userJobOffersTable.pipelineMeta,
+          prepMaterials: userJobOffersTable.prepMaterials,
+          followUpAt: userJobOffersTable.followUpAt,
+          nextStep: userJobOffersTable.nextStep,
+          followUpNote: userJobOffersTable.followUpNote,
+          applicationUrl: userJobOffersTable.applicationUrl,
+          contactName: userJobOffersTable.contactName,
+          lastFollowUpCompletedAt: userJobOffersTable.lastFollowUpCompletedAt,
+          lastFollowUpSnoozedAt: userJobOffersTable.lastFollowUpSnoozedAt,
+          createdAt: userJobOffersTable.createdAt,
+          lastStatusAt: userJobOffersTable.lastStatusAt,
+        })
+        .from(userJobOffersTable)
+        .where(and(eq(userJobOffersTable.userId, userId), inArray(userJobOffersTable.id, ids)));
+
+      if (!rows.length) {
+        throw new NotFoundException('Job offers not found');
+      }
+
+      let due = 0;
+      let upcoming = 0;
+      let none = 0;
+      let prepRecommendedCount = 0;
+      let decisionDueCount = 0;
+
+      for (const row of rows) {
+        const fields = extractFollowUpFields(row);
+        const pipelineMeta = getPipelineMetaRecord(row.pipelineMeta);
+
+        if (input.followUpAt !== undefined) {
+          fields.followUpAt = followUpAt;
+        }
+        if (input.nextStep !== undefined) {
+          fields.nextStep = nextStep;
+        }
+        if (input.note !== undefined) {
+          fields.followUpNote = note;
+        }
+        if (input.decisionDueAt !== undefined) {
+          pipelineMeta.decisionDueAt = decisionDueAt ? decisionDueAt.toISOString() : null;
+        }
+        if (input.prepRecommended !== undefined) {
+          pipelineMeta.prepRecommended = input.prepRecommended;
+        }
+
+        const nextPipelineMeta = buildPipelineMetaWithFollowUp(pipelineMeta, fields);
+        const followUpState = resolveFollowUpState(row.status, fields, new Date());
+        if (followUpState === 'due') {
+          due += 1;
+        } else if (followUpState === 'upcoming') {
+          upcoming += 1;
+        } else {
+          none += 1;
+        }
+
+        if (pipelineMeta.prepRecommended === true) {
+          prepRecommendedCount += 1;
+        }
+        if (decisionDueAt) {
+          decisionDueCount += 1;
+        }
+
+        await tx
+          .update(userJobOffersTable)
+          .set({
+            pipelineMeta: nextPipelineMeta,
+            followUpAt: fields.followUpAt,
+            nextStep: fields.nextStep,
+            followUpNote: fields.followUpNote,
+            applicationUrl: fields.applicationUrl,
+            contactName: fields.contactName,
+            lastFollowUpCompletedAt: fields.lastFollowUpCompletedAt,
+            lastFollowUpSnoozedAt: fields.lastFollowUpSnoozedAt,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(userJobOffersTable.id, row.id), eq(userJobOffersTable.userId, userId)));
+      }
+
+      return {
+        updated: rows.length,
+        summary: {
+          due,
+          upcoming,
+          none,
+          noteApplied: input.note !== undefined,
+          nextStepApplied: input.nextStep !== undefined,
+          prepRecommendedApplied: input.prepRecommended !== undefined,
+          decisionDueApplied: input.decisionDueAt !== undefined,
+          prepRecommendedCount,
+          decisionDueCount,
+        },
+      };
+    });
+  }
+
   async completeFollowUp(
     userId: string,
     id: string,
@@ -1751,6 +1795,19 @@ export class JobOffersService {
     const profileSummary = summarizeActiveProfile(profile?.contentJson ?? null);
     const structuredRelationMap = await this.loadStructuredOfferRelations([offer.jobOfferId]);
     const structuredDetails = buildStructuredOfferDetails(offer, structuredRelationMap.get(offer.jobOfferId) ?? null);
+    const attentionSignals = buildAttentionSignals({ status: offer.status, source: offer });
+    const requirementHighlights = extractRequirementHighlights(offer.requirements);
+    const workflowReasons = [
+      ...attentionSignals.map((signal) => signal.reason),
+      ...(fields.nextStep ? [`Current next step: ${fields.nextStep}.`] : []),
+      ...(fields.followUpNote ? [`Existing follow-up note: ${fields.followUpNote}.`] : []),
+    ].slice(0, 5);
+    const workflowSummary =
+      attentionSignals.length > 0
+        ? attentionSignals.map((signal) => signal.label).join(' | ')
+        : fields.nextStep
+          ? `Next step ready: ${fields.nextStep}`
+          : 'No urgent workflow pressure is attached yet.';
 
     return {
       offer: {
@@ -1787,6 +1844,12 @@ export class JobOffersService {
         contactName: fields.contactName,
         followUpAt: fields.followUpAt,
       }),
+      attentionContext: {
+        attentionSignals,
+        reasonsToActNow: workflowReasons,
+        workflowSummary,
+      },
+      requirementHighlights,
     };
   }
 
