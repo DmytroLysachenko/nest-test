@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-04-01
+Last updated: 2026-04-02
 
 ## Purpose
 
@@ -101,6 +101,9 @@ That framing should guide future implementation more than raw source count.
   - dashboard action-plan buckets for due, upcoming, missing-next-step, stale, and strict-top work
   - one-click follow-up complete/snooze/clear actions
   - prep packet read model for reply/interview preparation
+  - workflow attention signals now classify active roles as overdue, due-today, prep-recommended, awaiting-decision, missing-next-step, or stale-pipeline directly in the notebook read model
+  - dashboard focus and action-plan lanes now include due-today, prep-next, and awaiting-decision workflow slices with explicit rationale and CTA metadata
+  - pipeline bulk editing now supports decision checkpoints and prep-needed flags in addition to follow-up planning
   - bulk status flows, metadata, scoring, prep generation
 - Scraping and automation
   - manual enqueue
@@ -126,9 +129,13 @@ That framing should guide future implementation more than raw source count.
   - owns all user workflow read models and recovery decisions
   - explicit DTO coverage has improved for notebook, ops, schedule, and workspace summary
   - contract surface is now broad enough to support a product UI instead of internal-tool panels
+  - modularization is now an active engineering concern because `job-sources` and `job-offers` service files have grown beyond easy human scanability
+  - feature-local helper modules are now the preferred way to move pure derivation, shaping, and preference logic out of large Nest services before creating more service classes
   - support-facing read models now provide LLM-friendly incident bundles instead of forcing raw endpoint composition
   - job-offer read models now expose normalized company and taxonomy summaries in addition to raw listing fields
   - job-offer read models now also expose normalized multi-value relations so structured review does not depend only on legacy `details` JSON
+  - notebook and discovery list responses now also expose explicit collection-state guidance so hidden/degraded/empty queues are explained by API instead of inferred only in the web layer
+  - prep packet responses now include workflow-aware attention context and requirement highlights in addition to the existing role/profile summary
   - scrape enqueue responses now return explicit catalog-rematch and DB-reuse diagnostics so fresh-result gating is visible instead of silently falling through to worker dispatch
 - Worker
   - scrape lifecycle visibility is materially stronger
@@ -141,6 +148,8 @@ That framing should guide future implementation more than raw source count.
   - major move from panel-heavy internal tooling toward guided product workflow
   - opportunities now handles first-pass discovery while notebook is now a distinct active pipeline workspace
   - notebook board cards now prioritize due work and active next-step context instead of acting like a generic status grid
+  - notebook now exposes a visible bulk workflow editor for active pipeline roles instead of limiting batch edits to follow-up-only metadata
+  - opportunity empty states and dashboard focus cards now show server-driven trust messaging rather than generic “no data” copy
   - still contains mixed maturity areas where some screens feel productized and some remain utilitarian
 - Database and migrations
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields
@@ -348,6 +357,7 @@ That framing should guide future implementation more than raw source count.
 - Worker queue remains in-memory, so crash resilience is below production-grade background-job expectations.
 - Scraper quality is still heavily tied to one source and its DOM behavior.
 - Notebook productivity is better, but there is not yet a full follow-up/reminder or pipeline automation layer.
+- Reminder reliability is now stronger at the product-read-model layer, but external reminder delivery and automation are still not implemented.
 - Document recovery exists, but extraction/profile-generation background execution is not yet moved to a durable async pipeline.
 - Support surfaces are present, but alerting and long-horizon observability are still limited.
 - Frontend has improved workflow structure, but visual/design consistency is still mixed across older and newer surfaces.

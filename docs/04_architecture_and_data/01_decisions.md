@@ -1,6 +1,6 @@
 # Decisions
 
-Last updated: 2026-04-01
+Last updated: 2026-04-02
 
 ## Purpose
 
@@ -114,6 +114,28 @@ ADR-lite log for major architectural and contract decisions.
   - Canonical offer reads, historical scrape facts, and raw parser forensics are different concerns and should not compete inside one JSON column.
   - Observation history is required for parser regression analysis, backfill safety, and future cross-source identity work.
   - Multi-value relations like schedules, seniority, and technologies are more queryable, more indexable, and safer for non-IT data than source-shaped blobs.
+
+## 2026-04-02: Reminder Reliability In This Phase Means Deterministic Workflow State, Not Notification Delivery
+
+- Decision:
+  - Treat reminder reliability in the current workflow-differentiation tranche as a read-model and persistence problem, not an email/push delivery problem.
+  - Derive server-driven attention states from persisted workflow fields and expose them additively in notebook, focus, action-plan, and prep packet responses.
+  - Keep strict-mode trust behavior intact; explain hidden/degraded states instead of weakening the notebook default.
+- Why:
+  - The current product gap is that users need clearer next-action guidance inside the app before they need outbound reminder channels.
+  - Server-owned workflow attention logic prevents the web from duplicating urgency rules and keeps dashboard/notebook routing consistent.
+  - Hidden and degraded queues should feel intentional and trustworthy rather than empty by accident.
+
+## 2026-04-02: API Feature Services Should Be Orchestration-First, With Pure Logic Extracted Into Feature-Local Modules
+
+- Decision:
+  - Keep Nest feature services focused on use-case orchestration, DB coordination, and stable error handling.
+  - Extract pure derivation, ranking, mapping, and preference/default logic into clearly named feature-local modules once a service starts accumulating mixed responsibilities.
+  - Prefer feature-local helper modules over cross-feature utility dumping grounds or speculative service hierarchies.
+- Why:
+  - Large service files slow down human comprehension even when the code still technically works.
+  - The repo is now broad enough that AI- and human-authored changes need explicit structure to stay maintainable.
+  - Responsibility-based extraction preserves KISS better than splitting one service into many tightly coupled mini-services.
 
 ## 2026-02-21: Canonical Career Profile Schema
 

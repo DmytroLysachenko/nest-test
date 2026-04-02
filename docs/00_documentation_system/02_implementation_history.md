@@ -1,6 +1,6 @@
 # Implementation History
 
-Last updated: 2026-04-01
+Last updated: 2026-04-02
 
 ## Purpose
 
@@ -227,3 +227,42 @@ Related docs:
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md`
 - `docs/02_product_workflows/20_scrape_feature.md`
 - `docs/04_architecture_and_data/01_decisions.md`
+
+### `012` Workflow attention and active-offer trust messaging
+
+Summary:
+
+- added server-driven workflow attention signals for notebook offers and prep packets
+- expanded dashboard focus/action-plan lanes with due-today, prep-next, and awaiting-decision slices
+- made notebook/opportunities hidden and degraded states explicitly explainable instead of relying only on frontend inference
+
+Primary code areas:
+
+- `apps/api/src/features/job-offers`
+- `apps/web/src/features/job-offers`
+- `apps/web/src/features/workspace`
+
+Related docs:
+
+- `docs/02_product_workflows/30_notebook_feature.md`
+- `docs/02_product_workflows/35_opportunities_and_dashboard_feature.md`
+- `docs/04_architecture_and_data/01_decisions.md`
+
+### `013` API modularization baseline and repo-wide engineering standards
+
+Summary:
+
+- extracted pure `job-offers` feature logic into named feature-local modules instead of continuing to grow one service file
+- documented repo-wide backend and modularization standards alongside the existing frontend standards
+- made orchestration-first API services a durable architecture rule instead of an implicit preference
+
+Primary code areas:
+
+- `apps/api/src/features/job-offers`
+- `docs/06_engineering_standards/02_backend_and_repo_standards.md`
+- `docs/04_architecture_and_data/01_decisions.md`
+
+Related docs:
+
+- `docs/06_engineering_standards/02_backend_and_repo_standards.md`
+- `docs/00_documentation_system/03_code_to_docs_map.md`
