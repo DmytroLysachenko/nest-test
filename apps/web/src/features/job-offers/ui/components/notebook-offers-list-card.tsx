@@ -36,6 +36,14 @@ type NotebookOffersListCardProps = {
     nextStep?: string | null;
     note?: string | null;
   }) => void;
+  onBulkWorkflowSave?: (payload: {
+    ids: string[];
+    followUpAt?: string | null;
+    nextStep?: string | null;
+    note?: string | null;
+    decisionDueAt?: string | null;
+    prepRecommended?: boolean | null;
+  }) => void;
   onBulkSnooze: (durationHours: number) => void;
   onBulkClearFollowUp: () => void;
   onModeChange?: (mode: 'strict' | 'approx' | 'explore') => void;
@@ -63,6 +71,7 @@ export const NotebookOffersListCard = ({
   onClearSelected,
   onBulkStatusChange,
   onBulkFollowUpSave,
+  onBulkWorkflowSave,
   onBulkSnooze,
   onBulkClearFollowUp,
   onModeChange,
@@ -73,12 +82,18 @@ export const NotebookOffersListCard = ({
   const [bulkFollowUpAt, setBulkFollowUpAt] = useState('');
   const [bulkNextStep, setBulkNextStep] = useState('');
   const [bulkNote, setBulkNote] = useState('');
+  const [bulkDecisionDueAt, setBulkDecisionDueAt] = useState('');
+  const [bulkPrepRecommended, setBulkPrepRecommended] = useState<'keep' | 'yes' | 'no'>('keep');
   const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
   const canSaveBulkFollowUp = useMemo(
     () =>
       selectedOfferIds.length > 0 &&
-      (bulkFollowUpAt.trim().length > 0 || bulkNextStep.trim().length > 0 || bulkNote.trim().length > 0),
-    [bulkFollowUpAt, bulkNextStep, bulkNote, selectedOfferIds.length],
+      (bulkFollowUpAt.trim().length > 0 ||
+        bulkNextStep.trim().length > 0 ||
+        bulkNote.trim().length > 0 ||
+        bulkDecisionDueAt.trim().length > 0 ||
+        bulkPrepRecommended !== 'keep'),
+    [bulkDecisionDueAt, bulkFollowUpAt, bulkNextStep, bulkNote, bulkPrepRecommended, selectedOfferIds.length],
   );
   const collectionState = getNotebookCollectionState({
     mode,
@@ -195,7 +210,7 @@ export const NotebookOffersListCard = ({
           />
           {bulkPanelOpen ? (
             <div className="app-muted-panel space-y-3">
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+              <div className="grid gap-3 lg:grid-cols-2">
                 <div className="app-field-group">
                   <Label htmlFor="bulk-follow-up-at" className="app-inline-label">
                     Bulk follow-up date
@@ -205,6 +220,17 @@ export const NotebookOffersListCard = ({
                     type="datetime-local"
                     value={bulkFollowUpAt}
                     onChange={(event) => setBulkFollowUpAt(event.target.value)}
+                  />
+                </div>
+                <div className="app-field-group">
+                  <Label htmlFor="bulk-decision-due-at" className="app-inline-label">
+                    Decision due at
+                  </Label>
+                  <Input
+                    id="bulk-decision-due-at"
+                    type="datetime-local"
+                    value={bulkDecisionDueAt}
+                    onChange={(event) => setBulkDecisionDueAt(event.target.value)}
                   />
                 </div>
                 <div className="app-field-group">
@@ -229,28 +255,53 @@ export const NotebookOffersListCard = ({
                     onChange={(event) => setBulkNote(event.target.value)}
                   />
                 </div>
-                <Button
-                  type="button"
-                  className="h-10"
-                  disabled={!canSaveBulkFollowUp || isBusy}
-                  onClick={() => {
-                    onBulkFollowUpSave({
-                      ids: selectedOfferIds,
-                      followUpAt: bulkFollowUpAt ? new Date(bulkFollowUpAt).toISOString() : null,
-                      nextStep: bulkNextStep.trim() || null,
-                      note: bulkNote.trim() || null,
-                    });
-                    setBulkFollowUpAt('');
-                    setBulkNextStep('');
-                    setBulkNote('');
-                    setBulkPanelOpen(false);
-                  }}
-                >
-                  Save bulk follow-up
-                </Button>
               </div>
+              <div className="app-field-group">
+                <Label htmlFor="bulk-prep-recommended" className="app-inline-label">
+                  Prep recommended
+                </Label>
+                <select
+                  id="bulk-prep-recommended"
+                  className="app-select"
+                  value={bulkPrepRecommended}
+                  onChange={(event) => setBulkPrepRecommended(event.target.value as 'keep' | 'yes' | 'no')}
+                >
+                  <option value="keep">Keep current value</option>
+                  <option value="yes">Mark yes</option>
+                  <option value="no">Mark no</option>
+                </select>
+              </div>
+              <Button
+                type="button"
+                className="h-10"
+                disabled={!canSaveBulkFollowUp || isBusy}
+                onClick={() => {
+                  const payload = {
+                    ids: selectedOfferIds,
+                    followUpAt: bulkFollowUpAt ? new Date(bulkFollowUpAt).toISOString() : null,
+                    nextStep: bulkNextStep.trim() || null,
+                    note: bulkNote.trim() || null,
+                    decisionDueAt: bulkDecisionDueAt ? new Date(bulkDecisionDueAt).toISOString() : null,
+                    prepRecommended: bulkPrepRecommended === 'keep' ? null : bulkPrepRecommended === 'yes',
+                  };
+                  if (onBulkWorkflowSave) {
+                    onBulkWorkflowSave(payload);
+                  } else {
+                    onBulkFollowUpSave(payload);
+                  }
+                  setBulkFollowUpAt('');
+                  setBulkNextStep('');
+                  setBulkNote('');
+                  setBulkDecisionDueAt('');
+                  setBulkPrepRecommended('keep');
+                  setBulkPanelOpen(false);
+                }}
+              >
+                Save workflow plan
+              </Button>
               <p className="text-text-soft text-xs">
-                Apply one follow-up date, next step, or note across the current selection without opening each offer.
+                Apply one follow-up date, decision checkpoint, next step, or prep flag across the current selection
+                without opening each offer.
               </p>
             </div>
           ) : null}
