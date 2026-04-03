@@ -77,12 +77,12 @@ const closeServer = async (server: ReturnType<typeof createTaskServer>) =>
 
 test('rejects /tasks when OIDC email claim does not match expected service account', async () => {
   const originalVerifyIdToken = OAuth2Client.prototype.verifyIdToken;
-  OAuth2Client.prototype.verifyIdToken = async () =>
+  OAuth2Client.prototype.verifyIdToken = (async () =>
     ({
       getPayload: () => ({
         email: 'unexpected-caller@example.iam.gserviceaccount.com',
       }),
-    }) as VerifyIdTokenResult;
+    }) as unknown as VerifyIdTokenResult) as unknown as OAuth2Client['verifyIdToken'];
 
   const server = createTaskServer(buildEnv(), logger);
   await new Promise<void>((resolve) => {
@@ -114,14 +114,14 @@ test('rejects /tasks when OIDC email claim does not match expected service accou
 
 test('rejects /tasks when OIDC issuer claim is unexpected', async () => {
   const originalVerifyIdToken = OAuth2Client.prototype.verifyIdToken;
-  OAuth2Client.prototype.verifyIdToken = async () =>
+  OAuth2Client.prototype.verifyIdToken = (async () =>
     ({
       getPayload: () => ({
         iss: 'https://issuer.example.com',
         email: 'expected-caller@example.iam.gserviceaccount.com',
         email_verified: true,
       }),
-    }) as VerifyIdTokenResult;
+    }) as unknown as VerifyIdTokenResult) as unknown as OAuth2Client['verifyIdToken'];
 
   const server = createTaskServer(buildEnv(), logger);
   await new Promise<void>((resolve) => {
@@ -151,14 +151,14 @@ test('rejects /tasks when OIDC issuer claim is unexpected', async () => {
 
 test('rejects /tasks when OIDC email claim is not verified for pinned service account', async () => {
   const originalVerifyIdToken = OAuth2Client.prototype.verifyIdToken;
-  OAuth2Client.prototype.verifyIdToken = async () =>
+  OAuth2Client.prototype.verifyIdToken = (async () =>
     ({
       getPayload: () => ({
         iss: 'https://accounts.google.com',
         email: 'expected-caller@example.iam.gserviceaccount.com',
         email_verified: false,
       }),
-    }) as VerifyIdTokenResult;
+    }) as unknown as VerifyIdTokenResult) as unknown as OAuth2Client['verifyIdToken'];
 
   const server = createTaskServer(buildEnv(), logger);
   await new Promise<void>((resolve) => {

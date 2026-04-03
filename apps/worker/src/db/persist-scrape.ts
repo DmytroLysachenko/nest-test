@@ -5,7 +5,7 @@ import { getDb } from './client';
 
 import type { NormalizedJob } from '../sources/types';
 
-const mapSource = (source: string) => {
+const mapSource = (source: string): 'PRACUJ_PL' => {
   if (source === 'pracuj-pl') {
     return 'PRACUJ_PL';
   }

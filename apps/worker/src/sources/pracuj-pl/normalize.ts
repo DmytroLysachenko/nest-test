@@ -2,7 +2,7 @@ import { canonicalizeContractType, canonicalizeWorkMode } from '@repo/db';
 
 import type { JobDetails, NormalizedJob, ParsedJob } from '../types';
 
-const normalizeText = (value?: string) => (value ? value.trim() : null);
+const normalizeText = (value?: string | null) => (value ? value.trim() : null);
 const normalizeAscii = (value: string) =>
   value
     .normalize('NFD')
@@ -100,6 +100,7 @@ const normalizeDetails = (details?: JobDetails): JobDetails | undefined => {
     workModes: dedupeList(details.workModes?.map((item) => canonicalizeWorkMode(item))),
     workSchedules: normalizeList(details.workSchedules),
     contractTypes: dedupeList(details.contractTypes?.map((item) => canonicalizeContractType(item))),
+    seniority: normalizeText(details.seniority) ?? undefined,
     workplace: normalizeText(details.workplace) ?? undefined,
     companyLocation: normalizeText(details.companyLocation) ?? undefined,
     companyDescription: normalizeText(details.companyDescription) ?? undefined,
@@ -113,6 +114,7 @@ const normalizeDetails = (details?: JobDetails): JobDetails | undefined => {
     !normalized.workModes &&
     !normalized.workSchedules &&
     !normalized.contractTypes &&
+    !normalized.seniority &&
     !normalized.workplace &&
     !normalized.companyLocation &&
     !normalized.companyDescription &&

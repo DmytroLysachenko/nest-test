@@ -15,6 +15,9 @@ const readArg = (name: string) => {
     return undefined;
   }
   const token = process.argv[index];
+  if (!token) {
+    return undefined;
+  }
   if (token.includes('=')) {
     return token.split('=').slice(1).join('=');
   }

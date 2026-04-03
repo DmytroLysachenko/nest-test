@@ -1,4 +1,4 @@
-import pino from 'pino';
+import createPinoLogger from 'pino';
 
 import type { WorkerEnv } from './env';
 
@@ -14,7 +14,7 @@ export const createLogger = (env: WorkerEnv) => {
           },
         };
 
-  return pino({
+  return createPinoLogger({
     level: env.WORKER_LOG_LEVEL,
     transport,
   });

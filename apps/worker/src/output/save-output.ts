@@ -77,6 +77,9 @@ const saveRawPages = async (pages: RawPage[], baseDir: string) => {
   const paths: Array<{ url: string; htmlPath: string }> = [];
   for (let index = 0; index < pages.length; index += 1) {
     const page = pages[index];
+    if (!page) {
+      continue;
+    }
     const safe = toSafeFilename(page.url).slice(0, 120);
     const filename = `${index + 1}-${safe}.html`;
     const htmlPath = join(rawDir, filename);

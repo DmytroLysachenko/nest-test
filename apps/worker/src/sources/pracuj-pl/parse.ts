@@ -27,7 +27,10 @@ const extractJsonLdBlocks = (html: string) => {
   const regex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let match = regex.exec(html);
   while (match) {
-    blocks.push(match[1]);
+    const block = match[1];
+    if (block) {
+      blocks.push(block);
+    }
     match = regex.exec(html);
   }
   return blocks;
@@ -41,11 +44,12 @@ const pickStringArray = (value: unknown) =>
 
 const extractNextDataJson = (html: string) => {
   const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (!match) {
+  const payload = match?.[1];
+  if (!payload) {
     return null;
   }
   try {
-    return JSON.parse(match[1]) as unknown;
+    return JSON.parse(payload) as unknown;
   } catch {
     return null;
   }

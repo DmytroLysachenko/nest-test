@@ -11,6 +11,7 @@ import { appendScrapeExecutionEvent } from '../db/scrape-execution-events';
 import { saveOutput } from '../output/save-output';
 import { loadFreshOfferUrls } from '../db/fresh-offers';
 
+import type { AdaptiveQueryAttempt } from './pracuj-adaptive-query-planner';
 import type {
   ScrapeClassifiedOutcome,
   PracujSourceKind,
@@ -51,6 +52,9 @@ type CallbackPayload = {
     jobLinksDiscovered?: number;
     ignoredRecommendedLinks?: number;
     dedupedInRunCount?: number;
+    acceptedOfferCount?: number;
+    rejectedOfferCount?: number;
+    rejectedOfferReasons?: Record<string, number>;
     skippedFreshUrls?: number;
     blockedPages?: number;
     hadZeroOffersStep?: boolean;
@@ -62,7 +66,7 @@ type CallbackPayload = {
     emptyReason?: ScrapeEmptyReason | null;
     sourceQuality?: ScrapeSourceQuality;
     classifiedOutcome?: ScrapeClassifiedOutcome;
-    failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed';
+    failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed' | null;
     detailAttemptedCount?: number;
     detailBudget?: number | null;
     detailStopReason?: 'completed' | 'budget_reached' | 'source_degraded';
@@ -94,14 +98,7 @@ type CallbackPayload = {
       targetMax: number;
       selectedStage: string;
       selectedCount: number;
-      attempts: Array<{
-        stage: string;
-        listingUrl: string;
-        listingCount: number;
-        blockedCount: number;
-        recommendedCount: number;
-        summaryCount: number;
-      }>;
+      attempts: AdaptiveQueryAttempt[];
       targetWindowMissed: boolean;
       scarcityReason?: 'listing_count_too_low' | 'listing_count_too_high' | null;
     };
@@ -178,6 +175,7 @@ export const computeNormalizedJobContentHash = (
     | 'employmentType'
     | 'requirements'
     | 'details'
+    | 'rawPayload'
   >,
 ) =>
   createHash('sha256')
@@ -885,14 +883,7 @@ export const runScrapeJob = async (
       targetMax: number;
       selectedStage: string;
       selectedCount: number;
-      attempts: Array<{
-        stage: string;
-        listingUrl: string;
-        listingCount: number;
-        blockedCount: number;
-        recommendedCount: number;
-        summaryCount: number;
-      }>;
+      attempts: AdaptiveQueryAttempt[];
       targetWindowMissed: boolean;
       scarcityReason?: 'listing_count_too_low' | 'listing_count_too_high' | null;
     } | null = null;
@@ -1197,6 +1188,14 @@ export const runScrapeJob = async (
         break;
       }
 
+      if (!isPracujSource(payload.source)) {
+        break;
+      }
+
+      if (!activeFilters) {
+        break;
+      }
+
       const relaxed = relaxPracujFiltersOnce(payload.source, activeFilters);
       if (!relaxed.next) {
         break;
@@ -1352,7 +1351,7 @@ export const runScrapeJob = async (
           emptyReason,
           sourceQuality,
           classifiedOutcome,
-          queryPlan,
+          queryPlan: queryPlan ?? undefined,
           scarcity,
         },
       });
