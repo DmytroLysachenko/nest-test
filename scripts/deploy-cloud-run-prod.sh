@@ -211,7 +211,9 @@ TASKS_MAX_BACKOFF_SEC="${TASKS_MAX_BACKOFF_SEC:-300}"
 TASKS_MAX_DOUBLINGS="${TASKS_MAX_DOUBLINGS:-5}"
 TASKS_MAX_RETRY_DURATION_SEC="${TASKS_MAX_RETRY_DURATION_SEC:-1800}"
 ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-}"
-WORKER_ALLOWED_ORIGINS="${WORKER_ALLOWED_ORIGINS:-${ALLOWED_ORIGINS:-https://example.com}}"
+GCP_WEB_BASE_URL="${GCP_WEB_BASE_URL:-}"
+PRIMARY_WEB_ORIGINS="$(merge_csv_unique "$GCP_WEB_BASE_URL" "$ALLOWED_ORIGINS")"
+WORKER_ALLOWED_ORIGINS="${WORKER_ALLOWED_ORIGINS:-${PRIMARY_WEB_ORIGINS:-https://example.com}}"
 API_THROTTLE_TTL_MS="${API_THROTTLE_TTL_MS:-60000}"
 API_THROTTLE_LIMIT="${API_THROTTLE_LIMIT:-120}"
 AUTH_LOGIN_THROTTLE_TTL_MS="${AUTH_LOGIN_THROTTLE_TTL_MS:-60000}"
@@ -346,7 +348,7 @@ if [[ "$DEPLOY_API" == "true" ]]; then
     echo "API is already at SHA $RELEASE_SHA. Skipping deploy."
   else
     echo "Deploy api..."
-    API_ALLOWED_ORIGINS="$(merge_csv_unique "$ALLOWED_ORIGINS" "$WEB_URLS_CSV")"
+    API_ALLOWED_ORIGINS="$(merge_csv_unique "$PRIMARY_WEB_ORIGINS" "$WEB_URLS_CSV")"
     if [[ -z "$API_ALLOWED_ORIGINS" ]]; then
       API_ALLOWED_ORIGINS="https://example.com"
     fi
@@ -442,7 +444,7 @@ fi
 
 if [[ "$DEPLOY_API" == "true" ]]; then
   WEB_URLS_CSV="$(resolve_service_urls_csv "$GCP_WEB_SERVICE")"
-  FINAL_API_ALLOWED_ORIGINS="$(merge_csv_unique "$ALLOWED_ORIGINS" "$WEB_URLS_CSV")"
+  FINAL_API_ALLOWED_ORIGINS="$(merge_csv_unique "$PRIMARY_WEB_ORIGINS" "$WEB_URLS_CSV")"
   if [[ -n "$FINAL_API_ALLOWED_ORIGINS" ]]; then
     echo "Finalize API allowed origins from deployed web URLs..."
     # Always run final sync if deploy was requested, to ensure allowed origins are fresh

@@ -11,6 +11,7 @@ import { appendScrapeExecutionEvent } from '../db/scrape-execution-events';
 import { saveOutput } from '../output/save-output';
 import { loadFreshOfferUrls } from '../db/fresh-offers';
 
+import type { AdaptiveQueryAttempt } from './pracuj-adaptive-query-planner';
 import type {
   ScrapeClassifiedOutcome,
   PracujSourceKind,
@@ -51,6 +52,9 @@ type CallbackPayload = {
     jobLinksDiscovered?: number;
     ignoredRecommendedLinks?: number;
     dedupedInRunCount?: number;
+    acceptedOfferCount?: number;
+    rejectedOfferCount?: number;
+    rejectedOfferReasons?: Record<string, number>;
     skippedFreshUrls?: number;
     blockedPages?: number;
     hadZeroOffersStep?: boolean;
@@ -62,7 +66,7 @@ type CallbackPayload = {
     emptyReason?: ScrapeEmptyReason | null;
     sourceQuality?: ScrapeSourceQuality;
     classifiedOutcome?: ScrapeClassifiedOutcome;
-    failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed';
+    failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed' | null;
     detailAttemptedCount?: number;
     detailBudget?: number | null;
     detailStopReason?: 'completed' | 'budget_reached' | 'source_degraded';
@@ -94,14 +98,7 @@ type CallbackPayload = {
       targetMax: number;
       selectedStage: string;
       selectedCount: number;
-      attempts: Array<{
-        stage: string;
-        listingUrl: string;
-        listingCount: number;
-        blockedCount: number;
-        recommendedCount: number;
-        summaryCount: number;
-      }>;
+      attempts: AdaptiveQueryAttempt[];
       targetWindowMissed: boolean;
       scarcityReason?: 'listing_count_too_low' | 'listing_count_too_high' | null;
     };
@@ -124,8 +121,11 @@ type CompletionDiagnosticsInput = {
 };
 
 const MAX_CALLBACK_ERROR_LENGTH = 1000;
-const SCRAPE_TIMEOUT_RESERVE_MS = 20_000;
-const DETAIL_FETCH_BUDGET_PER_ITEM_MS = 18_000;
+const SCRAPE_TIMEOUT_RESERVE_MS = 10_000;
+const DEFAULT_DETAIL_DELAY_MS = 2_000;
+const DEFAULT_BROWSER_FALLBACK_COOLDOWN_MS = 3_000;
+const DETAIL_FETCH_BUDGET_PER_ITEM_MS = 21_000;
+const DETAIL_FETCH_BROWSER_FALLBACK_BUFFER_MS = 16_000;
 
 const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const toError = (error: unknown) => (error instanceof Error ? error : new Error('Unknown error'));
@@ -168,6 +168,9 @@ export const computeNormalizedJobContentHash = (
     | 'sourceId'
     | 'url'
     | 'title'
+    | 'applyUrl'
+    | 'postedAt'
+    | 'sourceCompanyProfileUrl'
     | 'company'
     | 'location'
     | 'description'
@@ -175,6 +178,7 @@ export const computeNormalizedJobContentHash = (
     | 'employmentType'
     | 'requirements'
     | 'details'
+    | 'rawPayload'
   >,
 ) =>
   createHash('sha256')
@@ -183,6 +187,9 @@ export const computeNormalizedJobContentHash = (
         sourceId: normalizeString(job.sourceId),
         url: normalizeString(job.url),
         title: normalizeString(job.title),
+        applyUrl: normalizeString(job.applyUrl),
+        postedAt: normalizeString(job.postedAt),
+        sourceCompanyProfileUrl: normalizeString(job.sourceCompanyProfileUrl),
         company: normalizeString(job.company),
         location: normalizeString(job.location),
         description: normalizeString(job.description),
@@ -190,6 +197,7 @@ export const computeNormalizedJobContentHash = (
         employmentType: normalizeString(job.employmentType),
         requirements: sanitizeStringArray(job.requirements),
         details: job.details ?? null,
+        rawPayload: job.rawPayload ?? null,
       }),
     )
     .digest('hex');
@@ -199,11 +207,22 @@ export const computeInitialDetailBudget = (input: {
   targetWindow: { min: number; max: number };
   scrapeTimeoutMs: number;
   elapsedMs: number;
+  detailDelayMs?: number;
+  browserFallbackCooldownMs?: number;
 }) => {
   const requestedLimit = Math.max(1, input.requestedLimit);
   const targetMax = Math.max(1, input.targetWindow.max);
+  const detailDelayMs = Math.max(0, input.detailDelayMs ?? DEFAULT_DETAIL_DELAY_MS);
+  const browserFallbackCooldownMs = Math.max(
+    0,
+    input.browserFallbackCooldownMs ?? Math.max(DEFAULT_BROWSER_FALLBACK_COOLDOWN_MS, detailDelayMs + 1_000),
+  );
   const remainingMs = Math.max(0, input.scrapeTimeoutMs - input.elapsedMs - SCRAPE_TIMEOUT_RESERVE_MS);
-  const runtimeBudget = Math.max(1, Math.floor(remainingMs / DETAIL_FETCH_BUDGET_PER_ITEM_MS));
+  const detailBudgetPerItemMs = Math.max(
+    DETAIL_FETCH_BUDGET_PER_ITEM_MS,
+    DETAIL_FETCH_BROWSER_FALLBACK_BUFFER_MS + detailDelayMs + browserFallbackCooldownMs,
+  );
+  const runtimeBudget = Math.max(1, Math.floor(remainingMs / detailBudgetPerItemMs));
 
   return Math.max(1, Math.min(requestedLimit, targetMax, runtimeBudget));
 };
@@ -340,8 +359,12 @@ export const sanitizeCallbackJobs = (jobs: NormalizedJob[] | undefined) => {
       tags: sanitizeStringArray(job.tags),
       salary: normalizeString(job.salary),
       employmentType: normalizeString(job.employmentType),
+      applyUrl: normalizeString(job.applyUrl),
+      postedAt: normalizeString(job.postedAt),
+      sourceCompanyProfileUrl: normalizeString(job.sourceCompanyProfileUrl),
       requirements: sanitizeStringArray(job.requirements),
       isExpired: job.isExpired,
+      rawPayload: job.rawPayload,
     });
   }
 
@@ -874,14 +897,7 @@ export const runScrapeJob = async (
       targetMax: number;
       selectedStage: string;
       selectedCount: number;
-      attempts: Array<{
-        stage: string;
-        listingUrl: string;
-        listingCount: number;
-        blockedCount: number;
-        recommendedCount: number;
-        summaryCount: number;
-      }>;
+      attempts: AdaptiveQueryAttempt[];
       targetWindowMissed: boolean;
       scarcityReason?: 'listing_count_too_low' | 'listing_count_too_high' | null;
     } | null = null;
@@ -1034,6 +1050,8 @@ export const runScrapeJob = async (
                   targetWindow,
                   scrapeTimeoutMs: timeoutMs,
                   elapsedMs: Date.now() - startedAt,
+                  detailDelayMs: adaptiveDetailDelayMs,
+                  browserFallbackCooldownMs: options.browserFallbackCooldownMs,
                 })
               : undefined,
           skipUrls,
@@ -1183,6 +1201,14 @@ export const runScrapeJob = async (
       const zeroOrNoPrimary = crawlResult.hasZeroOffers || crawlResult.jobLinks.length === 0;
       hadZeroOffersStep = hadZeroOffersStep || zeroOrNoPrimary;
       if (!zeroOrNoPrimary) {
+        break;
+      }
+
+      if (!isPracujSource(payload.source)) {
+        break;
+      }
+
+      if (!activeFilters) {
         break;
       }
 
@@ -1341,7 +1367,7 @@ export const runScrapeJob = async (
           emptyReason,
           sourceQuality,
           classifiedOutcome,
-          queryPlan,
+          queryPlan: queryPlan ?? undefined,
           scarcity,
         },
       });

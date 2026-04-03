@@ -131,6 +131,18 @@ Make the notebook clearly more useful than using the source platforms directly.
 - notebook gives a clearer next action than the source board itself
 - degraded scrape outcomes still lead to useful triage when possible
 
+### Status
+
+- Shipped:
+  - server-driven workflow attention signals on notebook offers
+  - richer dashboard focus and action-plan slices for due-today, prep-next, and awaiting-decision work
+  - workflow-aware prep packet context and requirement highlights
+  - explicit API-driven collection-state guidance for hidden/degraded/empty queues
+  - visible bulk workflow editing for active pipeline roles
+- Remaining:
+  - external reminder delivery or notification automation
+  - deeper active-offer mobile polish and richer long-tail prep assistance
+
 ## Sprint 3: Scraper Quality and Source Reliability
 
 ### Goal

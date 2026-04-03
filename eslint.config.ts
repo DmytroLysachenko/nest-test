@@ -1,7 +1,7 @@
-import { config as baseConfig } from '@repo/lint-config/base';
+import { config as baseConfig, withTsconfigRootDir } from '@repo/lint-config/base';
 
 const config = [
-  ...baseConfig,
+  ...withTsconfigRootDir(baseConfig, import.meta.dirname),
   {
     ignores: ['apps/**', 'packages/**'],
   },

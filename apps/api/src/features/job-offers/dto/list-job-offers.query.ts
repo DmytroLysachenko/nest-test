@@ -16,7 +16,15 @@ const STATUS_VALUES = [
 const SOURCE_VALUES = ['PRACUJ_PL'] as const;
 const RANKING_MODE_VALUES = ['strict', 'approx', 'explore'] as const;
 const FOLLOW_UP_VALUES = ['due', 'upcoming', 'none'] as const;
-const ATTENTION_VALUES = ['staleUntriaged', 'missingNextStep', 'stalePipeline'] as const;
+const ATTENTION_VALUES = [
+  'staleUntriaged',
+  'missingNextStep',
+  'stalePipeline',
+  'followUpOverdue',
+  'followUpDueToday',
+  'prepRecommended',
+  'awaitingDecision',
+] as const;
 
 export class ListJobOffersQuery {
   @ApiPropertyOptional({ enum: RANKING_MODE_VALUES, default: 'strict' })

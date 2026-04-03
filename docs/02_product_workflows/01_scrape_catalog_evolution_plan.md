@@ -40,6 +40,20 @@ The repo already has:
 - normalized company and taxonomy references persisted on `job_offers` when confidence is acceptable
 - user-facing offer read models that expose additive structured company and taxonomy context
 - enqueue responses that explain when catalog rematch or DB reuse was rejected because fresh-candidate minimums were not met
+- source observation and raw-payload ledgers for scrape-run-specific facts
+- normalized multi-value offer relations for schedules, seniority, and technologies
+- structured salary, apply URL, posted-at, and source-company profile persistence on canonical offer rows
+
+### What is now considered transitional
+
+`job_offers.details` should be treated as transitional forensic fallback, not the long-term structured source of truth.
+
+Current direction:
+
+- read/query paths should prefer normalized relation tables and canonical columns
+- observation history should preserve source-shaped facts from each run
+- raw payloads should remain available for parser debugging and backfills
+- `details` can be simplified later only after backfill and read-model migration are stable
 
 ### Answer to "is scrape data still connected to the user?"
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useOpportunitiesPage } from '@/features/job-offers/model/use-opportunities-page';
 import { OpportunitiesListCard } from '@/features/job-offers/ui/components/opportunities-list-card';
@@ -21,6 +21,7 @@ export const OpportunitiesPage = ({
 }: OpportunitiesPageProps) => {
   const opportunities = useOpportunitiesPage({ token, initialQuickAction, initialOfferId });
   const [showRail, setShowRail] = useState(false);
+  const mobileDetailsRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(min-width: 1280px)');
@@ -29,6 +30,16 @@ export const OpportunitiesPage = ({
     mediaQuery.addEventListener('change', update);
     return () => mediaQuery.removeEventListener('change', update);
   }, []);
+
+  useEffect(() => {
+    if (showRail || !opportunities.selectedOffer || !mobileDetailsRef.current) {
+      return;
+    }
+
+    if (typeof mobileDetailsRef.current.scrollIntoView === 'function') {
+      mobileDetailsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [opportunities.selectedOffer, showRail]);
 
   return (
     <main className="app-page space-y-6">
@@ -63,6 +74,7 @@ export const OpportunitiesPage = ({
             <OpportunitiesListCard
               offers={opportunities.listQuery.data?.items ?? []}
               total={opportunities.listQuery.data?.total ?? 0}
+              collectionState={opportunities.listQuery.data?.collectionState ?? null}
               mode={opportunities.mode}
               hasScore={opportunities.hasScore}
               search={opportunities.search}
@@ -106,13 +118,15 @@ export const OpportunitiesPage = ({
       </div>
 
       {!showRail ? (
-        <OpportunityDetailsRail
-          offer={opportunities.selectedOffer}
-          isBusy={opportunities.isBusy}
-          onSave={opportunities.saveOpportunity}
-          onMarkSeen={opportunities.markSeen}
-          onDismiss={opportunities.dismiss}
-        />
+        <section ref={mobileDetailsRef}>
+          <OpportunityDetailsRail
+            offer={opportunities.selectedOffer}
+            isBusy={opportunities.isBusy}
+            onSave={opportunities.saveOpportunity}
+            onMarkSeen={opportunities.markSeen}
+            onDismiss={opportunities.dismiss}
+          />
+        </section>
       ) : null}
     </main>
   );

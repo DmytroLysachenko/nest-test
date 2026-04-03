@@ -34,7 +34,10 @@ type NotebookQuickAction =
   | 'followUpDue'
   | 'followUpUpcoming'
   | 'missingNextStep'
-  | 'stalePipeline';
+  | 'stalePipeline'
+  | 'followUpDueToday'
+  | 'prepRecommended'
+  | 'awaitingDecision';
 
 type NotebookFiltersCardProps = {
   variant?: 'triage' | 'pipeline';
@@ -109,9 +112,22 @@ export const NotebookFiltersCard = ({
     'follow-up-upcoming': 'followUpUpcoming',
     'missing-next-step': 'missingNextStep',
     'stale-pipeline': 'stalePipeline',
+    'follow-up-due-today': 'followUpDueToday',
+    'prep-recommended': 'prepRecommended',
+    'awaiting-decision': 'awaitingDecision',
   };
   const visibleQuickActionKeys = isPipeline
-    ? new Set(['saved', 'applied', 'follow-up-due', 'follow-up-upcoming', 'missing-next-step', 'stale-pipeline'])
+    ? new Set([
+        'saved',
+        'applied',
+        'follow-up-due',
+        'follow-up-upcoming',
+        'follow-up-due-today',
+        'missing-next-step',
+        'stale-pipeline',
+        'prep-recommended',
+        'awaiting-decision',
+      ])
     : new Set(['strict-top', 'unscored', 'stale-untriaged']);
 
   return (
@@ -292,9 +308,7 @@ export const NotebookFiltersCard = ({
             )}
             <div className="app-muted-panel">
               <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Saved follow-ups</p>
-              <p className="text-text-strong mt-1 text-2xl font-semibold">
-                {summary.buckets.find((bucket) => bucket.key === 'saved')?.count ?? 0}
-              </p>
+              <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.followUpUpcoming}</p>
             </div>
             <div className="app-muted-panel">
               <p className="text-text-soft text-xs uppercase tracking-[0.18em]">

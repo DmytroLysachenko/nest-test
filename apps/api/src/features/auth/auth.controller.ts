@@ -22,6 +22,13 @@ import { User } from './auth.interface';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { GoogleOauthLoginDto } from './dto/google-oauth-login.dto';
 
+const toErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+};
+
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -101,7 +108,7 @@ export class AuthController {
       const code = await this.optsService.generateOtpCode(body.email, 'EMAIL_REGISTER');
       await this.mailService.sendRegisterCode(body.email, code);
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(toErrorMessage(error, 'Failed to send registration code'));
     }
   }
 
@@ -114,7 +121,7 @@ export class AuthController {
       const code = await this.optsService.generateOtpCode(body.email, 'PASSWORD_RESET');
       await this.mailService.sendResetPasswordCode(body.email, code);
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(toErrorMessage(error, 'Failed to send reset password code'));
     }
   }
 }

@@ -76,6 +76,14 @@ const withRetry = async <T>(label: string, task: () => Promise<T>, attempts = 3)
   throw lastError;
 };
 
+const requireRow = <T>(value: T | undefined, label: string): T => {
+  if (value === undefined) {
+    throw new Error(`${label} did not return a row.`);
+  }
+
+  return value;
+};
+
 const ensureUser = async (fixture: FixtureUser) => {
   const existing = await db
     .select()
@@ -115,7 +123,7 @@ const ensureUser = async (fixture: FixtureUser) => {
     })
     .returning();
 
-  return created;
+  return requireRow(created, `create user ${fixture.email}`);
 };
 
 const ensureProfileInput = async (userId: string, fixture: FixtureUser) => {
@@ -141,7 +149,7 @@ const ensureProfileInput = async (userId: string, fixture: FixtureUser) => {
     })
     .returning();
 
-  return created;
+  return requireRow(created, `create profile input for ${fixture.email}`);
 };
 
 const ensureActiveCareerProfile = async (userId: string, profileInputId: string, fixture: FixtureUser) => {
@@ -370,7 +378,7 @@ const ensureActiveCareerProfile = async (userId: string, profileInputId: string,
     })
     .returning();
 
-  return created;
+  return requireRow(created, `create career profile for ${fixture.email}`);
 };
 
 const finalizeActiveScrapeRuns = async (userId: string) => {

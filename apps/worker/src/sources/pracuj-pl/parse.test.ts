@@ -50,6 +50,7 @@ test('parsePracujPl falls back to NEXT_DATA job offer fields when DOM selectors 
   assert.equal(result?.title, 'Platform Engineer');
   assert.equal(result?.company, 'Example Corp');
   assert.equal(result?.location, 'Remote, Poland');
+  assert.equal(result?.applyUrl, 'https://it.pracuj.pl/praca/platform-engineer,oferta,123');
   assert.deepEqual(result?.requirements, ['TypeScript', 'Node.js']);
   assert.deepEqual(result?.details?.workModes, ['remote']);
   assert.deepEqual(result?.details?.contractTypes, ['b2b']);
@@ -66,4 +67,5 @@ test('parsePracujPl keeps fallback description instead of crashing on sparse pag
 
   assert.equal(result?.title, 'Frontend Engineer');
   assert.equal(result?.description, 'No description found');
+  assert.equal(result?.applyUrl, 'https://it.pracuj.pl/praca/frontend-engineer,oferta,456');
 });

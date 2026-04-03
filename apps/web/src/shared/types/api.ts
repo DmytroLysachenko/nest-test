@@ -414,6 +414,11 @@ export type JobSourceHealthDto = {
     filtersExhaustedRuns: number;
     detailParseGapRuns: number;
     silentFailureRuns: number;
+    observationCount: number;
+    missingEmploymentTypeRate: number;
+    emptyRequirementsRate: number;
+    sourceCompanyProfileCoverageRate: number;
+    applyUrlCoverageRate: number;
     latestRunAt: string | null;
     latestRunStatus: string | null;
   }>;
@@ -678,6 +683,27 @@ export type JobOfferStatus =
   | 'ARCHIVED'
   | 'DISMISSED';
 
+export type JobOfferAttentionSignalDto = {
+  key:
+    | 'follow_up_overdue'
+    | 'follow_up_due_today'
+    | 'follow_up_upcoming'
+    | 'missing_next_step'
+    | 'stale_pipeline'
+    | 'prep_recommended'
+    | 'awaiting_decision';
+  label: string;
+  reason: string;
+};
+
+export type JobOfferCollectionStateDto = {
+  key: 'hidden' | 'degraded' | 'failed' | 'empty';
+  title: string;
+  description: string;
+  actionLabel: string;
+  href: string | null;
+};
+
 export type JobOfferListItemDto = {
   id: string;
   jobOfferId: string;
@@ -687,6 +713,7 @@ export type JobOfferListItemDto = {
   rankingScore?: number | null;
   explanationTags?: string[];
   followUpState?: 'due' | 'upcoming' | 'none';
+  attentionSignals?: JobOfferAttentionSignalDto[];
   followUpAt?: string | null;
   nextStep?: string | null;
   followUpNote?: string | null;
@@ -727,6 +754,14 @@ export type JobOfferListItemDto = {
     employmentTypeLabel: string | null;
     contractTypeLabel: string | null;
     workModeLabel: string | null;
+    contractTypes: string[];
+    workModes: string[];
+    workSchedules: string[];
+    seniorityLevels: string[];
+    technologies: Array<{
+      label: string;
+      category: 'required' | 'nice_to_have' | 'all';
+    }>;
   } | null;
   createdAt: string;
 };
@@ -744,6 +779,7 @@ export type JobOffersListDto = {
   hiddenByModeCount: number;
   degradedResultCount: number;
   stateReasons?: string[];
+  collectionState?: JobOfferCollectionStateDto;
   rankingMeta?: {
     mode: 'strict' | 'approx' | 'explore';
     tuning: {
@@ -760,6 +796,7 @@ export type DiscoveryJobOffersListDto = {
   items: DiscoveryJobOfferListItemDto[];
   total: number;
   mode: 'strict' | 'approx' | 'explore';
+  collectionState?: JobOfferCollectionStateDto;
 };
 
 export type JobOfferSummaryDto = {
@@ -782,7 +819,17 @@ export type JobOfferSummaryDto = {
     count: number;
   }>;
   quickActions: Array<{
-    key: 'unscored' | 'strictTop' | 'saved' | 'applied' | 'staleUntriaged' | 'followUpDue' | 'followUpUpcoming';
+    key:
+      | 'unscored'
+      | 'strictTop'
+      | 'saved'
+      | 'applied'
+      | 'staleUntriaged'
+      | 'followUpDue'
+      | 'followUpUpcoming'
+      | 'followUpDueToday'
+      | 'prepRecommended'
+      | 'awaitingDecision';
     label: string;
     description: string;
     href: string;
@@ -809,6 +856,7 @@ export type JobOfferFocusDto = {
     description: string;
     href: string;
     count: number;
+    reasons?: string[];
     items: Array<{
       id: string;
       title: string;
@@ -816,6 +864,8 @@ export type JobOfferFocusDto = {
       location: string | null;
       matchScore: number | null;
       followUpState: 'due' | 'upcoming' | 'none';
+      nextStep: string | null;
+      attentionSignals?: JobOfferAttentionSignalDto[];
     }>;
   }>;
 };
@@ -829,6 +879,7 @@ export type JobOfferActionPlanDto = {
     count: number;
     ctaLabel: string;
     reasons?: string[];
+    priority?: 'critical' | 'recommended' | 'info';
   }>;
 };
 
@@ -861,6 +912,12 @@ export type JobOfferPrepPacketDto = {
   } | null;
   talkingPoints: string[];
   verifyBeforeReply: string[];
+  attentionContext: {
+    attentionSignals: JobOfferAttentionSignalDto[];
+    reasonsToActNow: string[];
+    workflowSummary: string | null;
+  } | null;
+  requirementHighlights?: string[];
 };
 
 export type NotebookFiltersDto = {
@@ -871,7 +928,15 @@ export type NotebookFiltersDto = {
   tag: string;
   hasScore: 'all' | 'yes' | 'no';
   followUp: 'all' | 'due' | 'upcoming' | 'none';
-  attention: 'all' | 'staleUntriaged' | 'missingNextStep' | 'stalePipeline';
+  attention:
+    | 'all'
+    | 'staleUntriaged'
+    | 'missingNextStep'
+    | 'stalePipeline'
+    | 'followUpOverdue'
+    | 'followUpDueToday'
+    | 'prepRecommended'
+    | 'awaitingDecision';
 };
 
 export type NotebookPreferencesDto = {

@@ -10,7 +10,6 @@ import { Logger } from 'nestjs-pino';
 import { Drizzle } from '@/common/decorators';
 import { UserNotFoundException } from '@/common/error';
 import { DeviceType } from '@/common/decorators/device.decorator';
-import { JwtValidateUser } from '@/types/interface/jwt';
 import { AuthorizationService } from '@/common/authorization/authorization.service';
 
 import { hashPassword, validatePassword } from './utils/password';

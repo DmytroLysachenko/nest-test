@@ -32,6 +32,7 @@ jobs:
           GCS_BUCKET: ${{ vars.GCS_BUCKET }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+          GCP_WEB_BASE_URL: ${{ vars.GCP_WEB_BASE_URL }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           SCHEDULER_AUTH_TOKEN: ${{ secrets.SCHEDULER_AUTH_TOKEN }}
           OPS_INTERNAL_TOKEN: ${{ secrets.OPS_INTERNAL_TOKEN }}
@@ -111,7 +112,7 @@ jobs:
           TASKS_MAX_BACKOFF_SEC: ${{ vars.TASKS_MAX_BACKOFF_SEC }}
           TASKS_MAX_DOUBLINGS: ${{ vars.TASKS_MAX_DOUBLINGS }}
           TASKS_MAX_RETRY_DURATION_SEC: ${{ vars.TASKS_MAX_RETRY_DURATION_SEC }}
-          ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
+          GCP_WEB_BASE_URL: ${{ vars.GCP_WEB_BASE_URL }}
           WORKER_ALLOWED_ORIGINS: ${{ vars.WORKER_ALLOWED_ORIGINS }}
           WORKER_CPU: ${{ vars.WORKER_CPU }}
           WORKER_MEMORY: ${{ vars.WORKER_MEMORY }}

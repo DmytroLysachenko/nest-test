@@ -439,6 +439,9 @@ importers:
       '@types/node':
         specifier: ^22.15.29
         version: 22.19.15
+      '@types/pg':
+        specifier: ^8.15.4
+        version: 8.18.0
       eslint:
         specifier: ^9.39.4
         version: 9.39.4(jiti@2.6.1)

@@ -5,7 +5,7 @@ import { getDb } from './client';
 
 import type { NormalizedJob } from '../sources/types';
 
-const mapSource = (source: string) => {
+const mapSource = (source: string): 'PRACUJ_PL' => {
   if (source === 'pracuj-pl') {
     return 'PRACUJ_PL';
   }
@@ -182,6 +182,14 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
           location: job.location,
           salary: job.salary,
           employmentType: job.employmentType,
+          sourceCompanyProfileUrl: job.sourceCompanyProfileUrl,
+          applyUrl: job.applyUrl,
+          postedAt: job.postedAt ? new Date(job.postedAt) : null,
+          salaryMin: catalogNormalizationRefs[index]?.parsedSalary.salaryMin ?? null,
+          salaryMax: catalogNormalizationRefs[index]?.parsedSalary.salaryMax ?? null,
+          salaryCurrency: catalogNormalizationRefs[index]?.parsedSalary.salaryCurrency ?? null,
+          salaryPeriod: catalogNormalizationRefs[index]?.parsedSalary.salaryPeriod ?? null,
+          salaryKind: catalogNormalizationRefs[index]?.parsedSalary.salaryKind ?? null,
           description: job.description,
           requirements: job.requirements,
           details: job.details,
@@ -221,11 +229,19 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
             THEN excluded."salary"
             ELSE "job_offers"."salary"
           END`,
+          salaryMin: sql`coalesce(excluded."salary_min", "job_offers"."salary_min")`,
+          salaryMax: sql`coalesce(excluded."salary_max", "job_offers"."salary_max")`,
+          salaryCurrency: sql`coalesce(excluded."salary_currency", "job_offers"."salary_currency")`,
+          salaryPeriod: sql`coalesce(excluded."salary_period", "job_offers"."salary_period")`,
+          salaryKind: sql`coalesce(excluded."salary_kind", "job_offers"."salary_kind")`,
           employmentType: sql`CASE
             WHEN excluded."employment_type" IS NOT NULL AND excluded."employment_type" != ''
             THEN excluded."employment_type"
             ELSE "job_offers"."employment_type"
           END`,
+          sourceCompanyProfileUrl: sql`coalesce(excluded."source_company_profile_url", "job_offers"."source_company_profile_url")`,
+          applyUrl: sql`coalesce(excluded."apply_url", "job_offers"."apply_url")`,
+          postedAt: sql`coalesce(excluded."posted_at", "job_offers"."posted_at")`,
           description: sql`CASE
             WHEN excluded."description" IS NOT NULL AND excluded."description" != '' AND excluded."description" != 'No description found'
             THEN excluded."description"

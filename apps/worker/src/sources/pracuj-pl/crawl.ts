@@ -259,11 +259,12 @@ export const extractListingDomSignalsFromHtml = (html: string) => {
 
 const extractNextDataJson = (html: string) => {
   const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (!match) {
+  const payload = match?.[1];
+  if (!payload) {
     return null;
   }
   try {
-    return JSON.parse(match[1]) as unknown;
+    return JSON.parse(payload) as unknown;
   } catch {
     return null;
   }
@@ -489,6 +490,9 @@ const storeResponseCookies = (cookieJar: LoadedCookie[], targetUrl: string, head
   const target = new URL(targetUrl);
   for (const rawCookie of readSetCookieHeaders(headers)) {
     const [pair, ...attributes] = rawCookie.split(';');
+    if (!pair) {
+      continue;
+    }
     const separatorIndex = pair.indexOf('=');
     if (separatorIndex <= 0) {
       continue;
@@ -503,6 +507,9 @@ const storeResponseCookies = (cookieJar: LoadedCookie[], targetUrl: string, head
     let path = '/';
     for (const attribute of attributes) {
       const [rawKey, rawValue = ''] = attribute.split('=');
+      if (!rawKey) {
+        continue;
+      }
       const key = rawKey.trim().toLowerCase();
       const parsedValue = rawValue.trim();
       if (key === 'domain' && parsedValue) {
@@ -679,7 +686,7 @@ const createBrowserSession = async (
             locale: 'pl-PL',
             timezoneId: 'Europe/Warsaw',
           })
-        : await browser.newContext({
+        : await browser!.newContext({
             userAgent: DEFAULT_BROWSER_USER_AGENT,
             locale: 'pl-PL',
             timezoneId: 'Europe/Warsaw',

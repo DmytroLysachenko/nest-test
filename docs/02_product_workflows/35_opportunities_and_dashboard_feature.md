@@ -53,6 +53,12 @@ Primary data inputs: `user_job_offers`, `job_offers`, `job_source_runs`, and doc
 
 Representative endpoints include `/api/workspace/summary` and `/api/job-offers/summary`.
 
+Current routing/read-model additions:
+
+- dashboard action-plan buckets now carry explicit priority and rationale metadata
+- dashboard focus lanes now expose richer active-work slices such as due-today and prep-next
+- opportunities and notebook empty states now consume API-driven collection-state guidance so hidden/degraded queues are explained instead of shown as generic empties
+
 ## Dependencies
 
 Depends on auth, notebook, scrape, documents, and career profile state.

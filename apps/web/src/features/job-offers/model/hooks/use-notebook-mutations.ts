@@ -15,6 +15,7 @@ import {
   updateJobOfferPipeline,
   updateJobOfferStatus,
   bulkUpdateJobOfferFollowUp,
+  bulkUpdateJobOfferWorkflow,
   dismissAllSeenJobOffers,
   autoArchiveOldJobOffers,
 } from '@/features/job-offers/api/job-offers-api';
@@ -289,6 +290,26 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     },
   });
 
+  const bulkWorkflowMutation = useMutation({
+    mutationFn: (payload: {
+      ids: string[];
+      followUpAt?: string | null;
+      nextStep?: string | null;
+      note?: string | null;
+      decisionDueAt?: string | null;
+      prepRecommended?: boolean | null;
+    }) => bulkUpdateJobOfferWorkflow(token, payload),
+    onSuccess: (result) => {
+      syncJobOffers();
+      toastSuccess(
+        `Updated workflow plan for ${result.updated} offers (${result.summary.due} due, ${result.summary.upcoming} upcoming, ${result.summary.none} none)`,
+      );
+    },
+    onError: (error) => {
+      toastError(toUserErrorMessage(error, 'Failed to update workflow plan'));
+    },
+  });
+
   const scoreMutation = useMutation({
     mutationFn: ({ id }: { id: string }) => scoreJobOffer(token, id, 0),
     onSuccess: () => {
@@ -341,6 +362,7 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     statusMutation,
     bulkStatusMutation,
     bulkFollowUpMutation,
+    bulkWorkflowMutation,
     dismissAllSeenMutation,
     autoArchiveMutation,
     metaMutation,

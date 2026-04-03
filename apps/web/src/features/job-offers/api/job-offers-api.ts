@@ -25,7 +25,14 @@ export type ListJobOffersParams = {
   tag?: string;
   hasScore?: boolean;
   followUp?: 'due' | 'upcoming' | 'none';
-  attention?: 'staleUntriaged' | 'missingNextStep' | 'stalePipeline';
+  attention?:
+    | 'staleUntriaged'
+    | 'missingNextStep'
+    | 'stalePipeline'
+    | 'followUpOverdue'
+    | 'followUpDueToday'
+    | 'prepRecommended'
+    | 'awaitingDecision';
 };
 
 const toQuery = (params: ListJobOffersParams) => {
@@ -126,6 +133,36 @@ export const bulkUpdateJobOfferFollowUp = (
       nextStepApplied: boolean;
     };
   }>('/job-offers/pipeline/bulk-follow-up', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  });
+
+export const bulkUpdateJobOfferWorkflow = (
+  token: string,
+  payload: {
+    ids: string[];
+    followUpAt?: string | null;
+    nextStep?: string | null;
+    note?: string | null;
+    decisionDueAt?: string | null;
+    prepRecommended?: boolean | null;
+  },
+) =>
+  apiRequest<{
+    updated: number;
+    summary: {
+      due: number;
+      upcoming: number;
+      none: number;
+      noteApplied: boolean;
+      nextStepApplied: boolean;
+      prepRecommendedApplied: boolean;
+      decisionDueApplied: boolean;
+      prepRecommendedCount: number;
+      decisionDueCount: number;
+    };
+  }>('/job-offers/pipeline/bulk-workflow', {
     method: 'POST',
     token,
     body: JSON.stringify(payload),

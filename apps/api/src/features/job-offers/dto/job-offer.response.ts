@@ -37,6 +37,49 @@ class JobOfferCompanySummary {
   hqLocation!: string | null;
 }
 
+class JobOfferTechnologyItem {
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty({ enum: ['required', 'nice_to_have', 'all'] })
+  category!: 'required' | 'nice_to_have' | 'all';
+}
+
+class JobOfferAttentionSignal {
+  @ApiProperty()
+  key!:
+    | 'follow_up_overdue'
+    | 'follow_up_due_today'
+    | 'follow_up_upcoming'
+    | 'missing_next_step'
+    | 'stale_pipeline'
+    | 'prep_recommended'
+    | 'awaiting_decision';
+
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  reason!: string;
+}
+
+class JobOfferCollectionState {
+  @ApiProperty()
+  key!: 'hidden' | 'degraded' | 'failed' | 'empty';
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty()
+  description!: string;
+
+  @ApiProperty()
+  actionLabel!: string;
+
+  @ApiProperty({ required: false })
+  href!: string | null;
+}
+
 class JobOfferStructuredDetails {
   @ApiProperty({ required: false, type: JobOfferCompanySummary })
   companySummary!: JobOfferCompanySummary | null;
@@ -52,6 +95,21 @@ class JobOfferStructuredDetails {
 
   @ApiProperty({ required: false })
   workModeLabel!: string | null;
+
+  @ApiProperty({ type: [String] })
+  contractTypes!: string[];
+
+  @ApiProperty({ type: [String] })
+  workModes!: string[];
+
+  @ApiProperty({ type: [String] })
+  workSchedules!: string[];
+
+  @ApiProperty({ type: [String] })
+  seniorityLevels!: string[];
+
+  @ApiProperty({ type: [JobOfferTechnologyItem] })
+  technologies!: Array<{ label: string; category: 'required' | 'nice_to_have' | 'all' }>;
 }
 
 export class JobOfferItem {
@@ -78,6 +136,9 @@ export class JobOfferItem {
 
   @ApiProperty({ required: false, enum: ['due', 'upcoming', 'none'] })
   followUpState?: 'due' | 'upcoming' | 'none';
+
+  @ApiProperty({ required: false, type: [JobOfferAttentionSignal] })
+  attentionSignals?: JobOfferAttentionSignal[];
 
   @ApiProperty({ required: false })
   followUpAt!: string | null;
@@ -181,6 +242,9 @@ export class JobOfferListResponse {
 
   @ApiProperty({ required: false, type: [String] })
   stateReasons?: string[];
+
+  @ApiProperty({ required: false, type: JobOfferCollectionState })
+  collectionState?: JobOfferCollectionState;
 }
 
 export class DiscoveryJobOfferListResponse {
@@ -192,6 +256,9 @@ export class DiscoveryJobOfferListResponse {
 
   @ApiProperty({ enum: ['strict', 'approx', 'explore'] })
   mode!: 'strict' | 'approx' | 'explore';
+
+  @ApiProperty({ required: false, type: JobOfferCollectionState })
+  collectionState?: JobOfferCollectionState;
 }
 
 class JobOfferSummaryBucket {
@@ -248,6 +315,12 @@ class JobOfferFocusItem {
 
   @ApiProperty({ required: false, enum: ['due', 'upcoming', 'none'] })
   followUpState!: 'due' | 'upcoming' | 'none';
+
+  @ApiProperty({ required: false })
+  nextStep!: string | null;
+
+  @ApiProperty({ required: false, type: [JobOfferAttentionSignal] })
+  attentionSignals?: JobOfferAttentionSignal[];
 }
 
 class JobOfferFocusGroup {
@@ -265,6 +338,9 @@ class JobOfferFocusGroup {
 
   @ApiProperty()
   count!: number;
+
+  @ApiProperty({ required: false, type: [String] })
+  reasons?: string[];
 
   @ApiProperty({ type: [JobOfferFocusItem] })
   items!: JobOfferFocusItem[];
@@ -291,6 +367,9 @@ class JobOfferActionPlanBucket {
 
   @ApiProperty({ required: false, type: [String] })
   reasons?: string[];
+
+  @ApiProperty({ required: false })
+  priority?: 'critical' | 'recommended' | 'info';
 }
 
 class PrepPacketSummary {
@@ -331,6 +410,17 @@ class PrepPacketProfileSummary {
 
   @ApiProperty({ type: [String] })
   searchableKeywords!: string[];
+}
+
+class PrepPacketAttentionContext {
+  @ApiProperty({ required: false, type: [JobOfferAttentionSignal] })
+  attentionSignals!: JobOfferAttentionSignal[];
+
+  @ApiProperty({ required: false, type: [String] })
+  reasonsToActNow!: string[];
+
+  @ApiProperty({ required: false })
+  workflowSummary!: string | null;
 }
 
 export class JobOfferActionPlanResponse {
@@ -380,6 +470,12 @@ export class JobOfferPrepPacketResponse {
 
   @ApiProperty({ type: [String] })
   verifyBeforeReply!: string[];
+
+  @ApiProperty({ required: false, type: PrepPacketAttentionContext })
+  attentionContext!: PrepPacketAttentionContext | null;
+
+  @ApiProperty({ required: false, type: [String] })
+  requirementHighlights?: string[];
 }
 
 export class JobOfferSummaryResponse {

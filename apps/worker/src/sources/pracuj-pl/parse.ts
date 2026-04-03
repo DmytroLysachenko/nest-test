@@ -6,6 +6,7 @@ type JsonLdJob = {
   '@type'?: string;
   title?: string;
   description?: string;
+  datePosted?: string;
   employmentType?: string | string[];
   hiringOrganization?: { name?: string } | string;
   jobLocation?:
@@ -26,7 +27,10 @@ const extractJsonLdBlocks = (html: string) => {
   const regex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let match = regex.exec(html);
   while (match) {
-    blocks.push(match[1]);
+    const block = match[1];
+    if (block) {
+      blocks.push(block);
+    }
     match = regex.exec(html);
   }
   return blocks;
@@ -40,11 +44,12 @@ const pickStringArray = (value: unknown) =>
 
 const extractNextDataJson = (html: string) => {
   const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (!match) {
+  const payload = match?.[1];
+  if (!payload) {
     return null;
   }
   try {
-    return JSON.parse(match[1]) as unknown;
+    return JSON.parse(payload) as unknown;
   } catch {
     return null;
   }
@@ -100,6 +105,17 @@ const extractTextBySelectors = (html: string, selectors: string[]) => {
     const text = cleanText($(selector).first().text());
     if (text) {
       return text;
+    }
+  }
+  return '';
+};
+
+const extractHrefBySelectors = (html: string, selectors: string[]) => {
+  const $ = load(html);
+  for (const selector of selectors) {
+    const href = $(selector).first().attr('href');
+    if (href?.trim()) {
+      return href.trim();
     }
   }
   return '';
@@ -436,6 +452,19 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
       ]) ||
       'No description found';
     const salary = normalizeSalary(jsonLd) || undefined;
+    const applyUrl =
+      resolveJobOfferScalar(jobOffer, ['applyUrl', 'externalApplyUrl']) ||
+      extractHrefBySelectors(page.html, [
+        '[data-test="apply-button"]',
+        '[data-test="button-apply"]',
+        'a[href*="aplikuj"]',
+      ]) ||
+      page.url;
+    const sourceCompanyProfileUrl =
+      resolveJobOfferScalar(jobOffer, ['companyProfileUrl', 'employerProfileUrl']) ||
+      extractHrefBySelectors(page.html, ['[data-test="link-company-profile"]']) ||
+      undefined;
+    const postedAt = jsonLd?.datePosted?.trim() || resolveJobOfferScalar(jobOffer, ['publishedAt', 'datePosted']);
     const requirements =
       offerSections.requirementsExpected.length || offerSections.requirementsOptional.length
         ? [...offerSections.requirementsExpected, ...offerSections.requirementsOptional]
@@ -450,12 +479,18 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
       location: locationText,
       description,
       url: page.url,
+      applyUrl,
+      postedAt,
+      sourceCompanyProfileUrl,
       salary,
       employmentType: employmentType?.toString(),
       sourceId: extractSourceId(page.url) ?? undefined,
       requirements,
       details,
       isExpired: page.isExpired,
+      rawPayload: {
+        jobOffer: jobOffer ?? null,
+      },
     };
   });
 };

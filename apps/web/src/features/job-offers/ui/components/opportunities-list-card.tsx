@@ -7,12 +7,14 @@ import { Card } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+import { WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 import type { DiscoveryJobOfferListItemDto } from '@/shared/types/api';
 
 type OpportunitiesListCardProps = {
   offers: DiscoveryJobOfferListItemDto[];
   total: number;
+  collectionState?: { title: string; description: string; actionLabel: string; href: string | null } | null;
   mode: 'strict' | 'approx' | 'explore';
   hasScore: 'all' | 'yes' | 'no';
   search: string;
@@ -37,6 +39,7 @@ type OpportunitiesListCardProps = {
 export const OpportunitiesListCard = ({
   offers,
   total,
+  collectionState,
   mode,
   hasScore,
   search,
@@ -234,11 +237,27 @@ export const OpportunitiesListCard = ({
             </section>
           ))
         ) : (
-          <EmptyState
-            icon={<Compass className="h-8 w-8" />}
-            title="No opportunities in this slice"
-            description="Widen the review mode or reset filters before assuming the matched catalog is empty."
-          />
+          <div className="space-y-3">
+            <EmptyState
+              icon={<Compass className="h-8 w-8" />}
+              title={collectionState?.title ?? 'No opportunities in this slice'}
+              description={
+                collectionState?.description ??
+                'Widen the review mode or reset filters before assuming the matched catalog is empty.'
+              }
+            />
+            {collectionState ? (
+              <WorkflowInlineNotice
+                title={collectionState.actionLabel}
+                description={
+                  collectionState.href
+                    ? `Recommended path: ${collectionState.href}`
+                    : 'Adjust the review slice before assuming the market is empty.'
+                }
+                tone="info"
+              />
+            ) : null}
+          </div>
         )}
       </div>
 

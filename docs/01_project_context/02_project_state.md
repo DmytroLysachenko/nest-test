@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-04-01
+Last updated: 2026-04-02
 
 ## Purpose
 
@@ -101,6 +101,9 @@ That framing should guide future implementation more than raw source count.
   - dashboard action-plan buckets for due, upcoming, missing-next-step, stale, and strict-top work
   - one-click follow-up complete/snooze/clear actions
   - prep packet read model for reply/interview preparation
+  - workflow attention signals now classify active roles as overdue, due-today, prep-recommended, awaiting-decision, missing-next-step, or stale-pipeline directly in the notebook read model
+  - dashboard focus and action-plan lanes now include due-today, prep-next, and awaiting-decision workflow slices with explicit rationale and CTA metadata
+  - pipeline bulk editing now supports decision checkpoints and prep-needed flags in addition to follow-up planning
   - bulk status flows, metadata, scoring, prep generation
 - Scraping and automation
   - manual enqueue
@@ -109,6 +112,8 @@ That framing should guide future implementation more than raw source count.
   - user-managed scrape schedule
   - trigger-now for enabled schedule
   - enqueue responses and notebook-adjacent job-source UX now expose explicit reuse diagnostics when catalog rematch or DB reuse is skipped because fresh-candidate minimums were not met
+  - scrape ingestion now persists per-run source observations and raw payload ledgers alongside the canonical offer row
+  - notebook/discovery/prep offer details now expose normalized structured arrays for contract types, work modes, schedules, seniority, and technologies
 - Admin/support operations
   - metrics dashboard
   - run history and callback event export
@@ -124,23 +129,32 @@ That framing should guide future implementation more than raw source count.
   - owns all user workflow read models and recovery decisions
   - explicit DTO coverage has improved for notebook, ops, schedule, and workspace summary
   - contract surface is now broad enough to support a product UI instead of internal-tool panels
+  - modularization is now an active engineering concern because `job-sources` and `job-offers` service files have grown beyond easy human scanability
+  - feature-local helper modules are now the preferred way to move pure derivation, shaping, and preference logic out of large Nest services before creating more service classes
   - support-facing read models now provide LLM-friendly incident bundles instead of forcing raw endpoint composition
   - job-offer read models now expose normalized company and taxonomy summaries in addition to raw listing fields
+  - job-offer read models now also expose normalized multi-value relations so structured review does not depend only on legacy `details` JSON
+  - notebook and discovery list responses now also expose explicit collection-state guidance so hidden/degraded/empty queues are explained by API instead of inferred only in the web layer
+  - prep packet responses now include workflow-aware attention context and requirement highlights in addition to the existing role/profile summary
   - scrape enqueue responses now return explicit catalog-rematch and DB-reuse diagnostics so fresh-result gating is visible instead of silently falling through to worker dispatch
 - Worker
   - scrape lifecycle visibility is materially stronger
   - diagnostics now distinguish degraded/empty/blocked/partial outcomes
   - diagnostics now also expose artifact manifests, stage metrics, and silent-failure classification so completed-but-useless runs are not treated as healthy success
   - source-specific alias normalization is now deterministic for contract type, work mode, and seniority fields
+  - Pracuj parsing now carries source profile URL, apply URL, posted-at hints, raw payload snapshots, and sparse-field diagnostics into callback normalization
   - callback envelope is replay-safe and increasingly support-friendly
 - Web
   - major move from panel-heavy internal tooling toward guided product workflow
   - opportunities now handles first-pass discovery while notebook is now a distinct active pipeline workspace
   - notebook board cards now prioritize due work and active next-step context instead of acting like a generic status grid
+  - notebook now exposes a visible bulk workflow editor for active pipeline roles instead of limiting batch edits to follow-up-only metadata
+  - opportunity empty states and dashboard focus cards now show server-driven trust messaging rather than generic “no data” copy
   - still contains mixed maturity areas where some screens feel productized and some remain utilitarian
 - Database and migrations
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields
   - catalog ingestion now starts resolving normalized company and taxonomy references alongside raw offer snapshots
+  - catalog persistence now also stores source observation history, raw payload ledgers, source-company profiles, structured compensation columns, and normalized multi-value offer relations
 - CI/CD and smoke
   - split verify/smoke gates exist
 - release candidate and manual production promotion exist
@@ -181,6 +195,9 @@ That framing should guide future implementation more than raw source count.
 - API scrape enqueue now applies short-window idempotency suppression for duplicate intents.
 - API scrape enqueue now enforces per-user 24h enqueue budget guard (`SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER`).
 - Shared `job_offers` catalog now persists `content_hash`, `quality_state`, `first_seen_at`, `last_seen_at`, and `last_matched_at` so scrape ingestion and reuse share one canonical store.
+- `job_offers` remains the canonical current offer row, while `job_offer_source_observations` and `job_offer_raw_payloads` preserve what each scrape run actually saw.
+- Multi-value offer dimensions now persist through relation tables (`job_offer_contract_types`, `job_offer_work_modes`, `job_offer_work_schedules`, `job_offer_seniority_levels`, `job_offer_technologies`) instead of staying trapped in `job_offers.details`.
+- Source-health rollups now include observation-backed coverage signals for missing employment type, empty requirements, source profile coverage, and apply URL coverage.
 - `user_job_offers` now records `origin` (`SCRAPE`, `DB_REUSE`, `CATALOG_REMATCH`) and `match_version` for auditability of notebook links.
 - Scrape enqueue now prefers fresh catalog rematch before worker dispatch when the active profile already has enough eligible offers in the shared catalog.
 - Scrape enqueue now returns explicit reuse diagnostics (`accepted`, `insufficient-fresh-candidates`, `no-matchable-catalog-offers`, `no-cached-run`, `no-cached-offers`) for catalog-rematch and DB-reuse decisions.
@@ -340,6 +357,7 @@ That framing should guide future implementation more than raw source count.
 - Worker queue remains in-memory, so crash resilience is below production-grade background-job expectations.
 - Scraper quality is still heavily tied to one source and its DOM behavior.
 - Notebook productivity is better, but there is not yet a full follow-up/reminder or pipeline automation layer.
+- Reminder reliability is now stronger at the product-read-model layer, but external reminder delivery and automation are still not implemented.
 - Document recovery exists, but extraction/profile-generation background execution is not yet moved to a durable async pipeline.
 - Support surfaces are present, but alerting and long-horizon observability are still limited.
 - Frontend has improved workflow structure, but visual/design consistency is still mixed across older and newer surfaces.

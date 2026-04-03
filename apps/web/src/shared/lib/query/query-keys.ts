@@ -84,7 +84,14 @@ export const queryKeys = {
         tag?: string;
         hasScore?: boolean;
         followUp?: 'due' | 'upcoming' | 'none';
-        attention?: 'staleUntriaged' | 'missingNextStep' | 'stalePipeline';
+        attention?:
+          | 'staleUntriaged'
+          | 'missingNextStep'
+          | 'stalePipeline'
+          | 'followUpOverdue'
+          | 'followUpDueToday'
+          | 'prepRecommended'
+          | 'awaitingDecision';
       },
     ) => ['job-offers', token, params] as const,
     history: (token: string | null, offerId: string | null) => ['job-offers', 'history', token, offerId] as const,

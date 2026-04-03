@@ -58,6 +58,21 @@ class ScrapeResultJobDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  applyUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  postedAt?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  sourceCompanyProfileUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   company?: string;
 
   @ApiPropertyOptional()
@@ -94,6 +109,11 @@ class ScrapeResultJobDto {
   @IsOptional()
   @IsObject()
   details?: Record<string, unknown>;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsObject()
+  rawPayload?: Record<string, unknown>;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()

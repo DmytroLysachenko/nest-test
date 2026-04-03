@@ -45,20 +45,26 @@ Does not own notebook status workflow or follow-up planning.
 
 ## Data model
 
-Primary tables: `job_source_runs`, `job_offers`, `user_job_offers`, `scrape_schedule_events`, and scrape event tables.
+Primary tables: `job_source_runs`, `job_offers`, `user_job_offers`, `job_offer_source_observations`, `job_offer_raw_payloads`, `scrape_schedule_events`, and scrape event tables.
 
 Current standardization direction:
 
 - scrape ingestion now preserves raw offer snapshot fields while also resolving structured catalog references when confidence is acceptable
 - first active structured refs are company, contract type, employment type, work mode, and selected category context
+- canonical offer rows now also persist structured salary columns, source-company profile URL, apply URL, and posted-at when available
+- multi-value offer facts now persist in normalized relation tables for contract types, work modes, work schedules, seniority levels, and technologies
+- per-run observed source facts and raw payloads are persisted separately from the canonical offer row for replay/debug safety
 - cache/catalog reuse now requires a minimum fresh candidate yield instead of relying only on gross reused result counts
 - enqueue responses now return explicit reuse diagnostics when catalog rematch or DB reuse is rejected before worker dispatch
+- source health now includes observation-backed coverage metrics for missing employment type, empty requirements, source-profile capture, and apply-link capture
 
 Schema references:
 
 - `packages/db/src/schema/job-source-runs.ts`
 - `packages/db/src/schema/job-offers.ts`
 - `packages/db/src/schema/user-job-offers.ts`
+- `packages/db/src/schema/job-offer-source-observations.ts`
+- `packages/db/src/schema/job-offer-raw-payloads.ts`
 - `packages/db/src/schema/scrape-schedule-events.ts`
 - `packages/db/src/catalog-normalization.ts`
 - `packages/db/src/catalog-persistence.ts`

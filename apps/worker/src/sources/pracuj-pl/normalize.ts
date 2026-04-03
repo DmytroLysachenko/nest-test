@@ -2,7 +2,7 @@ import { canonicalizeContractType, canonicalizeWorkMode } from '@repo/db';
 
 import type { JobDetails, NormalizedJob, ParsedJob } from '../types';
 
-const normalizeText = (value?: string) => (value ? value.trim() : null);
+const normalizeText = (value?: string | null) => (value ? value.trim() : null);
 const normalizeAscii = (value: string) =>
   value
     .normalize('NFD')
@@ -100,6 +100,7 @@ const normalizeDetails = (details?: JobDetails): JobDetails | undefined => {
     workModes: dedupeList(details.workModes?.map((item) => canonicalizeWorkMode(item))),
     workSchedules: normalizeList(details.workSchedules),
     contractTypes: dedupeList(details.contractTypes?.map((item) => canonicalizeContractType(item))),
+    seniority: normalizeText(details.seniority) ?? undefined,
     workplace: normalizeText(details.workplace) ?? undefined,
     companyLocation: normalizeText(details.companyLocation) ?? undefined,
     companyDescription: normalizeText(details.companyDescription) ?? undefined,
@@ -113,6 +114,7 @@ const normalizeDetails = (details?: JobDetails): JobDetails | undefined => {
     !normalized.workModes &&
     !normalized.workSchedules &&
     !normalized.contractTypes &&
+    !normalized.seniority &&
     !normalized.workplace &&
     !normalized.companyLocation &&
     !normalized.companyDescription &&
@@ -133,11 +135,26 @@ export const normalizePracujPl = (jobs: ParsedJob[], source = 'pracuj-pl'): Norm
     location: normalizeText(job.location),
     description: job.description.trim(),
     url: job.url,
-    tags: job.tags?.map((item) => item.trim()).filter(Boolean) ?? [],
+    applyUrl: normalizeText(job.applyUrl),
+    postedAt: normalizeText(job.postedAt),
+    sourceCompanyProfileUrl: normalizeText(job.sourceCompanyProfileUrl),
+    tags: Array.from(
+      new Set(
+        [
+          ...(job.tags?.map((item) => item.trim()).filter(Boolean) ?? []),
+          ...(job.employmentType ? [] : ['missing-employment-type']),
+          ...((job.requirements?.length ?? 0) > 0 ? [] : ['missing-requirements']),
+          ...(job.details?.technologies?.all?.length || job.details?.technologies?.required?.length
+            ? []
+            : ['sparse-technologies']),
+        ].filter(Boolean),
+      ),
+    ),
     salary: normalizeText(job.salary),
     employmentType: canonicalizeContractType(job.employmentType),
     requirements: job.requirements?.map((item) => item.trim()).filter(Boolean) ?? [],
     details: normalizeDetails(job.details),
     isExpired: job.isExpired,
+    rawPayload: job.rawPayload,
   }));
 };

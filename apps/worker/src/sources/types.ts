@@ -12,6 +12,7 @@ export type DetailFetchDiagnostics = {
   htmlLength?: number;
   blocked?: boolean;
   expired?: boolean;
+  transport?: 'http' | 'browser';
   attempt: number;
   error?: string;
 };
@@ -31,6 +32,7 @@ export type JobDetails = {
   workModes?: string[];
   workSchedules?: string[];
   contractTypes?: string[];
+  seniority?: string;
   workplace?: string;
   companyLocation?: string;
   companyDescription?: string;
@@ -55,6 +57,9 @@ export type ParsedJob = {
   location?: string;
   description: string;
   url: string;
+  applyUrl?: string;
+  postedAt?: string;
+  sourceCompanyProfileUrl?: string;
   salary?: string;
   employmentType?: string;
   sourceId?: string;
@@ -62,6 +67,7 @@ export type ParsedJob = {
   tags?: string[];
   details?: JobDetails;
   isExpired?: boolean;
+  rawPayload?: Record<string, unknown>;
 };
 
 export type NormalizedJob = {
@@ -72,10 +78,14 @@ export type NormalizedJob = {
   location: string | null;
   description: string;
   url: string;
+  applyUrl?: string | null;
+  postedAt?: string | null;
+  sourceCompanyProfileUrl?: string | null;
   tags: string[];
   salary: string | null;
   employmentType: string | null;
   requirements: string[];
   details?: JobDetails;
   isExpired?: boolean;
+  rawPayload?: Record<string, unknown>;
 };

@@ -22,15 +22,30 @@ const buildHighlights = (structuredDetails: JobOfferListItemDto['structuredDetai
   ].filter((item): item is { label: string; value: string } => Boolean(item));
 };
 
+const buildListHighlights = (structuredDetails: JobOfferListItemDto['structuredDetails']) => {
+  if (!structuredDetails) {
+    return [];
+  }
+
+  const technologyNames = structuredDetails.technologies.map((technology) => technology.label);
+
+  return [
+    structuredDetails.workSchedules.length ? { label: 'Schedules', values: structuredDetails.workSchedules } : null,
+    structuredDetails.seniorityLevels.length ? { label: 'Seniority', values: structuredDetails.seniorityLevels } : null,
+    technologyNames.length ? { label: 'Technologies', values: technologyNames } : null,
+  ].filter((item): item is { label: string; values: string[] } => Boolean(item));
+};
+
 export const OfferStructuredDetailsPanel = ({ structuredDetails }: OfferStructuredDetailsPanelProps) => {
   if (!structuredDetails) {
     return null;
   }
 
   const highlights = buildHighlights(structuredDetails);
+  const listHighlights = buildListHighlights(structuredDetails);
   const companySummary = structuredDetails.companySummary;
 
-  if (!companySummary && !highlights.length) {
+  if (!companySummary && !highlights.length && !listHighlights.length) {
     return null;
   }
 
@@ -83,6 +98,26 @@ export const OfferStructuredDetailsPanel = ({ structuredDetails }: OfferStructur
             <div key={item.label} className="app-muted-panel space-y-1">
               <p className="text-text-soft text-[11px] uppercase tracking-[0.16em]">{item.label}</p>
               <p className="text-text-strong text-sm font-medium">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {listHighlights.length ? (
+        <div className="grid gap-2">
+          {listHighlights.map((item) => (
+            <div key={item.label} className="app-muted-panel space-y-2">
+              <p className="text-text-soft text-[11px] uppercase tracking-[0.16em]">{item.label}</p>
+              <div className="flex flex-wrap gap-2">
+                {item.values.map((value) => (
+                  <span
+                    key={`${item.label}-${value}`}
+                    className="bg-surface text-text-strong rounded-full px-2.5 py-1 text-xs font-medium"
+                  >
+                    {value}
+                  </span>
+                ))}
+              </div>
             </div>
           ))}
         </div>
