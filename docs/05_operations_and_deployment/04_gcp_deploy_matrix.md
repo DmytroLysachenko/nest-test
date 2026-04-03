@@ -21,6 +21,7 @@ For the complete local + production inventory, use:
 | `GCP_WORKER_SERVICE` | deploy-prod-on-main, promote-to-prod | Cloud Run service name for Worker |
 | `GCP_WEB_SERVICE` | deploy-prod-on-main, promote-to-prod | Cloud Run service name for Web |
 | `GCP_API_BASE_URL` | release-candidate | Public API base URL (`https://...`) for web image build |
+| `GCP_WEB_BASE_URL` | deploy-prod-on-main, promote-to-prod | Primary public web base URL (`https://...`) used to derive API CORS allowlist |
 | `GCP_WORKER_BASE_URL` | release-candidate | Public Worker base URL (`https://...`) for web image build |
 | `GOOGLE_OAUTH_CLIENT_ID` | release-candidate, deploy-prod-on-main, promote-to-prod | Public Google OAuth client id used by web build and API token verification |
 | `GEMINI_MODEL` | deploy-prod-on-main, promote-to-prod | Vertex AI model id injected into API runtime |
@@ -119,7 +120,7 @@ For the complete local + production inventory, use:
 | `GCP_PROJECT_ID` | env | `<project-id>` | Vertex/GCS project id |
 | `GCP_LOCATION` | env | `europe-west1` | Vertex AI region |
 | `GEMINI_MODEL` | env | `gemini-2.5-flash` | must be explicitly managed in production |
-| `ALLOWED_ORIGINS` | env | `https://app.example.com` | cannot be `*` in production |
+| `ALLOWED_ORIGINS` | env | `https://app.example.com` | legacy/manual override only; CI/CD should derive from `GCP_WEB_BASE_URL` plus deployed web URLs |
 | `API_PREFIX` | env | `api` | should stay `api` |
 | `WORKER_TASK_PROVIDER` | env | `cloud-tasks` | must be `cloud-tasks` in production |
 | `WORKER_TASK_URL` | env | `https://worker-...run.app/tasks` | must point to worker `/tasks` |

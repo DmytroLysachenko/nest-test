@@ -77,7 +77,7 @@ Canonical environment inventory:
    - `GCP_LOCATION` must use a supported Gemini serving region from the app allowlist.
    - `API_BODY_LIMIT` (example: `1mb`)
    - `SCRAPE_MAX_ACTIVE_RUNS_PER_USER` (per-user backpressure guard)
-   - `ALLOWED_ORIGINS` must not be `*` in production mode
+   - API CORS allowlist must not be `*` in production mode and should be derived from `GCP_WEB_BASE_URL`
    - `WORKSPACE_SUMMARY_CACHE_TTL_SEC` (cache ttl for workspace summary read model)
    - `JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS` (default summary window)
    - `SCRAPE_STALE_PENDING_MINUTES` (stale pending run timeout threshold)
@@ -102,7 +102,7 @@ Canonical environment inventory:
    - `OPS_INTERNAL_TOKEN` (internal scheduler auth for `/api/ops/reconcile-stale-runs`)
 2. Worker:
   - `WORKER_MAX_BODY_BYTES` (example: `262144`)
-  - `WORKER_ALLOWED_ORIGINS` (explicit CORS allowlist; no `*` in production)
+  - `WORKER_ALLOWED_ORIGINS` (explicit CORS allowlist; no `*` in production; defaults to the public web origin when deploy input is unset)
   - `WORKER_CALLBACK_RETRY_MAX_DELAY_MS`
   - `WORKER_CALLBACK_RETRY_JITTER_PCT`
   - `WORKER_HEARTBEAT_INTERVAL_MS`
@@ -323,7 +323,7 @@ For exact variable-level mapping and secret sources, use:
 
 1. API:
    - `PORT` is provided by Cloud Run (app already binds from env).
-   - `ALLOWED_ORIGINS` must be explicit in production (no `*`).
+   - API `ALLOWED_ORIGINS` must stay explicit in production (no `*`) and should include the public web origin.
    - `WORKER_TASK_PROVIDER=cloud-tasks` for production enqueue path.
    - `WORKER_TASKS_PROJECT_ID` / `WORKER_TASKS_LOCATION` / `WORKER_TASKS_QUEUE` must point to the worker task queue.
    - `WORKER_TASK_URL` must be worker Cloud Run `/tasks` endpoint (https).

@@ -61,7 +61,7 @@ Required core values:
    - `NODE_ENV=production`
    - `HOST=0.0.0.0`
    - `GCS_BUCKET=<BUCKET_NAME>`
-   - `ALLOWED_ORIGINS=https://<your-web-domain>`
+   - `GCP_WEB_BASE_URL=https://<your-web-domain>`
    - `WORKER_TASK_PROVIDER=cloud-tasks`
    - `WORKER_TASK_URL=https://<worker-url>/tasks`
    - `WORKER_TASKS_PROJECT_ID=<PROJECT_ID>`
@@ -110,13 +110,14 @@ Required core values:
      - `GCP_API_RUNTIME_SERVICE_ACCOUNT`
      - `GCP_WORKER_RUNTIME_SERVICE_ACCOUNT`
      - `GCP_WEB_RUNTIME_SERVICE_ACCOUNT`
+     - `GCP_WEB_BASE_URL` (primary public web origin used to derive API CORS allowlist)
      - `ACCESS_TOKEN_EXPIRATION` (default `15m`)
      - `REFRESH_TOKEN_EXPIRATION` (default `30d`)
      - `MAIL_HOST` (default `smtp.sendgrid.net`)
      - `MAIL_PORT` (default `587`)
      - `MAIL_SECURE` (default `false`)
       - `WORKER_TASKS_QUEUE` (default `worker-scrape`)
-      - `ALLOWED_ORIGINS` (optional; if empty, workflow auto-uses deployed web URL)
+      - `ALLOWED_ORIGINS` (legacy/manual override only; workflow derives API CORS allowlist from `GCP_WEB_BASE_URL` plus deployed web URLs)
 4. Add GitHub production secrets for app runtime:
    - `DATABASE_URL` (Neon connection string)
    - `ACCESS_TOKEN_SECRET`

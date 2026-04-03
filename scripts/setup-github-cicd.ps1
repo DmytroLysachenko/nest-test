@@ -83,6 +83,10 @@ $mailSecure = Get-EnvValue $apiProdFiles "MAIL_SECURE"
 $accessExp = Get-EnvValue $apiProdFiles "ACCESS_TOKEN_EXPIRATION"
 $refreshExp = Get-EnvValue $apiProdFiles "REFRESH_TOKEN_EXPIRATION"
 $allowedOrigins = Get-EnvValue $apiProdFiles "ALLOWED_ORIGINS"
+$gcpWebBaseUrl = $null
+if (-not [string]::IsNullOrWhiteSpace($allowedOrigins)) {
+  $gcpWebBaseUrl = ($allowedOrigins -split ",")[0].Trim()
+}
 $googleOauthClientId = Get-EnvValue $apiProdFiles "GOOGLE_OAUTH_CLIENT_ID"
 $googleOauthClientSecret = Get-EnvValue $apiProdFiles "GOOGLE_OAUTH_CLIENT_SECRET"
 $geminiModel = Get-EnvValue $apiProdFiles "GEMINI_MODEL"
@@ -220,6 +224,7 @@ Set-RepoVar "MAIL_PORT" $mailPort
 Set-RepoVar "MAIL_SECURE" $mailSecure
 Set-RepoVar "ACCESS_TOKEN_EXPIRATION" $accessExp
 Set-RepoVar "REFRESH_TOKEN_EXPIRATION" $refreshExp
+Set-RepoVar "GCP_WEB_BASE_URL" $gcpWebBaseUrl
 Set-RepoVar "GOOGLE_OAUTH_CLIENT_ID" $googleOauthClientId
 Set-RepoVar "GEMINI_MODEL" $geminiModel
 Set-RepoVar "WORKER_TASKS_QUEUE" $workerTasksQueue
@@ -271,9 +276,6 @@ Set-RepoVar "WEB_QUERY_STALE_TIME_MS" $webQueryStaleTimeMs
 Set-RepoVar "WEB_QUERY_REFETCH_ON_WINDOW_FOCUS" $webQueryRefetchOnWindowFocus
 Set-RepoVar "WEB_QUERY_DIAGNOSTICS_REFETCH_MS" $webQueryDiagnosticsRefetchMs
 
-if (-not [string]::IsNullOrWhiteSpace($allowedOrigins) -and $allowedOrigins -ne "*") {
-  Set-RepoVar "ALLOWED_ORIGINS" $allowedOrigins
-}
 if (-not [string]::IsNullOrWhiteSpace($workerAllowedOrigins) -and $workerAllowedOrigins -ne "*") {
   Set-RepoVar "WORKER_ALLOWED_ORIGINS" $workerAllowedOrigins
 }

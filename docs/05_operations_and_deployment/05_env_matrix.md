@@ -51,7 +51,7 @@ Last updated: 2026-03-11
 | `GCP_PRIVATE_KEY` | optional | no | yes if used | local only | keep empty on Cloud Run unless explicit JSON creds used |
 | `GCP_LOCATION` | optional local | required prod | no | Cloud Run env | Vertex AI region |
 | `GEMINI_MODEL` | optional local | required prod | no | Cloud Run env | production must be explicitly managed |
-| `ALLOWED_ORIGINS` | required | required | no | Cloud Run env | no `*` in prod |
+| `ALLOWED_ORIGINS` | required | required | no | Cloud Run env | legacy/manual override only; CI/CD now derives API CORS allowlist from `GCP_WEB_BASE_URL` plus deployed web URLs |
 | `API_PREFIX` | required | required | no | Cloud Run env | should stay `api` |
 | `WORKER_TASK_PROVIDER` | optional local | required prod | no | Cloud Run env | `http` local, `cloud-tasks` prod |
 | `WORKER_TASK_URL` | optional local | required prod | no | Cloud Run env | worker `/tasks` endpoint |
@@ -140,6 +140,7 @@ Last updated: 2026-03-11
   - `GCP_WORKER_SERVICE`
   - `GCP_WEB_SERVICE`
   - `GCP_API_BASE_URL`
+  - `GCP_WEB_BASE_URL`
   - `GCP_WORKER_BASE_URL`
   - `GCP_WORKLOAD_IDENTITY_PROVIDER`
   - `GCP_DEPLOYER_SERVICE_ACCOUNT`
@@ -152,7 +153,6 @@ Last updated: 2026-03-11
   - `MAIL_HOST`
   - `MAIL_PORT`
   - `MAIL_SECURE`
-  - `ALLOWED_ORIGINS`
   - `WORKER_TASKS_QUEUE`
   - `WORKER_TASKS_DLQ`
   - `TASKS_MAX_ATTEMPTS`

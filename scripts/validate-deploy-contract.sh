@@ -41,6 +41,7 @@ case "$MODE" in
     require_var GCS_BUCKET
     require_var GEMINI_MODEL
     require_var GOOGLE_OAUTH_CLIENT_ID
+    require_var GCP_WEB_BASE_URL
     require_var GOOGLE_OAUTH_CLIENT_SECRET
     require_var SCHEDULER_AUTH_TOKEN
     require_var OPS_INTERNAL_TOKEN
@@ -51,6 +52,7 @@ case "$MODE" in
     require_var GCS_BUCKET
     require_var GEMINI_MODEL
     require_var GOOGLE_OAUTH_CLIENT_ID
+    require_var GCP_WEB_BASE_URL
     require_var GOOGLE_OAUTH_CLIENT_SECRET
     require_var SCHEDULER_AUTH_TOKEN
     require_var OPS_INTERNAL_TOKEN
