@@ -1,7 +1,8 @@
+import { withTsconfigRootDir } from '@repo/lint-config/base';
 import { config as nextConfig } from '@repo/lint-config/next-js';
 
 const config = [
-  ...nextConfig,
+  ...withTsconfigRootDir(nextConfig, import.meta.dirname),
   {
     name: 'web/typescript-conventions',
     files: ['src/**/*.ts', 'src/**/*.tsx'],

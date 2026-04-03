@@ -35,8 +35,10 @@
   "scripts": {
     "build": "tsup",
     "backfill:catalog-normalization": "tsx src/seeds/backfill-catalog-normalization.ts",
+    "check-types": "tsc --noEmit -p tsconfig.json",
     "generate": "drizzle-kit generate",
-    "lint:fix": "eslint . --ext .ts,.js --fix",
+    "lint": "eslint \"src/**/*.ts\" eslint.config.ts",
+    "lint:fix": "eslint \"src/**/*.ts\" eslint.config.ts --fix",
     "migrate": "drizzle-kit migrate",
     "prepare": "pnpm build",
     "seed": "tsx src/seeds/index.ts",

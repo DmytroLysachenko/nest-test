@@ -66,7 +66,7 @@ const ignoresConfig = [
   {
     name: 'base/eslint/ignores',
     // Use a dedicated config block instead of .eslintignore
-    ignores: [...gitignore().ignores],
+    ignores: [...gitignore().ignores, '**/dist/**', '**/.turbo/**', '**/coverage/**'],
   },
 ] as FlatConfig.Config[];
 
@@ -157,3 +157,17 @@ export const config = [
   ...ignoresConfig,
   ...prettierConfig,
 ] satisfies FlatConfig.Config[];
+
+export type EslintFlatConfig = FlatConfig.Config;
+
+export const withTsconfigRootDir = (configs: FlatConfig.Config[], tsconfigRootDir: string) =>
+  configs.map((configItem) => ({
+    ...configItem,
+    languageOptions: {
+      ...configItem.languageOptions,
+      parserOptions: {
+        ...configItem.languageOptions?.parserOptions,
+        tsconfigRootDir,
+      },
+    },
+  })) satisfies FlatConfig.Config[];
