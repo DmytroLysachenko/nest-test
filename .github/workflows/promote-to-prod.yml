@@ -7,6 +7,10 @@ on:
         description: 'Release commit SHA to promote'
         required: true
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   promote:
     runs-on: ubuntu-latest
