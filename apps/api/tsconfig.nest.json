@@ -5,9 +5,10 @@
   "compilerOptions": {
     "outDir": "./dist",
     "baseUrl": "./",
+    "types": ["node", "jest"],
     "paths": {
       "@/*": ["src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "src/types/typings/**/*.d.ts"]
 }
