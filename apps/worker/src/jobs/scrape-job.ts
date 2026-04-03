@@ -121,8 +121,11 @@ type CompletionDiagnosticsInput = {
 };
 
 const MAX_CALLBACK_ERROR_LENGTH = 1000;
-const SCRAPE_TIMEOUT_RESERVE_MS = 20_000;
-const DETAIL_FETCH_BUDGET_PER_ITEM_MS = 18_000;
+const SCRAPE_TIMEOUT_RESERVE_MS = 10_000;
+const DEFAULT_DETAIL_DELAY_MS = 2_000;
+const DEFAULT_BROWSER_FALLBACK_COOLDOWN_MS = 3_000;
+const DETAIL_FETCH_BUDGET_PER_ITEM_MS = 21_000;
+const DETAIL_FETCH_BROWSER_FALLBACK_BUFFER_MS = 16_000;
 
 const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const toError = (error: unknown) => (error instanceof Error ? error : new Error('Unknown error'));
@@ -204,11 +207,22 @@ export const computeInitialDetailBudget = (input: {
   targetWindow: { min: number; max: number };
   scrapeTimeoutMs: number;
   elapsedMs: number;
+  detailDelayMs?: number;
+  browserFallbackCooldownMs?: number;
 }) => {
   const requestedLimit = Math.max(1, input.requestedLimit);
   const targetMax = Math.max(1, input.targetWindow.max);
+  const detailDelayMs = Math.max(0, input.detailDelayMs ?? DEFAULT_DETAIL_DELAY_MS);
+  const browserFallbackCooldownMs = Math.max(
+    0,
+    input.browserFallbackCooldownMs ?? Math.max(DEFAULT_BROWSER_FALLBACK_COOLDOWN_MS, detailDelayMs + 1_000),
+  );
   const remainingMs = Math.max(0, input.scrapeTimeoutMs - input.elapsedMs - SCRAPE_TIMEOUT_RESERVE_MS);
-  const runtimeBudget = Math.max(1, Math.floor(remainingMs / DETAIL_FETCH_BUDGET_PER_ITEM_MS));
+  const detailBudgetPerItemMs = Math.max(
+    DETAIL_FETCH_BUDGET_PER_ITEM_MS,
+    DETAIL_FETCH_BROWSER_FALLBACK_BUFFER_MS + detailDelayMs + browserFallbackCooldownMs,
+  );
+  const runtimeBudget = Math.max(1, Math.floor(remainingMs / detailBudgetPerItemMs));
 
   return Math.max(1, Math.min(requestedLimit, targetMax, runtimeBudget));
 };
@@ -1036,6 +1050,8 @@ export const runScrapeJob = async (
                   targetWindow,
                   scrapeTimeoutMs: timeoutMs,
                   elapsedMs: Date.now() - startedAt,
+                  detailDelayMs: adaptiveDetailDelayMs,
+                  browserFallbackCooldownMs: options.browserFallbackCooldownMs,
                 })
               : undefined,
           skipUrls,

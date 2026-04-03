@@ -397,6 +397,19 @@ test('computeInitialDetailBudget caps first attempt detail work to remaining tas
   assert.equal(budget, 4);
 });
 
+test('computeInitialDetailBudget reserves more time when browser fallback delays are higher', () => {
+  const budget = computeInitialDetailBudget({
+    requestedLimit: 20,
+    targetWindow: { min: 20, max: 40 },
+    scrapeTimeoutMs: 180000,
+    elapsedMs: 46000,
+    detailDelayMs: 4000,
+    browserFallbackCooldownMs: 7000,
+  });
+
+  assert.equal(budget, 4);
+});
+
 test('computeInitialDetailBudget does not exceed requested limit on fast runs', () => {
   const budget = computeInitialDetailBudget({
     requestedLimit: 3,
