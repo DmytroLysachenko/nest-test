@@ -284,6 +284,11 @@ const deriveFailureType = (error?: string | null) => {
   return 'unknown';
 };
 
+const STALE_RUN_ERROR_PREFIX = '[timeout] run stale watchdog';
+
+const isStaleRunError = (value: string | null | undefined) =>
+  typeof value === 'string' && value.startsWith(STALE_RUN_ERROR_PREFIX);
+
 const classifySilentFailure = (input: {
   status: string;
   totalFound?: number | null;
@@ -2080,7 +2085,7 @@ export class JobSourcesService {
         attemptNo: callbackAttemptNo,
         message: 'Accepted scrape offers were persisted into the shared catalog.',
         meta: {
-          catalogOfferCount: persistedOffers.length,
+          catalogOfferCount: persisted.offerIds.length,
         },
       });
     }
@@ -2270,6 +2275,110 @@ export class JobSourcesService {
       inserted: inserted.insertedCount,
       totalOffers: offers.length,
       idempotent: inserted.insertedCount === 0,
+    };
+  }
+
+  async ingestScrapeOffer(
+    runId: string,
+    dto: ScrapeOfferIngestDto,
+    authorization?: string,
+    requestId?: string,
+    workerSignature?: string,
+    workerTimestamp?: string,
+  ) {
+    await this.verifyWorkerCallbackAuthorization(authorization);
+    this.verifyWorkerSignature(
+      {
+        sourceRunId: runId,
+        status: 'INGEST',
+        runId: dto.runId,
+        eventId: dto.eventId,
+      },
+      requestId,
+      workerSignature,
+      workerTimestamp,
+    );
+
+    if (dto.sourceRunId !== runId) {
+      throw new BadRequestException('sourceRunId path and payload mismatch');
+    }
+
+    const run = await this.db
+      .select({
+        id: jobSourceRunsTable.id,
+        traceId: jobSourceRunsTable.traceId,
+        source: jobSourceRunsTable.source,
+        userId: jobSourceRunsTable.userId,
+        careerProfileId: jobSourceRunsTable.careerProfileId,
+        status: jobSourceRunsTable.status,
+        listingUrl: jobSourceRunsTable.listingUrl,
+        filters: jobSourceRunsTable.filters,
+        progress: jobSourceRunsTable.progress,
+      })
+      .from(jobSourceRunsTable)
+      .where(eq(jobSourceRunsTable.id, runId))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!run) {
+      throw new NotFoundException('Job source run not found');
+    }
+
+    if (run.status === 'COMPLETED' || run.status === 'FAILED') {
+      return { ok: true, status: run.status, ignored: true };
+    }
+
+    const sanitizedJobs = sanitizeIncrementalJob(dto.job);
+    if (!sanitizedJobs.length) {
+      return { ok: true, status: run.status, ignored: true };
+    }
+
+    const attemptNo = Math.max(1, dto.attemptNo ?? 1);
+    const persisted = await this.persistAcceptedJobsForRun(run, sanitizedJobs);
+    const linked = await this.linkPersistedOffersForRun(run, persisted.offerIds);
+    const linkedCount = await this.countLinkedOffersForRun(run.id);
+    const now = new Date();
+    const nextProgress = {
+      ...(((run.progress as Record<string, unknown> | null) ?? {}) as Record<string, unknown>),
+      candidateOffers:
+        Number(
+          run.progress && typeof run.progress === 'object'
+            ? ((run.progress as Record<string, unknown>).candidateOffers ?? 0)
+            : 0,
+        ) + persisted.offerIds.length,
+      userInsertedOffers: linkedCount,
+      incrementalOfferIngestedAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+
+    await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        status: run.status === 'PENDING' ? 'RUNNING' : run.status,
+        lastHeartbeatAt: now,
+        progress: nextProgress,
+      })
+      .where(eq(jobSourceRunsTable.id, run.id));
+
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'offer_incrementally_ingested',
+      requestId,
+      attemptNo,
+      message: 'Worker incrementally persisted an accepted offer before terminal callback.',
+      meta: {
+        eventId: dto.eventId,
+        offerIdentityKey: persisted.offerIdentityKeys[0] ?? null,
+        insertedOffers: linked.insertedCount,
+      },
+    });
+
+    return {
+      ok: true,
+      status: run.status === 'PENDING' ? 'RUNNING' : run.status,
+      ingested: persisted.offerIds.length,
+      linked: linked.insertedCount,
     };
   }
 
@@ -3581,8 +3690,7 @@ export class JobSourcesService {
       heartbeatAt: run.lastHeartbeatAt ?? null,
       callbackAttempts: Number(callbackSummary?.total ?? 0),
       callbackAcceptedAt: callbackSummary?.latestReceivedAt ?? null,
-      reconcileReason:
-        run.status === 'FAILED' && run.error === '[timeout] run stale watchdog' ? 'STALE_HEARTBEAT_OR_CALLBACK' : null,
+      reconcileReason: run.status === 'FAILED' && isStaleRunError(run.error) ? 'STALE_HEARTBEAT_OR_CALLBACK' : null,
       lastEventAt: latestRunEvent?.createdAt ?? null,
       progress: (run.progress as Record<string, unknown> | null) ?? null,
       story,
@@ -3947,7 +4055,7 @@ export class JobSourcesService {
         (run) =>
           run.status === 'FAILED' &&
           (toRunFailureType(run.failureType) ?? deriveFailureType(run.error)) === 'timeout' &&
-          run.error === '[timeout] run stale watchdog',
+          isStaleRunError(run.error),
       ).length,
       retriedRuns: runs.filter((run) => Boolean(run.retryOfRunId)).length,
       retryCompleted: runs.filter((run) => Boolean(run.retryOfRunId) && run.status === 'COMPLETED').length,
@@ -4261,7 +4369,7 @@ export class JobSourcesService {
     };
   }
 
-  private computeCatalogContentHash(job: CallbackJobPayload) {
+  private computeCatalogContentHash(job: PersistableOfferPayload) {
     return computeSha256Hex({
       sourceId: normalizeString(job.sourceId),
       url: normalizeOfferUrl(job.url),

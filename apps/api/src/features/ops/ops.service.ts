@@ -36,6 +36,15 @@ type SupportApiRequestEventRow = {
   createdAt: Date;
 };
 
+const STALE_RECONCILE_ERROR_PREFIX = '[timeout] reconcile endpoint stale run';
+const STALE_WATCHDOG_ERROR_PREFIX = '[timeout] run stale watchdog';
+
+const isOpsReconcileStaleError = (value: string | null | undefined) =>
+  typeof value === 'string' && value.startsWith(STALE_RECONCILE_ERROR_PREFIX);
+
+const isWatchdogStaleError = (value: string | null | undefined) =>
+  typeof value === 'string' && value.startsWith(STALE_WATCHDOG_ERROR_PREFIX);
+
 @Injectable()
 export class OpsService {
   constructor(
@@ -97,7 +106,7 @@ export class OpsService {
           and(
             eq(jobSourceRunsTable.status, 'FAILED'),
             eq(jobSourceRunsTable.failureType, 'timeout'),
-            eq(jobSourceRunsTable.error, '[timeout] run stale watchdog'),
+            sql<boolean>`${jobSourceRunsTable.error} like ${`${STALE_WATCHDOG_ERROR_PREFIX}%`}`,
             gte(jobSourceRunsTable.createdAt, cutoff),
           ),
         );
@@ -757,7 +766,7 @@ export class OpsService {
       signals: {
         lastHeartbeatAt: this.toIsoString(run.lastHeartbeatAt),
         lastTimelineEventAt: this.toIsoString(latestTimelineEvent?.createdAt),
-        reconcileReason: run.error?.includes('reconcile endpoint stale run') ? run.error : null,
+        reconcileReason: isOpsReconcileStaleError(run.error) || isWatchdogStaleError(run.error) ? run.error : null,
         likelyFailureStage: this.detectLikelyFailureStage({
           status: run.status,
           failureType: run.failureType,
@@ -1528,7 +1537,7 @@ export class OpsService {
       .update(jobSourceRunsTable)
       .set({
         status: 'FAILED',
-        error: '[timeout] reconcile endpoint stale run',
+        error: `${STALE_RECONCILE_ERROR_PREFIX}: heartbeat-stopped-or-callback-missing`,
         failureType: 'timeout',
         finalizedAt: now,
         completedAt: now,
@@ -1545,7 +1554,8 @@ export class OpsService {
     const staleRunningMinutes = this.configService.get('SCRAPE_STALE_RUNNING_MINUTES', { infer: true });
     const stalePendingCutoff = new Date(now.getTime() - stalePendingMinutes * 60 * 1000);
     const staleRunningCutoff = new Date(now.getTime() - staleRunningMinutes * 60 * 1000);
-    const staleError = '[timeout] reconcile endpoint stale run';
+    const stalePendingError = `${STALE_RECONCILE_ERROR_PREFIX}: worker-not-started`;
+    const staleRunningError = `${STALE_RECONCILE_ERROR_PREFIX}: heartbeat-stopped-or-callback-missing`;
 
     const pendingCandidates = await this.db
       .select({ id: jobSourceRunsTable.id })
@@ -1571,7 +1581,7 @@ export class OpsService {
         .update(jobSourceRunsTable)
         .set({
           status: 'FAILED',
-          error: staleError,
+          error: sql`case when ${jobSourceRunsTable.status} = 'PENDING' then ${stalePendingError} else ${staleRunningError} end`,
           failureType: 'timeout',
           finalizedAt: now,
           completedAt: now,
@@ -1587,7 +1597,10 @@ export class OpsService {
         and(
           eq(jobSourceRunsTable.status, 'FAILED'),
           eq(jobSourceRunsTable.failureType, 'timeout'),
-          eq(jobSourceRunsTable.error, staleError),
+          or(
+            sql<boolean>`${jobSourceRunsTable.error} like ${`${STALE_RECONCILE_ERROR_PREFIX}%`}`,
+            sql<boolean>`${jobSourceRunsTable.error} like ${`${STALE_WATCHDOG_ERROR_PREFIX}%`}`,
+          ),
           gte(jobSourceRunsTable.finalizedAt, windowCutoff),
         ),
       );
@@ -1644,7 +1657,10 @@ export class OpsService {
     if (input.status === 'COMPLETED') {
       return 'completed';
     }
-    if (input.failureType === 'timeout' && input.error?.includes('reconcile endpoint stale run')) {
+    if (
+      input.failureType === 'timeout' &&
+      (isOpsReconcileStaleError(input.error) || isWatchdogStaleError(input.error))
+    ) {
       if (!input.lastHeartbeatAt) {
         return 'worker-not-started-or-heartbeat-missing';
       }
