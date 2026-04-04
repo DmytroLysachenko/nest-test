@@ -12,7 +12,7 @@ It helps the user get relevant opportunities, rerun acquisition when intent chan
 
 ## Scope
 
-Includes preflight, manual and scheduled runs, worker execution, parsing, normalization, callback completion, catalog persistence, and diagnostics.
+Includes preflight, manual and scheduled runs, worker execution, parsing, normalization, incremental offer delivery, callback completion, catalog persistence, and diagnostics.
 
 Does not own notebook status workflow or follow-up planning.
 
@@ -29,7 +29,7 @@ Does not own notebook status workflow or follow-up planning.
 - API:
   - preflight, enqueue, completion, rematch, persistence, diagnostics
 - Worker:
-  - fetch, parse, normalize, callback delivery
+  - fetch, parse, normalize, incremental offer delivery, callback delivery
 - Web:
   - scrape entry points, status visibility, opportunities entry
 - DB:
@@ -73,10 +73,18 @@ Schema references:
 
 Representative endpoints include `/api/job-sources/preflight`, `/api/job-sources/schedule`, `/api/job-sources/schedule/trigger-now`, and `/api/job-sources/runs/:id/events`.
 
+Internal worker delivery endpoints also include `/api/job-sources/runs/:id/heartbeat`, `/api/job-sources/runs/:id/offers`, and `/api/job-sources/complete`.
+
 Current enqueue contract direction:
 
 - `/api/job-sources/scrape` may satisfy a request from catalog rematch, DB reuse, or worker dispatch
 - when reuse is considered but rejected, `reuseDiagnostics` explains whether the cause was insufficient fresh candidates, no matchable catalog rows, no cached run, or no cached offers
+- accepted offers can now be persisted incrementally during a running scrape instead of waiting only for terminal callback completion
+- terminal scrape failure now preserves already-ingested offers and links them into `user_job_offers` when possible instead of dropping the run output
+- schedule cron handling now supports weekday expressions such as `0 6 * * 1-5` without collapsing to a daily default
+- stale watchdog failures now distinguish `worker-not-started` from `heartbeat-stopped-or-callback-missing` in the stored run error
+- worker pipeline orchestration now uses a source-adapter contract so future sites can reuse fetch/parse/normalize stages without copying the Pracuj orchestration path
+- local worker diagnostics now include `pnpm --filter worker scrape:once -- --source pracuj-pl-it --listingUrl <url> --limit <n>` for single-run execution outside the full stack
 
 Operational and recovery endpoints live under `apps/api/src/features/ops`.
 

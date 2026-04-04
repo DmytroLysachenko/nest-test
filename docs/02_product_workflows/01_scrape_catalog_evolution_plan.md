@@ -452,6 +452,13 @@ If prioritizing pragmatically, I would do this:
 5. Ship one user-facing company/offer-memory surface.
 6. Reassess whether a second source is still the highest-value next step.
 
+## Reliability updates now completed
+
+- per-offer worker delivery now persists accepted offers incrementally through an API-owned ingestion endpoint before terminal callback completion
+- failed terminal callbacks no longer imply total result loss when at least one offer was already ingested
+- Pracuj parsing now revalidates company narrative fields more conservatively and preserves `workplace` plus `companyLocation` when present
+- source-expansion readiness now assumes a reusable worker adapter contract rather than a second copy of the Pracuj orchestration flow
+
 ## Bottom line
 
 Your instinct is correct:
