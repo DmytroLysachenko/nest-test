@@ -62,6 +62,7 @@ import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
 import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';
+import { ScrapeOfferIngestDto } from './dto/scrape-offer-ingest.dto';
 import { buildFiltersFromProfile, buildMatchingFiltersFromProfile, inferPracujSource } from './scrape-request-resolver';
 import { RunDiagnosticsSummaryCache } from './run-diagnostics-summary-cache';
 import { UpdateScrapeScheduleDto } from './dto/scrape-schedule.dto';
@@ -69,6 +70,8 @@ import { UpdateScrapeScheduleDto } from './dto/scrape-schedule.dto';
 import type { Env } from '@/config/env';
 
 type CallbackJobPayload = NonNullable<ScrapeCompleteDto['jobs']>[number];
+type IncrementalOfferPayload = ScrapeOfferIngestDto['job'];
+type PersistableOfferPayload = CallbackJobPayload | IncrementalOfferPayload;
 type RunFailureType = 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown';
 type RunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 type CatalogRecommendationAction = 'scrape' | 'rematch' | 'blocked';
@@ -400,41 +403,184 @@ const DEFAULT_SCRAPE_SOURCE_FAILURE_THRESHOLD = 3;
 const DEFAULT_SCRAPE_SOURCE_AUTOMATION_BACKOFF_MINUTES = 30;
 const HEARTBEAT_EVENT_DEDUP_WINDOW_MS = 15_000;
 
-const parseSchedule = (
-  cron: string,
-): { kind: 'everyMinutes'; minutes: number } | { kind: 'daily'; hour: number; minute: number } => {
+type ParsedSchedule =
+  | { kind: 'everyMinutes'; minutes: number }
+  | { kind: 'scheduled'; hour: number; minute: number; weekdays: number[] | null };
+
+const parseWeekdays = (value: string) => {
+  const trimmed = value.trim();
+  if (trimmed === '*') {
+    return null;
+  }
+
+  const normalized = new Set<number>();
+  for (const token of trimmed.split(',')) {
+    const part = token.trim();
+    if (!part) {
+      continue;
+    }
+
+    const rangeMatch = part.match(/^(\d)-(\d)$/);
+    if (rangeMatch) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      for (let current = start; current <= end; current += 1) {
+        normalized.add(current % 7);
+      }
+      continue;
+    }
+
+    const day = Number(part);
+    if (Number.isInteger(day) && day >= 0 && day <= 7) {
+      normalized.add(day % 7);
+    }
+  }
+
+  return normalized.size > 0 ? Array.from(normalized).sort((left, right) => left - right) : null;
+};
+
+const sanitizeIncrementalJob = (job: IncrementalOfferPayload | undefined | null): CallbackJobPayload[] => {
+  if (!job) {
+    return [];
+  }
+
+  return sanitizeCallbackJobs([job]);
+};
+
+const getTimeZoneOffsetMinutes = (date: Date, timezone: string) => {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    timeZoneName: 'shortOffset',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const offsetToken = formatter.formatToParts(date).find((part) => part.type === 'timeZoneName')?.value ?? 'GMT+0';
+  const match = offsetToken.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/i);
+  if (!match) {
+    return 0;
+  }
+  const sign = match[1] === '-' ? -1 : 1;
+  const hours = Number(match[2] ?? 0);
+  const minutes = Number(match[3] ?? 0);
+  return sign * (hours * 60 + minutes);
+};
+
+const getZonedParts = (date: Date, timezone: string) => {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+    weekday: 'short',
+  });
+  const parts = formatter.formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const weekdayMap: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
+
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+    second: Number(values.second),
+    weekday: weekdayMap[values.weekday] ?? 0,
+  };
+};
+
+const zonedDateTimeToUtc = (
+  timezone: string,
+  parts: {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+  },
+) => {
+  let candidate = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, 0, 0));
+  for (let iteration = 0; iteration < 3; iteration += 1) {
+    const offsetMinutes = getTimeZoneOffsetMinutes(candidate, timezone);
+    const corrected = new Date(
+      Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, 0, 0) - offsetMinutes * 60_000,
+    );
+    if (corrected.getTime() === candidate.getTime()) {
+      return corrected;
+    }
+    candidate = corrected;
+  }
+  return candidate;
+};
+
+export const parseSchedule = (cron: string): ParsedSchedule => {
   const everyMinutes = /^\*\/(\d{1,2}) \* \* \* \*$/;
-  const daily = /^(\d{1,2}) (\d{1,2}) \* \* \*$/;
+  const scheduled = /^(\d{1,2}) (\d{1,2}) \* \* ([\d,\-*]+)$/;
   const everyMinutesMatch = cron.trim().match(everyMinutes);
   if (everyMinutesMatch) {
     const minutes = Number(everyMinutesMatch[1]);
     return { kind: 'everyMinutes', minutes: Math.max(1, Math.min(59, minutes)) };
   }
-  const dailyMatch = cron.trim().match(daily);
-  if (dailyMatch) {
-    const minute = Number(dailyMatch[1]);
-    const hour = Number(dailyMatch[2]);
+  const scheduledMatch = cron.trim().match(scheduled);
+  if (scheduledMatch) {
+    const minute = Number(scheduledMatch[1]);
+    const hour = Number(scheduledMatch[2]);
     return {
-      kind: 'daily',
+      kind: 'scheduled',
       hour: Math.max(0, Math.min(23, hour)),
       minute: Math.max(0, Math.min(59, minute)),
+      weekdays: parseWeekdays(scheduledMatch[3] ?? '*'),
     };
   }
-  return { kind: 'daily', hour: 9, minute: 0 };
+  return { kind: 'scheduled', hour: 9, minute: 0, weekdays: null };
 };
 
-const computeNextRunAt = (cron: string, from: Date): Date => {
+export const computeNextRunAt = (cron: string, from: Date, timezone = 'UTC'): Date => {
   const parsed = parseSchedule(cron);
   if (parsed.kind === 'everyMinutes') {
     return new Date(from.getTime() + parsed.minutes * 60 * 1000);
   }
-  const next = new Date(from);
-  next.setUTCSeconds(0, 0);
-  next.setUTCHours(parsed.hour, parsed.minute, 0, 0);
-  if (next.getTime() <= from.getTime()) {
-    next.setUTCDate(next.getUTCDate() + 1);
+
+  const zonedNow = getZonedParts(from, timezone);
+  const baseUtcMidnight = Date.UTC(zonedNow.year, zonedNow.month - 1, zonedNow.day, 0, 0, 0, 0);
+
+  for (let dayOffset = 0; dayOffset < 8; dayOffset += 1) {
+    const localDate = new Date(baseUtcMidnight + dayOffset * 24 * 60 * 60 * 1000);
+    const candidateParts = {
+      year: localDate.getUTCFullYear(),
+      month: localDate.getUTCMonth() + 1,
+      day: localDate.getUTCDate(),
+      hour: parsed.hour,
+      minute: parsed.minute,
+    };
+    const candidateUtc = zonedDateTimeToUtc(timezone, candidateParts);
+    const candidateWeekday = getZonedParts(candidateUtc, timezone).weekday;
+    if (parsed.weekdays && !parsed.weekdays.includes(candidateWeekday)) {
+      continue;
+    }
+    if (candidateUtc.getTime() > from.getTime()) {
+      return candidateUtc;
+    }
   }
-  return next;
+
+  return zonedDateTimeToUtc(timezone, {
+    year: zonedNow.year,
+    month: zonedNow.month,
+    day: zonedNow.day + 1,
+    hour: parsed.hour,
+    minute: parsed.minute,
+  });
 };
 
 @Injectable()
@@ -652,7 +798,7 @@ export class JobSourcesService {
       limit: dto.limit ?? 20,
       careerProfileId: dto.careerProfileId ?? null,
       filters: (dto.filters as Record<string, unknown> | undefined) ?? null,
-      nextRunAt: enabled ? computeNextRunAt(cron, now) : null,
+      nextRunAt: enabled ? computeNextRunAt(cron, now, dto.timezone ?? 'Europe/Warsaw') : null,
       updatedAt: now,
     };
 
@@ -831,7 +977,7 @@ export class JobSourcesService {
 
     const results: Array<{ userId: string; ok: boolean; sourceRunId?: string; error?: string }> = [];
     for (const schedule of schedules) {
-      const nextRunAt = computeNextRunAt(schedule.cron, acceptedAt);
+      const nextRunAt = computeNextRunAt(schedule.cron, acceptedAt, schedule.timezone);
       await this.appendScheduleEvents([
         {
           scheduleId: schedule.id,
