@@ -138,6 +138,7 @@ Canonical environment inventory:
 2. Worker tests:
    - `pnpm --filter worker test`
    - `pnpm --filter worker browser:probe`
+   - `pnpm --filter worker scrape:once -- --source pracuj-pl-it --listingUrl <url> --limit 20`
    - Container-first browser probe:
      ```bash
      docker build -f apps/worker/Dockerfile -t nest-test-worker .
@@ -380,14 +381,15 @@ For exact variable-level mapping and secret sources, use:
 21. Document diagnostics summary: `GET /api/documents/diagnostics/summary`
 22. Retry failed scrape run: `POST /api/job-sources/runs/:id/retry`
 23. Worker heartbeat callback (internal): `POST /api/job-sources/runs/:id/heartbeat`
-24. Document extraction retry: `POST /api/documents/:id/retry-extraction`
-25. Retry all failed document extractions: `POST /api/documents/retry-failed`
-26. Scrape preflight: `GET /api/job-sources/preflight`
-27. User schedule trigger-now: `POST /api/job-sources/schedule/trigger-now`
-28. Notebook summary: `GET /api/job-offers/summary`
-29. Notebook bulk follow-up update: `POST /api/job-offers/pipeline/bulk-follow-up`
-30. Scrape run event timeline: `GET /api/job-sources/runs/:id/events`
-31. Year plan doc: `docs/03_plans_and_roadmaps/03_year_plan.md`
+24. Worker incremental offer ingest (internal): `POST /api/job-sources/runs/:id/offers`
+25. Document extraction retry: `POST /api/documents/:id/retry-extraction`
+26. Retry all failed document extractions: `POST /api/documents/retry-failed`
+27. Scrape preflight: `GET /api/job-sources/preflight`
+28. User schedule trigger-now: `POST /api/job-sources/schedule/trigger-now`
+29. Notebook summary: `GET /api/job-offers/summary`
+30. Notebook bulk follow-up update: `POST /api/job-offers/pipeline/bulk-follow-up`
+31. Scrape run event timeline: `GET /api/job-sources/runs/:id/events`
+32. Year plan doc: `docs/03_plans_and_roadmaps/03_year_plan.md`
 
 ## Smoke Coverage (Current)
 
@@ -417,8 +419,9 @@ For exact variable-level mapping and secret sources, use:
 22. job-matching audit json/csv endpoints
 23. scrape retry endpoint guard (`completed` run retry rejection)
 24. scrape heartbeat callback + run progress persistence
-25. schedule trigger-now path
-26. transition guard for invalid run lifecycle state changes
+25. incremental offer ingest during running scrapes
+26. schedule trigger-now path
+27. transition guard for invalid run lifecycle state changes
 
 ## Recovery Tips
 
@@ -468,6 +471,13 @@ For exact variable-level mapping and secret sources, use:
    - confirm `GEMINI_MODEL` is not a retired `gemini-1.5-*` value
    - confirm `GCP_LOCATION` and Vertex project access match the runtime environment
    - retry only after config/access is corrected; `AI_CONFIGURATION_ERROR` is not a transient scrape-style retry condition
+14. To isolate scraper regressions without the full app stack, run:
+   - `pnpm --filter worker scrape:once -- --source pracuj-pl-it --listingUrl <url> --limit 20`
+   - use this first for parser/fallback debugging before changing scheduler or retry policies
+15. `pnpm smoke:e2e` now verifies the incremental-ingest durability path:
+   - worker-style offer ingest into a running scrape
+   - terminal failed callback
+   - persisted `user_job_offers` still present for that failed run
 
 ## Change Workflow
 

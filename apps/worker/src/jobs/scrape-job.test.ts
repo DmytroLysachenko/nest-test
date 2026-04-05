@@ -6,6 +6,7 @@ import { classifyScrapeOutcome } from '@repo/db';
 import {
   assessNormalizedJobs,
   buildScrapeCallbackPayload,
+  buildScrapeOfferIngestPayload,
   buildWorkerCallbackSignaturePayload,
   classifyScrapeError,
   classifyScrapeFailureReason,
@@ -286,6 +287,34 @@ test('buildWorkerCallbackSignaturePayload is deterministic', () => {
 
   const result = buildWorkerCallbackSignaturePayload(payload, 'req-1', 1700000000);
   assert.equal(result, '1700000000.source-run-1.COMPLETED.run-1.req-1.event-1');
+});
+
+test('buildScrapeOfferIngestPayload emits incremental offer fields', () => {
+  const payload = buildScrapeOfferIngestPayload({
+    eventId: 'event-ingest-1',
+    source: 'pracuj-pl',
+    runId: 'run-1',
+    sourceRunId: 'source-run-1',
+    attemptNo: 2,
+    emittedAt: '2026-04-04T08:00:00.000Z',
+    job: {
+      source: 'pracuj-pl-it',
+      sourceId: '123',
+      title: 'Backend Engineer',
+      company: 'ACME',
+      location: 'Remote',
+      description: 'Build services.',
+      url: 'https://it.pracuj.pl/praca/backend,oferta,123',
+      tags: [],
+      salary: null,
+      employmentType: 'B2B',
+      requirements: ['TypeScript'],
+    },
+  });
+
+  assert.equal(payload.eventId, 'event-ingest-1');
+  assert.equal(payload.job.title, 'Backend Engineer');
+  assert.equal(payload.attemptNo, 2);
 });
 
 test('computeCallbackRetryDelayMs applies exponential backoff without jitter', () => {

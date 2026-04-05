@@ -62,6 +62,7 @@ import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
 import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';
+import { ScrapeOfferIngestDto } from './dto/scrape-offer-ingest.dto';
 import { buildFiltersFromProfile, buildMatchingFiltersFromProfile, inferPracujSource } from './scrape-request-resolver';
 import { RunDiagnosticsSummaryCache } from './run-diagnostics-summary-cache';
 import { UpdateScrapeScheduleDto } from './dto/scrape-schedule.dto';
@@ -69,6 +70,8 @@ import { UpdateScrapeScheduleDto } from './dto/scrape-schedule.dto';
 import type { Env } from '@/config/env';
 
 type CallbackJobPayload = NonNullable<ScrapeCompleteDto['jobs']>[number];
+type IncrementalOfferPayload = ScrapeOfferIngestDto['job'];
+type PersistableOfferPayload = CallbackJobPayload | IncrementalOfferPayload;
 type RunFailureType = 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown';
 type RunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 type CatalogRecommendationAction = 'scrape' | 'rematch' | 'blocked';
@@ -281,6 +284,11 @@ const deriveFailureType = (error?: string | null) => {
   return 'unknown';
 };
 
+const STALE_RUN_ERROR_PREFIX = '[timeout] run stale watchdog';
+
+const isStaleRunError = (value: string | null | undefined) =>
+  typeof value === 'string' && value.startsWith(STALE_RUN_ERROR_PREFIX);
+
 const classifySilentFailure = (input: {
   status: string;
   totalFound?: number | null;
@@ -400,41 +408,184 @@ const DEFAULT_SCRAPE_SOURCE_FAILURE_THRESHOLD = 3;
 const DEFAULT_SCRAPE_SOURCE_AUTOMATION_BACKOFF_MINUTES = 30;
 const HEARTBEAT_EVENT_DEDUP_WINDOW_MS = 15_000;
 
-const parseSchedule = (
-  cron: string,
-): { kind: 'everyMinutes'; minutes: number } | { kind: 'daily'; hour: number; minute: number } => {
+type ParsedSchedule =
+  | { kind: 'everyMinutes'; minutes: number }
+  | { kind: 'scheduled'; hour: number; minute: number; weekdays: number[] | null };
+
+const parseWeekdays = (value: string) => {
+  const trimmed = value.trim();
+  if (trimmed === '*') {
+    return null;
+  }
+
+  const normalized = new Set<number>();
+  for (const token of trimmed.split(',')) {
+    const part = token.trim();
+    if (!part) {
+      continue;
+    }
+
+    const rangeMatch = part.match(/^(\d)-(\d)$/);
+    if (rangeMatch) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      for (let current = start; current <= end; current += 1) {
+        normalized.add(current % 7);
+      }
+      continue;
+    }
+
+    const day = Number(part);
+    if (Number.isInteger(day) && day >= 0 && day <= 7) {
+      normalized.add(day % 7);
+    }
+  }
+
+  return normalized.size > 0 ? Array.from(normalized).sort((left, right) => left - right) : null;
+};
+
+const sanitizeIncrementalJob = (job: IncrementalOfferPayload | undefined | null): CallbackJobPayload[] => {
+  if (!job) {
+    return [];
+  }
+
+  return sanitizeCallbackJobs([job]);
+};
+
+const getTimeZoneOffsetMinutes = (date: Date, timezone: string) => {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    timeZoneName: 'shortOffset',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const offsetToken = formatter.formatToParts(date).find((part) => part.type === 'timeZoneName')?.value ?? 'GMT+0';
+  const match = offsetToken.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/i);
+  if (!match) {
+    return 0;
+  }
+  const sign = match[1] === '-' ? -1 : 1;
+  const hours = Number(match[2] ?? 0);
+  const minutes = Number(match[3] ?? 0);
+  return sign * (hours * 60 + minutes);
+};
+
+const getZonedParts = (date: Date, timezone: string) => {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+    weekday: 'short',
+  });
+  const parts = formatter.formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const weekdayMap: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
+
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+    second: Number(values.second),
+    weekday: weekdayMap[values.weekday] ?? 0,
+  };
+};
+
+const zonedDateTimeToUtc = (
+  timezone: string,
+  parts: {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+  },
+) => {
+  let candidate = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, 0, 0));
+  for (let iteration = 0; iteration < 3; iteration += 1) {
+    const offsetMinutes = getTimeZoneOffsetMinutes(candidate, timezone);
+    const corrected = new Date(
+      Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, 0, 0) - offsetMinutes * 60_000,
+    );
+    if (corrected.getTime() === candidate.getTime()) {
+      return corrected;
+    }
+    candidate = corrected;
+  }
+  return candidate;
+};
+
+export const parseSchedule = (cron: string): ParsedSchedule => {
   const everyMinutes = /^\*\/(\d{1,2}) \* \* \* \*$/;
-  const daily = /^(\d{1,2}) (\d{1,2}) \* \* \*$/;
+  const scheduled = /^(\d{1,2}) (\d{1,2}) \* \* ([\d,\-*]+)$/;
   const everyMinutesMatch = cron.trim().match(everyMinutes);
   if (everyMinutesMatch) {
     const minutes = Number(everyMinutesMatch[1]);
     return { kind: 'everyMinutes', minutes: Math.max(1, Math.min(59, minutes)) };
   }
-  const dailyMatch = cron.trim().match(daily);
-  if (dailyMatch) {
-    const minute = Number(dailyMatch[1]);
-    const hour = Number(dailyMatch[2]);
+  const scheduledMatch = cron.trim().match(scheduled);
+  if (scheduledMatch) {
+    const minute = Number(scheduledMatch[1]);
+    const hour = Number(scheduledMatch[2]);
     return {
-      kind: 'daily',
+      kind: 'scheduled',
       hour: Math.max(0, Math.min(23, hour)),
       minute: Math.max(0, Math.min(59, minute)),
+      weekdays: parseWeekdays(scheduledMatch[3] ?? '*'),
     };
   }
-  return { kind: 'daily', hour: 9, minute: 0 };
+  return { kind: 'scheduled', hour: 9, minute: 0, weekdays: null };
 };
 
-const computeNextRunAt = (cron: string, from: Date): Date => {
+export const computeNextRunAt = (cron: string, from: Date, timezone = 'UTC'): Date => {
   const parsed = parseSchedule(cron);
   if (parsed.kind === 'everyMinutes') {
     return new Date(from.getTime() + parsed.minutes * 60 * 1000);
   }
-  const next = new Date(from);
-  next.setUTCSeconds(0, 0);
-  next.setUTCHours(parsed.hour, parsed.minute, 0, 0);
-  if (next.getTime() <= from.getTime()) {
-    next.setUTCDate(next.getUTCDate() + 1);
+
+  const zonedNow = getZonedParts(from, timezone);
+  const baseUtcMidnight = Date.UTC(zonedNow.year, zonedNow.month - 1, zonedNow.day, 0, 0, 0, 0);
+
+  for (let dayOffset = 0; dayOffset < 8; dayOffset += 1) {
+    const localDate = new Date(baseUtcMidnight + dayOffset * 24 * 60 * 60 * 1000);
+    const candidateParts = {
+      year: localDate.getUTCFullYear(),
+      month: localDate.getUTCMonth() + 1,
+      day: localDate.getUTCDate(),
+      hour: parsed.hour,
+      minute: parsed.minute,
+    };
+    const candidateUtc = zonedDateTimeToUtc(timezone, candidateParts);
+    const candidateWeekday = getZonedParts(candidateUtc, timezone).weekday;
+    if (parsed.weekdays && !parsed.weekdays.includes(candidateWeekday)) {
+      continue;
+    }
+    if (candidateUtc.getTime() > from.getTime()) {
+      return candidateUtc;
+    }
   }
-  return next;
+
+  return zonedDateTimeToUtc(timezone, {
+    year: zonedNow.year,
+    month: zonedNow.month,
+    day: zonedNow.day + 1,
+    hour: parsed.hour,
+    minute: parsed.minute,
+  });
 };
 
 @Injectable()
@@ -652,7 +803,7 @@ export class JobSourcesService {
       limit: dto.limit ?? 20,
       careerProfileId: dto.careerProfileId ?? null,
       filters: (dto.filters as Record<string, unknown> | undefined) ?? null,
-      nextRunAt: enabled ? computeNextRunAt(cron, now) : null,
+      nextRunAt: enabled ? computeNextRunAt(cron, now, dto.timezone ?? 'Europe/Warsaw') : null,
       updatedAt: now,
     };
 
@@ -831,7 +982,7 @@ export class JobSourcesService {
 
     const results: Array<{ userId: string; ok: boolean; sourceRunId?: string; error?: string }> = [];
     for (const schedule of schedules) {
-      const nextRunAt = computeNextRunAt(schedule.cron, acceptedAt);
+      const nextRunAt = computeNextRunAt(schedule.cron, acceptedAt, schedule.timezone);
       await this.appendScheduleEvents([
         {
           scheduleId: schedule.id,
@@ -1165,6 +1316,7 @@ export class JobSourcesService {
     const authToken = this.configService.get('WORKER_AUTH_TOKEN', { infer: true });
     const callbackUrl = this.resolveWorkerCallbackUrl();
     const heartbeatUrl = this.resolveWorkerHeartbeatUrl(run.id);
+    const ingestUrl = this.resolveWorkerOfferIngestUrl(run.id);
     const callbackToken = this.configService.get('WORKER_CALLBACK_TOKEN', { infer: true });
     if (!workerUrl) {
       await this.markRunFailed(run.id, 'Worker task URL is not configured');
@@ -1185,6 +1337,7 @@ export class JobSourcesService {
         dedupeKey: intentFingerprint,
         callbackUrl,
         heartbeatUrl,
+        ingestUrl,
         callbackToken,
         listingUrl,
         limit: dto.limit,
@@ -1688,6 +1841,34 @@ export class JobSourcesService {
         },
       });
 
+      if (run.userId && run.careerProfileId) {
+        const existingOffers = await this.db
+          .select({ id: jobOffersTable.id })
+          .from(jobOffersTable)
+          .where(eq(jobOffersTable.runId, run.id));
+        const linked = await this.linkPersistedOffersForRun(
+          run,
+          existingOffers.map((offer) => offer.id),
+        );
+        const linkedCount = await this.countLinkedOffersForRun(run.id);
+        const persistedCount = existingOffers.length;
+        await this.db
+          .update(jobSourceRunsTable)
+          .set({
+            progress: {
+              ...(((run.progress as Record<string, unknown> | null) ?? {}) as Record<string, unknown>),
+              totalFound: totalFound ?? persistedCount,
+              scrapedCount: Math.max(scrapedCount, persistedCount),
+              candidateOffers: persistedCount,
+              matchedOffers: Math.max(linked.matchedCount, linkedCount),
+              userInsertedOffers: linkedCount,
+              callbackAcceptedAt: completedAt.toISOString(),
+              updatedAt: completedAt.toISOString(),
+            },
+          })
+          .where(eq(jobSourceRunsTable.id, run.id));
+      }
+
       return {
         ok: true,
         status: 'FAILED',
@@ -1697,7 +1878,6 @@ export class JobSourcesService {
     }
 
     if (sanitizedJobs.length) {
-      const now = new Date();
       await this.appendRunEvent({
         sourceRunId: run.id,
         traceId: run.traceId,
@@ -1711,220 +1891,7 @@ export class JobSourcesService {
           rejectedOfferReasons: dto.diagnostics?.rejectedOfferReasons ?? {},
         },
       });
-      const jobsToPersist = await this.reuseExistingUrlsBySourceId(run.source, sanitizedJobs);
-      const catalogNormalizationRefs = await resolveCatalogNormalizationRefs(this.db, jobsToPersist, {
-        source: run.source,
-        listingUrl: run.listingUrl,
-        filters: (run.filters as Record<string, unknown> | null) ?? null,
-      });
-      const cols = getTableColumns(jobOffersTable);
-      const catalogOfferValues: JobOfferInsert[] = jobsToPersist.map((job, index) => {
-        const normalizedRefs = catalogNormalizationRefs[index];
-        const parsedSalary = normalizedRefs?.parsedSalary;
-        return {
-          source: run.source,
-          sourceId: job.sourceId ?? null,
-          offerIdentityKey: computeOfferIdentityKey({
-            sourceId: job.sourceId ?? null,
-            url: job.url,
-          }),
-          runId: run.id,
-          url: job.url,
-          title: job.title,
-          companyId: normalizedRefs?.companyId ?? null,
-          jobCategoryId: normalizedRefs?.jobCategoryId ?? null,
-          employmentTypeId: normalizedRefs?.employmentTypeId ?? null,
-          contractTypeId: normalizedRefs?.contractTypeId ?? null,
-          workModeId: normalizedRefs?.workModeId ?? null,
-          company: job.company ?? null,
-          location: job.location ?? null,
-          salary: job.salary ?? null,
-          salaryMin: parsedSalary?.salaryMin ?? null,
-          salaryMax: parsedSalary?.salaryMax ?? null,
-          salaryCurrency: parsedSalary?.salaryCurrency ?? null,
-          salaryPeriod: parsedSalary?.salaryPeriod ?? null,
-          salaryKind: parsedSalary?.salaryKind ?? null,
-          employmentType: job.employmentType ?? null,
-          sourceCompanyProfileUrl: job.sourceCompanyProfileUrl ?? normalizedRefs?.sourceCompanyProfileUrl ?? null,
-          applyUrl: job.applyUrl ?? null,
-          postedAt: job.postedAt ? new Date(job.postedAt) : null,
-          description: job.description,
-          requirements: job.requirements?.length ? job.requirements : null,
-          details: job.details ?? null,
-          contentHash: this.computeCatalogContentHash(job),
-          qualityState: ACCEPTED_QUALITY_STATE,
-          qualityReason: deriveCatalogQualityReason(job),
-          isExpired: job.isExpired ?? false,
-          expiresAt: job.isExpired ? now : null,
-          lastFullScrapeAt: now,
-          firstSeenAt: now,
-          lastSeenAt: now,
-          fetchedAt: now,
-        };
-      });
-
-      const persistedOffers = await this.db
-        .insert(jobOffersTable)
-        .values(catalogOfferValues)
-        .onConflictDoUpdate({
-          target: [jobOffersTable.source, jobOffersTable.offerIdentityKey],
-          set: {
-            runId: run.id,
-            sourceId: sql`CASE
-              WHEN ${excludedColumn(cols.sourceId)} IS NOT NULL AND ${excludedColumn(cols.sourceId)} != ''
-              THEN ${excludedColumn(cols.sourceId)}
-              ELSE ${jobOffersTable.sourceId}
-            END`,
-            title: sql`CASE
-              WHEN ${excludedColumn(cols.title)} IS NOT NULL AND ${excludedColumn(cols.title)} != '' AND ${excludedColumn(cols.title)} != 'Unknown title'
-              THEN ${excludedColumn(cols.title)}
-              ELSE ${jobOffersTable.title}
-            END`,
-            companyId: sql`coalesce(${jobOffersTable.companyId}, ${excludedColumn(cols.companyId)})`,
-            jobCategoryId: sql`coalesce(${jobOffersTable.jobCategoryId}, ${excludedColumn(cols.jobCategoryId)})`,
-            employmentTypeId: sql`coalesce(${jobOffersTable.employmentTypeId}, ${excludedColumn(cols.employmentTypeId)})`,
-            contractTypeId: sql`coalesce(${jobOffersTable.contractTypeId}, ${excludedColumn(cols.contractTypeId)})`,
-            workModeId: sql`coalesce(${jobOffersTable.workModeId}, ${excludedColumn(cols.workModeId)})`,
-            company: sql`CASE
-              WHEN ${excludedColumn(cols.company)} IS NOT NULL AND ${excludedColumn(cols.company)} != ''
-              THEN ${excludedColumn(cols.company)}
-              ELSE ${jobOffersTable.company}
-            END`,
-            location: sql`CASE
-              WHEN ${excludedColumn(cols.location)} IS NOT NULL AND ${excludedColumn(cols.location)} != ''
-              THEN ${excludedColumn(cols.location)}
-              ELSE ${jobOffersTable.location}
-            END`,
-            salary: sql`CASE
-              WHEN ${excludedColumn(cols.salary)} IS NOT NULL AND ${excludedColumn(cols.salary)} != ''
-              THEN ${excludedColumn(cols.salary)}
-              ELSE ${jobOffersTable.salary}
-            END`,
-            salaryMin: sql`coalesce(${excludedColumn(cols.salaryMin)}, ${jobOffersTable.salaryMin})`,
-            salaryMax: sql`coalesce(${excludedColumn(cols.salaryMax)}, ${jobOffersTable.salaryMax})`,
-            salaryCurrency: sql`coalesce(${excludedColumn(cols.salaryCurrency)}, ${jobOffersTable.salaryCurrency})`,
-            salaryPeriod: sql`coalesce(${excludedColumn(cols.salaryPeriod)}, ${jobOffersTable.salaryPeriod})`,
-            salaryKind: sql`coalesce(${excludedColumn(cols.salaryKind)}, ${jobOffersTable.salaryKind})`,
-            employmentType: sql`CASE
-              WHEN ${excludedColumn(cols.employmentType)} IS NOT NULL AND ${excludedColumn(cols.employmentType)} != ''
-              THEN ${excludedColumn(cols.employmentType)}
-              ELSE ${jobOffersTable.employmentType}
-            END`,
-            sourceCompanyProfileUrl: sql`coalesce(${excludedColumn(cols.sourceCompanyProfileUrl)}, ${jobOffersTable.sourceCompanyProfileUrl})`,
-            applyUrl: sql`coalesce(${excludedColumn(cols.applyUrl)}, ${jobOffersTable.applyUrl})`,
-            postedAt: sql`coalesce(${excludedColumn(cols.postedAt)}, ${jobOffersTable.postedAt})`,
-            description: sql`CASE
-              WHEN ${excludedColumn(cols.description)} IS NOT NULL
-               AND ${excludedColumn(cols.description)} != ''
-               AND ${excludedColumn(cols.description)} != 'No description found'
-               AND ${excludedColumn(cols.description)} != 'Listing summary only'
-              THEN ${excludedColumn(cols.description)}
-              ELSE ${jobOffersTable.description}
-            END`,
-            requirements: sql`CASE
-              WHEN ${excludedColumn(cols.requirements)} IS NOT NULL THEN ${excludedColumn(cols.requirements)}
-              ELSE ${jobOffersTable.requirements}
-            END`,
-            details: sql`CASE
-              WHEN ${excludedColumn(cols.details)} IS NOT NULL THEN ${excludedColumn(cols.details)}
-              ELSE ${jobOffersTable.details}
-            END`,
-            isExpired: excludedColumn(cols.isExpired),
-            expiresAt: sql`CASE
-              WHEN ${excludedColumn(cols.isExpired)} = TRUE AND ${jobOffersTable.expiresAt} IS NULL
-              THEN ${excludedColumn(cols.expiresAt)}
-              ELSE ${jobOffersTable.expiresAt}
-            END`,
-            lastFullScrapeAt: excludedColumn(cols.lastFullScrapeAt),
-            contentHash: sql`CASE
-              WHEN length(coalesce(${excludedColumn(cols.description)}, '')) > length(coalesce(${jobOffersTable.description}, ''))
-              THEN ${excludedColumn(cols.contentHash)}
-              ELSE coalesce(${jobOffersTable.contentHash}, ${excludedColumn(cols.contentHash)})
-            END`,
-            qualityState: sql`CASE
-              WHEN ${excludedColumn(cols.isExpired)} = TRUE THEN ${jobOffersTable.qualityState}
-              ELSE ${excludedColumn(cols.qualityState)}
-            END`,
-            qualityReason: sql`CASE
-              WHEN ${jobOffersTable.qualityReason} IS NULL THEN ${jobOffersTable.qualityReason}
-              WHEN ${excludedColumn(cols.qualityReason)} IS NULL THEN ${excludedColumn(cols.qualityReason)}
-              WHEN ${jobOffersTable.qualityReason} = 'listing_salvage'
-               AND ${excludedColumn(cols.qualityReason)} = 'low_context'
-              THEN ${excludedColumn(cols.qualityReason)}
-              ELSE ${jobOffersTable.qualityReason}
-            END`,
-            firstSeenAt: sql`least(${jobOffersTable.firstSeenAt}, ${excludedColumn(cols.firstSeenAt)})`,
-            lastSeenAt: excludedColumn(cols.lastSeenAt),
-            fetchedAt: now,
-          },
-        })
-        .returning({ id: jobOffersTable.id, offerIdentityKey: jobOffersTable.offerIdentityKey });
-
-      const persistedOfferByIdentityKey = new Map(persistedOffers.map((offer) => [offer.offerIdentityKey, offer.id]));
-
-      for (const [index, job] of jobsToPersist.entries()) {
-        const offerIdentityKey = computeOfferIdentityKey({
-          sourceId: job.sourceId ?? null,
-          url: job.url,
-        });
-        const persistedOfferId = persistedOfferByIdentityKey.get(offerIdentityKey);
-        const normalizedRefs = catalogNormalizationRefs[index];
-        if (!persistedOfferId || !normalizedRefs) {
-          continue;
-        }
-
-        await replaceJobOfferRelations(this.db, persistedOfferId, normalizedRefs);
-        await persistCatalogObservation(this.db, {
-          jobOfferId: persistedOfferId,
-          runId: run.id,
-          source: run.source,
-          sourceId: job.sourceId ?? null,
-          title: job.title,
-          company: job.company ?? null,
-          location: job.location ?? null,
-          salary: job.salary ?? null,
-          employmentType: job.employmentType ?? null,
-          applyUrl: job.applyUrl ?? null,
-          postedAt: job.postedAt ? new Date(job.postedAt) : null,
-          description: job.description,
-          requirements: job.requirements?.length ? job.requirements : null,
-          details: job.details ?? null,
-          contentHash: this.computeCatalogContentHash(job),
-          qualityState: ACCEPTED_QUALITY_STATE,
-          qualityReason: deriveCatalogQualityReason(job),
-          parserVersion: 'pracuj-pl-parser-v2',
-          normalizationVersion: 'catalog-normalization-v2',
-          normalizedRefs,
-          rawPayloads: [
-            {
-              payloadType: 'normalized-job',
-              payloadJson: {
-                source: job.source,
-                sourceId: job.sourceId ?? null,
-                title: job.title,
-                url: job.url,
-                company: job.company ?? null,
-                location: job.location ?? null,
-                salary: job.salary ?? null,
-                employmentType: job.employmentType ?? null,
-                applyUrl: job.applyUrl ?? null,
-                postedAt: job.postedAt ?? null,
-                sourceCompanyProfileUrl: job.sourceCompanyProfileUrl ?? null,
-                requirements: job.requirements ?? [],
-                details: job.details ?? null,
-              },
-            },
-            ...(job.rawPayload
-              ? [
-                  {
-                    payloadType: 'source-raw',
-                    payloadJson: job.rawPayload,
-                  },
-                ]
-              : []),
-          ],
-        });
-      }
+      const persisted = await this.persistAcceptedJobsForRun(run, sanitizedJobs);
 
       await this.appendRunEvent({
         sourceRunId: run.id,
@@ -1934,7 +1901,7 @@ export class JobSourcesService {
         attemptNo: callbackAttemptNo,
         message: 'Accepted scrape offers were persisted into the shared catalog.',
         meta: {
-          catalogOfferCount: persistedOffers.length,
+          catalogOfferCount: persisted.offerIds.length,
         },
       });
     }
@@ -2124,6 +2091,110 @@ export class JobSourcesService {
       inserted: inserted.insertedCount,
       totalOffers: offers.length,
       idempotent: inserted.insertedCount === 0,
+    };
+  }
+
+  async ingestScrapeOffer(
+    runId: string,
+    dto: ScrapeOfferIngestDto,
+    authorization?: string,
+    requestId?: string,
+    workerSignature?: string,
+    workerTimestamp?: string,
+  ) {
+    await this.verifyWorkerCallbackAuthorization(authorization);
+    this.verifyWorkerSignature(
+      {
+        sourceRunId: runId,
+        status: 'INGEST',
+        runId: dto.runId,
+        eventId: dto.eventId,
+      },
+      requestId,
+      workerSignature,
+      workerTimestamp,
+    );
+
+    if (dto.sourceRunId !== runId) {
+      throw new BadRequestException('sourceRunId path and payload mismatch');
+    }
+
+    const run = await this.db
+      .select({
+        id: jobSourceRunsTable.id,
+        traceId: jobSourceRunsTable.traceId,
+        source: jobSourceRunsTable.source,
+        userId: jobSourceRunsTable.userId,
+        careerProfileId: jobSourceRunsTable.careerProfileId,
+        status: jobSourceRunsTable.status,
+        listingUrl: jobSourceRunsTable.listingUrl,
+        filters: jobSourceRunsTable.filters,
+        progress: jobSourceRunsTable.progress,
+      })
+      .from(jobSourceRunsTable)
+      .where(eq(jobSourceRunsTable.id, runId))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!run) {
+      throw new NotFoundException('Job source run not found');
+    }
+
+    if (run.status === 'COMPLETED' || run.status === 'FAILED') {
+      return { ok: true, status: run.status, ignored: true };
+    }
+
+    const sanitizedJobs = sanitizeIncrementalJob(dto.job);
+    if (!sanitizedJobs.length) {
+      return { ok: true, status: run.status, ignored: true };
+    }
+
+    const attemptNo = Math.max(1, dto.attemptNo ?? 1);
+    const persisted = await this.persistAcceptedJobsForRun(run, sanitizedJobs);
+    const linked = await this.linkPersistedOffersForRun(run, persisted.offerIds);
+    const linkedCount = await this.countLinkedOffersForRun(run.id);
+    const now = new Date();
+    const nextProgress = {
+      ...(((run.progress as Record<string, unknown> | null) ?? {}) as Record<string, unknown>),
+      candidateOffers:
+        Number(
+          run.progress && typeof run.progress === 'object'
+            ? ((run.progress as Record<string, unknown>).candidateOffers ?? 0)
+            : 0,
+        ) + persisted.offerIds.length,
+      userInsertedOffers: linkedCount,
+      incrementalOfferIngestedAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+
+    await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        status: run.status === 'PENDING' ? 'RUNNING' : run.status,
+        lastHeartbeatAt: now,
+        progress: nextProgress,
+      })
+      .where(eq(jobSourceRunsTable.id, run.id));
+
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'offer_incrementally_ingested',
+      requestId,
+      attemptNo,
+      message: 'Worker incrementally persisted an accepted offer before terminal callback.',
+      meta: {
+        eventId: dto.eventId,
+        offerIdentityKey: persisted.offerIdentityKeys[0] ?? null,
+        insertedOffers: linked.insertedCount,
+      },
+    });
+
+    return {
+      ok: true,
+      status: run.status === 'PENDING' ? 'RUNNING' : run.status,
+      ingested: persisted.offerIds.length,
+      linked: linked.insertedCount,
     };
   }
 
@@ -2793,6 +2864,279 @@ export class JobSourcesService {
       .where(eq(jobSourceRunsTable.id, input.runId));
   }
 
+  private async persistAcceptedJobsForRun(
+    run: {
+      id: string;
+      source: 'PRACUJ_PL';
+      listingUrl: string;
+      filters: unknown;
+    },
+    jobs: CallbackJobPayload[],
+  ) {
+    if (!jobs.length) {
+      return { offerIds: [] as string[], offerIdentityKeys: [] as string[] };
+    }
+
+    const now = new Date();
+    const jobsToPersist = await this.reuseExistingUrlsBySourceId(run.source, jobs);
+    const catalogNormalizationRefs = await resolveCatalogNormalizationRefs(this.db, jobsToPersist, {
+      source: run.source,
+      listingUrl: run.listingUrl,
+      filters: (run.filters as Record<string, unknown> | null) ?? null,
+    });
+    const cols = getTableColumns(jobOffersTable);
+    const catalogOfferValues: JobOfferInsert[] = jobsToPersist.map((job, index) => {
+      const normalizedRefs = catalogNormalizationRefs[index];
+      const parsedSalary = normalizedRefs?.parsedSalary;
+      return {
+        source: run.source,
+        sourceId: job.sourceId ?? null,
+        offerIdentityKey: computeOfferIdentityKey({
+          sourceId: job.sourceId ?? null,
+          url: job.url,
+        }),
+        runId: run.id,
+        url: job.url,
+        title: job.title,
+        companyId: normalizedRefs?.companyId ?? null,
+        jobCategoryId: normalizedRefs?.jobCategoryId ?? null,
+        employmentTypeId: normalizedRefs?.employmentTypeId ?? null,
+        contractTypeId: normalizedRefs?.contractTypeId ?? null,
+        workModeId: normalizedRefs?.workModeId ?? null,
+        company: job.company ?? null,
+        location: job.location ?? null,
+        salary: job.salary ?? null,
+        salaryMin: parsedSalary?.salaryMin ?? null,
+        salaryMax: parsedSalary?.salaryMax ?? null,
+        salaryCurrency: parsedSalary?.salaryCurrency ?? null,
+        salaryPeriod: parsedSalary?.salaryPeriod ?? null,
+        salaryKind: parsedSalary?.salaryKind ?? null,
+        employmentType: job.employmentType ?? null,
+        sourceCompanyProfileUrl: job.sourceCompanyProfileUrl ?? normalizedRefs?.sourceCompanyProfileUrl ?? null,
+        applyUrl: job.applyUrl ?? null,
+        postedAt: job.postedAt ? new Date(job.postedAt) : null,
+        description: job.description,
+        requirements: job.requirements?.length ? job.requirements : null,
+        details: job.details ?? null,
+        contentHash: this.computeCatalogContentHash(job),
+        qualityState: ACCEPTED_QUALITY_STATE,
+        qualityReason: deriveCatalogQualityReason(job),
+        isExpired: job.isExpired ?? false,
+        expiresAt: job.isExpired ? now : null,
+        lastFullScrapeAt: now,
+        firstSeenAt: now,
+        lastSeenAt: now,
+        fetchedAt: now,
+      };
+    });
+
+    const persistedOffers = await this.db
+      .insert(jobOffersTable)
+      .values(catalogOfferValues)
+      .onConflictDoUpdate({
+        target: [jobOffersTable.source, jobOffersTable.offerIdentityKey],
+        set: {
+          runId: run.id,
+          sourceId: sql`CASE
+            WHEN ${excludedColumn(cols.sourceId)} IS NOT NULL AND ${excludedColumn(cols.sourceId)} != ''
+            THEN ${excludedColumn(cols.sourceId)}
+            ELSE ${jobOffersTable.sourceId}
+          END`,
+          title: sql`CASE
+            WHEN ${excludedColumn(cols.title)} IS NOT NULL AND ${excludedColumn(cols.title)} != '' AND ${excludedColumn(cols.title)} != 'Unknown title'
+            THEN ${excludedColumn(cols.title)}
+            ELSE ${jobOffersTable.title}
+          END`,
+          companyId: sql`coalesce(${jobOffersTable.companyId}, ${excludedColumn(cols.companyId)})`,
+          jobCategoryId: sql`coalesce(${jobOffersTable.jobCategoryId}, ${excludedColumn(cols.jobCategoryId)})`,
+          employmentTypeId: sql`coalesce(${jobOffersTable.employmentTypeId}, ${excludedColumn(cols.employmentTypeId)})`,
+          contractTypeId: sql`coalesce(${jobOffersTable.contractTypeId}, ${excludedColumn(cols.contractTypeId)})`,
+          workModeId: sql`coalesce(${jobOffersTable.workModeId}, ${excludedColumn(cols.workModeId)})`,
+          company: sql`CASE
+            WHEN ${excludedColumn(cols.company)} IS NOT NULL AND ${excludedColumn(cols.company)} != ''
+            THEN ${excludedColumn(cols.company)}
+            ELSE ${jobOffersTable.company}
+          END`,
+          location: sql`CASE
+            WHEN ${excludedColumn(cols.location)} IS NOT NULL AND ${excludedColumn(cols.location)} != ''
+            THEN ${excludedColumn(cols.location)}
+            ELSE ${jobOffersTable.location}
+          END`,
+          salary: sql`CASE
+            WHEN ${excludedColumn(cols.salary)} IS NOT NULL AND ${excludedColumn(cols.salary)} != ''
+            THEN ${excludedColumn(cols.salary)}
+            ELSE ${jobOffersTable.salary}
+          END`,
+          salaryMin: sql`coalesce(${excludedColumn(cols.salaryMin)}, ${jobOffersTable.salaryMin})`,
+          salaryMax: sql`coalesce(${excludedColumn(cols.salaryMax)}, ${jobOffersTable.salaryMax})`,
+          salaryCurrency: sql`coalesce(${excludedColumn(cols.salaryCurrency)}, ${jobOffersTable.salaryCurrency})`,
+          salaryPeriod: sql`coalesce(${excludedColumn(cols.salaryPeriod)}, ${jobOffersTable.salaryPeriod})`,
+          salaryKind: sql`coalesce(${excludedColumn(cols.salaryKind)}, ${jobOffersTable.salaryKind})`,
+          employmentType: sql`CASE
+            WHEN ${excludedColumn(cols.employmentType)} IS NOT NULL AND ${excludedColumn(cols.employmentType)} != ''
+            THEN ${excludedColumn(cols.employmentType)}
+            ELSE ${jobOffersTable.employmentType}
+          END`,
+          sourceCompanyProfileUrl: sql`coalesce(${excludedColumn(cols.sourceCompanyProfileUrl)}, ${jobOffersTable.sourceCompanyProfileUrl})`,
+          applyUrl: sql`coalesce(${excludedColumn(cols.applyUrl)}, ${jobOffersTable.applyUrl})`,
+          postedAt: sql`coalesce(${excludedColumn(cols.postedAt)}, ${jobOffersTable.postedAt})`,
+          description: sql`CASE
+            WHEN ${excludedColumn(cols.description)} IS NOT NULL
+             AND ${excludedColumn(cols.description)} != ''
+             AND ${excludedColumn(cols.description)} != 'No description found'
+             AND ${excludedColumn(cols.description)} != 'Listing summary only'
+            THEN ${excludedColumn(cols.description)}
+            ELSE ${jobOffersTable.description}
+          END`,
+          requirements: sql`CASE
+            WHEN ${excludedColumn(cols.requirements)} IS NOT NULL THEN ${excludedColumn(cols.requirements)}
+            ELSE ${jobOffersTable.requirements}
+          END`,
+          details: sql`CASE
+            WHEN ${excludedColumn(cols.details)} IS NOT NULL THEN ${excludedColumn(cols.details)}
+            ELSE ${jobOffersTable.details}
+          END`,
+          isExpired: excludedColumn(cols.isExpired),
+          expiresAt: sql`CASE
+            WHEN ${excludedColumn(cols.isExpired)} = TRUE AND ${jobOffersTable.expiresAt} IS NULL
+            THEN ${excludedColumn(cols.expiresAt)}
+            ELSE ${jobOffersTable.expiresAt}
+          END`,
+          lastFullScrapeAt: excludedColumn(cols.lastFullScrapeAt),
+          contentHash: sql`CASE
+            WHEN length(coalesce(${excludedColumn(cols.description)}, '')) > length(coalesce(${jobOffersTable.description}, ''))
+            THEN ${excludedColumn(cols.contentHash)}
+            ELSE coalesce(${jobOffersTable.contentHash}, ${excludedColumn(cols.contentHash)})
+          END`,
+          qualityState: sql`CASE
+            WHEN ${excludedColumn(cols.isExpired)} = TRUE THEN ${jobOffersTable.qualityState}
+            ELSE ${excludedColumn(cols.qualityState)}
+          END`,
+          qualityReason: sql`CASE
+            WHEN ${jobOffersTable.qualityReason} IS NULL THEN ${jobOffersTable.qualityReason}
+            WHEN ${excludedColumn(cols.qualityReason)} IS NULL THEN ${excludedColumn(cols.qualityReason)}
+            WHEN ${jobOffersTable.qualityReason} = 'listing_salvage'
+             AND ${excludedColumn(cols.qualityReason)} = 'low_context'
+            THEN ${excludedColumn(cols.qualityReason)}
+            ELSE ${jobOffersTable.qualityReason}
+          END`,
+          firstSeenAt: sql`least(${jobOffersTable.firstSeenAt}, ${excludedColumn(cols.firstSeenAt)})`,
+          lastSeenAt: excludedColumn(cols.lastSeenAt),
+          fetchedAt: now,
+        },
+      })
+      .returning({ id: jobOffersTable.id, offerIdentityKey: jobOffersTable.offerIdentityKey });
+
+    const persistedOfferByIdentityKey = new Map(persistedOffers.map((offer) => [offer.offerIdentityKey, offer.id]));
+
+    for (const [index, job] of jobsToPersist.entries()) {
+      const offerIdentityKey = computeOfferIdentityKey({
+        sourceId: job.sourceId ?? null,
+        url: job.url,
+      });
+      const persistedOfferId = persistedOfferByIdentityKey.get(offerIdentityKey);
+      const normalizedRefs = catalogNormalizationRefs[index];
+      if (!persistedOfferId || !normalizedRefs) {
+        continue;
+      }
+
+      await replaceJobOfferRelations(this.db, persistedOfferId, normalizedRefs);
+      await persistCatalogObservation(this.db, {
+        jobOfferId: persistedOfferId,
+        runId: run.id,
+        source: run.source,
+        sourceId: job.sourceId ?? null,
+        title: job.title,
+        company: job.company ?? null,
+        location: job.location ?? null,
+        salary: job.salary ?? null,
+        employmentType: job.employmentType ?? null,
+        applyUrl: job.applyUrl ?? null,
+        postedAt: job.postedAt ? new Date(job.postedAt) : null,
+        description: job.description,
+        requirements: job.requirements?.length ? job.requirements : null,
+        details: job.details ?? null,
+        contentHash: this.computeCatalogContentHash(job),
+        qualityState: ACCEPTED_QUALITY_STATE,
+        qualityReason: deriveCatalogQualityReason(job),
+        parserVersion: 'pracuj-pl-parser-v2',
+        normalizationVersion: 'catalog-normalization-v2',
+        normalizedRefs,
+        rawPayloads: [
+          {
+            payloadType: 'normalized-job',
+            payloadJson: {
+              source: job.source,
+              sourceId: job.sourceId ?? null,
+              title: job.title,
+              url: job.url,
+              company: job.company ?? null,
+              location: job.location ?? null,
+              salary: job.salary ?? null,
+              employmentType: job.employmentType ?? null,
+              applyUrl: job.applyUrl ?? null,
+              postedAt: job.postedAt ?? null,
+              sourceCompanyProfileUrl: job.sourceCompanyProfileUrl ?? null,
+              requirements: job.requirements ?? [],
+              details: job.details ?? null,
+            },
+          },
+          ...(job.rawPayload
+            ? [
+                {
+                  payloadType: 'source-raw',
+                  payloadJson: job.rawPayload,
+                },
+              ]
+            : []),
+        ],
+      });
+    }
+
+    return {
+      offerIds: persistedOffers.map((offer) => offer.id),
+      offerIdentityKeys: persistedOffers.map((offer) => offer.offerIdentityKey),
+    };
+  }
+
+  private async linkPersistedOffersForRun(
+    run: {
+      id: string;
+      userId: string | null;
+      careerProfileId: string | null;
+      source: 'PRACUJ_PL';
+    },
+    offerIds: string[],
+  ) {
+    if (!run.userId || !run.careerProfileId || !offerIds.length) {
+      return { insertedCount: 0, totalCandidateCount: offerIds.length, matchedCount: 0 };
+    }
+
+    const profileContext = await this.getCareerProfileContext(run.userId, run.careerProfileId);
+    if (!profileContext.profile) {
+      return { insertedCount: 0, totalCandidateCount: offerIds.length, matchedCount: 0 };
+    }
+
+    return this.linkCatalogOffersToUser({
+      userId: run.userId,
+      careerProfileId: run.careerProfileId,
+      sourceRunId: run.id,
+      source: run.source,
+      profile: profileContext.profile,
+      specificOfferIds: offerIds,
+      origin: 'SCRAPE',
+    });
+  }
+
+  private async countLinkedOffersForRun(runId: string) {
+    const [result] = await this.db
+      .select({ value: count() })
+      .from(userJobOffersTable)
+      .where(eq(userJobOffersTable.sourceRunId, runId));
+
+    return Number(result?.value ?? 0);
+  }
+
   private async appendRunEvent(input: RunEventInput) {
     try {
       await this.db.insert(jobSourceRunEventsTable).values({
@@ -3435,8 +3779,7 @@ export class JobSourcesService {
       heartbeatAt: run.lastHeartbeatAt ?? null,
       callbackAttempts: Number(callbackSummary?.total ?? 0),
       callbackAcceptedAt: callbackSummary?.latestReceivedAt ?? null,
-      reconcileReason:
-        run.status === 'FAILED' && run.error === '[timeout] run stale watchdog' ? 'STALE_HEARTBEAT_OR_CALLBACK' : null,
+      reconcileReason: run.status === 'FAILED' && isStaleRunError(run.error) ? 'STALE_HEARTBEAT_OR_CALLBACK' : null,
       lastEventAt: latestRunEvent?.createdAt ?? null,
       progress: (run.progress as Record<string, unknown> | null) ?? null,
       story,
@@ -3801,7 +4144,7 @@ export class JobSourcesService {
         (run) =>
           run.status === 'FAILED' &&
           (toRunFailureType(run.failureType) ?? deriveFailureType(run.error)) === 'timeout' &&
-          run.error === '[timeout] run stale watchdog',
+          isStaleRunError(run.error),
       ).length,
       retriedRuns: runs.filter((run) => Boolean(run.retryOfRunId)).length,
       retryCompleted: runs.filter((run) => Boolean(run.retryOfRunId) && run.status === 'COMPLETED').length,
@@ -4115,7 +4458,7 @@ export class JobSourcesService {
     };
   }
 
-  private computeCatalogContentHash(job: CallbackJobPayload) {
+  private computeCatalogContentHash(job: PersistableOfferPayload) {
     return computeSha256Hex({
       sourceId: normalizeString(job.sourceId),
       url: normalizeOfferUrl(job.url),
@@ -4801,6 +5144,26 @@ export class JobSourcesService {
     return `http://${host}:${port}/${normalizedPrefix}/job-sources/runs/${runId}/heartbeat`;
   }
 
+  private resolveWorkerOfferIngestUrl(runId: string) {
+    const configured = this.configService.get('WORKER_CALLBACK_URL', { infer: true });
+    if (configured) {
+      try {
+        const parsed = new URL(configured);
+        const basePath = parsed.pathname.replace(/\/job-sources\/complete\/?$/i, '');
+        parsed.pathname = `${basePath}/job-sources/runs/${runId}/offers`;
+        return parsed.toString();
+      } catch {
+        return configured.replace(/\/job-sources\/complete\/?$/i, `/job-sources/runs/${runId}/offers`);
+      }
+    }
+
+    const host = this.configService.get('HOST', { infer: true }) ?? 'localhost';
+    const port = this.configService.get('PORT', { infer: true }) ?? 3000;
+    const prefix = this.configService.get('API_PREFIX', { infer: true }) ?? 'api';
+    const normalizedPrefix = prefix.replace(/^\/+|\/+$/g, '');
+    return `http://${host}:${port}/${normalizedPrefix}/job-sources/runs/${runId}/offers`;
+  }
+
   private assertAllowedRunTransition(from: RunStatus, to: RunStatus) {
     if (from === to) {
       return;
@@ -4881,7 +5244,8 @@ export class JobSourcesService {
     const now = new Date();
     const stalePendingCutoff = new Date(now.getTime() - stalePendingMinutes * 60 * 1000);
     const staleRunningCutoff = new Date(now.getTime() - staleRunningMinutes * 60 * 1000);
-    const staleError = '[timeout] run stale watchdog';
+    const stalePendingError = `${STALE_RUN_ERROR_PREFIX}: worker-not-started`;
+    const staleRunningError = `${STALE_RUN_ERROR_PREFIX}: heartbeat-stopped-or-callback-missing`;
 
     const updatePending = (this.db as any).update(jobSourceRunsTable);
     if (!updatePending || typeof updatePending.set !== 'function') {
@@ -4890,7 +5254,7 @@ export class JobSourcesService {
     await updatePending
       .set({
         status: 'FAILED',
-        error: staleError,
+        error: stalePendingError,
         failureType: 'timeout',
         classifiedOutcome: 'worker_timeout',
         emptyReason: null,
@@ -4913,7 +5277,7 @@ export class JobSourcesService {
     await updateRunning
       .set({
         status: 'FAILED',
-        error: staleError,
+        error: staleRunningError,
         failureType: 'timeout',
         classifiedOutcome: 'worker_timeout',
         emptyReason: null,

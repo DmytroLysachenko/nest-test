@@ -110,6 +110,17 @@ type CallbackPayload = {
     };
   };
 };
+type OfferIngestPayload = {
+  eventId: string;
+  source: string;
+  runId: string;
+  sourceRunId?: string;
+  traceId?: string;
+  attemptNo?: number;
+  emittedAt?: string;
+  payloadHash?: string;
+  job: NormalizedJob;
+};
 
 export type ScrapeFailureType = 'validation' | 'network' | 'parse' | 'callback' | 'timeout' | 'unknown';
 type CompletionDiagnosticsInput = {
@@ -463,11 +474,23 @@ export const classifyScrapeFailureReason = (
 };
 
 export const buildWorkerCallbackSignaturePayload = (
-  payload: CallbackPayload,
+  payload: Pick<CallbackPayload, 'sourceRunId' | 'runId' | 'eventId'> & { status: string },
   requestId: string | undefined,
   timestampSec: number,
 ) =>
   `${timestampSec}.${payload.sourceRunId ?? ''}.${payload.status}.${payload.runId}.${requestId ?? ''}.${payload.eventId ?? ''}`;
+
+export const buildScrapeOfferIngestPayload = (input: OfferIngestPayload) => ({
+  eventId: input.eventId,
+  source: input.source,
+  runId: input.runId,
+  sourceRunId: input.sourceRunId,
+  traceId: input.traceId,
+  attemptNo: input.attemptNo,
+  emittedAt: input.emittedAt,
+  payloadHash: input.payloadHash,
+  job: input.job,
+});
 
 const notifyHeartbeat = async (
   url: string,
@@ -698,6 +721,51 @@ const notifyCallback = async (
   );
 };
 
+const notifyOfferIngest = async (
+  url: string,
+  token: string | undefined,
+  oidcAudience: string | undefined,
+  signingSecret: string | undefined,
+  requestId: string | undefined,
+  payload: OfferIngestPayload,
+  logger: Logger,
+) => {
+  const authorization = await resolveOutboundAuthorizationHeader(token, oidcAudience);
+  const timestampSec = Math.floor(Date.now() / 1000);
+  const signature = signingSecret
+    ? createHmac('sha256', signingSecret)
+        .update(
+          buildWorkerCallbackSignaturePayload(
+            {
+              sourceRunId: payload.sourceRunId,
+              status: 'INGEST',
+              runId: payload.runId,
+              eventId: payload.eventId,
+            },
+            requestId,
+            timestampSec,
+          ),
+        )
+        .digest('hex')
+    : null;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(requestId ? { 'x-request-id': requestId } : {}),
+      ...(authorization ? { Authorization: authorization } : {}),
+      ...(signature ? { 'x-worker-signature': signature, 'x-worker-timestamp': String(timestampSec) } : {}),
+    },
+    body: JSON.stringify(buildScrapeOfferIngestPayload(payload)),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Offer ingest rejected (${response.status}): ${text}`);
+  }
+};
+
 export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
   eventId: input.eventId,
   source: input.source,
@@ -771,6 +839,11 @@ export const runScrapeJob = async (
       payload.heartbeatUrl ??
       (callbackUrl
         ? callbackUrl.replace(/\/job-sources\/complete\/?$/i, `/job-sources/runs/${sourceRunId}/heartbeat`)
+        : undefined);
+    const ingestUrl =
+      payload.ingestUrl ??
+      (callbackUrl
+        ? callbackUrl.replace(/\/job-sources\/complete\/?$/i, `/job-sources/runs/${sourceRunId}/offers`)
         : undefined);
     const callbackToken = payload.callbackToken ?? options.callbackToken;
     const callbackOidcAudience = options.callbackOidcAudience;
@@ -852,6 +925,52 @@ export const runScrapeJob = async (
         },
         logger,
       );
+    };
+
+    const emitAcceptedOffers = async (jobs: NormalizedJob[], attempt: number) => {
+      if (!ingestUrl || !sourceRunId || !jobs.length) {
+        return;
+      }
+
+      for (const job of jobs) {
+        const emittedAt = new Date().toISOString();
+        const basePayload = buildScrapeOfferIngestPayload({
+          eventId: randomUUID(),
+          source: payload.source,
+          runId,
+          sourceRunId,
+          traceId,
+          attemptNo: attempt,
+          emittedAt,
+          job,
+        });
+        try {
+          await notifyOfferIngest(
+            ingestUrl,
+            callbackToken,
+            callbackOidcAudience,
+            callbackSigningSecret,
+            payload.requestId,
+            {
+              ...basePayload,
+              payloadHash: computeCallbackPayloadHash(basePayload as Record<string, unknown>),
+            },
+            logger,
+          );
+        } catch (error) {
+          await emitExecutionEvent(
+            'incremental_ingest',
+            'warning',
+            'Accepted offer incremental ingestion failed',
+            'OFFER_INGEST_REJECTED',
+            {
+              attempt,
+              url: job.url,
+              error: error instanceof Error ? error.message : String(error),
+            },
+          );
+        }
+      }
     };
 
     const timeoutMs = options.scrapeTimeoutMs ?? 180000;
@@ -1170,6 +1289,7 @@ export const runScrapeJob = async (
         aggregatedParsedJobs.push(parsed);
       }
 
+      const newNormalized: NormalizedJob[] = [];
       for (const item of normalized) {
         const key = canonicalOfferKey(item);
         if (!key || aggregatedNormalizedKeys.has(key)) {
@@ -1177,7 +1297,10 @@ export const runScrapeJob = async (
         }
         aggregatedNormalizedKeys.add(key);
         aggregatedNormalized.push(item);
+        newNormalized.push(item);
       }
+      const incrementalAcceptedJobs = assessNormalizedJobs(newNormalized).acceptedJobs;
+      await emitAcceptedOffers(incrementalAcceptedJobs, attempt);
 
       const blockedRate =
         crawlResult.jobLinks.length > 0

@@ -1,6 +1,8 @@
+import * as assert from 'node:assert/strict';
+
 import { UnauthorizedException } from '@nestjs/common';
 
-import { JobSourcesService } from './job-sources.service';
+import { computeNextRunAt, JobSourcesService, parseSchedule } from './job-sources.service';
 
 const createService = (configOverrides: Record<string, unknown> = {}) => {
   const configService = {
@@ -33,6 +35,27 @@ const createService = (configOverrides: Record<string, unknown> = {}) => {
 };
 
 describe('JobSourcesService schedule', () => {
+  it('parses weekday cron expressions instead of falling back to daily defaults', () => {
+    assert.deepEqual(parseSchedule('0 6 * * 1-5'), {
+      kind: 'scheduled',
+      hour: 6,
+      minute: 0,
+      weekdays: [1, 2, 3, 4, 5],
+    });
+  });
+
+  it('computes the next weekday run in the configured timezone', () => {
+    const nextRunAt = computeNextRunAt('0 6 * * 1-5', new Date('2026-04-03T10:00:01.246Z'), 'Europe/Warsaw');
+
+    expect(nextRunAt.toISOString()).toBe('2026-04-06T04:00:00.000Z');
+  });
+
+  it('computes the next daily run in the configured timezone', () => {
+    const nextRunAt = computeNextRunAt('0 9 * * *', new Date('2026-04-03T12:18:38.208Z'), 'Europe/Warsaw');
+
+    expect(nextRunAt.toISOString()).toBe('2026-04-04T07:00:00.000Z');
+  });
+
   it('returns default schedule when user has no schedule row', async () => {
     const { service, db } = createService();
     db.select.mockReturnValue({

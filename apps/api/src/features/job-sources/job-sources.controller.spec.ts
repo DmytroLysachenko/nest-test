@@ -11,6 +11,7 @@ describe('JobSourcesController throttling metadata', () => {
   it('skips throttling for internal worker callbacks and scheduler trigger', () => {
     expect(Reflect.getMetadata(skipKey, target.completeScrape)).toBe(true);
     expect(Reflect.getMetadata(skipKey, target.heartbeat)).toBe(true);
+    expect(Reflect.getMetadata(skipKey, target.ingestOffer)).toBe(true);
     expect(Reflect.getMetadata(skipKey, target.triggerSchedules)).toBe(true);
   });
 

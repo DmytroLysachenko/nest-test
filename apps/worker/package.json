@@ -12,6 +12,7 @@
     "enqueue": "tsx src/queue/enqueue.ts",
     "lint": "eslint \"src/**/*.ts\" eslint.config.ts",
     "lint:fix": "eslint \"src/**/*.ts\" eslint.config.ts --fix",
+    "scrape:once": "tsx src/run-scrape-once.ts",
     "start": "node dist/index.js",
     "test": "node --test --import tsx \"src/**/*.test.ts\""
   },
