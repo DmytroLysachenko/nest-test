@@ -67,6 +67,14 @@ type CallbackPayload = {
     sourceQuality?: ScrapeSourceQuality;
     classifiedOutcome?: ScrapeClassifiedOutcome;
     failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed' | null;
+    stopReason?: string | null;
+    stageRetryCounts?: {
+      listingHttpRetries: number;
+      browserLaunchRetries: number;
+      detailFallbacks: number;
+      callbackRetries: number;
+      callbackDispatchFailures: number;
+    };
     detailAttemptedCount?: number;
     detailBudget?: number | null;
     detailStopReason?: 'completed' | 'budget_reached' | 'source_degraded';
@@ -123,6 +131,17 @@ type OfferIngestPayload = {
 };
 
 export type ScrapeFailureType = 'validation' | 'network' | 'parse' | 'callback' | 'timeout' | 'unknown';
+type ScrapeStopReason =
+  | 'completed'
+  | 'detail_budget_exhausted'
+  | 'detail_source_degraded'
+  | 'listing_http_blocked'
+  | 'browser_bootstrap_failed'
+  | 'listing_navigation_failed'
+  | 'detail_timeout'
+  | 'callback_dispatch_exhausted'
+  | 'listing_http_failed'
+  | 'unknown_failure';
 type CompletionDiagnosticsInput = {
   sanitizedCount: number;
   jobLinkCount: number;
@@ -814,6 +833,52 @@ export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
   diagnostics: input.diagnostics,
 });
 
+export const resolveScrapeStopReason = (input: {
+  detailStopReason?: 'completed' | 'budget_reached' | 'source_degraded' | null;
+  failureType?: ScrapeFailureType | null;
+  failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed' | null;
+}): ScrapeStopReason => {
+  if (input.failureReason === 'source_http_blocked') {
+    return 'listing_http_blocked';
+  }
+  if (input.failureReason === 'browser_bootstrap_failed') {
+    return 'browser_bootstrap_failed';
+  }
+  if (input.failureReason === 'browser_navigation_failed') {
+    return 'listing_navigation_failed';
+  }
+  if (input.failureType === 'callback') {
+    return 'callback_dispatch_exhausted';
+  }
+  if (input.failureType === 'timeout') {
+    return 'detail_timeout';
+  }
+  if (input.failureType === 'network') {
+    return 'listing_http_failed';
+  }
+  if (input.detailStopReason === 'budget_reached') {
+    return 'detail_budget_exhausted';
+  }
+  if (input.detailStopReason === 'source_degraded') {
+    return 'detail_source_degraded';
+  }
+  if (input.detailStopReason === 'completed') {
+    return 'completed';
+  }
+  return 'unknown_failure';
+};
+
+export const resolveScrapeFailureCode = (input: {
+  failureType: ScrapeFailureType;
+  failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed' | null;
+}) => {
+  const stopReason = resolveScrapeStopReason({
+    failureType: input.failureType,
+    failureReason: input.failureReason,
+  });
+  return `SCRAPE_${stopReason.toUpperCase()}`;
+};
+
 export const runScrapeJob = async (
   payload: ScrapeSourceJob,
   logger: Logger,
@@ -862,6 +927,13 @@ export const runScrapeJob = async (
     detailDelayMs: options.detailDelayMs,
     browserFallbackCooldownMs: options.browserFallbackCooldownMs,
   });
+  const stageRetryCounts = {
+    listingHttpRetries: 0,
+    browserLaunchRetries: 0,
+    detailFallbacks: 0,
+    callbackRetries: 0,
+    callbackDispatchFailures: 0,
+  };
 
   try {
     const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
@@ -1269,6 +1341,15 @@ export const runScrapeJob = async (
               detail_browser_navigation_completed: 'success',
               detail_browser_navigation_failed: 'failed',
             };
+            if (stage === 'listing_http_fetch_retry') {
+              stageRetryCounts.listingHttpRetries += 1;
+            }
+            if (stage === 'listing_browser_launch_retry') {
+              stageRetryCounts.browserLaunchRetries += 1;
+            }
+            if (stage === 'detail_fallback_triggered') {
+              stageRetryCounts.detailFallbacks += 1;
+            }
             await emitExecutionEvent(
               'listing_progress',
               statusByStage[stage] ?? 'info',
@@ -1492,6 +1573,7 @@ export const runScrapeJob = async (
         resultKind,
       },
     } satisfies NonNullable<NonNullable<CallbackPayload['diagnostics']>['stageMetrics']>;
+    const stopReason = resolveScrapeStopReason({ detailStopReason: lastDetailStopReason });
 
     if (callbackUrl) {
       const emittedAt = new Date().toISOString();
@@ -1534,10 +1616,12 @@ export const runScrapeJob = async (
           adaptiveDelayApplied,
           blockedRate,
           finalPolicy,
+          stopReason,
           resultKind,
           emptyReason,
           sourceQuality,
           classifiedOutcome,
+          stageRetryCounts,
           queryPlan: queryPlan ?? undefined,
           scarcity,
         },
@@ -1569,6 +1653,7 @@ export const runScrapeJob = async (
           retryJitterPct: options.callbackRetryJitterPct ?? 0.2,
           deadLetterDir: options.callbackDeadLetterDir,
           onRejected: async ({ attempt, statusCode, error }) => {
+            stageRetryCounts.callbackDispatchFailures += 1;
             await emitExecutionEvent(
               'callback_dispatch',
               'warning',
@@ -1582,6 +1667,7 @@ export const runScrapeJob = async (
             );
           },
           onRetryScheduled: async ({ attempt, nextAttempt, delayMs, error }) => {
+            stageRetryCounts.callbackRetries += 1;
             await emitExecutionEvent(
               'callback_retry',
               'warning',
@@ -1679,6 +1765,7 @@ export const runScrapeJob = async (
         scrapedCount: 0,
         failureReason,
       });
+      const stopReason = resolveScrapeStopReason({ failureType, failureReason });
       const failedPayload = buildScrapeCallbackPayload({
         eventId: callbackEventId,
         source: payload.source,
@@ -1691,7 +1778,7 @@ export const runScrapeJob = async (
         status: 'FAILED',
         error: truncateForCallbackError(`[${failureType}] ${errorMessage}`),
         failureType,
-        failureCode: `WORKER_${failureType.toUpperCase()}`,
+        failureCode: resolveScrapeFailureCode({ failureType, failureReason }),
         diagnostics: {
           relaxationTrail: [],
           blockedUrls: [],
@@ -1732,11 +1819,13 @@ export const runScrapeJob = async (
           adaptiveDelayApplied: 0,
           blockedRate: 0,
           finalPolicy: 'failed',
+          stopReason,
           resultKind: 'failed',
           emptyReason: null,
           sourceQuality: 'failed',
           classifiedOutcome,
           failureReason,
+          stageRetryCounts,
         },
       });
       await notifyCallback(
@@ -1756,6 +1845,7 @@ export const runScrapeJob = async (
           retryJitterPct: options.callbackRetryJitterPct ?? 0.2,
           deadLetterDir: options.callbackDeadLetterDir,
           onRejected: async ({ attempt, statusCode, error }) => {
+            stageRetryCounts.callbackDispatchFailures += 1;
             await appendScrapeExecutionEvent(options.databaseUrl, {
               sourceRunId,
               traceId,
@@ -1772,6 +1862,7 @@ export const runScrapeJob = async (
             });
           },
           onRetryScheduled: async ({ attempt, nextAttempt, delayMs, error }) => {
+            stageRetryCounts.callbackRetries += 1;
             await appendScrapeExecutionEvent(options.databaseUrl, {
               sourceRunId,
               traceId,

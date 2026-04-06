@@ -3906,6 +3906,7 @@ export class JobSourcesService {
         adaptiveDelayApplied: Number(diagnostics.adaptiveDelayApplied ?? 0),
         blockedRate: Number(diagnostics.blockedRate ?? 0),
         finalPolicy: normalizeString(String(diagnostics.finalPolicy ?? '')) ?? null,
+        stopReason: normalizeString(String(diagnostics.stopReason ?? diagnostics.detailStopReason ?? '')) ?? null,
         resultKind: normalizeString(String(diagnostics.resultKind ?? '')) ?? normalizeString(run.classifiedOutcome),
         emptyReason:
           normalizeScrapeEmptyReason(String(diagnostics.emptyReason ?? '')) ??
@@ -3962,6 +3963,22 @@ export class JobSourcesService {
                 ),
                 matchingRejectedMostCandidates: Boolean(
                   (diagnostics.scarcity as Record<string, unknown>).matchingRejectedMostCandidates ?? false,
+                ),
+              }
+            : null,
+        stageRetryCounts:
+          diagnostics.stageRetryCounts && typeof diagnostics.stageRetryCounts === 'object'
+            ? {
+                listingHttpRetries: Number(
+                  (diagnostics.stageRetryCounts as Record<string, unknown>).listingHttpRetries ?? 0,
+                ),
+                browserLaunchRetries: Number(
+                  (diagnostics.stageRetryCounts as Record<string, unknown>).browserLaunchRetries ?? 0,
+                ),
+                detailFallbacks: Number((diagnostics.stageRetryCounts as Record<string, unknown>).detailFallbacks ?? 0),
+                callbackRetries: Number((diagnostics.stageRetryCounts as Record<string, unknown>).callbackRetries ?? 0),
+                callbackDispatchFailures: Number(
+                  (diagnostics.stageRetryCounts as Record<string, unknown>).callbackDispatchFailures ?? 0,
                 ),
               }
             : null,
@@ -4032,7 +4049,7 @@ export class JobSourcesService {
                   ).toFixed(4),
                 )
               : null,
-          stopReason: normalizeString(String(diagnostics.detailStopReason ?? '')) ?? null,
+          stopReason: normalizeString(String(diagnostics.stopReason ?? diagnostics.detailStopReason ?? '')) ?? null,
         },
         stats: {
           totalFound: run.totalFound ?? null,

@@ -15,7 +15,9 @@ import {
   computeInitialDetailBudget,
   computeNormalizedJobContentHash,
   resolveEffectiveScrapeTiming,
+  resolveScrapeFailureCode,
   resolveScrapeCompletionDiagnostics,
+  resolveScrapeStopReason,
   sanitizeCallbackJobs,
 } from './scrape-job';
 
@@ -37,6 +39,14 @@ test('buildScrapeCallbackPayload emits completed callback fields', () => {
       adaptiveDelayApplied: 500,
       blockedRate: 0.25,
       finalPolicy: 'adaptive-delay:2500',
+      stopReason: 'detail_budget_exhausted',
+      stageRetryCounts: {
+        listingHttpRetries: 1,
+        browserLaunchRetries: 0,
+        detailFallbacks: 2,
+        callbackRetries: 0,
+        callbackDispatchFailures: 0,
+      },
     },
   });
 
@@ -47,6 +57,8 @@ test('buildScrapeCallbackPayload emits completed callback fields', () => {
   assert.equal(payload.error, undefined);
   assert.equal(payload.diagnostics?.attemptCount, 2);
   assert.equal(payload.diagnostics?.adaptiveDelayApplied, 500);
+  assert.equal(payload.diagnostics?.stopReason, 'detail_budget_exhausted');
+  assert.equal(payload.diagnostics?.stageRetryCounts?.detailFallbacks, 2);
 });
 
 test('buildScrapeCallbackPayload emits source quality diagnostics', () => {
@@ -146,6 +158,21 @@ test('classifyScrapeFailureReason maps browser bootstrap and navigation failures
     classifyScrapeFailureReason(new Error('page.goto: Navigation timeout exceeded')),
     'browser_navigation_failed',
   );
+});
+
+test('resolveScrapeStopReason emits stable stage stop codes', () => {
+  assert.equal(resolveScrapeStopReason({ detailStopReason: 'budget_reached' }), 'detail_budget_exhausted');
+  assert.equal(resolveScrapeStopReason({ failureReason: 'browser_bootstrap_failed' }), 'browser_bootstrap_failed');
+  assert.equal(resolveScrapeStopReason({ failureType: 'callback' }), 'callback_dispatch_exhausted');
+  assert.equal(resolveScrapeStopReason({ failureType: 'timeout' }), 'detail_timeout');
+});
+
+test('resolveScrapeFailureCode maps failure reason into stable callback code', () => {
+  assert.equal(
+    resolveScrapeFailureCode({ failureType: 'network', failureReason: 'source_http_blocked' }),
+    'SCRAPE_LISTING_HTTP_BLOCKED',
+  );
+  assert.equal(resolveScrapeFailureCode({ failureType: 'callback' }), 'SCRAPE_CALLBACK_DISPATCH_EXHAUSTED');
 });
 
 test('sanitizeCallbackJobs removes invalid entries and deduplicates by canonical identity', () => {

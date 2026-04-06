@@ -49,6 +49,9 @@ class ScrapeRunDiagnosticsPayloadResponse {
   finalPolicy!: string | null;
 
   @ApiProperty({ nullable: true })
+  stopReason!: string | null;
+
+  @ApiProperty({ nullable: true })
   resultKind!: string | null;
 
   @ApiProperty({ nullable: true })
@@ -159,6 +162,15 @@ class ScrapeRunDiagnosticsPayloadResponse {
     listingCountTooHigh: boolean;
     targetWindowMissed: boolean;
     matchingRejectedMostCandidates: boolean;
+  } | null;
+
+  @ApiProperty({ nullable: true, type: Object })
+  stageRetryCounts!: {
+    listingHttpRetries: number;
+    browserLaunchRetries: number;
+    detailFallbacks: number;
+    callbackRetries: number;
+    callbackDispatchFailures: number;
   } | null;
 
   @ApiProperty({ nullable: true, type: Object })
