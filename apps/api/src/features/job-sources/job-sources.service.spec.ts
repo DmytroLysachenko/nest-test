@@ -2042,6 +2042,22 @@ describe('JobSourcesService', () => {
       insertionRatio: 0.5,
       stopReason: 'budget_reached',
     });
+    expect(diagnostics.diagnostics.productivityBreakdown).toEqual({
+      listingsFound: 12,
+      detailAttempts: 5,
+      candidateOffers: 4,
+      matchedOffers: 3,
+      userInsertedOffers: 2,
+      hiddenByStrict: 1,
+      degradedAcceptedOffers: 1,
+    });
+    expect(diagnostics.diagnostics.lossReasons).toEqual([
+      'listing_to_candidate_drop',
+      'candidate_to_match_drop',
+      'match_to_notebook_drop',
+      'hidden_by_strict_matching',
+      'degraded_candidates_present',
+    ]);
     expect(diagnostics.story).toMatchObject({
       phase: 'completed',
       userVisibility: 'positive',

@@ -3866,6 +3866,22 @@ export class JobSourcesService {
       scrapedCount: Number(run.scrapedCount ?? 0),
       totalFound: Number(run.totalFound ?? 0),
     });
+    const productivityBreakdown = {
+      listingsFound: Number(diagnostics.jobLinksDiscovered ?? run.totalFound ?? 0),
+      detailAttempts: Number(diagnostics.detailAttemptedCount ?? 0),
+      candidateOffers: notebookVisibility.candidateOffers,
+      matchedOffers: notebookVisibility.matchedOffers,
+      userInsertedOffers: notebookVisibility.userInsertedOffers,
+      hiddenByStrict: notebookVisibility.hiddenByStrict,
+      degradedAcceptedOffers: Number(diagnostics.degradedAcceptedOffers ?? diagnostics.salvagedOfferCount ?? 0),
+    };
+    const lossReasons = [
+      productivityBreakdown.listingsFound > productivityBreakdown.candidateOffers ? 'listing_to_candidate_drop' : null,
+      productivityBreakdown.candidateOffers > productivityBreakdown.matchedOffers ? 'candidate_to_match_drop' : null,
+      productivityBreakdown.matchedOffers > productivityBreakdown.userInsertedOffers ? 'match_to_notebook_drop' : null,
+      productivityBreakdown.hiddenByStrict > 0 ? 'hidden_by_strict_matching' : null,
+      productivityBreakdown.degradedAcceptedOffers > 0 ? 'degraded_candidates_present' : null,
+    ].filter((item): item is string => Boolean(item));
     const story = this.buildRunStory({
       status: run.status,
       totalFound: run.totalFound,
@@ -4051,6 +4067,8 @@ export class JobSourcesService {
               : null,
           stopReason: normalizeString(String(diagnostics.stopReason ?? diagnostics.detailStopReason ?? '')) ?? null,
         },
+        productivityBreakdown,
+        lossReasons,
         stats: {
           totalFound: run.totalFound ?? null,
           scrapedCount: run.scrapedCount ?? null,

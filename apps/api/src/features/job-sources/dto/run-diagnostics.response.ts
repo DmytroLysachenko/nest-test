@@ -184,6 +184,20 @@ class ScrapeRunDiagnosticsPayloadResponse {
     insertionRatio: number | null;
     stopReason: string | null;
   } | null;
+
+  @ApiProperty({ nullable: true, type: Object })
+  productivityBreakdown!: {
+    listingsFound: number;
+    detailAttempts: number;
+    candidateOffers: number;
+    matchedOffers: number;
+    userInsertedOffers: number;
+    hiddenByStrict: number;
+    degradedAcceptedOffers: number;
+  } | null;
+
+  @ApiProperty({ type: [String] })
+  lossReasons!: string[];
 }
 
 class ScrapeRunExecutionStageSummaryResponse {
