@@ -770,6 +770,7 @@ export class JobSourcesService {
     const schedule = await this.getSchedule(userId);
     const blockerDetails = blockers.map((code) => this.buildPreflightBlockerDetail(code));
     const warningDetails = warnings.map((code) => this.buildPreflightWarningDetail(code));
+    const sourceHealthGuidance = this.buildSourceHealthGuidance(sourceBackoff);
     const recommendedAction: CatalogRecommendationAction =
       blockers.length > 0 ? 'blocked' : catalogEligibleCount >= requestedLimit ? 'rematch' : 'scrape';
     const guidance =
@@ -818,6 +819,8 @@ export class JobSourcesService {
             windowRuns: sourceBackoff.windowRuns,
             dominantFailureReasons: sourceBackoff.dominantFailureReasons,
             failureMix: sourceBackoff.failureMix,
+            recommendedAction: sourceHealthGuidance.recommendedAction,
+            guidance: sourceHealthGuidance.guidance,
           }
         : {
             paused: false,
@@ -829,6 +832,8 @@ export class JobSourcesService {
             windowRuns: sourceBackoff.windowRuns,
             dominantFailureReasons: sourceBackoff.dominantFailureReasons,
             failureMix: sourceBackoff.failureMix,
+            recommendedAction: sourceHealthGuidance.recommendedAction,
+            guidance: sourceHealthGuidance.guidance,
           },
     };
   }
@@ -3583,6 +3588,7 @@ export class JobSourcesService {
       items: await Promise.all(
         Array.from(grouped.values()).map(async (item) => {
           const backoff = await this.getSourceAutomationBackoff(item.source as SourceAutomationSource);
+          const guidance = this.buildSourceHealthGuidance(backoff);
           return {
             ...item,
             successRate: item.totalRuns ? Number((item.completedRuns / item.totalRuns).toFixed(4)) : 0,
@@ -3632,6 +3638,8 @@ export class JobSourcesService {
             pauseResumeAt: backoff.pausedUntil,
             pauseReason: backoff.pausedReason,
             failureMix: backoff.failureMix,
+            recommendedAction: guidance.recommendedAction,
+            guidance: guidance.guidance,
           };
         }),
       ),
@@ -5163,6 +5171,34 @@ export class JobSourcesService {
       }
     }
     return Object.keys(failureMix).length > 0 ? 'mixed_failure_cluster' : null;
+  }
+
+  private buildSourceHealthGuidance(backoff: SourceAutomationBackoff) {
+    if (backoff.active) {
+      return {
+        recommendedAction: 'wait' as const,
+        guidance: `Automation is paused until ${backoff.pausedUntil?.toISOString() ?? 'the backoff window ends'}. Wait for the window to expire or clear it from ops after verifying source recovery.`,
+      };
+    }
+    if (backoff.failureMix.detail_parse_gap || backoff.dominantFailureReasons.includes('detail_parse_gap')) {
+      return {
+        recommendedAction: 'inspect' as const,
+        guidance:
+          'Recent runs found listings but lost value during detail parsing. Inspect degraded results before retrying another scrape.',
+      };
+    }
+    if (backoff.failureCount > 0) {
+      return {
+        recommendedAction: 'retry' as const,
+        guidance:
+          'Recent source failures were observed, but automation is not paused. Retry once and inspect diagnostics if the same failure mix returns.',
+      };
+    }
+    return {
+      recommendedAction: 'rematch' as const,
+      guidance:
+        'Source health is stable. Reuse fresh catalog matches first when they already cover your target limit, otherwise run a new scrape.',
+    };
   }
 
   private async syncSourceAutomationState(input: {

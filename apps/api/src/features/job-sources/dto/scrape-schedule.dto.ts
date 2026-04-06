@@ -79,6 +79,12 @@ class ScrapePreflightSourceHealthDto {
 
   @ApiProperty({ type: Object })
   failureMix!: Record<string, number>;
+
+  @ApiProperty()
+  recommendedAction!: 'wait' | 'retry' | 'inspect' | 'rematch';
+
+  @ApiProperty()
+  guidance!: string;
 }
 
 export class UpdateScrapeScheduleDto {

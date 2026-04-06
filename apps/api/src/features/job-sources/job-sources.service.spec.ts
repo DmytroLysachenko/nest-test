@@ -731,6 +731,9 @@ describe('JobSourcesService', () => {
       windowRuns: 0,
       dominantFailureReasons: ['success'],
       failureMix: {},
+      recommendedAction: 'rematch',
+      guidance:
+        'Source health is stable. Reuse fresh catalog matches first when they already cover your target limit, otherwise run a new scrape.',
     });
     expect(result.schedule).toEqual(
       expect.objectContaining({
@@ -3049,6 +3052,7 @@ describe('JobSourcesService', () => {
       activePause: true,
       pauseReason: 'network_cluster',
       failureMix: { network: 1 },
+      recommendedAction: 'wait',
     });
   });
 
