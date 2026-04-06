@@ -1841,7 +1841,14 @@ export class JobSourcesService {
         },
       });
 
-      if (run.userId && run.careerProfileId) {
+      const runProgress =
+        run.progress && typeof run.progress === 'object' ? (run.progress as Record<string, unknown>) : null;
+      const shouldRelinkPersistedOffersOnFailure =
+        run.userId &&
+        run.careerProfileId &&
+        (Number(runProgress?.candidateOffers ?? 0) > 0 || Number(runProgress?.userInsertedOffers ?? 0) > 0);
+
+      if (shouldRelinkPersistedOffersOnFailure) {
         const existingOffers = await this.db
           .select({ id: jobOffersTable.id })
           .from(jobOffersTable)
@@ -1856,7 +1863,7 @@ export class JobSourcesService {
           .update(jobSourceRunsTable)
           .set({
             progress: {
-              ...(((run.progress as Record<string, unknown> | null) ?? {}) as Record<string, unknown>),
+              ...(runProgress ?? {}),
               totalFound: totalFound ?? persistedCount,
               scrapedCount: Math.max(scrapedCount, persistedCount),
               candidateOffers: persistedCount,
