@@ -89,3 +89,36 @@ export type NormalizedJob = {
   isExpired?: boolean;
   rawPayload?: Record<string, unknown>;
 };
+
+export type SourceFetchResult = {
+  pages: RawPage[];
+  jobLinks: string[];
+  recommendedJobLinks: string[];
+  skippedUrls: string[];
+  blockedUrls: string[];
+  listingHtml?: string;
+  listingData?: unknown;
+  listingSummaries: ListingJobSummary[];
+  detailDiagnostics: DetailFetchDiagnostics[];
+  hasZeroOffers: boolean;
+  detailAttemptedCount: number;
+  detailBudget: number | null;
+  detailStopReason: 'completed' | 'budget_reached' | 'source_degraded';
+};
+
+export type ScrapeSourceAdapter = {
+  id: string;
+  defaultListingUrl: string;
+  normalizeSource: string;
+  transportPolicy: string;
+  buildListingUrl: (filters: Record<string, unknown>) => string;
+  fetch: (input: {
+    headless: boolean;
+    listingUrl: string;
+    limit?: number;
+    logger: unknown;
+    options?: Record<string, unknown>;
+  }) => Promise<SourceFetchResult>;
+  parse: (pages: RawPage[]) => ParsedJob[];
+  normalize: (jobs: ParsedJob[], normalizeSource: string) => NormalizedJob[];
+};

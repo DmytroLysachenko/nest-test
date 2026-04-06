@@ -6,41 +6,58 @@ import { buildPracujListingUrl } from '../sources/pracuj-pl/url-builder';
 import { resolveTransportPolicy } from './transport-policy';
 
 import type { ScrapeSourceJob } from '../types/jobs';
-import type { ListingJobSummary, ParsedJob } from '../sources/types';
+import type { ListingJobSummary, ParsedJob, ScrapeSourceAdapter, SourceFetchResult } from '../sources/types';
 import type { Logger } from 'pino';
 
 export type ScrapePipelineId = 'pracuj-pl' | 'pracuj-pl-it' | 'pracuj-pl-general';
 
-type PipelineDefinition = {
+type PipelineDefinition = ScrapeSourceAdapter & {
   id: ScrapePipelineId;
-  defaultListingUrl: string;
   buildListingUrl: (filters: NonNullable<ScrapeSourceJob['filters']>) => string;
-  normalizeSource: string;
-  transportPolicy: ReturnType<typeof resolveTransportPolicy>;
 };
 
+const createPracujPipeline = (
+  id: ScrapePipelineId,
+  defaultUrl: string,
+  buildListingUrl: PipelineDefinition['buildListingUrl'],
+  normalizeSource: string,
+): PipelineDefinition => ({
+  id,
+  defaultListingUrl: defaultUrl,
+  buildListingUrl,
+  normalizeSource,
+  transportPolicy: resolveTransportPolicy(id),
+  fetch: async ({ headless, listingUrl, limit, logger, options }) =>
+    crawlPracujPl(
+      headless,
+      listingUrl,
+      limit,
+      logger as Logger | undefined,
+      options as Parameters<typeof crawlPracujPl>[4],
+    ) as Promise<SourceFetchResult>,
+  parse: (pages) => parsePracujPl(pages),
+  normalize: (jobs, source) => normalizePracujPl(jobs, source),
+});
+
 const pipelines: Record<ScrapePipelineId, PipelineDefinition> = {
-  'pracuj-pl': {
-    id: 'pracuj-pl',
+  'pracuj-pl': createPracujPipeline(
+    'pracuj-pl',
     defaultListingUrl,
-    buildListingUrl: (filters) => buildPracujListingUrl(filters, 'pracuj-pl'),
-    normalizeSource: 'pracuj-pl',
-    transportPolicy: resolveTransportPolicy('pracuj-pl'),
-  },
-  'pracuj-pl-it': {
-    id: 'pracuj-pl-it',
+    (filters) => buildPracujListingUrl(filters, 'pracuj-pl'),
+    'pracuj-pl',
+  ),
+  'pracuj-pl-it': createPracujPipeline(
+    'pracuj-pl-it',
     defaultListingUrl,
-    buildListingUrl: (filters) => buildPracujListingUrl(filters, 'pracuj-pl-it'),
-    normalizeSource: 'pracuj-pl-it',
-    transportPolicy: resolveTransportPolicy('pracuj-pl-it'),
-  },
-  'pracuj-pl-general': {
-    id: 'pracuj-pl-general',
-    defaultListingUrl: defaultGeneralListingUrl,
-    buildListingUrl: (filters) => buildPracujListingUrl(filters, 'pracuj-pl-general'),
-    normalizeSource: 'pracuj-pl-general',
-    transportPolicy: resolveTransportPolicy('pracuj-pl-general'),
-  },
+    (filters) => buildPracujListingUrl(filters, 'pracuj-pl-it'),
+    'pracuj-pl-it',
+  ),
+  'pracuj-pl-general': createPracujPipeline(
+    'pracuj-pl-general',
+    defaultGeneralListingUrl,
+    (filters) => buildPracujListingUrl(filters, 'pracuj-pl-general'),
+    'pracuj-pl-general',
+  ),
 };
 
 export const resolvePipeline = (source: string): PipelineDefinition => {
@@ -135,10 +152,10 @@ export const runFetchStage = async (input: {
   limit?: number;
   logger: Logger | undefined;
   options?: Parameters<typeof crawlPracujPl>[4];
-}) => crawlPracujPl(input.headless, input.listingUrl, input.limit, input.logger, input.options);
+}) => pipelines['pracuj-pl'].fetch(input) as Promise<Awaited<ReturnType<typeof crawlPracujPl>>>;
 
 export const runParseStage = (crawlResult: Awaited<ReturnType<typeof runFetchStage>>) =>
-  crawlResult.pages.length > 0 ? parsePracujPl(crawlResult.pages) : [];
+  crawlResult.pages.length > 0 ? pipelines['pracuj-pl'].parse(crawlResult.pages) : [];
 
 export const runPostProcessStage = (
   detailParsedJobs: ParsedJob[],
@@ -150,4 +167,4 @@ export const runPostProcessStage = (
     : mergeParsedJobsWithListingSalvage(detailParsedJobs, crawlResult.listingSummaries, crawlResult.skippedUrls);
 
 export const runNormalizeStage = (parsedJobs: ParsedJob[], normalizeSource: string) =>
-  normalizePracujPl(parsedJobs, normalizeSource);
+  pipelines['pracuj-pl'].normalize(parsedJobs, normalizeSource);

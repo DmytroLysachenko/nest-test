@@ -69,3 +69,55 @@ test('parsePracujPl keeps fallback description instead of crashing on sparse pag
   assert.equal(result?.description, 'No description found');
   assert.equal(result?.applyUrl, 'https://it.pracuj.pl/praca/frontend-engineer,oferta,456');
 });
+
+test('parsePracujPl sanitizes noisy company description and extracts workplace metadata', () => {
+  const html = `
+    <html>
+      <head>
+        <script id="__NEXT_DATA__" type="application/json">
+          ${JSON.stringify({
+            props: {
+              pageProps: {
+                dehydratedState: {
+                  queries: [
+                    {
+                      queryKey: ['jobOffer', '789'],
+                      state: {
+                        data: {
+                          jobTitle: 'Data Engineer',
+                          employerName: 'Data Corp',
+                          workplace: 'Hybrid',
+                          employerAddress: 'Warszawa, Prosta 1',
+                          textSections: [
+                            {
+                              sectionType: 'about-us-description',
+                              textElements: ['ważna jeszcze 15 dni Build modern data products for banks.'],
+                            },
+                          ],
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          })}
+        </script>
+      </head>
+      <body>
+        <main><h1>Data Engineer</h1></main>
+      </body>
+    </html>
+  `;
+
+  const [result] = parsePracujPl([
+    {
+      url: 'https://it.pracuj.pl/praca/data-engineer,oferta,789',
+      html,
+    },
+  ]);
+
+  assert.equal(result?.details?.companyDescription, 'Build modern data products for banks.');
+  assert.equal(result?.details?.workplace, 'Hybrid');
+  assert.equal(result?.details?.companyLocation, 'Warszawa, Prosta 1');
+});

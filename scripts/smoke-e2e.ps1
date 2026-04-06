@@ -912,6 +912,84 @@ if ($matched.Count -lt 1) {
   throw "No persisted user job offers found for sourceRunId=$sourceRunId"
 }
 
+Write-Host '12.01) Verifying incremental ingestion survives failed terminal scrape...'
+$stage = 'verify-incremental-ingestion'
+if (-not $forceCallback) {
+  throw 'Incremental ingestion smoke scenario requires SMOKE_FORCE_CALLBACK=true.'
+}
+$failedScrape = Invoke-WebRequestWithRateLimitRetry -Context 'Enqueue scrape for failed incremental scenario' -Attempts 2 -DefaultDelaySeconds 65 -Action {
+  Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/scrape" -Method Post -Headers $scrapeHeaders -ContentType 'application/json' -Body $scrapeBody -UseBasicParsing -TimeoutSec 45
+}
+Assert-StatusCode -Actual $failedScrape.StatusCode -Allowed @(200, 201, 202) -Context 'Enqueue failed incremental scrape'
+$failedScrapePayload = $failedScrape.Content | ConvertFrom-Json
+$failedRunId = $failedScrapePayload.data.sourceRunId
+Require-Value -Value $failedRunId -Message 'Failed incremental scrape enqueue did not return sourceRunId.'
+
+$failedEventId = "smoke-ingest-$([Guid]::NewGuid().ToString())"
+$incrementalOfferUrl = "https://example.com/smoke-failed-job/$failedRunId"
+$incrementalBody = @{
+  sourceRunId = $failedRunId
+  runId = "smoke-run-$([Guid]::NewGuid().ToString())"
+  eventId = $failedEventId
+  attemptNo = 1
+  source = 'pracuj-pl'
+  job = @{
+    source = 'pracuj-pl'
+    sourceId = "smoke-source-failed-$([Guid]::NewGuid().ToString())"
+    url = $incrementalOfferUrl
+    title = 'Smoke Incremental Backend Engineer'
+    description = 'Synthetic incremental payload that should survive a failed terminal callback.'
+    company = 'Smoke Incremental Inc'
+    location = 'Remote'
+    employmentType = 'B2B'
+    requirements = @('TypeScript', 'NestJS')
+    tags = @('smoke', 'incremental')
+  }
+} | ConvertTo-Json -Depth 8
+
+$incrementalResponse = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$failedRunId/offers" -Method Post -Headers $callbackHeaders -ContentType 'application/json' -Body $incrementalBody -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $incrementalResponse.StatusCode -Allowed @(200, 201) -Context 'Incremental offer ingest'
+
+$failedCallbackBody = @{
+  source = 'pracuj-pl'
+  sourceRunId = $failedRunId
+  runId = "smoke-run-$([Guid]::NewGuid().ToString())"
+  eventId = "smoke-event-failed-$([Guid]::NewGuid().ToString())"
+  attemptNo = 1
+  status = 'FAILED'
+  listingUrl = 'https://it.pracuj.pl/praca?wm=home-office&its=frontend'
+  error = '[timeout] synthetic smoke failure after incremental ingest'
+  failureType = 'timeout'
+  failureCode = 'WORKER_TIMEOUT'
+} | ConvertTo-Json -Depth 8
+
+$failedCallbackResponse = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/complete" -Method Post -Headers $callbackHeaders -ContentType 'application/json' -Body $failedCallbackBody -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $failedCallbackResponse.StatusCode -Allowed @(200, 201) -Context 'Force failed scrape completion callback'
+
+$failedDeadline = (Get-Date).AddMinutes(2)
+$failedFinalStatus = $null
+while ((Get-Date) -lt $failedDeadline) {
+  Start-Sleep -Seconds 5
+  $failedRun = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$failedRunId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+  Assert-StatusCode -Actual $failedRun.StatusCode -Allowed @(200) -Context 'Get failed incremental scrape run'
+  $failedRunPayload = $failedRun.Content | ConvertFrom-Json
+  $failedFinalStatus = $failedRunPayload.data.status
+  if ($failedFinalStatus -eq 'FAILED') {
+    break
+  }
+}
+
+if ($failedFinalStatus -ne 'FAILED') {
+  throw "Incremental failure scenario did not finalize as failed. status=$failedFinalStatus sourceRunId=$failedRunId"
+}
+
+$failedRunDiagnostics = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$failedRunId/diagnostics" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $failedRunDiagnostics.StatusCode -Allowed @(200) -Context 'Get failed incremental scrape diagnostics'
+$failedRunDiagnosticsPayload = $failedRunDiagnostics.Content | ConvertFrom-Json
+if ($failedRunDiagnosticsPayload.data.diagnostics.notebookVisibility.userInsertedOffers -lt 1) {
+  throw "Incremental ingest offer was not retained in failed run diagnostics. sourceRunId=$failedRunId"
+}
+
 Write-Host '12.05) Verifying notebook summary endpoint...'
 $stage = 'notebook-summary'
 $notebookSummary = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/summary" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20

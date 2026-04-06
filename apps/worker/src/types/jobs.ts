@@ -15,6 +15,7 @@ export type ScrapeSourceJob = {
   dedupeKey?: string;
   callbackUrl?: string;
   heartbeatUrl?: string;
+  ingestUrl?: string;
   callbackToken?: string;
   userId?: string;
   careerProfileId?: string;

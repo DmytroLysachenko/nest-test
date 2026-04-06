@@ -92,6 +92,24 @@ const splitList = (value?: string) => {
   return parts.length ? parts : [];
 };
 
+const removeLeadingNoise = (value: string) =>
+  value
+    .replace(/^about (company|employer)\s*/i, '')
+    .replace(/^o (firmie|pracodawcy)\s*/i, '')
+    .replace(/^ważna jeszcze \d+ dni\s*/i, '')
+    .trim();
+
+const sanitizeNarrativeText = (value?: string) => {
+  const cleaned = cleanText(removeLeadingNoise(value ?? ''));
+  if (!cleaned) {
+    return undefined;
+  }
+  if (/^ważna jeszcze \d+ dni/i.test(cleaned)) {
+    return undefined;
+  }
+  return cleaned;
+};
+
 const buildDescription = (lines: string[]) => {
   if (!lines.length) {
     return '';
@@ -212,7 +230,23 @@ const extractSectionTextByHeading = (html: string, headingPatterns: RegExp[]) =>
       .get()
       .join(' '),
   );
-  return text || undefined;
+  return sanitizeNarrativeText(text);
+};
+
+const extractInlineValueByHeading = (html: string, headingPatterns: RegExp[]) => {
+  const $ = load(html);
+  const section = findSectionByHeading($, headingPatterns);
+  if (!section) {
+    return undefined;
+  }
+
+  const firstValue = section
+    .find('p, span, div')
+    .map((_, el) => cleanText($(el).text()))
+    .get()
+    .find(Boolean);
+
+  return sanitizeNarrativeText(firstValue);
 };
 
 const extractJobOfferSections = (jobOffer: Record<string, unknown> | null) => {
@@ -306,8 +340,14 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
   const allReq = requiredReq.length || optionalReq.length ? Array.from(new Set([...requiredReq, ...optionalReq])) : [];
   const companyDescription =
     offerSections.companyDescription.length > 0
-      ? buildDescription(offerSections.companyDescription)
+      ? sanitizeNarrativeText(buildDescription(offerSections.companyDescription))
       : extractSectionTextByHeading(html, [/About company/i, /O firmie/i, /O pracodawcy/i]);
+  const workplace =
+    resolveJobOfferScalar(jobOffer, ['workplace', 'workplaceName']) ||
+    extractInlineValueByHeading(html, [/Workplace/i, /Miejsce pracy/i]);
+  const companyLocation =
+    resolveJobOfferScalar(jobOffer, ['companyLocation', 'employerAddress']) ||
+    extractInlineValueByHeading(html, [/Company location/i, /Lokalizacja firmy/i, /Adres biura/i]);
 
   if (
     !allTech.length &&
@@ -320,7 +360,9 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
     !workSchedules.length &&
     !fallbackSchedules.length &&
     !benefits.length &&
-    !companyDescription
+    !companyDescription &&
+    !workplace &&
+    !companyLocation
   ) {
     return undefined;
   }
@@ -355,6 +397,8 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
     workSchedules: workSchedules.length ? workSchedules : fallbackSchedules.length ? fallbackSchedules : undefined,
     benefits: benefits.length ? benefits : jsonLdBenefits.length ? jsonLdBenefits : undefined,
     companyDescription,
+    workplace,
+    companyLocation,
   };
 };
 

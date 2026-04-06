@@ -10,6 +10,7 @@ import { JwtValidateUser } from '@/types/interface/jwt';
 
 import { EnqueueScrapeDto, EnqueueScrapeResponseDto } from './dto/enqueue-scrape.dto';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
+import { ScrapeOfferIngestDto } from './dto/scrape-offer-ingest.dto';
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { JobSourcesService } from './job-sources.service';
 import { ScrapeRunDiagnosticsResponse } from './dto/run-diagnostics.response';
@@ -183,6 +184,28 @@ export class JobSourcesController {
     @Body() dto: ScrapeHeartbeatDto,
   ) {
     return this.jobSourcesService.heartbeatRun(id, dto, authorization, requestId, workerSignature, workerTimestamp);
+  }
+
+  @Post('runs/:id/offers')
+  @Public()
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Worker incremental offer ingestion for active scrape runs' })
+  async ingestOffer(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-worker-signature') workerSignature: string | undefined,
+    @Headers('x-worker-timestamp') workerTimestamp: string | undefined,
+    @Headers('x-request-id') requestId: string | undefined,
+    @Body() dto: ScrapeOfferIngestDto,
+  ) {
+    return this.jobSourcesService.ingestScrapeOffer(
+      id,
+      dto,
+      authorization,
+      requestId,
+      workerSignature,
+      workerTimestamp,
+    );
   }
 
   @Post('schedule/trigger')

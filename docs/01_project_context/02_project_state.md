@@ -191,6 +191,7 @@ That framing should guide future implementation more than raw source count.
 - Failed scrape runs can be retried via `POST /job-sources/runs/:id/retry` with retry-chain linkage.
 - Scrape run state transitions are now guard-railed by explicit lifecycle rules (`PENDING -> RUNNING|FAILED`, `RUNNING -> COMPLETED|FAILED`).
 - Worker now emits authenticated scrape heartbeats to API (`/job-sources/runs/:id/heartbeat`) with lightweight progress payloads.
+- Worker can now incrementally persist accepted offers to API during an active scrape (`/job-sources/runs/:id/offers`) so partial results survive later timeout/failure paths.
 - Stale run reconciliation now prioritizes `last_heartbeat_at` over legacy timestamp-only heuristics.
 - API scrape enqueue now applies short-window idempotency suppression for duplicate intents.
 - API scrape enqueue now enforces per-user 24h enqueue budget guard (`SCRAPE_DAILY_ENQUEUE_LIMIT_PER_USER`).
@@ -262,6 +263,7 @@ That framing should guide future implementation more than raw source count.
   - `PUT /api/job-sources/schedule`
   - `POST /api/job-sources/schedule/trigger` (internal token-protected trigger)
 - Scrape schedules now track deterministic `next_run_at`/`last_run_status`, and scheduler trigger processes only due schedules.
+- Scheduler `next_run_at` calculation now respects weekday cron expressions instead of falling back to the default daily schedule for unsupported patterns.
 - Production deploy now auto-upserts a Cloud Scheduler job for `/api/job-sources/schedule/trigger`.
 - Production deploy now auto-upserts a second Cloud Scheduler job for `/api/ops/reconcile-stale-runs`.
 - Production deploy now converges Cloud Tasks queue retry policy on every rollout (main queue + reserved DLQ queue provisioning).
@@ -350,12 +352,16 @@ That framing should guide future implementation more than raw source count.
 - Neon or branch-specific migration drift can still happen operationally, but it is now surfaced through `/health` and startup validation instead of remaining silent until support endpoints are queried.
 - Multi-source expansion is still more of a plan than a proven capability; only selective source growth is justified right now.
 - Scrape completion is improving, but "completed" does not automatically mean "user got useful notebook value" unless linking, ranking, and visibility remain strong.
+- Running scrapes now persist accepted offers incrementally, so timeout/finalization issues no longer imply full result loss by default.
+- Weekday schedule cron expressions are now computed correctly with timezone-aware next-run calculation.
+- Worker source orchestration now has an explicit adapter boundary for future non-Pracuj sources, but only Pracuj is production-ready.
 
 ## Highest-Value Remaining Gaps
 
 - Local smoke is now self-starting for API/worker/web, but CI/local orchestration still depends on host Docker/Postgres availability.
 - Worker queue remains in-memory, so crash resilience is below production-grade background-job expectations.
 - Scraper quality is still heavily tied to one source and its DOM behavior.
+- Pracuj parser reliability is stronger for company narrative/workplace/location fields, but source HTML drift is still the dominant scraper risk.
 - Notebook productivity is better, but there is not yet a full follow-up/reminder or pipeline automation layer.
 - Reminder reliability is now stronger at the product-read-model layer, but external reminder delivery and automation are still not implemented.
 - Document recovery exists, but extraction/profile-generation background execution is not yet moved to a durable async pipeline.

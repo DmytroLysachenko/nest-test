@@ -672,3 +672,27 @@ ADR-lite log for major architectural and contract decisions.
 - Why:
   - Reduce false negatives caused by startup races.
   - Keep smoke aligned with the current user workflow instead of only legacy endpoints.
+
+## 2026-04-04: Incremental Scrape Persistence Stays API-Owned
+
+- Decision:
+  - Persist accepted offers during a running scrape through `POST /api/job-sources/runs/:id/offers`.
+  - Keep API as the owner of catalog writes, source observations, and `user_job_offers` linkage instead of letting the worker write the DB directly.
+  - Keep `/api/job-sources/complete` as the terminal summary/finalization path instead of the only persistence path.
+- Why:
+  - Partial worker success should survive timeouts and late callback failure.
+  - Idempotency and user-linking rules stay in one place instead of being duplicated in the worker.
+
+## 2026-04-04: Worker Source Expansion Uses Adapter Stages
+
+- Decision:
+  - Structure worker orchestration around reusable source adapters with explicit fetch, parse, normalize, and listing-url stages.
+- Why:
+  - New sites should reuse orchestration, budgeting, retries, and diagnostics rather than fork the Pracuj implementation.
+
+## 2026-04-04: Stale Scrape Errors Carry Explicit Lifecycle Reasons
+
+- Decision:
+  - Preserve stale watchdog/reconcile failures under the timeout taxonomy, but suffix the stored error with lifecycle reasons such as `worker-not-started` or `heartbeat-stopped-or-callback-missing`.
+- Why:
+  - Support and ops need deterministic diagnosis without inferring the stage solely from timestamps.

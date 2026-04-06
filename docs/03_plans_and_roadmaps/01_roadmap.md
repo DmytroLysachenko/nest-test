@@ -126,7 +126,7 @@ The project should not drift into:
 2. Workflow differentiation
    - improve triage, prioritization, follow-up, and prep outcomes enough that native boards are not an obvious substitute
 3. Reliability and supportability
-   - improve scrape/source observability, startup stability, operator diagnostics, and source-health controls
+   - improve scrape/source observability, startup stability, operator diagnostics, source-health controls, and partial-result durability
 4. Platform hardening
    - move fragile local/in-memory assumptions toward production-safe background execution and deployment
 
@@ -149,7 +149,7 @@ Before implementing a new adapter, require:
 2. Sprint B: notebook throughput and application pipeline
    - follow-up queues, stale-offer actions, better bulk triage, stronger summary views
 3. Sprint C: scraper/source quality hardening
-   - source normalization, parser resilience, adaptive acquisition filters, listing-probe planning, detail-budget tuning, better degraded/blocked classification, catalog quality-state persistence, replay/debug improvements
+   - source normalization, parser resilience, adapter reuse for new sources, adaptive acquisition filters, listing-probe planning, detail-budget tuning, better degraded/blocked classification, catalog quality-state persistence, replay/debug improvements
 4. Sprint D: durable async and automation
    - move extraction/profile generation and later scrape orchestration toward durable queue execution while keeping catalog-rematch paths off the worker when possible
 5. Sprint E: release and observability hardening
