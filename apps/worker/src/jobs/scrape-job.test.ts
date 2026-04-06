@@ -14,6 +14,7 @@ import {
   computeCallbackRetryDelayMs,
   computeInitialDetailBudget,
   computeNormalizedJobContentHash,
+  resolveEffectiveScrapeTiming,
   resolveScrapeCompletionDiagnostics,
   sanitizeCallbackJobs,
 } from './scrape-job';
@@ -423,7 +424,7 @@ test('computeInitialDetailBudget caps first attempt detail work to remaining tas
     elapsedMs: 83000,
   });
 
-  assert.equal(budget, 4);
+  assert.equal(budget, 3);
 });
 
 test('computeInitialDetailBudget reserves more time when browser fallback delays are higher', () => {
@@ -436,7 +437,7 @@ test('computeInitialDetailBudget reserves more time when browser fallback delays
     browserFallbackCooldownMs: 7000,
   });
 
-  assert.equal(budget, 4);
+  assert.equal(budget, 3);
 });
 
 test('computeInitialDetailBudget does not exceed requested limit on fast runs', () => {
@@ -448,4 +449,27 @@ test('computeInitialDetailBudget does not exceed requested limit on fast runs', 
   });
 
   assert.equal(budget, 3);
+});
+
+test('computeInitialDetailBudget reserves time for listing recovery on fresh runs', () => {
+  const budget = computeInitialDetailBudget({
+    requestedLimit: 20,
+    targetWindow: { min: 20, max: 40 },
+    scrapeTimeoutMs: 180000,
+    elapsedMs: 0,
+  });
+
+  assert.equal(budget, 6);
+});
+
+test('resolveEffectiveScrapeTiming clamps expensive env pacing to protect timeout budget', () => {
+  const timing = resolveEffectiveScrapeTiming({
+    detailDelayMs: 15000,
+    browserFallbackCooldownMs: 12000,
+  });
+
+  assert.equal(timing.requestedDetailDelayMs, 15000);
+  assert.equal(timing.requestedBrowserFallbackCooldownMs, 12000);
+  assert.equal(timing.detailDelayMs, 4000);
+  assert.equal(timing.browserFallbackCooldownMs, 5000);
 });

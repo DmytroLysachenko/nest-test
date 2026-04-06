@@ -133,10 +133,14 @@ type CompletionDiagnosticsInput = {
 
 const MAX_CALLBACK_ERROR_LENGTH = 1000;
 const SCRAPE_TIMEOUT_RESERVE_MS = 10_000;
+const LISTING_FETCH_RESERVE_MS = 15_000;
 const DEFAULT_DETAIL_DELAY_MS = 2_000;
 const DEFAULT_BROWSER_FALLBACK_COOLDOWN_MS = 3_000;
+const MAX_EFFECTIVE_DETAIL_DELAY_MS = 4_000;
+const MAX_EFFECTIVE_BROWSER_FALLBACK_COOLDOWN_MS = 5_000;
 const DETAIL_FETCH_BUDGET_PER_ITEM_MS = 21_000;
 const DETAIL_FETCH_BROWSER_FALLBACK_BUFFER_MS = 16_000;
+const DETAIL_FETCH_FINALIZATION_BUFFER_MS = 3_000;
 
 const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const toError = (error: unknown) => (error instanceof Error ? error : new Error('Unknown error'));
@@ -228,14 +232,35 @@ export const computeInitialDetailBudget = (input: {
     0,
     input.browserFallbackCooldownMs ?? Math.max(DEFAULT_BROWSER_FALLBACK_COOLDOWN_MS, detailDelayMs + 1_000),
   );
-  const remainingMs = Math.max(0, input.scrapeTimeoutMs - input.elapsedMs - SCRAPE_TIMEOUT_RESERVE_MS);
+  const remainingMs = Math.max(
+    0,
+    input.scrapeTimeoutMs - input.elapsedMs - SCRAPE_TIMEOUT_RESERVE_MS - LISTING_FETCH_RESERVE_MS,
+  );
   const detailBudgetPerItemMs = Math.max(
     DETAIL_FETCH_BUDGET_PER_ITEM_MS,
-    DETAIL_FETCH_BROWSER_FALLBACK_BUFFER_MS + detailDelayMs + browserFallbackCooldownMs,
+    DETAIL_FETCH_BROWSER_FALLBACK_BUFFER_MS +
+      detailDelayMs +
+      browserFallbackCooldownMs +
+      DETAIL_FETCH_FINALIZATION_BUFFER_MS,
   );
   const runtimeBudget = Math.max(1, Math.floor(remainingMs / detailBudgetPerItemMs));
 
   return Math.max(1, Math.min(requestedLimit, targetMax, runtimeBudget));
+};
+
+export const resolveEffectiveScrapeTiming = (input: { detailDelayMs?: number; browserFallbackCooldownMs?: number }) => {
+  const requestedDetailDelayMs = Math.max(0, input.detailDelayMs ?? DEFAULT_DETAIL_DELAY_MS);
+  const requestedBrowserFallbackCooldownMs = Math.max(
+    0,
+    input.browserFallbackCooldownMs ?? Math.max(DEFAULT_BROWSER_FALLBACK_COOLDOWN_MS, requestedDetailDelayMs + 1_000),
+  );
+
+  return {
+    detailDelayMs: Math.min(requestedDetailDelayMs, MAX_EFFECTIVE_DETAIL_DELAY_MS),
+    browserFallbackCooldownMs: Math.min(requestedBrowserFallbackCooldownMs, MAX_EFFECTIVE_BROWSER_FALLBACK_COOLDOWN_MS),
+    requestedDetailDelayMs,
+    requestedBrowserFallbackCooldownMs,
+  };
 };
 
 export const resolveScrapeCompletionDiagnostics = ({
@@ -833,6 +858,11 @@ export const runScrapeJob = async (
     throw new Error('listingUrl or filters are required');
   }
 
+  const effectiveTiming = resolveEffectiveScrapeTiming({
+    detailDelayMs: options.detailDelayMs,
+    browserFallbackCooldownMs: options.browserFallbackCooldownMs,
+  });
+
   try {
     const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
     const heartbeatUrl =
@@ -851,7 +881,7 @@ export const runScrapeJob = async (
     const heartbeatIntervalMs = options.heartbeatIntervalMs ?? 10000;
     let lastHeartbeatAt = 0;
     let attemptsExecuted = 0;
-    let adaptiveDetailDelayMs = options.detailDelayMs;
+    let adaptiveDetailDelayMs = effectiveTiming.detailDelayMs;
     let adaptiveDelayApplied = 0;
     const emitExecutionEvent = async (
       stage: string,
@@ -881,6 +911,24 @@ export const runScrapeJob = async (
         );
       });
     };
+
+    if (
+      effectiveTiming.detailDelayMs !== effectiveTiming.requestedDetailDelayMs ||
+      effectiveTiming.browserFallbackCooldownMs !== effectiveTiming.requestedBrowserFallbackCooldownMs
+    ) {
+      logger.warn(
+        {
+          requestId: payload.requestId,
+          sourceRunId,
+          traceId,
+          requestedDetailDelayMs: effectiveTiming.requestedDetailDelayMs,
+          effectiveDetailDelayMs: effectiveTiming.detailDelayMs,
+          requestedBrowserFallbackCooldownMs: effectiveTiming.requestedBrowserFallbackCooldownMs,
+          effectiveBrowserFallbackCooldownMs: effectiveTiming.browserFallbackCooldownMs,
+        },
+        'Clamped scrape timing to protect the worker timeout budget',
+      );
+    }
 
     await emitExecutionEvent('scrape_start', 'info', 'Scrape job started', 'SCRAPE_STARTED', {
       source: payload.source,
@@ -1043,8 +1091,8 @@ export const runScrapeJob = async (
             options: {
               listingDelayMs: options.listingDelayMs,
               listingCooldownMs: 0,
-              detailDelayMs: options.detailDelayMs,
-              browserFallbackCooldownMs: options.browserFallbackCooldownMs,
+              detailDelayMs: effectiveTiming.detailDelayMs,
+              browserFallbackCooldownMs: effectiveTiming.browserFallbackCooldownMs,
               listingOnly: true,
               detailHost: options.detailHost,
               detailCookiesPath: options.detailCookiesPath,
@@ -1156,7 +1204,7 @@ export const runScrapeJob = async (
           listingDelayMs: options.listingDelayMs,
           listingCooldownMs: options.listingCooldownMs,
           detailDelayMs: adaptiveDetailDelayMs,
-          browserFallbackCooldownMs: options.browserFallbackCooldownMs,
+          browserFallbackCooldownMs: effectiveTiming.browserFallbackCooldownMs,
           listingOnly: options.listingOnly,
           detailHost: options.detailHost,
           detailCookiesPath: options.detailCookiesPath,
@@ -1170,7 +1218,7 @@ export const runScrapeJob = async (
                   scrapeTimeoutMs: timeoutMs,
                   elapsedMs: Date.now() - startedAt,
                   detailDelayMs: adaptiveDetailDelayMs,
-                  browserFallbackCooldownMs: options.browserFallbackCooldownMs,
+                  browserFallbackCooldownMs: effectiveTiming.browserFallbackCooldownMs,
                 })
               : undefined,
           skipUrls,
