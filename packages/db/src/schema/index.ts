@@ -22,6 +22,7 @@ import * as jobSourceRuns from './job-source-runs';
 import * as jobSourceRunEvents from './job-source-run-events';
 import * as jobSourceRunAttempts from './job-source-run-attempts';
 import * as jobSourceCallbackEvents from './job-source-callback-events';
+import * as sourceAutomationStates from './source-automation-states';
 import * as jobCategories from './job-categories';
 import * as scrapeSchedules from './scrape-schedules';
 import * as scrapeScheduleEvents from './scrape-schedule-events';
@@ -69,6 +70,7 @@ export * from './job-source-runs';
 export * from './job-source-run-events';
 export * from './job-source-run-attempts';
 export * from './job-source-callback-events';
+export * from './source-automation-states';
 export * from './job-categories';
 export * from './scrape-schedules';
 export * from './scrape-schedule-events';
@@ -123,6 +125,7 @@ const schema = {
   ...jobSourceRunEvents,
   ...jobSourceRunAttempts,
   ...jobSourceCallbackEvents,
+  ...sourceAutomationStates,
   ...jobCategories,
   ...scrapeSchedules,
   ...scrapeScheduleEvents,

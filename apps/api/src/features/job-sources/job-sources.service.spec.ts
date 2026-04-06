@@ -703,9 +703,12 @@ describe('JobSourcesService', () => {
     jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
       active: false,
       pausedUntil: null,
+      pausedAt: null,
+      pausedReason: null,
       failureCount: 0,
       windowRuns: 0,
       dominantFailureReasons: ['success'],
+      failureMix: {},
     });
 
     const result = await service.getPreflight('user-1', { limit: 20 });
@@ -721,9 +724,13 @@ describe('JobSourcesService', () => {
     expect(result.sourceHealth).toEqual({
       paused: false,
       pausedUntil: null,
+      pausedAt: null,
+      resumeAt: null,
+      pausedReason: null,
       recentFailures: 0,
       windowRuns: 0,
       dominantFailureReasons: ['success'],
+      failureMix: {},
     });
     expect(result.schedule).toEqual(
       expect.objectContaining({
@@ -834,9 +841,12 @@ describe('JobSourcesService', () => {
     jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
       active: true,
       pausedUntil: new Date('2026-03-16T11:00:00.000Z'),
+      pausedAt: new Date('2026-03-16T10:30:00.000Z'),
+      pausedReason: 'network_cluster',
       failureCount: 3,
       windowRuns: 5,
       dominantFailureReasons: ['browser_bootstrap_failed', 'failed:network', 'failed:parse'],
+      failureMix: { network: 2, worker_timeout: 1 },
     });
 
     await expect(
@@ -852,6 +862,66 @@ describe('JobSourcesService', () => {
       ),
     ).rejects.toThrow('Automation paused for PRACUJ_PL');
     expect(db.insert).not.toHaveBeenCalled();
+  });
+
+  it('allows ops to clear an active source automation pause', async () => {
+    const whereMock = jest.fn().mockResolvedValue(undefined);
+    const setMock = jest.fn().mockReturnValue({ where: whereMock });
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([
+              {
+                source: 'PRACUJ_PL',
+                pausedReason: 'network_cluster',
+                openedAt: new Date('2026-03-16T10:30:00.000Z'),
+                expiresAt: new Date('2026-03-16T11:00:00.000Z'),
+                overrideClearedAt: null,
+                overrideNote: null,
+                failureMix: { network: 3 },
+                lastFailureAt: new Date('2026-03-16T10:30:00.000Z'),
+                createdAt: new Date('2026-03-16T10:30:00.000Z'),
+                updatedAt: new Date('2026-03-16T10:30:00.000Z'),
+              },
+            ]),
+          }),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({ set: setMock }),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
+      active: false,
+      pausedUntil: new Date('2026-03-16T10:45:00.000Z'),
+      pausedAt: new Date('2026-03-16T10:30:00.000Z'),
+      pausedReason: 'operator_override',
+      failureCount: 3,
+      windowRuns: 5,
+      dominantFailureReasons: ['network'],
+      failureMix: { network: 3 },
+    });
+
+    const result = await service.clearSourceAutomationPause('PRACUJ_PL', {
+      expiresInMinutes: 15,
+      note: 'Observed source recovery',
+    });
+
+    expect(db.update).toHaveBeenCalled();
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pausedReason: 'operator_override',
+        overrideNote: 'Observed source recovery',
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        pausedReason: 'operator_override',
+        failureMix: { network: 3 },
+      }),
+    );
   });
 
   it('reuses completed run offers from db before enqueueing worker scrape', async () => {
@@ -2929,6 +2999,16 @@ describe('JobSourcesService', () => {
     } as any;
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
+      active: true,
+      pausedUntil: new Date('2026-03-21T11:30:00.000Z'),
+      pausedAt: new Date('2026-03-21T11:00:00.000Z'),
+      pausedReason: 'network_cluster',
+      failureCount: 1,
+      windowRuns: 6,
+      dominantFailureReasons: ['failed:network'],
+      failureMix: { network: 1 },
+    });
     const result = await service.getSourceHealth('user-20', 72);
 
     expect(result.windowHours).toBe(72);
@@ -2950,6 +3030,9 @@ describe('JobSourcesService', () => {
       usableRunRate: 0.5,
       avgUsefulOfferCount: 2,
       latestRunStatus: 'RUNNING',
+      activePause: true,
+      pauseReason: 'network_cluster',
+      failureMix: { network: 1 },
     });
   });
 

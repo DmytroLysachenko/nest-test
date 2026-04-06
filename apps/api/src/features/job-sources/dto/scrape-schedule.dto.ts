@@ -59,6 +59,15 @@ class ScrapePreflightSourceHealthDto {
   @ApiPropertyOptional()
   pausedUntil!: string | null;
 
+  @ApiPropertyOptional()
+  pausedAt!: string | null;
+
+  @ApiPropertyOptional()
+  resumeAt!: string | null;
+
+  @ApiPropertyOptional()
+  pausedReason!: string | null;
+
   @ApiProperty()
   recentFailures!: number;
 
@@ -67,6 +76,9 @@ class ScrapePreflightSourceHealthDto {
 
   @ApiProperty({ type: [String] })
   dominantFailureReasons!: string[];
+
+  @ApiProperty({ type: Object })
+  failureMix!: Record<string, number>;
 }
 
 export class UpdateScrapeScheduleDto {

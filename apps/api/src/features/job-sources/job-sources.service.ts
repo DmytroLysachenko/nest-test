@@ -27,6 +27,7 @@ import {
   jobSourceRunEventsTable,
   jobSourceRunAttemptsTable,
   jobSourceRunsTable,
+  sourceAutomationStatesTable,
   scrapeScheduleEventsTable,
   scrapeSchedulesTable,
   scrapeExecutionEventsTable,
@@ -73,6 +74,14 @@ type CallbackJobPayload = NonNullable<ScrapeCompleteDto['jobs']>[number];
 type IncrementalOfferPayload = ScrapeOfferIngestDto['job'];
 type PersistableOfferPayload = CallbackJobPayload | IncrementalOfferPayload;
 type RunFailureType = 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown';
+type SourceAutomationSource = 'PRACUJ_PL';
+type SourceAutomationPauseReason =
+  | 'blocked_cluster'
+  | 'network_cluster'
+  | 'timeout_cluster'
+  | 'detail_parse_gap_cluster'
+  | 'mixed_failure_cluster'
+  | 'operator_override';
 type RunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 type CatalogRecommendationAction = 'scrape' | 'rematch' | 'blocked';
 type RunEventSeverity = 'info' | 'warning' | 'error';
@@ -116,6 +125,16 @@ type ExecutionEventSnapshot = {
   status: string;
   code: string | null;
   meta: unknown;
+};
+type SourceAutomationBackoff = {
+  active: boolean;
+  failureCount: number;
+  windowRuns: number;
+  pausedUntil: Date | null;
+  pausedAt: Date | null;
+  pausedReason: SourceAutomationPauseReason | null;
+  dominantFailureReasons: string[];
+  failureMix: Record<string, number>;
 };
 type CallbackEventRegisterResult =
   | { accepted: true; payloadHash: string; attemptNo: number; emittedAt: Date | null }
@@ -407,6 +426,22 @@ const DEFAULT_SCRAPE_SOURCE_FAILURE_WINDOW_RUNS = 5;
 const DEFAULT_SCRAPE_SOURCE_FAILURE_THRESHOLD = 3;
 const DEFAULT_SCRAPE_SOURCE_AUTOMATION_BACKOFF_MINUTES = 30;
 const HEARTBEAT_EVENT_DEDUP_WINDOW_MS = 15_000;
+const SOURCE_AUTOMATION_TRIGGER_CODES = new Set([
+  'blocked_by_source',
+  'source_http_blocked',
+  'detail_parse_gap',
+  'worker_timeout',
+  'network',
+]);
+const SOURCE_AUTOMATION_MIX_TO_REASON: Array<{
+  reason: SourceAutomationPauseReason;
+  codes: string[];
+}> = [
+  { reason: 'blocked_cluster', codes: ['blocked_by_source', 'source_http_blocked'] },
+  { reason: 'network_cluster', codes: ['network'] },
+  { reason: 'timeout_cluster', codes: ['worker_timeout'] },
+  { reason: 'detail_parse_gap_cluster', codes: ['detail_parse_gap'] },
+];
 
 type ParsedSchedule =
   | { kind: 'everyMinutes'; minutes: number }
@@ -776,18 +811,76 @@ export class JobSourcesService {
         ? {
             paused: true,
             pausedUntil: sourceBackoff.pausedUntil?.toISOString() ?? null,
+            pausedAt: sourceBackoff.pausedAt?.toISOString() ?? null,
+            resumeAt: sourceBackoff.pausedUntil?.toISOString() ?? null,
+            pausedReason: sourceBackoff.pausedReason,
             recentFailures: sourceBackoff.failureCount,
             windowRuns: sourceBackoff.windowRuns,
             dominantFailureReasons: sourceBackoff.dominantFailureReasons,
+            failureMix: sourceBackoff.failureMix,
           }
         : {
             paused: false,
             pausedUntil: null,
+            pausedAt: sourceBackoff.pausedAt?.toISOString() ?? null,
+            resumeAt: sourceBackoff.pausedUntil?.toISOString() ?? null,
+            pausedReason: sourceBackoff.pausedReason,
             recentFailures: sourceBackoff.failureCount,
             windowRuns: sourceBackoff.windowRuns,
             dominantFailureReasons: sourceBackoff.dominantFailureReasons,
+            failureMix: sourceBackoff.failureMix,
           },
     };
+  }
+
+  async clearSourceAutomationPause(
+    sourceInput: string,
+    input: {
+      expiresInMinutes?: number;
+      note?: string;
+    },
+  ) {
+    const source = this.resolveSourceAutomationSource(sourceInput);
+    const now = new Date();
+    const overrideNote = normalizeString(input.note) ?? null;
+    const expiresAt =
+      (input.expiresInMinutes ?? 0) > 0 ? new Date(now.getTime() + (input.expiresInMinutes ?? 0) * 60 * 1000) : now;
+
+    const existing = await this.db
+      .select()
+      .from(sourceAutomationStatesTable)
+      .where(eq(sourceAutomationStatesTable.source, source))
+      .limit(1)
+      .then((rows) => rows[0] ?? null);
+
+    if (existing) {
+      await this.db
+        .update(sourceAutomationStatesTable)
+        .set({
+          pausedReason: 'operator_override',
+          openedAt: existing.openedAt ?? now,
+          expiresAt,
+          overrideClearedAt: now,
+          overrideNote,
+          updatedAt: now,
+        })
+        .where(eq(sourceAutomationStatesTable.source, source));
+    } else {
+      await this.db.insert(sourceAutomationStatesTable).values({
+        source,
+        pausedReason: 'operator_override',
+        openedAt: now,
+        expiresAt,
+        lastFailureAt: null,
+        failureMix: {},
+        overrideClearedAt: now,
+        overrideNote,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    return this.getSourceAutomationBackoff(source);
   }
 
   async updateSchedule(userId: string, dto: UpdateScrapeScheduleDto) {
@@ -3487,51 +3580,61 @@ export class JobSourcesService {
 
     return {
       windowHours,
-      items: Array.from(grouped.values()).map((item) => ({
-        ...item,
-        successRate: item.totalRuns ? Number((item.completedRuns / item.totalRuns).toFixed(4)) : 0,
-        usableRunRate: item.totalRuns
-          ? Number((((item.completedRuns - item.silentFailureRuns) / item.totalRuns) * 1).toFixed(4))
-          : 0,
-        avgUsefulOfferCount: item.totalRuns ? Number((item.usefulOfferCountTotal / item.totalRuns).toFixed(2)) : 0,
-        observationCount: observationCoverageBySource.get(item.source)?.observationCount ?? 0,
-        missingEmploymentTypeRate:
-          (observationCoverageBySource.get(item.source)?.observationCount ?? 0) > 0
-            ? Number(
-                (
-                  (observationCoverageBySource.get(item.source)?.missingEmploymentTypeCount ?? 0) /
-                  (observationCoverageBySource.get(item.source)?.observationCount ?? 1)
-                ).toFixed(4),
-              )
-            : 0,
-        emptyRequirementsRate:
-          (observationCoverageBySource.get(item.source)?.observationCount ?? 0) > 0
-            ? Number(
-                (
-                  (observationCoverageBySource.get(item.source)?.emptyRequirementsCount ?? 0) /
-                  (observationCoverageBySource.get(item.source)?.observationCount ?? 1)
-                ).toFixed(4),
-              )
-            : 0,
-        sourceCompanyProfileCoverageRate:
-          (observationCoverageBySource.get(item.source)?.observationCount ?? 0) > 0
-            ? Number(
-                (
-                  (observationCoverageBySource.get(item.source)?.sourceCompanyProfileCount ?? 0) /
-                  (observationCoverageBySource.get(item.source)?.observationCount ?? 1)
-                ).toFixed(4),
-              )
-            : 0,
-        applyUrlCoverageRate:
-          (observationCoverageBySource.get(item.source)?.observationCount ?? 0) > 0
-            ? Number(
-                (
-                  (observationCoverageBySource.get(item.source)?.applyUrlCount ?? 0) /
-                  (observationCoverageBySource.get(item.source)?.observationCount ?? 1)
-                ).toFixed(4),
-              )
-            : 0,
-      })),
+      items: await Promise.all(
+        Array.from(grouped.values()).map(async (item) => {
+          const backoff = await this.getSourceAutomationBackoff(item.source as SourceAutomationSource);
+          return {
+            ...item,
+            successRate: item.totalRuns ? Number((item.completedRuns / item.totalRuns).toFixed(4)) : 0,
+            usableRunRate: item.totalRuns
+              ? Number((((item.completedRuns - item.silentFailureRuns) / item.totalRuns) * 1).toFixed(4))
+              : 0,
+            avgUsefulOfferCount: item.totalRuns ? Number((item.usefulOfferCountTotal / item.totalRuns).toFixed(2)) : 0,
+            observationCount: observationCoverageBySource.get(item.source)?.observationCount ?? 0,
+            missingEmploymentTypeRate:
+              (observationCoverageBySource.get(item.source)?.observationCount ?? 0) > 0
+                ? Number(
+                    (
+                      (observationCoverageBySource.get(item.source)?.missingEmploymentTypeCount ?? 0) /
+                      (observationCoverageBySource.get(item.source)?.observationCount ?? 1)
+                    ).toFixed(4),
+                  )
+                : 0,
+            emptyRequirementsRate:
+              (observationCoverageBySource.get(item.source)?.observationCount ?? 0) > 0
+                ? Number(
+                    (
+                      (observationCoverageBySource.get(item.source)?.emptyRequirementsCount ?? 0) /
+                      (observationCoverageBySource.get(item.source)?.observationCount ?? 1)
+                    ).toFixed(4),
+                  )
+                : 0,
+            sourceCompanyProfileCoverageRate:
+              (observationCoverageBySource.get(item.source)?.observationCount ?? 0) > 0
+                ? Number(
+                    (
+                      (observationCoverageBySource.get(item.source)?.sourceCompanyProfileCount ?? 0) /
+                      (observationCoverageBySource.get(item.source)?.observationCount ?? 1)
+                    ).toFixed(4),
+                  )
+                : 0,
+            applyUrlCoverageRate:
+              (observationCoverageBySource.get(item.source)?.observationCount ?? 0) > 0
+                ? Number(
+                    (
+                      (observationCoverageBySource.get(item.source)?.applyUrlCount ?? 0) /
+                      (observationCoverageBySource.get(item.source)?.observationCount ?? 1)
+                    ).toFixed(4),
+                  )
+                : 0,
+            activePause: backoff.active,
+            pauseOpenedAt: backoff.pausedAt,
+            pauseResumeAt: backoff.pausedUntil,
+            pauseReason: backoff.pausedReason,
+            failureMix: backoff.failureMix,
+          };
+        }),
+      ),
     };
   }
 
@@ -4889,7 +4992,7 @@ export class JobSourcesService {
     };
   }
 
-  private async getSourceAutomationBackoff(source: 'PRACUJ_PL') {
+  private async getSourceAutomationBackoff(source: SourceAutomationSource): Promise<SourceAutomationBackoff> {
     const windowRuns =
       this.configService.get('SCRAPE_SOURCE_FAILURE_WINDOW_RUNS', { infer: true }) ??
       DEFAULT_SCRAPE_SOURCE_FAILURE_WINDOW_RUNS;
@@ -4912,9 +5015,15 @@ export class JobSourcesService {
       .orderBy(desc(jobSourceRunsTable.createdAt))
       .limit(windowRuns);
 
-    const failedRuns = recentRuns.filter(
-      (run) => run.status === 'FAILED' && ['timeout', 'network', 'parse', 'callback'].includes(run.failureType ?? ''),
-    );
+    const failedRuns = recentRuns.filter((run) => this.isSourceAutomationFailure(run));
+    const failureMix = failedRuns.reduce<Record<string, number>>((acc, run) => {
+      const reason = this.resolveSourceAutomationTriggerCode(run);
+      if (!reason) {
+        return acc;
+      }
+      acc[reason] = (acc[reason] ?? 0) + 1;
+      return acc;
+    }, {});
     const dominantFailureReasons = Array.from(
       recentRuns.reduce<Map<string, number>>((acc, run) => {
         const reason =
@@ -4932,16 +5041,147 @@ export class JobSourcesService {
       .slice(0, 3)
       .map(([reason]) => reason);
     const latestFailure = failedRuns[0] ?? null;
-    const referenceTime = latestFailure?.finalizedAt ?? latestFailure?.completedAt ?? null;
-    const pausedUntil = referenceTime ? new Date(referenceTime.getTime() + backoffMinutes * 60 * 1000) : null;
+    const latestFailureAt = latestFailure?.finalizedAt ?? latestFailure?.completedAt ?? null;
+    const derivedPausedReason = this.resolveSourceAutomationPauseReason(failureMix);
+    const derivedPausedUntil = latestFailureAt
+      ? new Date(latestFailureAt.getTime() + backoffMinutes * 60 * 1000)
+      : null;
+    const existingState = await this.db
+      .select()
+      .from(sourceAutomationStatesTable)
+      .where(eq(sourceAutomationStatesTable.source, source))
+      .limit(1)
+      .then((rows) => rows[0] ?? null);
+    const overrideSuppressesDerivedPause = Boolean(
+      existingState?.overrideClearedAt &&
+      latestFailureAt &&
+      existingState.overrideClearedAt >= latestFailureAt &&
+      existingState.pausedReason === 'operator_override',
+    );
+    const active =
+      failedRuns.length >= failureThreshold &&
+      Boolean(derivedPausedUntil && derivedPausedUntil > new Date()) &&
+      !overrideSuppressesDerivedPause;
+    const pausedUntil = active ? derivedPausedUntil : (existingState?.expiresAt ?? null);
+    const pausedAt = active ? latestFailureAt : (existingState?.openedAt ?? null);
+    const pausedReason = active
+      ? derivedPausedReason
+      : ((existingState?.pausedReason as SourceAutomationPauseReason | null) ?? null);
+
+    await this.syncSourceAutomationState({
+      source,
+      existingState,
+      pausedReason,
+      openedAt: pausedAt,
+      expiresAt: pausedUntil,
+      lastFailureAt: latestFailureAt,
+      failureMix,
+    });
 
     return {
-      active: failedRuns.length >= failureThreshold && Boolean(pausedUntil && pausedUntil > new Date()),
+      active,
       failureCount: failedRuns.length,
       windowRuns: recentRuns.length,
       pausedUntil,
+      pausedAt,
+      pausedReason,
       dominantFailureReasons,
+      failureMix,
     };
+  }
+
+  private isSourceAutomationFailure(run: {
+    status: string;
+    failureType: string | null;
+    classifiedOutcome: string | null;
+  }) {
+    if (run.status !== 'FAILED') {
+      return false;
+    }
+    const triggerCode = this.resolveSourceAutomationTriggerCode(run);
+    return Boolean(triggerCode && SOURCE_AUTOMATION_TRIGGER_CODES.has(triggerCode));
+  }
+
+  private resolveSourceAutomationTriggerCode(run: { failureType: string | null; classifiedOutcome: string | null }) {
+    const classifiedOutcome = normalizeString(run.classifiedOutcome);
+    const failureType = normalizeString(run.failureType);
+    if (classifiedOutcome === 'source_http_blocked' || classifiedOutcome === 'blocked_by_source') {
+      return classifiedOutcome;
+    }
+    if (classifiedOutcome === 'detail_parse_gap') {
+      return classifiedOutcome;
+    }
+    if (classifiedOutcome === 'worker_timeout' || failureType === 'timeout') {
+      return 'worker_timeout';
+    }
+    if (failureType === 'network') {
+      return 'network';
+    }
+    return null;
+  }
+
+  private resolveSourceAutomationPauseReason(failureMix: Record<string, number>): SourceAutomationPauseReason | null {
+    for (const candidate of SOURCE_AUTOMATION_MIX_TO_REASON) {
+      const count = candidate.codes.reduce((acc, code) => acc + (failureMix[code] ?? 0), 0);
+      if (count > 0) {
+        return candidate.reason;
+      }
+    }
+    return Object.keys(failureMix).length > 0 ? 'mixed_failure_cluster' : null;
+  }
+
+  private async syncSourceAutomationState(input: {
+    source: SourceAutomationSource;
+    existingState: typeof sourceAutomationStatesTable.$inferSelect | null;
+    pausedReason: SourceAutomationPauseReason | null;
+    openedAt: Date | null;
+    expiresAt: Date | null;
+    lastFailureAt: Date | null;
+    failureMix: Record<string, number>;
+  }) {
+    const now = new Date();
+    const nextValues = {
+      pausedReason: input.pausedReason,
+      openedAt: input.openedAt,
+      expiresAt: input.expiresAt,
+      lastFailureAt: input.lastFailureAt,
+      failureMix: input.failureMix,
+      updatedAt: now,
+    };
+
+    if (input.existingState) {
+      const sameMix = JSON.stringify(input.existingState.failureMix ?? {}) === JSON.stringify(input.failureMix);
+      if (
+        input.existingState.pausedReason === input.pausedReason &&
+        input.existingState.openedAt?.getTime?.() === input.openedAt?.getTime?.() &&
+        input.existingState.expiresAt?.getTime?.() === input.expiresAt?.getTime?.() &&
+        input.existingState.lastFailureAt?.getTime?.() === input.lastFailureAt?.getTime?.() &&
+        sameMix
+      ) {
+        return;
+      }
+      await this.db
+        .update(sourceAutomationStatesTable)
+        .set(nextValues)
+        .where(eq(sourceAutomationStatesTable.source, input.source));
+      return;
+    }
+
+    await this.db.insert(sourceAutomationStatesTable).values({
+      source: input.source,
+      ...nextValues,
+      overrideClearedAt: null,
+      overrideNote: null,
+      createdAt: now,
+    });
+  }
+
+  private resolveSourceAutomationSource(sourceInput: string): SourceAutomationSource {
+    const normalized = normalizeString(sourceInput)?.toUpperCase();
+    if (normalized === 'PRACUJ_PL' || normalized === 'PRACUJ-PL' || normalized === 'PRACUJ_PL_IT') {
+      return 'PRACUJ_PL';
+    }
+    throw new BadRequestException(`Unsupported source automation override target: ${sourceInput}`);
   }
 
   private shouldSuppressDuplicateEnqueue(userId: string, intentFingerprint: string) {
