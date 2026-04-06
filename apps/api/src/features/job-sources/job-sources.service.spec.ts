@@ -636,6 +636,16 @@ describe('JobSourcesService', () => {
         .fn()
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
               orderBy: jest.fn().mockReturnValue({
                 limit: jest.fn().mockResolvedValue([
@@ -1058,20 +1068,32 @@ describe('JobSourcesService', () => {
 
   it('returns reuse diagnostics when both catalog and db reuse are skipped before worker enqueue', async () => {
     const db = {
-      select: jest.fn().mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            orderBy: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([
-                {
-                  careerProfileId: 'profile-id',
-                  contentJson: candidateProfileFixture,
-                },
-              ]),
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    careerProfileId: 'profile-id',
+                    contentJson: candidateProfileFixture,
+                  },
+                ]),
+              }),
             }),
           }),
         }),
-      }),
       insert: jest.fn().mockReturnValue({
         values: jest.fn().mockReturnValue({
           returning: jest.fn().mockResolvedValue([
@@ -2909,6 +2931,16 @@ describe('JobSourcesService', () => {
         .fn()
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ id: 'run-pending-1' }]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
               orderBy: jest.fn().mockReturnValue({
                 limit: jest.fn().mockReturnValue({
@@ -2929,7 +2961,70 @@ describe('JobSourcesService', () => {
     await service.listRuns('user-13', {});
 
     expect(db.update).toHaveBeenCalledTimes(2);
-    expect(updateWhere).toHaveBeenCalledTimes(2);
+    expect(updateWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it('recovers incrementally ingested offers when a stale running scrape is reconciled', async () => {
+    const updateWhere = jest.fn().mockResolvedValue(undefined);
+    const db = {
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: updateWhere,
+        }),
+      }),
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([
+              {
+                id: 'run-running-1',
+                traceId: 'trace-running-1',
+                source: 'PRACUJ_PL',
+                userId: 'user-13',
+                careerProfileId: 'profile-13',
+                progress: { candidateOffers: 1, incrementalOfferIngestedAt: '2026-03-10T10:00:00.000Z' },
+              },
+            ]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  offset: jest.fn().mockResolvedValue([]),
+                }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ total: 0 }]),
+          }),
+        }),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const recoverySpy = jest.spyOn(service as any, 'recoverPersistedOffersForStaleRun').mockResolvedValue(undefined);
+
+    await service.listRuns('user-13', {});
+
+    expect(recoverySpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'run-running-1',
+        userId: 'user-13',
+        careerProfileId: 'profile-13',
+      }),
+      expect.stringContaining('heartbeat-stopped-or-callback-missing'),
+      expect.any(Date),
+    );
   });
 
   it('aggregates source health quality, classified outcomes, and failure rollups', async () => {

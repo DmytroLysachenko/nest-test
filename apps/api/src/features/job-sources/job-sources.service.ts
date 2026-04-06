@@ -5557,6 +5557,10 @@ export class JobSourcesService {
     if (typeof (this.db as any).update !== 'function') {
       return;
     }
+    const updateProbe = (this.db as any).update(jobSourceRunsTable);
+    if (!updateProbe || typeof updateProbe.set !== 'function') {
+      return;
+    }
     const stalePendingMinutes = this.configService.get('SCRAPE_STALE_PENDING_MINUTES', { infer: true });
     const staleRunningMinutes = this.configService.get('SCRAPE_STALE_RUNNING_MINUTES', { infer: true });
     const now = new Date();
@@ -5564,22 +5568,11 @@ export class JobSourcesService {
     const staleRunningCutoff = new Date(now.getTime() - staleRunningMinutes * 60 * 1000);
     const stalePendingError = `${STALE_RUN_ERROR_PREFIX}: worker-not-started`;
     const staleRunningError = `${STALE_RUN_ERROR_PREFIX}: heartbeat-stopped-or-callback-missing`;
-
-    const updatePending = (this.db as any).update(jobSourceRunsTable);
-    if (!updatePending || typeof updatePending.set !== 'function') {
-      return;
-    }
-    await updatePending
-      .set({
-        status: 'FAILED',
-        error: stalePendingError,
-        failureType: 'timeout',
-        classifiedOutcome: 'worker_timeout',
-        emptyReason: null,
-        sourceQuality: 'failed',
-        finalizedAt: now,
-        completedAt: now,
+    const stalePendingRunsResult = await this.db
+      .select({
+        id: jobSourceRunsTable.id,
       })
+      .from(jobSourceRunsTable)
       .where(
         and(
           eq(jobSourceRunsTable.userId, userId),
@@ -5587,22 +5580,30 @@ export class JobSourcesService {
           lt(jobSourceRunsTable.createdAt, stalePendingCutoff),
         ),
       );
+    const stalePendingRuns = Array.isArray(stalePendingRunsResult) ? stalePendingRunsResult : [];
 
-    const updateRunning = (this.db as any).update(jobSourceRunsTable);
-    if (!updateRunning || typeof updateRunning.set !== 'function') {
-      return;
-    }
-    await updateRunning
-      .set({
-        status: 'FAILED',
-        error: staleRunningError,
+    for (const run of stalePendingRuns) {
+      await this.transitionRunStatus(run.id, 'PENDING', 'FAILED', {
+        error: stalePendingError,
         failureType: 'timeout',
         classifiedOutcome: 'worker_timeout',
         emptyReason: null,
         sourceQuality: 'failed',
         finalizedAt: now,
         completedAt: now,
+      });
+    }
+
+    const staleRunningRunsResult = await this.db
+      .select({
+        id: jobSourceRunsTable.id,
+        traceId: jobSourceRunsTable.traceId,
+        source: jobSourceRunsTable.source,
+        userId: jobSourceRunsTable.userId,
+        careerProfileId: jobSourceRunsTable.careerProfileId,
+        progress: jobSourceRunsTable.progress,
       })
+      .from(jobSourceRunsTable)
       .where(
         and(
           eq(jobSourceRunsTable.userId, userId),
@@ -5614,6 +5615,100 @@ export class JobSourcesService {
           ),
         ),
       );
+    const staleRunningRuns = Array.isArray(staleRunningRunsResult) ? staleRunningRunsResult : [];
+
+    for (const run of staleRunningRuns) {
+      const transitioned = await this.transitionRunStatus(run.id, 'RUNNING', 'FAILED', {
+        error: staleRunningError,
+        failureType: 'timeout',
+        classifiedOutcome: 'worker_timeout',
+        emptyReason: null,
+        sourceQuality: 'failed',
+        finalizedAt: now,
+        completedAt: now,
+      });
+      if (!transitioned) {
+        continue;
+      }
+      await this.recoverPersistedOffersForStaleRun(
+        {
+          id: run.id,
+          traceId: run.traceId,
+          source: run.source,
+          userId: run.userId,
+          careerProfileId: run.careerProfileId,
+          progress: run.progress,
+        },
+        staleRunningError,
+        now,
+      );
+    }
+  }
+
+  private async recoverPersistedOffersForStaleRun(
+    run: {
+      id: string;
+      traceId: string;
+      source: 'PRACUJ_PL';
+      userId: string | null;
+      careerProfileId: string | null;
+      progress: unknown;
+    },
+    error: string,
+    recoveredAt: Date,
+  ) {
+    if (!run.userId || !run.careerProfileId) {
+      return;
+    }
+
+    const existingOffers = await this.db
+      .select({ id: jobOffersTable.id })
+      .from(jobOffersTable)
+      .where(eq(jobOffersTable.runId, run.id));
+
+    if (!existingOffers.length) {
+      return;
+    }
+
+    const linked = await this.linkPersistedOffersForRun(
+      run,
+      existingOffers.map((offer) => offer.id),
+    );
+    const linkedCount = await this.countLinkedOffersForRun(run.id);
+    const runProgress =
+      run.progress && typeof run.progress === 'object' ? (run.progress as Record<string, unknown>) : {};
+
+    await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        progress: {
+          ...runProgress,
+          totalFound: Number(runProgress.totalFound ?? existingOffers.length),
+          scrapedCount: Math.max(Number(runProgress.scrapedCount ?? 0), existingOffers.length),
+          candidateOffers: Math.max(Number(runProgress.candidateOffers ?? 0), existingOffers.length),
+          matchedOffers: Math.max(Number(runProgress.matchedOffers ?? 0), linked.matchedCount),
+          userInsertedOffers: linkedCount,
+          callbackAcceptedAt: recoveredAt.toISOString(),
+          recoveredFromStaleAt: recoveredAt.toISOString(),
+          updatedAt: recoveredAt.toISOString(),
+        },
+      })
+      .where(eq(jobSourceRunsTable.id, run.id));
+
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'stale_run_recovered',
+      severity: 'warning',
+      code: 'STALE_HEARTBEAT_OR_CALLBACK',
+      message: 'Stale running scrape recovered persisted catalog offers into the notebook.',
+      meta: {
+        error,
+        candidateOffers: existingOffers.length,
+        matchedOffers: linked.matchedCount,
+        insertedOffers: linkedCount,
+      },
+    });
   }
 
   private async markRunRunning(runId: string) {
