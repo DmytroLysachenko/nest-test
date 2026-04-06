@@ -24,6 +24,7 @@ const ATTENTION_VALUES = [
   'followUpDueToday',
   'prepRecommended',
   'awaitingDecision',
+  'degradedResults',
 ] as const;
 
 export class ListJobOffersQuery {

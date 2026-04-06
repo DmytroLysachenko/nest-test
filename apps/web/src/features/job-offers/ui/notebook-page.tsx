@@ -26,6 +26,7 @@ type NotebookPageProps = {
     | 'followUpDueToday'
     | 'prepRecommended'
     | 'awaitingDecision'
+    | 'degradedResults'
     | null;
   initialOfferId?: string | null;
 };

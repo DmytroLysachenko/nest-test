@@ -506,6 +506,9 @@ export class JobOfferSummaryResponse {
   @ApiProperty()
   followUpUpcoming!: number;
 
+  @ApiProperty()
+  degradedResults!: number;
+
   @ApiProperty({ type: [JobOfferSummaryBucket] })
   buckets!: JobOfferSummaryBucket[];
 

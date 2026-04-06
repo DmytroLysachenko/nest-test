@@ -404,6 +404,9 @@ export class JobOffersService {
         if (query.attention === 'awaitingDecision') {
           return item.attentionSignals.some((signal) => signal.key === 'awaiting_decision');
         }
+        if (query.attention === 'degradedResults') {
+          return item.__isDegradedSource;
+        }
         return true;
       });
 
@@ -689,10 +692,12 @@ export class JobOffersService {
         contactName: userJobOffersTable.contactName,
         lastFollowUpCompletedAt: userJobOffersTable.lastFollowUpCompletedAt,
         lastFollowUpSnoozedAt: userJobOffersTable.lastFollowUpSnoozedAt,
+        qualityReason: jobOffersTable.qualityReason,
         createdAt: userJobOffersTable.createdAt,
         lastStatusAt: userJobOffersTable.lastStatusAt,
       })
       .from(userJobOffersTable)
+      .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
       .where(eq(userJobOffersTable.userId, userId))
       .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt));
 
@@ -742,6 +747,9 @@ export class JobOffersService {
     const awaitingDecision = items.filter((item) =>
       buildAttentionSignals({ status: item.status, source: item }).some((signal) => signal.key === 'awaiting_decision'),
     ).length;
+    const degradedResults = items.filter(
+      (item) => item.qualityReason === 'listing_salvage' || item.qualityReason === 'low_context',
+    ).length;
     const savedCount = items.filter((item) => item.status === 'SAVED').length;
     const appliedCount = items.filter((item) => item.status === 'APPLIED').length;
 
@@ -775,6 +783,7 @@ export class JobOffersService {
       stalePipeline,
       followUpDue,
       followUpUpcoming,
+      degradedResults,
       buckets: bucketDefinitions,
       topExplanationTags: Array.from(tagCounts.entries())
         .sort((a, b) => b[1] - a[1])
@@ -851,6 +860,13 @@ export class JobOffersService {
           href: '/notebook?focus=awaitingDecision',
           count: awaitingDecision,
         },
+        {
+          key: 'degradedResults',
+          label: 'Degraded results',
+          description: 'Review low-context scrape results before retrying the source again.',
+          href: '/notebook?focus=degradedResults',
+          count: degradedResults,
+        },
       ],
     };
   }
@@ -873,6 +889,7 @@ export class JobOffersService {
         title: jobOffersTable.title,
         company: jobOffersTable.company,
         location: jobOffersTable.location,
+        qualityReason: jobOffersTable.qualityReason,
         lastStatusAt: userJobOffersTable.lastStatusAt,
         createdAt: userJobOffersTable.createdAt,
       })
@@ -1032,6 +1049,19 @@ export class JobOffersService {
         attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
       }));
     const staleUntriaged = staleUntriagedItems.slice(0, 5);
+    const degradedResultItems = items
+      .filter((item) => item.qualityReason === 'listing_salvage' || item.qualityReason === 'low_context')
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        company: item.company,
+        location: item.location,
+        matchScore: item.matchScore,
+        followUpState: resolveFollowUpState(item.status, item, now),
+        nextStep: extractFollowUpFields(item).nextStep,
+        attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+      }));
+    const degradedResults = degradedResultItems.slice(0, 5);
 
     return {
       groups: [
@@ -1116,6 +1146,15 @@ export class JobOffersService {
           reasons: ['Discovery has aging roles that still have no keep-or-dismiss decision.'],
           items: staleUntriaged,
         },
+        {
+          key: 'degraded-results',
+          label: 'Degraded results',
+          description: 'Inspect low-context scrape output before launching another retry.',
+          href: '/notebook?focus=degradedResults',
+          count: degradedResultItems.length,
+          reasons: ['Recent scrape results were usable enough to save, but source quality dropped detail fidelity.'],
+          items: degradedResults,
+        },
       ],
     };
   }
@@ -1135,10 +1174,12 @@ export class JobOffersService {
         contactName: userJobOffersTable.contactName,
         lastFollowUpCompletedAt: userJobOffersTable.lastFollowUpCompletedAt,
         lastFollowUpSnoozedAt: userJobOffersTable.lastFollowUpSnoozedAt,
+        qualityReason: jobOffersTable.qualityReason,
         createdAt: userJobOffersTable.createdAt,
         lastStatusAt: userJobOffersTable.lastStatusAt,
       })
       .from(userJobOffersTable)
+      .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
       .where(eq(userJobOffersTable.userId, userId))
       .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt));
 
@@ -1174,6 +1215,9 @@ export class JobOffersService {
       buildAttentionSignals({ status: item.status, source: item, now }).some(
         (signal) => signal.key === 'awaiting_decision',
       ),
+    ).length;
+    const degradedResults = items.filter(
+      (item) => item.qualityReason === 'listing_salvage' || item.qualityReason === 'low_context',
     ).length;
 
     const buckets = [
@@ -1250,6 +1294,16 @@ export class JobOffersService {
         ctaLabel: 'Set decision checkpoints',
         reasons: ['saved roles still lack a decision deadline or next-step commitment'],
         priority: 'info' as const,
+      },
+      {
+        key: 'degraded-scrape-results',
+        label: 'Degraded scrape results',
+        description: 'Triage low-context saved roles before another source retry hides the useful ones.',
+        href: '/notebook?focus=degradedResults',
+        count: degradedResults,
+        ctaLabel: 'Review degraded results',
+        reasons: ['recent scrapes produced usable but degraded notebook rows'],
+        priority: 'recommended' as const,
       },
       {
         key: 'strict-top-unreviewed',

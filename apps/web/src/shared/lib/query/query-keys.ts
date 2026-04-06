@@ -91,7 +91,8 @@ export const queryKeys = {
           | 'followUpOverdue'
           | 'followUpDueToday'
           | 'prepRecommended'
-          | 'awaitingDecision';
+          | 'awaitingDecision'
+          | 'degradedResults';
       },
     ) => ['job-offers', token, params] as const,
     history: (token: string | null, offerId: string | null) => ['job-offers', 'history', token, offerId] as const,

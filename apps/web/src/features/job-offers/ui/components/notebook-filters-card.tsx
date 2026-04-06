@@ -37,7 +37,8 @@ type NotebookQuickAction =
   | 'stalePipeline'
   | 'followUpDueToday'
   | 'prepRecommended'
-  | 'awaitingDecision';
+  | 'awaitingDecision'
+  | 'degradedResults';
 
 type NotebookFiltersCardProps = {
   variant?: 'triage' | 'pipeline';
@@ -115,6 +116,7 @@ export const NotebookFiltersCard = ({
     'follow-up-due-today': 'followUpDueToday',
     'prep-recommended': 'prepRecommended',
     'awaiting-decision': 'awaitingDecision',
+    degradedResults: 'degradedResults',
   };
   const visibleQuickActionKeys = isPipeline
     ? new Set([
@@ -127,6 +129,7 @@ export const NotebookFiltersCard = ({
         'stale-pipeline',
         'prep-recommended',
         'awaiting-decision',
+        'degradedResults',
       ])
     : new Set(['strict-top', 'unscored', 'stale-untriaged']);
 

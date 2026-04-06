@@ -829,7 +829,8 @@ export type JobOfferSummaryDto = {
       | 'followUpUpcoming'
       | 'followUpDueToday'
       | 'prepRecommended'
-      | 'awaitingDecision';
+      | 'awaitingDecision'
+      | 'degradedResults';
     label: string;
     description: string;
     href: string;
@@ -936,7 +937,8 @@ export type NotebookFiltersDto = {
     | 'followUpOverdue'
     | 'followUpDueToday'
     | 'prepRecommended'
-    | 'awaitingDecision';
+    | 'awaitingDecision'
+    | 'degradedResults';
 };
 
 export type NotebookPreferencesDto = {

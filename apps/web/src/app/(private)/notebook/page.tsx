@@ -22,7 +22,8 @@ const isNotebookQuickAction = (
   | 'stalePipeline'
   | 'followUpDueToday'
   | 'prepRecommended'
-  | 'awaitingDecision' =>
+  | 'awaitingDecision'
+  | 'degradedResults' =>
   value === 'unscored' ||
   value === 'strictTop' ||
   value === 'saved' ||
@@ -34,7 +35,8 @@ const isNotebookQuickAction = (
   value === 'stalePipeline' ||
   value === 'followUpDueToday' ||
   value === 'prepRecommended' ||
-  value === 'awaitingDecision';
+  value === 'awaitingDecision' ||
+  value === 'degradedResults';
 
 export default function NotebookRoute() {
   const router = useRouter();
