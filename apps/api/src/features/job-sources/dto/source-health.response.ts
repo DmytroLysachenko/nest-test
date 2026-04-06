@@ -90,6 +90,27 @@ class JobSourceHealthItemResponse {
 
   @ApiProperty()
   applyUrlCoverageRate!: number;
+
+  @ApiProperty()
+  activePause!: boolean;
+
+  @ApiProperty({ nullable: true })
+  pauseOpenedAt!: Date | null;
+
+  @ApiProperty({ nullable: true })
+  pauseResumeAt!: Date | null;
+
+  @ApiProperty({ nullable: true })
+  pauseReason!: string | null;
+
+  @ApiProperty({ type: Object })
+  failureMix!: Record<string, number>;
+
+  @ApiProperty()
+  recommendedAction!: 'wait' | 'retry' | 'inspect' | 'rematch';
+
+  @ApiProperty()
+  guidance!: string;
 }
 
 export class JobSourceHealthResponse {

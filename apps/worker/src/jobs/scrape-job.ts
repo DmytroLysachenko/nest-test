@@ -67,6 +67,14 @@ type CallbackPayload = {
     sourceQuality?: ScrapeSourceQuality;
     classifiedOutcome?: ScrapeClassifiedOutcome;
     failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed' | null;
+    stopReason?: string | null;
+    stageRetryCounts?: {
+      listingHttpRetries: number;
+      browserLaunchRetries: number;
+      detailFallbacks: number;
+      callbackRetries: number;
+      callbackDispatchFailures: number;
+    };
     detailAttemptedCount?: number;
     detailBudget?: number | null;
     detailStopReason?: 'completed' | 'budget_reached' | 'source_degraded';
@@ -123,6 +131,17 @@ type OfferIngestPayload = {
 };
 
 export type ScrapeFailureType = 'validation' | 'network' | 'parse' | 'callback' | 'timeout' | 'unknown';
+type ScrapeStopReason =
+  | 'completed'
+  | 'detail_budget_exhausted'
+  | 'detail_source_degraded'
+  | 'listing_http_blocked'
+  | 'browser_bootstrap_failed'
+  | 'listing_navigation_failed'
+  | 'detail_timeout'
+  | 'callback_dispatch_exhausted'
+  | 'listing_http_failed'
+  | 'unknown_failure';
 type CompletionDiagnosticsInput = {
   sanitizedCount: number;
   jobLinkCount: number;
@@ -133,10 +152,14 @@ type CompletionDiagnosticsInput = {
 
 const MAX_CALLBACK_ERROR_LENGTH = 1000;
 const SCRAPE_TIMEOUT_RESERVE_MS = 10_000;
+const LISTING_FETCH_RESERVE_MS = 15_000;
 const DEFAULT_DETAIL_DELAY_MS = 2_000;
 const DEFAULT_BROWSER_FALLBACK_COOLDOWN_MS = 3_000;
+const MAX_EFFECTIVE_DETAIL_DELAY_MS = 4_000;
+const MAX_EFFECTIVE_BROWSER_FALLBACK_COOLDOWN_MS = 5_000;
 const DETAIL_FETCH_BUDGET_PER_ITEM_MS = 21_000;
 const DETAIL_FETCH_BROWSER_FALLBACK_BUFFER_MS = 16_000;
+const DETAIL_FETCH_FINALIZATION_BUFFER_MS = 3_000;
 
 const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const toError = (error: unknown) => (error instanceof Error ? error : new Error('Unknown error'));
@@ -228,14 +251,35 @@ export const computeInitialDetailBudget = (input: {
     0,
     input.browserFallbackCooldownMs ?? Math.max(DEFAULT_BROWSER_FALLBACK_COOLDOWN_MS, detailDelayMs + 1_000),
   );
-  const remainingMs = Math.max(0, input.scrapeTimeoutMs - input.elapsedMs - SCRAPE_TIMEOUT_RESERVE_MS);
+  const remainingMs = Math.max(
+    0,
+    input.scrapeTimeoutMs - input.elapsedMs - SCRAPE_TIMEOUT_RESERVE_MS - LISTING_FETCH_RESERVE_MS,
+  );
   const detailBudgetPerItemMs = Math.max(
     DETAIL_FETCH_BUDGET_PER_ITEM_MS,
-    DETAIL_FETCH_BROWSER_FALLBACK_BUFFER_MS + detailDelayMs + browserFallbackCooldownMs,
+    DETAIL_FETCH_BROWSER_FALLBACK_BUFFER_MS +
+      detailDelayMs +
+      browserFallbackCooldownMs +
+      DETAIL_FETCH_FINALIZATION_BUFFER_MS,
   );
   const runtimeBudget = Math.max(1, Math.floor(remainingMs / detailBudgetPerItemMs));
 
   return Math.max(1, Math.min(requestedLimit, targetMax, runtimeBudget));
+};
+
+export const resolveEffectiveScrapeTiming = (input: { detailDelayMs?: number; browserFallbackCooldownMs?: number }) => {
+  const requestedDetailDelayMs = Math.max(0, input.detailDelayMs ?? DEFAULT_DETAIL_DELAY_MS);
+  const requestedBrowserFallbackCooldownMs = Math.max(
+    0,
+    input.browserFallbackCooldownMs ?? Math.max(DEFAULT_BROWSER_FALLBACK_COOLDOWN_MS, requestedDetailDelayMs + 1_000),
+  );
+
+  return {
+    detailDelayMs: Math.min(requestedDetailDelayMs, MAX_EFFECTIVE_DETAIL_DELAY_MS),
+    browserFallbackCooldownMs: Math.min(requestedBrowserFallbackCooldownMs, MAX_EFFECTIVE_BROWSER_FALLBACK_COOLDOWN_MS),
+    requestedDetailDelayMs,
+    requestedBrowserFallbackCooldownMs,
+  };
 };
 
 export const resolveScrapeCompletionDiagnostics = ({
@@ -789,6 +833,52 @@ export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
   diagnostics: input.diagnostics,
 });
 
+export const resolveScrapeStopReason = (input: {
+  detailStopReason?: 'completed' | 'budget_reached' | 'source_degraded' | null;
+  failureType?: ScrapeFailureType | null;
+  failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed' | null;
+}): ScrapeStopReason => {
+  if (input.failureReason === 'source_http_blocked') {
+    return 'listing_http_blocked';
+  }
+  if (input.failureReason === 'browser_bootstrap_failed') {
+    return 'browser_bootstrap_failed';
+  }
+  if (input.failureReason === 'browser_navigation_failed') {
+    return 'listing_navigation_failed';
+  }
+  if (input.failureType === 'callback') {
+    return 'callback_dispatch_exhausted';
+  }
+  if (input.failureType === 'timeout') {
+    return 'detail_timeout';
+  }
+  if (input.failureType === 'network') {
+    return 'listing_http_failed';
+  }
+  if (input.detailStopReason === 'budget_reached') {
+    return 'detail_budget_exhausted';
+  }
+  if (input.detailStopReason === 'source_degraded') {
+    return 'detail_source_degraded';
+  }
+  if (input.detailStopReason === 'completed') {
+    return 'completed';
+  }
+  return 'unknown_failure';
+};
+
+export const resolveScrapeFailureCode = (input: {
+  failureType: ScrapeFailureType;
+  failureReason?: 'source_http_blocked' | 'browser_bootstrap_failed' | 'browser_navigation_failed' | null;
+}) => {
+  const stopReason = resolveScrapeStopReason({
+    failureType: input.failureType,
+    failureReason: input.failureReason,
+  });
+  return `SCRAPE_${stopReason.toUpperCase()}`;
+};
+
 export const runScrapeJob = async (
   payload: ScrapeSourceJob,
   logger: Logger,
@@ -833,6 +923,18 @@ export const runScrapeJob = async (
     throw new Error('listingUrl or filters are required');
   }
 
+  const effectiveTiming = resolveEffectiveScrapeTiming({
+    detailDelayMs: options.detailDelayMs,
+    browserFallbackCooldownMs: options.browserFallbackCooldownMs,
+  });
+  const stageRetryCounts = {
+    listingHttpRetries: 0,
+    browserLaunchRetries: 0,
+    detailFallbacks: 0,
+    callbackRetries: 0,
+    callbackDispatchFailures: 0,
+  };
+
   try {
     const callbackUrl = payload.callbackUrl ?? options.callbackUrl;
     const heartbeatUrl =
@@ -851,7 +953,7 @@ export const runScrapeJob = async (
     const heartbeatIntervalMs = options.heartbeatIntervalMs ?? 10000;
     let lastHeartbeatAt = 0;
     let attemptsExecuted = 0;
-    let adaptiveDetailDelayMs = options.detailDelayMs;
+    let adaptiveDetailDelayMs = effectiveTiming.detailDelayMs;
     let adaptiveDelayApplied = 0;
     const emitExecutionEvent = async (
       stage: string,
@@ -881,6 +983,24 @@ export const runScrapeJob = async (
         );
       });
     };
+
+    if (
+      effectiveTiming.detailDelayMs !== effectiveTiming.requestedDetailDelayMs ||
+      effectiveTiming.browserFallbackCooldownMs !== effectiveTiming.requestedBrowserFallbackCooldownMs
+    ) {
+      logger.warn(
+        {
+          requestId: payload.requestId,
+          sourceRunId,
+          traceId,
+          requestedDetailDelayMs: effectiveTiming.requestedDetailDelayMs,
+          effectiveDetailDelayMs: effectiveTiming.detailDelayMs,
+          requestedBrowserFallbackCooldownMs: effectiveTiming.requestedBrowserFallbackCooldownMs,
+          effectiveBrowserFallbackCooldownMs: effectiveTiming.browserFallbackCooldownMs,
+        },
+        'Clamped scrape timing to protect the worker timeout budget',
+      );
+    }
 
     await emitExecutionEvent('scrape_start', 'info', 'Scrape job started', 'SCRAPE_STARTED', {
       source: payload.source,
@@ -1043,8 +1163,8 @@ export const runScrapeJob = async (
             options: {
               listingDelayMs: options.listingDelayMs,
               listingCooldownMs: 0,
-              detailDelayMs: options.detailDelayMs,
-              browserFallbackCooldownMs: options.browserFallbackCooldownMs,
+              detailDelayMs: effectiveTiming.detailDelayMs,
+              browserFallbackCooldownMs: effectiveTiming.browserFallbackCooldownMs,
               listingOnly: true,
               detailHost: options.detailHost,
               detailCookiesPath: options.detailCookiesPath,
@@ -1156,7 +1276,7 @@ export const runScrapeJob = async (
           listingDelayMs: options.listingDelayMs,
           listingCooldownMs: options.listingCooldownMs,
           detailDelayMs: adaptiveDetailDelayMs,
-          browserFallbackCooldownMs: options.browserFallbackCooldownMs,
+          browserFallbackCooldownMs: effectiveTiming.browserFallbackCooldownMs,
           listingOnly: options.listingOnly,
           detailHost: options.detailHost,
           detailCookiesPath: options.detailCookiesPath,
@@ -1170,7 +1290,7 @@ export const runScrapeJob = async (
                   scrapeTimeoutMs: timeoutMs,
                   elapsedMs: Date.now() - startedAt,
                   detailDelayMs: adaptiveDetailDelayMs,
-                  browserFallbackCooldownMs: options.browserFallbackCooldownMs,
+                  browserFallbackCooldownMs: effectiveTiming.browserFallbackCooldownMs,
                 })
               : undefined,
           skipUrls,
@@ -1221,6 +1341,15 @@ export const runScrapeJob = async (
               detail_browser_navigation_completed: 'success',
               detail_browser_navigation_failed: 'failed',
             };
+            if (stage === 'listing_http_fetch_retry') {
+              stageRetryCounts.listingHttpRetries += 1;
+            }
+            if (stage === 'listing_browser_launch_retry') {
+              stageRetryCounts.browserLaunchRetries += 1;
+            }
+            if (stage === 'detail_fallback_triggered') {
+              stageRetryCounts.detailFallbacks += 1;
+            }
             await emitExecutionEvent(
               'listing_progress',
               statusByStage[stage] ?? 'info',
@@ -1444,6 +1573,7 @@ export const runScrapeJob = async (
         resultKind,
       },
     } satisfies NonNullable<NonNullable<CallbackPayload['diagnostics']>['stageMetrics']>;
+    const stopReason = resolveScrapeStopReason({ detailStopReason: lastDetailStopReason });
 
     if (callbackUrl) {
       const emittedAt = new Date().toISOString();
@@ -1486,10 +1616,12 @@ export const runScrapeJob = async (
           adaptiveDelayApplied,
           blockedRate,
           finalPolicy,
+          stopReason,
           resultKind,
           emptyReason,
           sourceQuality,
           classifiedOutcome,
+          stageRetryCounts,
           queryPlan: queryPlan ?? undefined,
           scarcity,
         },
@@ -1521,6 +1653,7 @@ export const runScrapeJob = async (
           retryJitterPct: options.callbackRetryJitterPct ?? 0.2,
           deadLetterDir: options.callbackDeadLetterDir,
           onRejected: async ({ attempt, statusCode, error }) => {
+            stageRetryCounts.callbackDispatchFailures += 1;
             await emitExecutionEvent(
               'callback_dispatch',
               'warning',
@@ -1534,6 +1667,7 @@ export const runScrapeJob = async (
             );
           },
           onRetryScheduled: async ({ attempt, nextAttempt, delayMs, error }) => {
+            stageRetryCounts.callbackRetries += 1;
             await emitExecutionEvent(
               'callback_retry',
               'warning',
@@ -1631,6 +1765,7 @@ export const runScrapeJob = async (
         scrapedCount: 0,
         failureReason,
       });
+      const stopReason = resolveScrapeStopReason({ failureType, failureReason });
       const failedPayload = buildScrapeCallbackPayload({
         eventId: callbackEventId,
         source: payload.source,
@@ -1643,7 +1778,7 @@ export const runScrapeJob = async (
         status: 'FAILED',
         error: truncateForCallbackError(`[${failureType}] ${errorMessage}`),
         failureType,
-        failureCode: `WORKER_${failureType.toUpperCase()}`,
+        failureCode: resolveScrapeFailureCode({ failureType, failureReason }),
         diagnostics: {
           relaxationTrail: [],
           blockedUrls: [],
@@ -1684,11 +1819,13 @@ export const runScrapeJob = async (
           adaptiveDelayApplied: 0,
           blockedRate: 0,
           finalPolicy: 'failed',
+          stopReason,
           resultKind: 'failed',
           emptyReason: null,
           sourceQuality: 'failed',
           classifiedOutcome,
           failureReason,
+          stageRetryCounts,
         },
       });
       await notifyCallback(
@@ -1708,6 +1845,7 @@ export const runScrapeJob = async (
           retryJitterPct: options.callbackRetryJitterPct ?? 0.2,
           deadLetterDir: options.callbackDeadLetterDir,
           onRejected: async ({ attempt, statusCode, error }) => {
+            stageRetryCounts.callbackDispatchFailures += 1;
             await appendScrapeExecutionEvent(options.databaseUrl, {
               sourceRunId,
               traceId,
@@ -1724,6 +1862,7 @@ export const runScrapeJob = async (
             });
           },
           onRetryScheduled: async ({ attempt, nextAttempt, delayMs, error }) => {
+            stageRetryCounts.callbackRetries += 1;
             await appendScrapeExecutionEvent(options.databaseUrl, {
               sourceRunId,
               traceId,

@@ -1,6 +1,7 @@
 export const APP_PERMISSIONS = {
   OPS_READ: 'ops.read',
   OPS_RECONCILE: 'ops.reconcile',
+  OPS_SCRAPE_OVERRIDE: 'ops.scrape.override',
   OPS_CALLBACKS_REPLAY: 'ops.callbacks.replay',
   CATALOG_REMATCH: 'catalog.rematch',
   USER_MANAGE: 'user.manage',

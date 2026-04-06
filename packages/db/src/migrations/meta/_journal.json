@@ -253,6 +253,13 @@
       "when": 1774994400000,
       "tag": "0035_scrape_data_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1775491782626,
+      "tag": "0036_strong_doctor_doom",
+      "breakpoints": true
     }
   ]
 }

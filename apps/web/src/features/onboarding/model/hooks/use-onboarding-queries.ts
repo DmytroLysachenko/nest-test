@@ -6,6 +6,7 @@ import { getLatestCareerProfile } from '@/features/career-profiles/api/career-pr
 import { listDocuments } from '@/features/documents/api/documents-api';
 import { getOnboardingDraft } from '@/features/onboarding/api/onboarding-drafts-api';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
+import { isRateLimitedError } from '@/shared/lib/http/rate-limit';
 import { QUERY_GC_TIME, QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
@@ -26,6 +27,13 @@ export const useOnboardingQueries = (
       enabled: Boolean(token) && shared.latestCareerProfile === undefined,
       staleTime: QUERY_STALE_TIME.CORE_DATA,
       gcTime: QUERY_GC_TIME.LONG_LIVED,
+      refetchInterval: (query) => {
+        if (isRateLimitedError(query.state.error)) {
+          return false;
+        }
+        const profile = (shared.latestCareerProfile ?? query.state.data) as { status?: string } | null | undefined;
+        return profile?.status === 'PENDING' ? 2500 : false;
+      },
     }),
   );
 
@@ -45,6 +53,15 @@ export const useOnboardingQueries = (
       queryFn: listDocuments,
       enabled: Boolean(token) && shared.documents === undefined,
       staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      refetchInterval: (query) => {
+        if (isRateLimitedError(query.state.error)) {
+          return false;
+        }
+        const docs = (shared.documents ??
+          (query.state.data as Array<{ extractionStatus?: string }> | undefined) ??
+          []) as Array<{ extractionStatus?: string }>;
+        return docs.some((item) => item.extractionStatus === 'PENDING') ? 2500 : false;
+      },
     }),
   );
 

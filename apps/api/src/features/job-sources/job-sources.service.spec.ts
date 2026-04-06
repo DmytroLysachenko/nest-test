@@ -636,6 +636,16 @@ describe('JobSourcesService', () => {
         .fn()
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
               orderBy: jest.fn().mockReturnValue({
                 limit: jest.fn().mockResolvedValue([
@@ -703,9 +713,12 @@ describe('JobSourcesService', () => {
     jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
       active: false,
       pausedUntil: null,
+      pausedAt: null,
+      pausedReason: null,
       failureCount: 0,
       windowRuns: 0,
       dominantFailureReasons: ['success'],
+      failureMix: {},
     });
 
     const result = await service.getPreflight('user-1', { limit: 20 });
@@ -721,9 +734,16 @@ describe('JobSourcesService', () => {
     expect(result.sourceHealth).toEqual({
       paused: false,
       pausedUntil: null,
+      pausedAt: null,
+      resumeAt: null,
+      pausedReason: null,
       recentFailures: 0,
       windowRuns: 0,
       dominantFailureReasons: ['success'],
+      failureMix: {},
+      recommendedAction: 'rematch',
+      guidance:
+        'Source health is stable. Reuse fresh catalog matches first when they already cover your target limit, otherwise run a new scrape.',
     });
     expect(result.schedule).toEqual(
       expect.objectContaining({
@@ -834,9 +854,12 @@ describe('JobSourcesService', () => {
     jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
       active: true,
       pausedUntil: new Date('2026-03-16T11:00:00.000Z'),
+      pausedAt: new Date('2026-03-16T10:30:00.000Z'),
+      pausedReason: 'network_cluster',
       failureCount: 3,
       windowRuns: 5,
       dominantFailureReasons: ['browser_bootstrap_failed', 'failed:network', 'failed:parse'],
+      failureMix: { network: 2, worker_timeout: 1 },
     });
 
     await expect(
@@ -852,6 +875,66 @@ describe('JobSourcesService', () => {
       ),
     ).rejects.toThrow('Automation paused for PRACUJ_PL');
     expect(db.insert).not.toHaveBeenCalled();
+  });
+
+  it('allows ops to clear an active source automation pause', async () => {
+    const whereMock = jest.fn().mockResolvedValue(undefined);
+    const setMock = jest.fn().mockReturnValue({ where: whereMock });
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([
+              {
+                source: 'PRACUJ_PL',
+                pausedReason: 'network_cluster',
+                openedAt: new Date('2026-03-16T10:30:00.000Z'),
+                expiresAt: new Date('2026-03-16T11:00:00.000Z'),
+                overrideClearedAt: null,
+                overrideNote: null,
+                failureMix: { network: 3 },
+                lastFailureAt: new Date('2026-03-16T10:30:00.000Z'),
+                createdAt: new Date('2026-03-16T10:30:00.000Z'),
+                updatedAt: new Date('2026-03-16T10:30:00.000Z'),
+              },
+            ]),
+          }),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({ set: setMock }),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
+      active: false,
+      pausedUntil: new Date('2026-03-16T10:45:00.000Z'),
+      pausedAt: new Date('2026-03-16T10:30:00.000Z'),
+      pausedReason: 'operator_override',
+      failureCount: 3,
+      windowRuns: 5,
+      dominantFailureReasons: ['network'],
+      failureMix: { network: 3 },
+    });
+
+    const result = await service.clearSourceAutomationPause('PRACUJ_PL', {
+      expiresInMinutes: 15,
+      note: 'Observed source recovery',
+    });
+
+    expect(db.update).toHaveBeenCalled();
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pausedReason: 'operator_override',
+        overrideNote: 'Observed source recovery',
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        pausedReason: 'operator_override',
+        failureMix: { network: 3 },
+      }),
+    );
   });
 
   it('reuses completed run offers from db before enqueueing worker scrape', async () => {
@@ -985,20 +1068,32 @@ describe('JobSourcesService', () => {
 
   it('returns reuse diagnostics when both catalog and db reuse are skipped before worker enqueue', async () => {
     const db = {
-      select: jest.fn().mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            orderBy: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([
-                {
-                  careerProfileId: 'profile-id',
-                  contentJson: candidateProfileFixture,
-                },
-              ]),
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    careerProfileId: 'profile-id',
+                    contentJson: candidateProfileFixture,
+                  },
+                ]),
+              }),
             }),
           }),
         }),
-      }),
       insert: jest.fn().mockReturnValue({
         values: jest.fn().mockReturnValue({
           returning: jest.fn().mockResolvedValue([
@@ -1972,6 +2067,22 @@ describe('JobSourcesService', () => {
       insertionRatio: 0.5,
       stopReason: 'budget_reached',
     });
+    expect(diagnostics.diagnostics.productivityBreakdown).toEqual({
+      listingsFound: 12,
+      detailAttempts: 5,
+      candidateOffers: 4,
+      matchedOffers: 3,
+      userInsertedOffers: 2,
+      hiddenByStrict: 1,
+      degradedAcceptedOffers: 1,
+    });
+    expect(diagnostics.diagnostics.lossReasons).toEqual([
+      'listing_to_candidate_drop',
+      'candidate_to_match_drop',
+      'match_to_notebook_drop',
+      'hidden_by_strict_matching',
+      'degraded_candidates_present',
+    ]);
     expect(diagnostics.story).toMatchObject({
       phase: 'completed',
       userVisibility: 'positive',
@@ -2820,6 +2931,16 @@ describe('JobSourcesService', () => {
         .fn()
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ id: 'run-pending-1' }]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
               orderBy: jest.fn().mockReturnValue({
                 limit: jest.fn().mockReturnValue({
@@ -2840,7 +2961,70 @@ describe('JobSourcesService', () => {
     await service.listRuns('user-13', {});
 
     expect(db.update).toHaveBeenCalledTimes(2);
-    expect(updateWhere).toHaveBeenCalledTimes(2);
+    expect(updateWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it('recovers incrementally ingested offers when a stale running scrape is reconciled', async () => {
+    const updateWhere = jest.fn().mockResolvedValue(undefined);
+    const db = {
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: updateWhere,
+        }),
+      }),
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([
+              {
+                id: 'run-running-1',
+                traceId: 'trace-running-1',
+                source: 'PRACUJ_PL',
+                userId: 'user-13',
+                careerProfileId: 'profile-13',
+                progress: { candidateOffers: 1, incrementalOfferIngestedAt: '2026-03-10T10:00:00.000Z' },
+              },
+            ]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  offset: jest.fn().mockResolvedValue([]),
+                }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ total: 0 }]),
+          }),
+        }),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const recoverySpy = jest.spyOn(service as any, 'recoverPersistedOffersForStaleRun').mockResolvedValue(undefined);
+
+    await service.listRuns('user-13', {});
+
+    expect(recoverySpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'run-running-1',
+        userId: 'user-13',
+        careerProfileId: 'profile-13',
+      }),
+      expect.stringContaining('heartbeat-stopped-or-callback-missing'),
+      expect.any(Date),
+    );
   });
 
   it('aggregates source health quality, classified outcomes, and failure rollups', async () => {
@@ -2929,6 +3113,16 @@ describe('JobSourcesService', () => {
     } as any;
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'getSourceAutomationBackoff').mockResolvedValue({
+      active: true,
+      pausedUntil: new Date('2026-03-21T11:30:00.000Z'),
+      pausedAt: new Date('2026-03-21T11:00:00.000Z'),
+      pausedReason: 'network_cluster',
+      failureCount: 1,
+      windowRuns: 6,
+      dominantFailureReasons: ['failed:network'],
+      failureMix: { network: 1 },
+    });
     const result = await service.getSourceHealth('user-20', 72);
 
     expect(result.windowHours).toBe(72);
@@ -2950,6 +3144,10 @@ describe('JobSourcesService', () => {
       usableRunRate: 0.5,
       avgUsefulOfferCount: 2,
       latestRunStatus: 'RUNNING',
+      activePause: true,
+      pauseReason: 'network_cluster',
+      failureMix: { network: 1 },
+      recommendedAction: 'wait',
     });
   });
 

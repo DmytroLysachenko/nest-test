@@ -14,7 +14,10 @@ import {
   computeCallbackRetryDelayMs,
   computeInitialDetailBudget,
   computeNormalizedJobContentHash,
+  resolveEffectiveScrapeTiming,
+  resolveScrapeFailureCode,
   resolveScrapeCompletionDiagnostics,
+  resolveScrapeStopReason,
   sanitizeCallbackJobs,
 } from './scrape-job';
 
@@ -36,6 +39,14 @@ test('buildScrapeCallbackPayload emits completed callback fields', () => {
       adaptiveDelayApplied: 500,
       blockedRate: 0.25,
       finalPolicy: 'adaptive-delay:2500',
+      stopReason: 'detail_budget_exhausted',
+      stageRetryCounts: {
+        listingHttpRetries: 1,
+        browserLaunchRetries: 0,
+        detailFallbacks: 2,
+        callbackRetries: 0,
+        callbackDispatchFailures: 0,
+      },
     },
   });
 
@@ -46,6 +57,8 @@ test('buildScrapeCallbackPayload emits completed callback fields', () => {
   assert.equal(payload.error, undefined);
   assert.equal(payload.diagnostics?.attemptCount, 2);
   assert.equal(payload.diagnostics?.adaptiveDelayApplied, 500);
+  assert.equal(payload.diagnostics?.stopReason, 'detail_budget_exhausted');
+  assert.equal(payload.diagnostics?.stageRetryCounts?.detailFallbacks, 2);
 });
 
 test('buildScrapeCallbackPayload emits source quality diagnostics', () => {
@@ -145,6 +158,21 @@ test('classifyScrapeFailureReason maps browser bootstrap and navigation failures
     classifyScrapeFailureReason(new Error('page.goto: Navigation timeout exceeded')),
     'browser_navigation_failed',
   );
+});
+
+test('resolveScrapeStopReason emits stable stage stop codes', () => {
+  assert.equal(resolveScrapeStopReason({ detailStopReason: 'budget_reached' }), 'detail_budget_exhausted');
+  assert.equal(resolveScrapeStopReason({ failureReason: 'browser_bootstrap_failed' }), 'browser_bootstrap_failed');
+  assert.equal(resolveScrapeStopReason({ failureType: 'callback' }), 'callback_dispatch_exhausted');
+  assert.equal(resolveScrapeStopReason({ failureType: 'timeout' }), 'detail_timeout');
+});
+
+test('resolveScrapeFailureCode maps failure reason into stable callback code', () => {
+  assert.equal(
+    resolveScrapeFailureCode({ failureType: 'network', failureReason: 'source_http_blocked' }),
+    'SCRAPE_LISTING_HTTP_BLOCKED',
+  );
+  assert.equal(resolveScrapeFailureCode({ failureType: 'callback' }), 'SCRAPE_CALLBACK_DISPATCH_EXHAUSTED');
 });
 
 test('sanitizeCallbackJobs removes invalid entries and deduplicates by canonical identity', () => {
@@ -423,7 +451,7 @@ test('computeInitialDetailBudget caps first attempt detail work to remaining tas
     elapsedMs: 83000,
   });
 
-  assert.equal(budget, 4);
+  assert.equal(budget, 3);
 });
 
 test('computeInitialDetailBudget reserves more time when browser fallback delays are higher', () => {
@@ -436,7 +464,7 @@ test('computeInitialDetailBudget reserves more time when browser fallback delays
     browserFallbackCooldownMs: 7000,
   });
 
-  assert.equal(budget, 4);
+  assert.equal(budget, 3);
 });
 
 test('computeInitialDetailBudget does not exceed requested limit on fast runs', () => {
@@ -448,4 +476,27 @@ test('computeInitialDetailBudget does not exceed requested limit on fast runs', 
   });
 
   assert.equal(budget, 3);
+});
+
+test('computeInitialDetailBudget reserves time for listing recovery on fresh runs', () => {
+  const budget = computeInitialDetailBudget({
+    requestedLimit: 20,
+    targetWindow: { min: 20, max: 40 },
+    scrapeTimeoutMs: 180000,
+    elapsedMs: 0,
+  });
+
+  assert.equal(budget, 6);
+});
+
+test('resolveEffectiveScrapeTiming clamps expensive env pacing to protect timeout budget', () => {
+  const timing = resolveEffectiveScrapeTiming({
+    detailDelayMs: 15000,
+    browserFallbackCooldownMs: 12000,
+  });
+
+  assert.equal(timing.requestedDetailDelayMs, 15000);
+  assert.equal(timing.requestedBrowserFallbackCooldownMs, 12000);
+  assert.equal(timing.detailDelayMs, 4000);
+  assert.equal(timing.browserFallbackCooldownMs, 5000);
 });

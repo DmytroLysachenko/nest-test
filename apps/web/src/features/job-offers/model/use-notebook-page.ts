@@ -23,6 +23,7 @@ type UseNotebookPageArgs = {
     | 'followUpDueToday'
     | 'prepRecommended'
     | 'awaitingDecision'
+    | 'degradedResults'
     | null;
   initialOfferId?: string | null;
 };
@@ -206,7 +207,9 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
                           ? 'Attention: prep recommended'
                           : filters.attention === 'awaitingDecision'
                             ? 'Attention: awaiting decision'
-                            : 'Attention: stale untriaged',
+                            : filters.attention === 'degradedResults'
+                              ? 'Attention: degraded results'
+                              : 'Attention: stale untriaged',
               onClear: () => setNotebookFilter('attention', 'all'),
             },
           ]
@@ -259,7 +262,8 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
       | 'stalePipeline'
       | 'followUpDueToday'
       | 'prepRecommended'
-      | 'awaitingDecision',
+      | 'awaitingDecision'
+      | 'degradedResults',
   ) => {
     setNotebookSelectedOffer(null);
     clearNotebookSelectedOfferIds();
@@ -350,6 +354,14 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
       setNotebookFilter('mode', 'strict');
       setNotebookFilter('hasScore', 'all');
       setNotebookFilter('attention', 'awaitingDecision');
+      return;
+    }
+
+    if (action === 'degradedResults') {
+      setNotebookFilter('status', 'ALL');
+      setNotebookFilter('mode', 'strict');
+      setNotebookFilter('hasScore', 'all');
+      setNotebookFilter('attention', 'degradedResults');
       return;
     }
 

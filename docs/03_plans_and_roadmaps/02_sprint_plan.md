@@ -186,6 +186,36 @@ Improve confidence that scrape runs either produce useful results or fail with c
 - Remaining:
   - more source-specific parser hardening as additional adapters land
 
+### Reliability-First Tranche
+
+Ordered tranche for the next reliability-heavy delivery slice:
+
+1. `fix: stabilize worker scrape timeout budget`
+2. `feat: persist source automation pause state`
+3. `feat: add stable scrape stage stop diagnostics`
+4. `test: add fixture-backed pracuj parser coverage`
+5. `feat: add scrape productivity loss breakdown`
+6. `feat: add source health recovery guidance`
+7. `feat: make incremental offer ingest restart-safe with DB-backed dispatch recovery`
+8. `feat: move document extraction to durable async queue semantics`
+9. `feat: move career-profile generation to the same durable async model`
+10. `feat: strengthen notebook attention queues using scrape reliability context`
+11. `docs: record the reliability-first tranche in sprint plan`
+
+Current branch status for this tranche:
+
+- Shipped in branch:
+  - timeout-budget protection now clamps unsafe worker pacing so live `pracuj` runs finish inside the task budget
+  - source automation pause windows are persisted with failure mix and an ops override path
+  - worker callbacks now emit stable stop reasons plus stage retry counters
+  - parser and listing-section drift coverage now uses committed `pracuj` fixtures
+  - run diagnostics now expose productivity-loss breakdown from listings to notebook insertion
+  - source-health responses now include explicit `wait` / `retry` / `inspect` / `rematch` guidance
+- Remaining in tranche:
+  - restart-safe dispatch recovery for incremental ingest
+  - durable async execution for documents and career-profile generation
+  - notebook attention upgrades driven by the new reliability signals
+
 ## Sprint 4: Durable Async Execution and Background Workflow Safety
 
 ### Goal

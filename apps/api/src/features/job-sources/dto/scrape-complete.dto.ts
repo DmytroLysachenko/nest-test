@@ -281,6 +281,12 @@ class ScrapeRunDiagnosticsDto {
   @MaxLength(128)
   finalPolicy?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  stopReason?: string;
+
   @ApiPropertyOptional({ enum: ['healthy', 'empty', 'blocked', 'failed'] })
   @IsOptional()
   @IsIn(['healthy', 'empty', 'blocked', 'failed'])
@@ -330,6 +336,17 @@ class ScrapeRunDiagnosticsDto {
     listingCountTooHigh: boolean;
     targetWindowMissed: boolean;
     matchingRejectedMostCandidates: boolean;
+  };
+
+  @ApiPropertyOptional({ type: Object })
+  @IsOptional()
+  @IsObject()
+  stageRetryCounts?: {
+    listingHttpRetries: number;
+    browserLaunchRetries: number;
+    detailFallbacks: number;
+    callbackRetries: number;
+    callbackDispatchFailures: number;
   };
 }
 

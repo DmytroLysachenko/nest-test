@@ -1,49 +1,16 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { parsePracujPl } from './parse';
 
-test('parsePracujPl falls back to NEXT_DATA job offer fields when DOM selectors are sparse', () => {
-  const html = `
-    <html>
-      <head>
-        <script id="__NEXT_DATA__" type="application/json">
-          ${JSON.stringify({
-            props: {
-              pageProps: {
-                dehydratedState: {
-                  queries: [
-                    {
-                      queryKey: ['jobOffer', '123'],
-                      state: {
-                        data: {
-                          jobTitle: 'Platform Engineer',
-                          employerName: 'Example Corp',
-                          region: 'Remote, Poland',
-                          requirements: ['TypeScript', 'Node.js'],
-                          workModes: ['remote'],
-                          employmentTypes: ['b2b'],
-                          positionLevels: ['senior'],
-                        },
-                      },
-                    },
-                  ],
-                },
-              },
-            },
-          })}
-        </script>
-      </head>
-      <body>
-        <main><div>minimal page shell</div></main>
-      </body>
-    </html>
-  `;
+const readFixture = (name: string) => readFileSync(new URL(`./__fixtures__/${name}`, import.meta.url), 'utf8');
 
+test('parsePracujPl falls back to NEXT_DATA job offer fields when DOM selectors are sparse', () => {
   const [result] = parsePracujPl([
     {
       url: 'https://it.pracuj.pl/praca/platform-engineer,oferta,123',
-      html,
+      html: readFixture('detail-next-data-sparse.html'),
     },
   ]);
 
@@ -61,7 +28,7 @@ test('parsePracujPl keeps fallback description instead of crashing on sparse pag
   const [result] = parsePracujPl([
     {
       url: 'https://it.pracuj.pl/praca/frontend-engineer,oferta,456',
-      html: '<html><body><h1>Frontend Engineer</h1></body></html>',
+      html: readFixture('detail-sparse-fallback.html'),
     },
   ]);
 
@@ -71,49 +38,10 @@ test('parsePracujPl keeps fallback description instead of crashing on sparse pag
 });
 
 test('parsePracujPl sanitizes noisy company description and extracts workplace metadata', () => {
-  const html = `
-    <html>
-      <head>
-        <script id="__NEXT_DATA__" type="application/json">
-          ${JSON.stringify({
-            props: {
-              pageProps: {
-                dehydratedState: {
-                  queries: [
-                    {
-                      queryKey: ['jobOffer', '789'],
-                      state: {
-                        data: {
-                          jobTitle: 'Data Engineer',
-                          employerName: 'Data Corp',
-                          workplace: 'Hybrid',
-                          employerAddress: 'Warszawa, Prosta 1',
-                          textSections: [
-                            {
-                              sectionType: 'about-us-description',
-                              textElements: ['ważna jeszcze 15 dni Build modern data products for banks.'],
-                            },
-                          ],
-                        },
-                      },
-                    },
-                  ],
-                },
-              },
-            },
-          })}
-        </script>
-      </head>
-      <body>
-        <main><h1>Data Engineer</h1></main>
-      </body>
-    </html>
-  `;
-
   const [result] = parsePracujPl([
     {
       url: 'https://it.pracuj.pl/praca/data-engineer,oferta,789',
-      html,
+      html: readFixture('detail-company-workplace.html'),
     },
   ]);
 

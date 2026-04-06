@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   ForbiddenException,
   Get,
@@ -25,6 +26,7 @@ import { JobSourcesService } from '@/features/job-sources/job-sources.service';
 import { APP_PERMISSIONS } from '@/common/authorization/permissions';
 
 import { OpsMetricsResponse } from './dto/ops-metrics.response';
+import { SourceAutomationOverrideDto } from './dto/source-automation-override.dto';
 import { SupportCorrelationResponse } from './dto/support-correlation.response';
 import { SupportOverviewResponse } from './dto/support-overview.response';
 import { SupportScrapeIncidentResponse } from './dto/support-scrape-incident.response';
@@ -245,6 +247,17 @@ export class OpsController {
   @ApiOperation({ summary: 'Reconcile stale running scrape run (admin only)' })
   async reconcileRun(@CurrentUser() _user: JwtValidateUser, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.opsService.reconcileRun(id);
+  }
+
+  @Post('scrape/sources/:source/override')
+  @Permissions(APP_PERMISSIONS.OPS_SCRAPE_OVERRIDE)
+  @ApiOperation({ summary: 'Clear or shorten a source automation pause window (admin only)' })
+  async overrideSourcePause(
+    @CurrentUser() _user: JwtValidateUser,
+    @Param('source') source: string,
+    @Body() dto: SourceAutomationOverrideDto,
+  ) {
+    return this.jobSourcesService.clearSourceAutomationPause(source, dto);
   }
 
   @Post('catalog/rematch/users/:id')

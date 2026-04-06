@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 
 import { generateCareerProfile, restoreCareerProfileVersion } from '@/features/career-profiles/api/career-profiles-api';
 import { createProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
@@ -30,7 +30,7 @@ export const useProfileManagementMutations = ({ token }: UseProfileManagementMut
     mutationFn: (payload: { instructions?: string }) => generateCareerProfile(token as string, payload),
     onSuccess: (data) => {
       syncProfile(data);
-      toastSuccess('Career profile generated');
+      toastSuccess('Career profile queued');
     },
     onError: (error) => {
       toastError(toUserErrorMessage(error, 'Failed to generate profile'));

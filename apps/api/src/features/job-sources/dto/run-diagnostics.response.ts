@@ -49,6 +49,9 @@ class ScrapeRunDiagnosticsPayloadResponse {
   finalPolicy!: string | null;
 
   @ApiProperty({ nullable: true })
+  stopReason!: string | null;
+
+  @ApiProperty({ nullable: true })
   resultKind!: string | null;
 
   @ApiProperty({ nullable: true })
@@ -162,6 +165,15 @@ class ScrapeRunDiagnosticsPayloadResponse {
   } | null;
 
   @ApiProperty({ nullable: true, type: Object })
+  stageRetryCounts!: {
+    listingHttpRetries: number;
+    browserLaunchRetries: number;
+    detailFallbacks: number;
+    callbackRetries: number;
+    callbackDispatchFailures: number;
+  } | null;
+
+  @ApiProperty({ nullable: true, type: Object })
   productivity!: {
     detailAttemptedCount: number;
     candidateOffers: number;
@@ -172,6 +184,20 @@ class ScrapeRunDiagnosticsPayloadResponse {
     insertionRatio: number | null;
     stopReason: string | null;
   } | null;
+
+  @ApiProperty({ nullable: true, type: Object })
+  productivityBreakdown!: {
+    listingsFound: number;
+    detailAttempts: number;
+    candidateOffers: number;
+    matchedOffers: number;
+    userInsertedOffers: number;
+    hiddenByStrict: number;
+    degradedAcceptedOffers: number;
+  } | null;
+
+  @ApiProperty({ type: [String] })
+  lossReasons!: string[];
 }
 
 class ScrapeRunExecutionStageSummaryResponse {

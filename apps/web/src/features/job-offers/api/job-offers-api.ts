@@ -32,7 +32,8 @@ export type ListJobOffersParams = {
     | 'followUpOverdue'
     | 'followUpDueToday'
     | 'prepRecommended'
-    | 'awaitingDecision';
+    | 'awaitingDecision'
+    | 'degradedResults';
 };
 
 const toQuery = (params: ListJobOffersParams) => {

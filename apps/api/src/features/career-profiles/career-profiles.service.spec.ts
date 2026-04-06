@@ -1,6 +1,82 @@
 import { CareerProfilesService } from './career-profiles.service';
 
 describe('CareerProfilesService prompt builder', () => {
+  it('queues generation and returns pending profile immediately', async () => {
+    const queueSpy = jest
+      .spyOn(CareerProfilesService.prototype as any, 'ensureGenerationQueued')
+      .mockImplementation(() => {});
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  then: (cb: (rows: unknown[]) => unknown) =>
+                    Promise.resolve(
+                      cb([
+                        {
+                          id: 'input-1',
+                          targetRoles: 'Frontend Developer',
+                          notes: 'note',
+                          normalizedInput: null,
+                          normalizationMeta: null,
+                          intakePayload: null,
+                        },
+                      ]),
+                    ),
+                }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockResolvedValue([
+                {
+                  id: 'doc-1',
+                  uploadedAt: new Date('2026-04-06T10:00:00.000Z'),
+                  extractedAt: new Date('2026-04-06T10:05:00.000Z'),
+                  extractedText: 'x'.repeat(900),
+                },
+              ]),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  then: (cb: (rows: unknown[]) => unknown) => Promise.resolve(cb([])),
+                }),
+              }),
+            }),
+          }),
+        }),
+      insert: jest.fn().mockReturnValue({
+        values: jest.fn().mockReturnValue({
+          returning: jest.fn().mockResolvedValue([
+            {
+              id: 'profile-queued-1',
+              status: 'PENDING',
+              version: 1,
+            },
+          ]),
+        }),
+      }),
+    } as any;
+
+    const service = new CareerProfilesService(db, {} as any, {} as any);
+    const result = await service.create('user-1', { instructions: 'focus on frontend' });
+
+    expect(result).toEqual(expect.objectContaining({ id: 'profile-queued-1', status: 'PENDING', version: 1 }));
+    expect(queueSpy).toHaveBeenCalledWith('profile-queued-1', 'user-1', 'focus on frontend');
+    queueSpy.mockRestore();
+  });
+
   it('injects normalized input context into prompt', () => {
     const service = new CareerProfilesService({} as any, {} as any, {} as any);
 

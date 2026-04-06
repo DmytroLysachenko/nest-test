@@ -24,6 +24,8 @@ type DocumentMetricStatus = 'SUCCESS' | 'ERROR';
 
 @Injectable()
 export class DocumentsService {
+  private readonly extractionQueue = new Map<string, Promise<void>>();
+
   constructor(
     @Drizzle() private readonly db: NodePgDatabase,
     private readonly gcsService: GcsService,
@@ -146,7 +148,13 @@ export class DocumentsService {
       ? and(eq(documentsTable.userId, userId), eq(documentsTable.type, query.type))
       : eq(documentsTable.userId, userId);
 
-    return this.db.select().from(documentsTable).where(where).orderBy(desc(documentsTable.createdAt));
+    const documents = await this.db.select().from(documentsTable).where(where).orderBy(desc(documentsTable.createdAt));
+    for (const document of documents) {
+      if (document.extractionStatus === 'PENDING' && document.uploadedAt) {
+        this.ensureExtractionQueued(document.id, userId);
+      }
+    }
+    return documents;
   }
 
   async getById(userId: string, documentId: string) {
@@ -159,6 +167,10 @@ export class DocumentsService {
 
     if (!document) {
       throw new NotFoundException('Document not found');
+    }
+
+    if (document.extractionStatus === 'PENDING' && document.uploadedAt) {
+      this.ensureExtractionQueued(document.id, userId);
     }
 
     return document;
@@ -204,75 +216,10 @@ export class DocumentsService {
       throw new BadRequestException('Document is not uploaded yet');
     }
 
-    await this.recordEvent({
-      documentId: document.id,
-      userId,
-      stage: 'EXTRACTION_STARTED',
-      status: 'INFO',
-      message: 'Document extraction started',
-      traceId,
-      meta: { mimeType: document.mimeType },
-    });
-
-    if (document.mimeType !== 'application/pdf') {
-      await this.db
-        .update(documentsTable)
-        .set({ extractionStatus: 'FAILED', extractionError: 'Only PDF documents are supported' })
-        .where(eq(documentsTable.id, document.id));
-      await this.recordEvent({
-        documentId: document.id,
-        userId,
-        stage: 'EXTRACTION_FAILED',
-        status: 'ERROR',
-        message: 'Only PDF documents are supported',
-        errorCode: 'UNSUPPORTED_MIME',
-        traceId,
-        meta: { mimeType: document.mimeType },
-      });
-      throw new BadRequestException({
-        error: 'UNSUPPORTED_MIME',
-        message: 'Only PDF documents are supported',
-      });
-    }
-
-    const fileBuffer = await this.gcsService.downloadFile(document.storagePath);
-    const pdfParseModule = await import('pdf-parse');
-    const parseFn =
-      (pdfParseModule as unknown as { default?: (input: Buffer) => Promise<{ text: string }> }).default ??
-      (pdfParseModule as unknown as (input: Buffer) => Promise<{ text: string }>);
-    if (typeof parseFn !== 'function') {
-      throw new BadRequestException('PDF parser is not available');
-    }
-    let parsed: { text: string };
-    try {
-      parsed = await parseFn(fileBuffer);
-    } catch (error) {
-      await this.db
-        .update(documentsTable)
-        .set({ extractionStatus: 'FAILED', extractionError: 'Failed to parse PDF' })
-        .where(eq(documentsTable.id, document.id));
-      await this.recordEvent({
-        documentId: document.id,
-        userId,
-        stage: 'EXTRACTION_FAILED',
-        status: 'ERROR',
-        message: 'Failed to parse PDF',
-        errorCode: 'PDF_PARSE_FAILED',
-        traceId,
-        meta: { reason: error instanceof Error ? error.message : 'Unknown parse error' },
-      });
-      throw new BadRequestException({
-        error: 'PDF_PARSE_FAILED',
-        message: 'Failed to parse PDF',
-      });
-    }
-
-    const [updated] = await this.db
+    const [queued] = await this.db
       .update(documentsTable)
       .set({
-        extractedText: parsed.text,
-        extractedAt: new Date(),
-        extractionStatus: 'READY',
+        extractionStatus: 'PENDING',
         extractionError: null,
       })
       .where(eq(documentsTable.id, document.id))
@@ -281,14 +228,16 @@ export class DocumentsService {
     await this.recordEvent({
       documentId: document.id,
       userId,
-      stage: 'EXTRACTION_READY',
-      status: 'SUCCESS',
-      message: 'Document extraction completed',
+      stage: 'EXTRACTION_QUEUED',
+      status: 'INFO',
+      message: 'Document extraction queued for durable processing',
       traceId,
-      meta: { extractedChars: parsed.text.length },
+      meta: { mimeType: document.mimeType },
     });
 
-    return updated;
+    this.ensureExtractionQueued(document.id, userId, traceId);
+
+    return queued;
   }
 
   async retryExtraction(userId: string, documentId: string, traceId?: string) {
@@ -315,10 +264,7 @@ export class DocumentsService {
         documentId: document.id,
         previousStatus: document.extractionStatus,
         previousError: document.extractionError,
-        message:
-          document.extractionStatus === 'FAILED'
-            ? 'Extraction completed after retry. Review diagnostics if quality still looks wrong.'
-            : 'Extraction reran successfully.',
+        message: 'Extraction requeued. Poll document status to confirm durable completion.',
       },
     };
   }
@@ -369,6 +315,125 @@ export class DocumentsService {
       .from(documentEventsTable)
       .where(and(eq(documentEventsTable.userId, userId), eq(documentEventsTable.documentId, documentId)))
       .orderBy(desc(documentEventsTable.createdAt));
+  }
+
+  private ensureExtractionQueued(documentId: string, userId: string, traceId?: string) {
+    if (this.extractionQueue.has(documentId)) {
+      return;
+    }
+
+    const task = this.processQueuedExtraction(documentId, userId, traceId).finally(() => {
+      this.extractionQueue.delete(documentId);
+    });
+    this.extractionQueue.set(documentId, task);
+  }
+
+  private async processQueuedExtraction(documentId: string, userId: string, traceId?: string) {
+    const document = await this.db
+      .select()
+      .from(documentsTable)
+      .where(and(eq(documentsTable.id, documentId), eq(documentsTable.userId, userId)))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!document || !document.uploadedAt || document.extractionStatus !== 'PENDING') {
+      return;
+    }
+
+    await this.recordEvent({
+      documentId: document.id,
+      userId,
+      stage: 'EXTRACTION_STARTED',
+      status: 'INFO',
+      message: 'Document extraction worker picked up queued document',
+      traceId,
+      meta: { mimeType: document.mimeType },
+    });
+
+    if (document.mimeType !== 'application/pdf') {
+      await this.failExtraction(document.id, userId, 'Only PDF documents are supported', 'UNSUPPORTED_MIME', traceId, {
+        mimeType: document.mimeType,
+      });
+      return;
+    }
+
+    let fileBuffer: Buffer;
+    try {
+      fileBuffer = await this.gcsService.downloadFile(document.storagePath);
+    } catch (error) {
+      await this.failExtraction(
+        document.id,
+        userId,
+        'Failed to download document from storage',
+        'STORAGE_DOWNLOAD_FAILED',
+        traceId,
+        { reason: error instanceof Error ? error.message : 'Unknown download error' },
+      );
+      return;
+    }
+
+    const pdfParseModule = await import('pdf-parse');
+    const parseFn =
+      (pdfParseModule as unknown as { default?: (input: Buffer) => Promise<{ text: string }> }).default ??
+      (pdfParseModule as unknown as (input: Buffer) => Promise<{ text: string }>);
+    if (typeof parseFn !== 'function') {
+      await this.failExtraction(document.id, userId, 'PDF parser is not available', 'PDF_PARSE_UNAVAILABLE', traceId);
+      return;
+    }
+
+    let parsed: { text: string };
+    try {
+      parsed = await parseFn(fileBuffer);
+    } catch (error) {
+      await this.failExtraction(document.id, userId, 'Failed to parse PDF', 'PDF_PARSE_FAILED', traceId, {
+        reason: error instanceof Error ? error.message : 'Unknown parse error',
+      });
+      return;
+    }
+
+    await this.db
+      .update(documentsTable)
+      .set({
+        extractedText: parsed.text,
+        extractedAt: new Date(),
+        extractionStatus: 'READY',
+        extractionError: null,
+      })
+      .where(eq(documentsTable.id, document.id));
+
+    await this.recordEvent({
+      documentId: document.id,
+      userId,
+      stage: 'EXTRACTION_READY',
+      status: 'SUCCESS',
+      message: 'Document extraction completed',
+      traceId,
+      meta: { extractedChars: parsed.text.length },
+    });
+  }
+
+  private async failExtraction(
+    documentId: string,
+    userId: string,
+    message: string,
+    errorCode: string,
+    traceId?: string,
+    meta?: Record<string, unknown>,
+  ) {
+    await this.db
+      .update(documentsTable)
+      .set({ extractionStatus: 'FAILED', extractionError: message })
+      .where(eq(documentsTable.id, documentId));
+    await this.recordEvent({
+      documentId,
+      userId,
+      stage: 'EXTRACTION_FAILED',
+      status: 'ERROR',
+      message,
+      errorCode,
+      traceId,
+      meta,
+    });
   }
 
   async checkUploadHealth(_userId: string, traceId?: string) {

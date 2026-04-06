@@ -72,6 +72,13 @@ export const useProfileManagementQueries = ({
       enabled: hasToken && sharedLatestCareerProfile === undefined,
       staleTime: QUERY_STALE_TIME.CORE_DATA,
       gcTime: QUERY_GC_TIME.LONG_LIVED,
+      refetchInterval: (query) => {
+        if (isRateLimitedError(query.state.error)) {
+          return false;
+        }
+        const profile = (sharedLatestCareerProfile ?? query.state.data) as { status?: string } | null | undefined;
+        return profile?.status === 'PENDING' ? 2500 : false;
+      },
     }),
   );
 

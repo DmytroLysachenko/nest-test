@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 
 import { generateCareerProfile } from '@/features/career-profiles/api/career-profiles-api';
@@ -65,7 +65,7 @@ export const useOnboardingMutations = ({ token, draft, resetDraft }: UseOnboardi
       syncProfileInputs(data.input);
       syncProfile(data.profile);
       syncOnboarding();
-      toastSuccess('Profile created successfully');
+      toastSuccess('Profile queued successfully');
       router.push('/');
     },
     onError: (error) => {

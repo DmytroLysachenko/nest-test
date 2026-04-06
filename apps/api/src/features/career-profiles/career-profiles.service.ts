@@ -24,6 +24,8 @@ const MIN_EXTRACTED_TEXT_CHARS = 700;
 
 @Injectable()
 export class CareerProfilesService {
+  private readonly generationQueue = new Map<string, Promise<void>>();
+
   constructor(
     @Drizzle() private readonly db: NodePgDatabase,
     private readonly geminiService: GeminiService,
@@ -68,66 +70,9 @@ export class CareerProfilesService {
       })
       .returning();
 
-    try {
-      const prompt = this.buildPrompt(
-        profileInput.targetRoles,
-        profileInput.notes,
-        profileInput.intakePayload as Record<string, unknown> | null | undefined,
-        documents,
-        dto.instructions,
-        (profileInput.normalizedInput as NormalizedProfileInput | null | undefined) ?? null,
-        (profileInput.normalizationMeta as NormalizationMeta | null | undefined) ?? null,
-      );
-      const rawContentJson = await this.geminiService.generateStructured(prompt, candidateProfileSchema, {
-        retries: 2,
-      });
-      const contentJson = canonicalizeCandidateProfile(
-        rawContentJson,
-        profileInput.normalizedInput as NormalizedProfileInput | null,
-      );
-      const parsedCanonical = parseCandidateProfile(contentJson);
-      if (!parsedCanonical.success) {
-        throw new BadRequestException('Canonicalized profile JSON does not match canonical schema');
-      }
+    this.ensureGenerationQueued(careerProfile.id, userId, dto.instructions);
 
-      const content = this.toMarkdown(contentJson);
-      const projection = this.buildSearchProjection(contentJson);
-
-      await this.deactivateProfiles(userId, careerProfile.id);
-
-      const [updated] = await this.db
-        .update(careerProfilesTable)
-        .set({
-          status: 'READY',
-          content,
-          contentJson,
-          primarySeniority: projection.primarySeniority,
-          targetRoles: projection.targetRoles,
-          searchableKeywords: projection.searchableKeywords,
-          searchableTechnologies: projection.searchableTechnologies,
-          preferredWorkModes: projection.preferredWorkModes,
-          preferredEmploymentTypes: projection.preferredEmploymentTypes,
-          model: 'gemini',
-          error: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(careerProfilesTable.id, careerProfile.id))
-        .returning();
-
-      void this.jobSourcesService.rematchCatalogForUser(userId, updated?.id ?? careerProfile.id, 20);
-      return updated;
-    } catch (error) {
-      await this.db
-        .update(careerProfilesTable)
-        .set({
-          status: 'FAILED',
-          error: error instanceof Error ? error.message : 'Generation failed',
-          updatedAt: new Date(),
-        })
-        .where(eq(careerProfilesTable.id, careerProfile.id));
-
-      throw error;
-    }
+    return careerProfile;
   }
 
   async getLatest(userId: string) {
@@ -138,6 +83,9 @@ export class CareerProfilesService {
       .orderBy(desc(careerProfilesTable.createdAt))
       .limit(1)
       .then(([result]) => result);
+    if (latest?.status === 'PENDING') {
+      this.ensureGenerationQueued(latest.id, userId);
+    }
     return latest ?? null;
   }
 
@@ -187,6 +135,11 @@ export class CareerProfilesService {
     }
 
     const items = await statement;
+    for (const item of items) {
+      if (item.status === 'PENDING') {
+        this.ensureGenerationQueued(item.id, userId);
+      }
+    }
     const [{ total }] = await this.db
       .select({ total: sql<number>`count(*)` })
       .from(careerProfilesTable)
@@ -301,6 +254,10 @@ export class CareerProfilesService {
       throw new NotFoundException('Career profile not found');
     }
 
+    if (profile.status === 'PENDING') {
+      this.ensureGenerationQueued(profile.id, userId);
+    }
+
     return profile;
   }
 
@@ -345,6 +302,117 @@ export class CareerProfilesService {
       .from(documentsTable)
       .where(and(eq(documentsTable.userId, userId), inArray(documentsTable.id, documentIds)))
       .orderBy(desc(documentsTable.createdAt));
+  }
+
+  private ensureGenerationQueued(profileId: string, userId: string, instructions?: string) {
+    if (this.generationQueue.has(profileId)) {
+      return;
+    }
+
+    const task = this.processQueuedGeneration(profileId, userId, instructions).finally(() => {
+      this.generationQueue.delete(profileId);
+    });
+    this.generationQueue.set(profileId, task);
+  }
+
+  private async processQueuedGeneration(profileId: string, userId: string, instructions?: string) {
+    const careerProfile = await this.db
+      .select()
+      .from(careerProfilesTable)
+      .where(and(eq(careerProfilesTable.id, profileId), eq(careerProfilesTable.userId, userId)))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!careerProfile || careerProfile.status !== 'PENDING') {
+      return;
+    }
+
+    const profileInput = await this.db
+      .select()
+      .from(profileInputsTable)
+      .where(eq(profileInputsTable.id, careerProfile.profileInputId))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!profileInput) {
+      await this.markProfileFailed(profileId, 'Profile input not found');
+      return;
+    }
+
+    const documentIds = (careerProfile.documentIds ?? '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const documents = documentIds.length
+      ? await this.db
+          .select()
+          .from(documentsTable)
+          .where(and(eq(documentsTable.userId, userId), inArray(documentsTable.id, documentIds)))
+          .orderBy(desc(documentsTable.createdAt))
+      : [];
+
+    try {
+      this.assertSufficientInputData(documents);
+
+      const prompt = this.buildPrompt(
+        profileInput.targetRoles,
+        profileInput.notes,
+        profileInput.intakePayload as Record<string, unknown> | null | undefined,
+        documents,
+        instructions,
+        (profileInput.normalizedInput as NormalizedProfileInput | null | undefined) ?? null,
+        (profileInput.normalizationMeta as NormalizationMeta | null | undefined) ?? null,
+      );
+      const rawContentJson = await this.geminiService.generateStructured(prompt, candidateProfileSchema, {
+        retries: 2,
+      });
+      const contentJson = canonicalizeCandidateProfile(
+        rawContentJson,
+        profileInput.normalizedInput as NormalizedProfileInput | null,
+      );
+      const parsedCanonical = parseCandidateProfile(contentJson);
+      if (!parsedCanonical.success) {
+        throw new BadRequestException('Canonicalized profile JSON does not match canonical schema');
+      }
+
+      const content = this.toMarkdown(contentJson);
+      const projection = this.buildSearchProjection(contentJson);
+
+      await this.deactivateProfiles(userId, careerProfile.id);
+
+      await this.db
+        .update(careerProfilesTable)
+        .set({
+          status: 'READY',
+          content,
+          contentJson,
+          primarySeniority: projection.primarySeniority,
+          targetRoles: projection.targetRoles,
+          searchableKeywords: projection.searchableKeywords,
+          searchableTechnologies: projection.searchableTechnologies,
+          preferredWorkModes: projection.preferredWorkModes,
+          preferredEmploymentTypes: projection.preferredEmploymentTypes,
+          model: 'gemini',
+          error: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(careerProfilesTable.id, careerProfile.id));
+
+      void this.jobSourcesService.rematchCatalogForUser(userId, careerProfile.id, 20);
+    } catch (error) {
+      await this.markProfileFailed(profileId, error instanceof Error ? error.message : 'Generation failed');
+    }
+  }
+
+  private async markProfileFailed(profileId: string, error: string) {
+    await this.db
+      .update(careerProfilesTable)
+      .set({
+        status: 'FAILED',
+        error,
+        updatedAt: new Date(),
+      })
+      .where(eq(careerProfilesTable.id, profileId));
   }
 
   private buildPrompt(

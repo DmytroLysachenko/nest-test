@@ -179,8 +179,65 @@ describe('DocumentsService', () => {
         retry: expect.objectContaining({
           previousStatus: 'FAILED',
           previousError: 'Failed to parse PDF',
+          message: 'Extraction requeued. Poll document status to confirm durable completion.',
         }),
       }),
     );
+  });
+
+  it('queues extraction and returns pending document state immediately', async () => {
+    const queueSpy = jest
+      .spyOn(DocumentsService.prototype as any, 'ensureExtractionQueued')
+      .mockImplementation(() => {});
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'doc-queued-1',
+                      userId: 'user-1',
+                      uploadedAt: new Date('2026-04-06T10:00:00.000Z'),
+                      mimeType: 'application/pdf',
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            returning: jest.fn().mockResolvedValue([
+              {
+                id: 'doc-queued-1',
+                extractionStatus: 'PENDING',
+                extractionError: null,
+              },
+            ]),
+          }),
+        }),
+      }),
+      insert: jest.fn().mockReturnValue({
+        values: jest.fn().mockResolvedValue(undefined),
+      }),
+    } as any;
+
+    const service = new DocumentsService(db, {} as any, createConfigService(), createLogger());
+    const result = await service.extractText('user-1', { documentId: 'doc-queued-1' }, 'trace-queued-1');
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: 'doc-queued-1',
+        extractionStatus: 'PENDING',
+        extractionError: null,
+      }),
+    );
+    expect(queueSpy).toHaveBeenCalledWith('doc-queued-1', 'user-1', 'trace-queued-1');
+    queueSpy.mockRestore();
   });
 });
