@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 
 import { generateCareerProfile } from '@/features/career-profiles/api/career-profiles-api';
 import { setRootServerError } from '@/shared/lib/forms/set-root-server-error';
@@ -21,7 +21,7 @@ export const useCareerProfileMutations = (token: string, form: UseFormReturn<Car
     onSuccess: (data) => {
       form.clearErrors('root');
       syncProfile(data);
-      toastSuccess('Career profile generated');
+      toastSuccess('Career profile queued');
     },
     onError: (error: unknown) => {
       setRootServerError(form, error, {
