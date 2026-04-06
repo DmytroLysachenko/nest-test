@@ -71,15 +71,15 @@ export const useDocumentsPanelMutations = ({
     },
     onSuccess: async (documentId) => {
       setError(null);
-      setStatus('Uploaded and confirmed. Extracting text...');
+      setStatus('Uploaded and confirmed. Extraction queued...');
       setActiveStage('extract');
       await extractDocument(token, documentId);
-      setStatus('Extraction completed.');
+      setStatus('Extraction queued. Poll document status for completion.');
       setRecoverySummary(null);
       setLastRecoveredDocumentId(documentId);
       setActiveStage('idle');
       syncDocuments();
-      toastSuccess('Document uploaded and extracted');
+      toastSuccess('Document uploaded and queued for extraction');
     },
     onError: (error: unknown) => {
       const message = toUserErrorMessage(error, 'Document upload failed');
@@ -100,7 +100,7 @@ export const useDocumentsPanelMutations = ({
       setRecoverySummary(result.retry.message);
       setSelectedDocumentId(result.document.id);
       setLastRecoveredDocumentId(result.document.id);
-      toastSuccess('Extraction retried');
+      toastSuccess('Extraction requeued');
     },
     onError: (error) => {
       toastError(toUserErrorMessage(error, 'Failed to retry extraction'));
