@@ -3202,9 +3202,7 @@ describe('JobSourcesService', () => {
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
-              limit: jest
-                .fn()
-                .mockRejectedValue(new Error('relation "source_automation_states" does not exist')),
+              limit: jest.fn().mockRejectedValue(new Error('relation "source_automation_states" does not exist')),
             }),
           }),
         }),

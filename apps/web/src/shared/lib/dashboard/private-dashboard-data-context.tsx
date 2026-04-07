@@ -105,7 +105,9 @@ export const PrivateDashboardDataProvider = ({
           return false;
         }
         const documents = (query.state.data as DocumentDto[] | undefined) ?? [];
-        return documents.some((item) => item.extractionStatus === 'PENDING') ? ACTIVE_DASHBOARD_POLL_INTERVAL_MS : false;
+        return documents.some((item) => item.extractionStatus === 'PENDING')
+          ? ACTIVE_DASHBOARD_POLL_INTERVAL_MS
+          : false;
       },
     }),
   );
