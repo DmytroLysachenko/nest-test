@@ -191,6 +191,9 @@ Last updated: 2026-03-11
   - `WORKER_CALLBACK_TOKEN`
   - `SCHEDULER_AUTH_TOKEN`
   - `OPS_INTERNAL_TOKEN`
+- Deploy behavior:
+  - CI/CD now rotates a Secret Manager version only when the incoming GitHub production secret value changed.
+  - Routine code-only deploys should not create new Secret Manager versions.
 
 ## Current Simplification Path
 
