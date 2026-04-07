@@ -5089,12 +5089,41 @@ export class JobSourcesService {
     const derivedPausedUntil = latestFailureAt
       ? new Date(latestFailureAt.getTime() + backoffMinutes * 60 * 1000)
       : null;
-    const existingState = await this.db
-      .select()
-      .from(sourceAutomationStatesTable)
-      .where(eq(sourceAutomationStatesTable.source, source))
-      .limit(1)
-      .then((rows) => rows[0] ?? null);
+    const derivedBackoff: SourceAutomationBackoff = {
+      active: failedRuns.length >= failureThreshold && Boolean(derivedPausedUntil && derivedPausedUntil > new Date()),
+      failureCount: failedRuns.length,
+      windowRuns,
+      pausedUntil:
+        failedRuns.length >= failureThreshold && derivedPausedUntil && derivedPausedUntil > new Date()
+          ? derivedPausedUntil
+          : null,
+      pausedAt:
+        failedRuns.length >= failureThreshold && derivedPausedUntil && derivedPausedUntil > new Date()
+          ? latestFailureAt
+          : null,
+      pausedReason:
+        failedRuns.length >= failureThreshold && derivedPausedUntil && derivedPausedUntil > new Date()
+          ? derivedPausedReason
+          : null,
+      dominantFailureReasons,
+      failureMix,
+    };
+
+    let existingState: typeof sourceAutomationStatesTable.$inferSelect | null = null;
+    try {
+      existingState = await this.db
+        .select()
+        .from(sourceAutomationStatesTable)
+        .where(eq(sourceAutomationStatesTable.source, source))
+        .limit(1)
+        .then((rows) => rows[0] ?? null);
+    } catch (error) {
+      this.logger.warn(
+        { source, error: error instanceof Error ? error.message : String(error) },
+        'Source automation state unavailable; returning derived backoff only',
+      );
+      return derivedBackoff;
+    }
     const overrideSuppressesDerivedPause = Boolean(
       existingState?.overrideClearedAt &&
       latestFailureAt &&
@@ -5111,15 +5140,22 @@ export class JobSourcesService {
       ? derivedPausedReason
       : ((existingState?.pausedReason as SourceAutomationPauseReason | null) ?? null);
 
-    await this.syncSourceAutomationState({
-      source,
-      existingState,
-      pausedReason,
-      openedAt: pausedAt,
-      expiresAt: pausedUntil,
-      lastFailureAt: latestFailureAt,
-      failureMix,
-    });
+    try {
+      await this.syncSourceAutomationState({
+        source,
+        existingState,
+        pausedReason,
+        openedAt: pausedAt,
+        expiresAt: pausedUntil,
+        lastFailureAt: latestFailureAt,
+        failureMix,
+      });
+    } catch (error) {
+      this.logger.warn(
+        { source, error: error instanceof Error ? error.message : String(error) },
+        'Failed to sync source automation state; returning computed backoff',
+      );
+    }
 
     return {
       active,

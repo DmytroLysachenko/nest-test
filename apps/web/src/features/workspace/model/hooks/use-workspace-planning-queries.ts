@@ -12,6 +12,7 @@ import { queryKeys } from '@/shared/lib/query/query-keys';
 import type { DocumentDiagnosticsSummaryDto, JobSourceRunDiagnosticsSummaryDto } from '@/shared/types/api';
 
 const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
+const PLANNING_DIAGNOSTICS_POLL_INTERVAL_MS = Math.max(env.NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS, 60_000);
 
 export const useWorkspacePlanningQueries = (token: string | null) => {
   const diagnosticsSummaryQuery = useQuery(
@@ -21,7 +22,7 @@ export const useWorkspacePlanningQueries = (token: string | null) => {
       queryFn: (authToken) => getJobSourceRunDiagnosticsSummary(authToken, 72),
       ...liveQueryPreset(),
       enabled: diagnosticsEnabled,
-      refetchInterval: env.NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS,
+      refetchInterval: PLANNING_DIAGNOSTICS_POLL_INTERVAL_MS,
     }),
   );
 
@@ -32,7 +33,7 @@ export const useWorkspacePlanningQueries = (token: string | null) => {
       queryFn: (authToken) => getDocumentDiagnosticsSummary(authToken, 168),
       ...liveQueryPreset(),
       enabled: diagnosticsEnabled,
-      refetchInterval: env.NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS,
+      refetchInterval: PLANNING_DIAGNOSTICS_POLL_INTERVAL_MS,
     }),
   );
 

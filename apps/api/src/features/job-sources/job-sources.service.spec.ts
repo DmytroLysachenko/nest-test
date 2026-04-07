@@ -3151,6 +3151,99 @@ describe('JobSourcesService', () => {
     });
   });
 
+  it('returns derived source health when automation state storage is unavailable', async () => {
+    const logger = createLogger();
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([
+              {
+                source: 'PRACUJ_PL',
+                status: 'FAILED',
+                failureType: 'network',
+                classifiedOutcome: 'failed:network',
+                sourceQuality: 'failed',
+                totalFound: 0,
+                scrapedCount: 0,
+                createdAt: new Date('2026-03-21T11:00:00.000Z'),
+                lastHeartbeatAt: null,
+              },
+            ]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            innerJoin: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                groupBy: jest.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([
+                  {
+                    status: 'FAILED',
+                    failureType: 'network',
+                    classifiedOutcome: 'failed:network',
+                    finalizedAt: new Date('2026-03-21T11:05:00.000Z'),
+                    completedAt: null,
+                  },
+                ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest
+                .fn()
+                .mockRejectedValue(new Error('relation "source_automation_states" does not exist')),
+            }),
+          }),
+        }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(
+      createConfigService({
+        SCRAPE_SOURCE_FAILURE_WINDOW_RUNS: 5,
+        SCRAPE_SOURCE_FAILURE_THRESHOLD: 1,
+        SCRAPE_SOURCE_AUTOMATION_BACKOFF_MINUTES: 30,
+      }),
+      logger,
+      db,
+    );
+    jest.spyOn(service as any, 'reconcileStaleRuns').mockResolvedValue(undefined);
+
+    const result = await service.getSourceHealth('user-21', 72);
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      source: 'PRACUJ_PL',
+      failureMix: { network: 1 },
+      recommendedAction: expect.any(String),
+    });
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'PRACUJ_PL',
+        error: expect.stringContaining('source_automation_states'),
+      }),
+      'Source automation state unavailable; returning derived backoff only',
+    );
+  });
+
   it('rejects retry when run is not failed', async () => {
     const db = {
       update: jest.fn().mockReturnValue({

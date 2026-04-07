@@ -9,6 +9,7 @@ import { getNotebookSummary } from '@/features/job-offers/api/job-offers-api';
 import { getScrapeSchedule } from '@/features/job-sources/api/job-sources-api';
 import { getLatestProfileInput } from '@/features/profile-inputs/api/profile-inputs-api';
 import { getWorkspaceSummary } from '@/features/workspace/api/workspace-api';
+import { env } from '@/shared/config/env';
 import {
   normalizeNotebookSummary,
   normalizeScrapeSchedule,
@@ -49,6 +50,7 @@ type PrivateDashboardDataValue = {
 };
 
 const PrivateDashboardDataContext = createContext<PrivateDashboardDataValue | null>(null);
+const ACTIVE_DASHBOARD_POLL_INTERVAL_MS = Math.max(env.NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS, 60_000);
 
 export const PrivateDashboardDataProvider = ({
   token,
@@ -69,7 +71,7 @@ export const PrivateDashboardDataProvider = ({
         }
         const summary = query.state.data as WorkspaceSummaryDto | undefined;
         const status = summary?.scrape.lastRunStatus;
-        return status === 'PENDING' || status === 'RUNNING' ? 8_000 : false;
+        return status === 'PENDING' || status === 'RUNNING' ? ACTIVE_DASHBOARD_POLL_INTERVAL_MS : false;
       },
     }),
   );
@@ -103,7 +105,7 @@ export const PrivateDashboardDataProvider = ({
           return false;
         }
         const documents = (query.state.data as DocumentDto[] | undefined) ?? [];
-        return documents.some((item) => item.extractionStatus === 'PENDING') ? 2_500 : false;
+        return documents.some((item) => item.extractionStatus === 'PENDING') ? ACTIVE_DASHBOARD_POLL_INTERVAL_MS : false;
       },
     }),
   );
