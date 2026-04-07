@@ -12,10 +12,20 @@ require_var() {
 upsert_secret() {
   local name="$1"
   local value="$2"
+
   if ! gcloud secrets describe "$name" --project="$GCP_PROJECT_ID" >/dev/null 2>&1; then
     gcloud secrets create "$name" --project="$GCP_PROJECT_ID" --replication-policy="automatic" >/dev/null
   fi
+
+  local current_value=""
+  current_value="$(gcloud secrets versions access latest --secret="$name" --project="$GCP_PROJECT_ID" 2>/dev/null || true)"
+  if [[ "$current_value" == "$value" ]]; then
+    echo "Secret unchanged: $name"
+    return
+  fi
+
   printf "%s" "$value" | gcloud secrets versions add "$name" --project="$GCP_PROJECT_ID" --data-file=- >/dev/null
+  echo "Secret rotated: $name"
 }
 
 resolve_service_url() {

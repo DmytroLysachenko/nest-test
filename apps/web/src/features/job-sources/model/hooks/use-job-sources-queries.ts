@@ -9,6 +9,7 @@ import {
   getScrapeSchedule,
   listJobSourceRuns,
 } from '@/features/job-sources/api/job-sources-api';
+import { env } from '@/shared/config/env';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
 import { liveQueryPreset, mutableQueryPreset } from '@/shared/lib/query/query-option-presets';
 import { queryKeys } from '@/shared/lib/query/query-keys';
@@ -22,6 +23,7 @@ import type {
 } from '@/shared/types/api';
 
 const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
+const ACTIVE_PLANNING_POLL_INTERVAL_MS = Math.max(env.NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS, 60_000);
 
 type ScrapePreflightParams = {
   source?: 'pracuj-pl' | 'pracuj-pl-it' | 'pracuj-pl-general';
@@ -43,7 +45,7 @@ export const useJobSourcesQueries = (
       refetchInterval: (query) => {
         const runs = (query.state.data as { items?: Array<{ status: string }> } | undefined)?.items ?? [];
         const hasActiveRuns = runs.some((run) => run.status === 'PENDING' || run.status === 'RUNNING');
-        return hasActiveRuns ? 10_000 : false;
+        return hasActiveRuns ? ACTIVE_PLANNING_POLL_INTERVAL_MS : false;
       },
     }),
   );
