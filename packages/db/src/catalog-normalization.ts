@@ -18,6 +18,18 @@ const normalizeAscii = (value: string) =>
 const normalizeKey = (value: string) => normalizeAscii(value).replace(/[^a-z0-9]+/g, '');
 const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim();
 
+export const splitCanonicalValues = (value?: string | null) => {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return [];
+  }
+
+  return normalized
+    .split(/\r?\n|[;,|]|\u2022|\/(?=\s)/g)
+    .map((item) => collapseWhitespace(item))
+    .filter(Boolean);
+};
+
 const buildAliasMap = (definitions: CanonicalTaxonomyDefinition[]) => {
   return definitions.reduce<Map<string, CanonicalTaxonomyDefinition>>((map, definition) => {
     map.set(normalizeKey(definition.slug), definition);

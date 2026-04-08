@@ -80,6 +80,44 @@ test('normalizePracujPl keeps source metadata and marks missing employment type'
   assert.ok(job?.tags?.includes('missing-employment-type'));
 });
 
+test('normalizePracujPl splits combined contract and work schedule values before canonicalization', () => {
+  const [job] = normalizePracujPl([
+    {
+      sourceId: 'offer-4',
+      title: ' Fullstack Developer ',
+      description: ' Build product UI ',
+      url: 'https://it.pracuj.pl/praca/fullstack,oferta,4',
+      employmentType: 'Umowa o pracę / kontrakt B2B',
+      details: {
+        contractTypes: ['Umowa o pracę, kontrakt B2B; umowa zlecenie'],
+        workModes: ['Praca zdalna / Hybrydowo'],
+        workSchedules: ['Pełny etat / Część etatu'],
+      },
+    },
+  ]);
+
+  assert.equal(job?.employmentType, 'uop');
+  assert.deepEqual(job?.details?.contractTypes, ['uop', 'b2b', 'mandate']);
+  assert.deepEqual(job?.details?.workModes, ['remote', 'hybrid']);
+  assert.deepEqual(job?.details?.workSchedules, ['Pełny etat', 'Część etatu']);
+});
+
+test('normalizePracujPl preserves readable labels with Polish diacritics in work schedules', () => {
+  const [job] = normalizePracujPl([
+    {
+      sourceId: 'offer-5',
+      title: ' QA Engineer ',
+      description: ' Validate product quality ',
+      url: 'https://it.pracuj.pl/praca/qa,oferta,5',
+      details: {
+        workSchedules: ['Pełny etat', 'Elastyczny czas pracy'],
+      },
+    },
+  ]);
+
+  assert.deepEqual(job?.details?.workSchedules, ['Pełny etat', 'Elastyczny czas pracy']);
+});
+
 test('shared catalog normalization resolves company names and pracuj categories conservatively', () => {
   assert.deepEqual(normalizeCompanyName(' ACME sp. z o.o. '), {
     canonicalName: 'ACME sp. z o.o.',

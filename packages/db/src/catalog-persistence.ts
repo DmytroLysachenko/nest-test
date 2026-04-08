@@ -16,6 +16,7 @@ import {
   resolveCanonicalWorkMode,
   resolveCanonicalWorkSchedule,
   resolvePracujCategoryDefinition,
+  splitCanonicalValues,
   type ParsedSalary,
 } from './catalog-normalization';
 import {
@@ -116,8 +117,20 @@ const toStringArray = (value: unknown) =>
 const uniqueStrings = (items: Array<string | null | undefined>) =>
   Array.from(new Set(items.filter((item): item is string => Boolean(item))));
 
+const flattenSourceValues = (values: Array<string | null | undefined>) =>
+  values.flatMap((value) => splitCanonicalValues(value));
+
 const mapDefinitions = <T extends { slug: string; label: string; description?: string | null }>(definitions: T[]) =>
   Array.from(new Map(definitions.map((item) => [item.slug, item])).values());
+
+const dedupeTechnologyRelations = (
+  technologies: CatalogNormalizationRefs['technologies'],
+): CatalogNormalizationRefs['technologies'] =>
+  Array.from(
+    new Map(
+      technologies.map((technology) => [`${technology.technologyId}:${technology.category}`, technology]),
+    ).values(),
+  );
 
 const upsertDimensionRows = async (
   db: NodePgDatabase,
@@ -190,15 +203,18 @@ export const resolveCatalogNormalizationRefs = async (
   const preparedJobs = jobs.map((job) => {
     const normalizedCompany = normalizeCompanyName(job.company);
     const contractTypeSlugs = uniqueStrings([
-      canonicalizeContractType(job.employmentType),
-      ...toStringArray(job.details?.contractTypes).map((item) => canonicalizeContractType(item)),
+      ...flattenSourceValues([job.employmentType]).map((item) => canonicalizeContractType(item)),
+      ...flattenSourceValues(toStringArray(job.details?.contractTypes)).map((item) => canonicalizeContractType(item)),
     ]);
-    const employmentTypeSlug = canonicalizeEmploymentType(toStringArray(job.details?.workSchedules)[0]);
+    const employmentTypeSlug =
+      flattenSourceValues([job.employmentType])
+        .map((item) => canonicalizeEmploymentType(item))
+        .find((value): value is string => Boolean(value)) ?? null;
     const workModeSlugs = uniqueStrings(
-      toStringArray(job.details?.workModes).map((item) => canonicalizeWorkMode(item)),
+      flattenSourceValues(toStringArray(job.details?.workModes)).map((item) => canonicalizeWorkMode(item)),
     );
     const workScheduleSlugs = uniqueStrings(
-      toStringArray(job.details?.workSchedules).map((item) => canonicalizeWorkSchedule(item)),
+      flattenSourceValues(toStringArray(job.details?.workSchedules)).map((item) => canonicalizeWorkSchedule(item)),
     );
     const seniorityLevelSlugs = uniqueStrings(
       toStringArray(job.details?.positionLevels).map((item) => canonicalizeSeniorityLevel(item)),
@@ -375,16 +391,19 @@ export const resolveCatalogNormalizationRefs = async (
       continue;
     }
 
-    await db
-      .insert(companyAliasesTable)
-      .values({
-        companyId,
-        alias: company.canonicalName,
-        normalizedAlias: company.normalizedName,
-        source: 'pracuj-pl',
-        createdAt: now,
-      })
-      .onConflictDoNothing();
+    const aliasNormalization = normalizeCompanyName(company.canonicalName);
+    if (aliasNormalization && aliasNormalization.normalizedName !== company.normalizedName) {
+      await db
+        .insert(companyAliasesTable)
+        .values({
+          companyId,
+          alias: company.canonicalName,
+          normalizedAlias: aliasNormalization.normalizedName,
+          source: 'pracuj-pl',
+          createdAt: now,
+        })
+        .onConflictDoNothing();
+    }
 
     if (company.sourceCompanyProfileUrl) {
       await db
@@ -462,8 +481,9 @@ const replaceRelationRows = async (db: NodePgDatabase, jobOfferId: string, input
       .values(input.seniorityLevelIds.map((seniorityLevelId) => ({ jobOfferId, seniorityLevelId })));
   }
   if (input.technologies.length) {
+    const uniqueTechnologies = dedupeTechnologyRelations(input.technologies);
     await db.insert(jobOfferTechnologiesTable).values(
-      input.technologies.map((technology) => ({
+      uniqueTechnologies.map((technology) => ({
         jobOfferId,
         technologyId: technology.technologyId,
         category: technology.category,
