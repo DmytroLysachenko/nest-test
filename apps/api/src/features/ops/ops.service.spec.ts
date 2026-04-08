@@ -56,11 +56,9 @@ describe('OpsService', () => {
           from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 3 }]) }),
         }) // offers without employment type
         .mockReturnValueOnce({
-          from: jest
-            .fn()
-            .mockReturnValue({
-              innerJoin: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 2 }]) }),
-            }),
+          from: jest.fn().mockReturnValue({
+            innerJoin: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 2 }]) }),
+          }),
         }) // redundant company aliases
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 1 }]) }),
