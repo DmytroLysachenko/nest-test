@@ -143,6 +143,74 @@ export const supportQueryCatalog: SupportQueryDefinition[] = [
       values: [],
     }),
   }),
+  defineQuery({
+    id: 'recent-schedule-failures',
+    requiredArguments: [],
+    sql: () => ({
+      text: `
+        select *
+        from scrape_schedule_events
+        where severity = 'error'
+           or event_type = 'schedule_enqueue_failed'
+        order by created_at desc
+        limit 50
+      `,
+      values: [],
+    }),
+  }),
+  defineQuery({
+    id: 'redundant-company-aliases',
+    requiredArguments: [],
+    sql: () => ({
+      text: `
+        select
+          ca.id,
+          ca.company_id,
+          c.canonical_name,
+          c.normalized_name,
+          ca.alias,
+          ca.normalized_alias,
+          ca.source,
+          ca.created_at
+        from company_aliases ca
+        inner join companies c on c.id = ca.company_id
+        where ca.normalized_alias = c.normalized_name
+        order by ca.created_at desc
+        limit 100
+      `,
+      values: [],
+    }),
+  }),
+  defineQuery({
+    id: 'suspicious-contract-taxonomy',
+    requiredArguments: [],
+    sql: () => ({
+      text: `
+        select *
+        from contract_types
+        where slug ~ '[,;/|]'
+           or label ~ '[,;/|]'
+        order by created_at desc
+        limit 100
+      `,
+      values: [],
+    }),
+  }),
+  defineQuery({
+    id: 'empty-job-categories',
+    requiredArguments: [],
+    sql: () => ({
+      text: `
+        select
+          count(*)::int as total_offers,
+          count(*) filter (where job_category_id is null)::int as offers_without_category,
+          count(*) filter (where details is not null)::int as offers_with_details
+        from job_offers
+        where source = 'PRACUJ_PL'
+      `,
+      values: [],
+    }),
+  }),
 ];
 
 export function getSupportQueryDefinition(queryId: string) {

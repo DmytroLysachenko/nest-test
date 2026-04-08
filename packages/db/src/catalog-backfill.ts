@@ -1,4 +1,4 @@
-import { and, eq, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import { type NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import {
@@ -22,6 +22,44 @@ export type CatalogBackfillStats = {
 
 type BackfillOptions = {
   batchSize?: number;
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isRetryableBackfillError = (error: unknown) => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const drizzleError = error as { cause?: { code?: string }; message?: string };
+  const code = drizzleError.cause?.code;
+  if (code === '40P01' || code === '40001') {
+    return true;
+  }
+
+  const message = drizzleError.message?.toLowerCase() ?? '';
+  return (
+    message.includes('connection terminated unexpectedly') ||
+    message.includes('econnreset') ||
+    message.includes('terminating connection')
+  );
+};
+
+const runBackfillWithRetry = async <T>(operation: () => Promise<T>, attempts = 3): Promise<T> => {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableBackfillError(error) || attempt >= attempts) {
+        throw error;
+      }
+      await sleep(attempt * 500);
+    }
+  }
+
+  throw lastError;
 };
 
 type BackfillRow = {
@@ -110,8 +148,26 @@ export const backfillCatalogNormalization = async (
     workModeResolved: 0,
     unresolvedRows: 0,
   };
+  const candidateRows = await db
+    .select({ id: jobOffersTable.id })
+    .from(jobOffersTable)
+    .where(
+      and(
+        eq(jobOffersTable.source, 'PRACUJ_PL'),
+        or(
+          isNull(jobOffersTable.companyId),
+          isNull(jobOffersTable.jobCategoryId),
+          isNull(jobOffersTable.employmentTypeId),
+          isNull(jobOffersTable.contractTypeId),
+          isNull(jobOffersTable.workModeId),
+        ),
+      ),
+    );
 
-  while (true) {
+  const candidateIds = candidateRows.map((row) => row.id);
+
+  for (let offset = 0; offset < candidateIds.length; offset += batchSize) {
+    const batchIds = candidateIds.slice(offset, offset + batchSize);
     const rows: BackfillRow[] = await db
       .select({
         id: jobOffersTable.id,
@@ -141,22 +197,10 @@ export const backfillCatalogNormalization = async (
       })
       .from(jobOffersTable)
       .leftJoin(jobSourceRunsTable, eq(jobOffersTable.runId, jobSourceRunsTable.id))
-      .where(
-        and(
-          eq(jobOffersTable.source, 'PRACUJ_PL'),
-          or(
-            isNull(jobOffersTable.companyId),
-            isNull(jobOffersTable.jobCategoryId),
-            isNull(jobOffersTable.employmentTypeId),
-            isNull(jobOffersTable.contractTypeId),
-            isNull(jobOffersTable.workModeId),
-          ),
-        ),
-      )
-      .limit(batchSize);
+      .where(inArray(jobOffersTable.id, batchIds));
 
     if (!rows.length) {
-      return stats;
+      continue;
     }
 
     stats.scannedRows += rows.length;
@@ -185,18 +229,20 @@ export const backfillCatalogNormalization = async (
     }
 
     for (const group of groups.values()) {
-      const refs = await resolveCatalogNormalizationRefs(
-        db,
-        group.rows.map((row) => ({
-          company: row.company,
-          employmentType: row.employmentType,
-          salary: row.salary,
-          sourceCompanyProfileUrl: row.sourceCompanyProfileUrl,
-          applyUrl: row.applyUrl,
-          postedAt: row.postedAt,
-          details: asCatalogDetails(row.details),
-        })),
-        group.context,
+      const refs = await runBackfillWithRetry(() =>
+        resolveCatalogNormalizationRefs(
+          db,
+          group.rows.map((row) => ({
+            company: row.company,
+            employmentType: row.employmentType,
+            salary: row.salary,
+            sourceCompanyProfileUrl: row.sourceCompanyProfileUrl,
+            applyUrl: row.applyUrl,
+            postedAt: row.postedAt,
+            details: asCatalogDetails(row.details),
+          })),
+          group.context,
+        ),
       );
 
       for (const [index, row] of group.rows.entries()) {
@@ -290,4 +336,6 @@ export const backfillCatalogNormalization = async (
       }
     }
   }
+
+  return stats;
 };
