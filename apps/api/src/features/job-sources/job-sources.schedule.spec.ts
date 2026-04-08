@@ -130,4 +130,53 @@ describe('JobSourcesService schedule', () => {
     expect(result.enabled).toBe(true);
     expect(db.insert).toHaveBeenCalled();
   });
+
+  it('records lastTriggeredAt when scheduler enqueue fails for a due schedule', async () => {
+    const { service, db } = createService({
+      SCHEDULER_AUTH_TOKEN: 'secret',
+    });
+
+    db.select.mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnValue({
+          orderBy: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([
+              {
+                id: 'schedule-1',
+                userId: 'user-1',
+                cron: '0 6 * * 1-5',
+                timezone: 'Europe/Warsaw',
+                source: 'pracuj-pl-it',
+                limit: 20,
+                careerProfileId: null,
+                filters: null,
+                nextRunAt: new Date('2026-04-03T04:00:00.000Z'),
+                updatedAt: new Date('2026-04-02T04:00:00.000Z'),
+              },
+            ]),
+          }),
+        }),
+      }),
+    });
+
+    const updateWhere = jest.fn().mockResolvedValue(undefined);
+    const updateSet = jest.fn().mockReturnValue({ where: updateWhere });
+    db.update.mockReturnValue({ set: updateSet });
+
+    const insertValues = jest.fn().mockResolvedValue(undefined);
+    db.insert.mockReturnValue({ values: insertValues });
+
+    jest.spyOn(service, 'enqueueScrape').mockRejectedValue(new Error('queue unavailable'));
+
+    const result = await service.triggerSchedules('Bearer secret');
+
+    expect(result.failed).toBe(1);
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastTriggeredAt: expect.any(Date),
+        lastRunStatus: 'ENQUEUE_FAILED',
+        nextRunAt: expect.any(Date),
+      }),
+    );
+  });
 });

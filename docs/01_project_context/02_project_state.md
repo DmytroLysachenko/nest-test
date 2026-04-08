@@ -142,6 +142,7 @@ That framing should guide future implementation more than raw source count.
   - diagnostics now distinguish degraded/empty/blocked/partial outcomes
   - diagnostics now also expose artifact manifests, stage metrics, and silent-failure classification so completed-but-useless runs are not treated as healthy success
   - source-specific alias normalization is now deterministic for contract type, work mode, and seniority fields
+  - multi-value contract/work-mode/work-schedule source strings are now split before canonicalization so combined labels stop creating low-value taxonomy rows
   - Pracuj parsing now carries source profile URL, apply URL, posted-at hints, raw payload snapshots, and sparse-field diagnostics into callback normalization
   - callback envelope is replay-safe and increasingly support-friendly
 - Web
@@ -155,6 +156,7 @@ That framing should guide future implementation more than raw source count.
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields
   - catalog ingestion now starts resolving normalized company and taxonomy references alongside raw offer snapshots
   - catalog persistence now also stores source observation history, raw payload ledgers, source-company profiles, structured compensation columns, and normalized multi-value offer relations
+  - company alias persistence is now being tightened so aliases are treated as additive identity evidence instead of automatic copies of the canonical company row
 - CI/CD and smoke
   - split verify/smoke gates exist
 - release candidate and manual production promotion exist

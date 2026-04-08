@@ -50,6 +50,20 @@ describe('OpsService', () => {
           from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 5 }]) }),
         }) // catalog matched recently
         .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 7 }]) }),
+        }) // offers without category
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 3 }]) }),
+        }) // offers without employment type
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            innerJoin: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 2 }]) }),
+          }),
+        }) // redundant company aliases
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 1 }]) }),
+        }) // suspicious contract types
+        .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 2 }]) }),
         }) // due schedules
         .mockReturnValueOnce({
@@ -109,6 +123,10 @@ describe('OpsService', () => {
     expect(result.offers.unscoredUserOffers).toBe(4);
     expect(result.catalog.freshAcceptedOffers).toBe(6);
     expect(result.catalog.matchedRecently).toBe(5);
+    expect(result.catalog.offersWithoutCategory).toBe(7);
+    expect(result.catalog.offersWithoutEmploymentType).toBe(3);
+    expect(result.catalog.redundantCompanyAliases).toBe(2);
+    expect(result.catalog.suspiciousContractTypes).toBe(1);
     expect(result.lifecycle.staleReconciledRuns).toBe(1);
     expect(result.lifecycle.retriesTriggered).toBe(4);
     expect(result.lifecycle.retrySuccessRate).toBe(0.75);
@@ -532,7 +550,14 @@ describe('OpsService', () => {
       queue: { activeRuns: 0, pendingRuns: 0, runningRuns: 0, runningWithoutHeartbeat: 0 },
       scrape: { totalRuns: 0, completedRuns: 0, failedRuns: 0, successRate: 0 },
       offers: { totalUserOffers: 0, unscoredUserOffers: 0 },
-      catalog: { freshAcceptedOffers: 0, matchedRecently: 0 },
+      catalog: {
+        freshAcceptedOffers: 0,
+        matchedRecently: 0,
+        offersWithoutCategory: 0,
+        offersWithoutEmploymentType: 0,
+        redundantCompanyAliases: 0,
+        suspiciousContractTypes: 0,
+      },
       lifecycle: { staleReconciledRuns: 0, retriesTriggered: 0, retrySuccessRate: 0 },
       callback: {
         totalEvents: 0,

@@ -107,6 +107,10 @@ pnpm support:query --query-id callback-events-by-run-id --run-id <run-id>
 pnpm support:query --query-id api-request-events-by-request-id --request-id <request-id>
 pnpm support:query --query-id api-request-events-by-trace-id --trace-id <trace-id>
 pnpm support:query --query-id recent-failed-runs
+pnpm support:query --query-id recent-schedule-failures
+pnpm support:query --query-id redundant-company-aliases
+pnpm support:query --query-id suspicious-contract-taxonomy
+pnpm support:query --query-id empty-job-categories
 ```
 
 Use it for:
@@ -115,6 +119,27 @@ Use it for:
 - correlation across API + DB
 - latest failed runs
 - request-level error events
+- schedule failure clusters
+- redundant company alias inspection
+- suspicious contract taxonomy rows
+- empty category coverage checks
+
+Catalog audit:
+
+```bash
+pnpm --filter @repo/db audit:scrape-catalog
+pnpm --filter @repo/db repair:scrape-catalog
+APPLY_CHANGES=true pnpm --filter @repo/db repair:scrape-catalog
+```
+
+Use it for:
+
+- 7-day scrape failure mix
+- 7-day schedule failure mix
+- missing category/employment/work-mode coverage
+- redundant alias samples
+- suspicious combined contract taxonomy rows
+- idempotent normalization backfill plus optional redundant-alias cleanup when you intentionally enable apply mode
 
 ### 2. Cloud Run Logs
 

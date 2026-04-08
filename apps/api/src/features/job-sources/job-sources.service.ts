@@ -1026,6 +1026,7 @@ export class JobSourcesService {
       await this.db
         .update(scrapeSchedulesTable)
         .set({
+          lastTriggeredAt: acceptedAt,
           lastRunStatus: 'ENQUEUE_FAILED_MANUAL',
           updatedAt: acceptedAt,
         })
@@ -1151,6 +1152,7 @@ export class JobSourcesService {
         await this.db
           .update(scrapeSchedulesTable)
           .set({
+            lastTriggeredAt: acceptedAt,
             nextRunAt,
             lastRunStatus: 'ENQUEUE_FAILED',
             updatedAt: acceptedAt,

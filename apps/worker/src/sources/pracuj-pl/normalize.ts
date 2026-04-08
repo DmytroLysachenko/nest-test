@@ -17,6 +17,23 @@ const normalizeList = (value?: string[]) => {
   return items.length ? items : undefined;
 };
 
+const splitCanonicalValues = (value?: string | null) =>
+  value
+    ? value
+        .split(/\r?\n|[;,|]|\u2022|\/(?=\s)/g)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+
+const splitNormalizedList = (value?: string[]) => {
+  if (!value?.length) {
+    return undefined;
+  }
+
+  const items = value.flatMap((item) => splitCanonicalValues(item));
+  return items.length ? items : undefined;
+};
+
 const dedupeList = (value?: Array<string | null | undefined>) => {
   const items = Array.from(new Set((value ?? []).filter((item): item is string => Boolean(item))));
   return items.length ? items : undefined;
@@ -97,9 +114,11 @@ const normalizeDetails = (details?: JobDetails): JobDetails | undefined => {
         }
       : undefined,
     positionLevels: dedupeList(details.positionLevels?.map((item) => canonicalizePositionLevel(item))),
-    workModes: dedupeList(details.workModes?.map((item) => canonicalizeWorkMode(item))),
-    workSchedules: normalizeList(details.workSchedules),
-    contractTypes: dedupeList(details.contractTypes?.map((item) => canonicalizeContractType(item))),
+    workModes: dedupeList(splitNormalizedList(details.workModes)?.map((item) => canonicalizeWorkMode(item))),
+    workSchedules: splitNormalizedList(details.workSchedules),
+    contractTypes: dedupeList(
+      splitNormalizedList(details.contractTypes)?.map((item) => canonicalizeContractType(item)),
+    ),
     seniority: normalizeText(details.seniority) ?? undefined,
     workplace: normalizeText(details.workplace) ?? undefined,
     companyLocation: normalizeText(details.companyLocation) ?? undefined,
@@ -151,7 +170,10 @@ export const normalizePracujPl = (jobs: ParsedJob[], source = 'pracuj-pl'): Norm
       ),
     ),
     salary: normalizeText(job.salary),
-    employmentType: canonicalizeContractType(job.employmentType),
+    employmentType:
+      splitCanonicalValues(job.employmentType)
+        .map((item) => canonicalizeContractType(item))
+        .find((value): value is string => Boolean(value)) ?? null,
     requirements: job.requirements?.map((item) => item.trim()).filter(Boolean) ?? [],
     details: normalizeDetails(job.details),
     isExpired: job.isExpired,

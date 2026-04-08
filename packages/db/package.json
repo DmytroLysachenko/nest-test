@@ -33,6 +33,7 @@
   "module": "dist/index.js",
   "packageManager": "pnpm@10.11.0",
   "scripts": {
+    "audit:scrape-catalog": "tsx src/seeds/audit-scrape-catalog.ts",
     "build": "tsup",
     "backfill:catalog-normalization": "tsx src/seeds/backfill-catalog-normalization.ts",
     "check-types": "tsc --noEmit -p tsconfig.json",
@@ -41,6 +42,7 @@
     "lint:fix": "eslint \"src/**/*.ts\" eslint.config.ts --fix",
     "migrate": "drizzle-kit migrate",
     "prepare": "pnpm build",
+    "repair:scrape-catalog": "tsx src/seeds/repair-scrape-catalog.ts",
     "seed": "tsx src/seeds/index.ts",
     "seed:e2e": "tsx src/seeds/e2e-fixtures.ts",
     "studio": "drizzle-kit studio",
