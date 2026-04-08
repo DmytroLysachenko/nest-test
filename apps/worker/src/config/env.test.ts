@@ -101,6 +101,17 @@ test('WORKER_CALLBACK_OIDC_AUDIENCE must use https in production', async () => {
   );
 });
 
+test('WORKER_CALLBACK_URL must end with /api/job-sources/complete', async () => {
+  await withEnv(
+    {
+      WORKER_CALLBACK_URL: 'https://api.example.com/api/job-sources/runs/heartbeat',
+    },
+    () => {
+      assert.throws(() => loadEnv(), /WORKER_CALLBACK_URL must end with \/api\/job-sources\/complete/);
+    },
+  );
+});
+
 test('QUEUE_PROVIDER must be cloud-tasks in production mode', async () => {
   await withEnv(
     {

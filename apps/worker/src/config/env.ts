@@ -126,5 +126,15 @@ export const loadEnv = () => {
     }
   }
 
+  if (env.WORKER_CALLBACK_URL) {
+    const callbackUrl = new URL(env.WORKER_CALLBACK_URL);
+    if (!callbackUrl.pathname.endsWith('/api/job-sources/complete')) {
+      throw new Error('WORKER_CALLBACK_URL must end with /api/job-sources/complete');
+    }
+    if (env.NODE_ENV === 'production' && callbackUrl.protocol !== 'https:') {
+      throw new Error('WORKER_CALLBACK_URL must use https in production mode');
+    }
+  }
+
   return env;
 };

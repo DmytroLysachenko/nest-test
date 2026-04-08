@@ -70,6 +70,15 @@ describe('validateEnv', () => {
     ).toThrow('WORKER_CALLBACK_URL must be configured in production mode');
   });
 
+  it('requires canonical worker callback completion endpoint', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        WORKER_CALLBACK_URL: 'https://api.example.com/api/job-sources/runs/abc/heartbeat',
+      }),
+    ).toThrow('WORKER_CALLBACK_URL must end with /api/job-sources/complete');
+  });
+
   it('accepts valid cloud-tasks configuration', () => {
     expect(() =>
       validateEnv({
@@ -84,6 +93,21 @@ describe('validateEnv', () => {
         WORKER_TASKS_SERVICE_ACCOUNT_EMAIL: 'worker@example.iam.gserviceaccount.com',
       }),
     ).not.toThrow();
+  });
+
+  it('requires canonical cloud-tasks ingress endpoint shape', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        NODE_ENV: 'production',
+        WORKER_TASK_PROVIDER: 'cloud-tasks',
+        WORKER_TASKS_PROJECT_ID: 'proj',
+        WORKER_TASKS_LOCATION: 'us-central1',
+        WORKER_TASKS_QUEUE: 'scrape',
+        WORKER_TASK_URL: 'https://worker.example.com/internal',
+        WORKER_CALLBACK_URL: 'https://api.example.com/api/job-sources/complete',
+      }),
+    ).toThrow('WORKER_TASK_URL must end with /tasks or /scrape for cloud-tasks provider');
   });
 
   it('accepts explicit global API throttle config', () => {

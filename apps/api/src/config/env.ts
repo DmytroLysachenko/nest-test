@@ -126,6 +126,13 @@ export const validateEnv = (env: Record<string, unknown>): Env => {
     }
   }
 
+  if (parsed.data.WORKER_CALLBACK_URL) {
+    const callbackUrl = new URL(parsed.data.WORKER_CALLBACK_URL);
+    if (!callbackUrl.pathname.endsWith('/api/job-sources/complete')) {
+      throw new Error('WORKER_CALLBACK_URL must end with /api/job-sources/complete');
+    }
+  }
+
   if (
     (parsed.data.GOOGLE_OAUTH_CLIENT_ID && !parsed.data.GOOGLE_OAUTH_CLIENT_SECRET) ||
     (!parsed.data.GOOGLE_OAUTH_CLIENT_ID && parsed.data.GOOGLE_OAUTH_CLIENT_SECRET)
@@ -187,6 +194,9 @@ export const validateEnv = (env: Record<string, unknown>): Env => {
       const workerTaskUrl = new URL(parsed.data.WORKER_TASK_URL);
       if (workerTaskUrl.protocol !== 'https:') {
         throw new Error('WORKER_TASK_URL must use https in production mode for cloud-tasks provider');
+      }
+      if (!workerTaskUrl.pathname.endsWith('/tasks') && !workerTaskUrl.pathname.endsWith('/scrape')) {
+        throw new Error('WORKER_TASK_URL must end with /tasks or /scrape for cloud-tasks provider');
       }
     }
   }
