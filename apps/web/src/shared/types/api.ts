@@ -419,6 +419,13 @@ export type JobSourceHealthDto = {
     emptyRequirementsRate: number;
     sourceCompanyProfileCoverageRate: number;
     applyUrlCoverageRate: number;
+    activePause: boolean;
+    pauseOpenedAt: string | null;
+    pauseResumeAt: string | null;
+    pauseReason: string | null;
+    failureMix: Record<string, number>;
+    recommendedAction: 'wait' | 'retry' | 'inspect' | 'rematch';
+    guidance: string;
     latestRunAt: string | null;
     latestRunStatus: string | null;
   }>;
@@ -1041,6 +1048,14 @@ export type SupportOverviewDto = {
       retriesTriggered: number;
       retrySuccessRate: number;
     };
+    catalog: {
+      freshAcceptedOffers: number;
+      matchedRecently: number;
+      offersWithoutCategory: number;
+      offersWithoutEmploymentType: number;
+      redundantCompanyAliases: number;
+      suspiciousContractTypes: number;
+    };
     callback: {
       totalEvents: number;
       completedEvents: number;
@@ -1122,6 +1137,12 @@ export type SupportScrapeForensicsDto = {
     failureType: string | null;
     error: string | null;
     createdAt: string;
+  };
+  signals: {
+    lastHeartbeatAt: string | null;
+    lastTimelineEventAt: string | null;
+    reconcileReason: string | null;
+    likelyFailureStage: string;
   };
   stageSummary: Record<string, { total: number; failed: number; warning: number }>;
   executionEvents: Array<{

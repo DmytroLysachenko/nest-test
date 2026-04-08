@@ -119,6 +119,25 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             <InspectorRow label="Avg useful offers" value={String(sourceHealth.avgUsefulOfferCount)} />
             <InspectorRow label="Silent failures" value={String(sourceHealth.silentFailureRuns)} />
           </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <InspectorRow
+              label="Missing employment"
+              value={`${(sourceHealth.missingEmploymentTypeRate * 100).toFixed(1)}%`}
+            />
+            <InspectorRow
+              label="Empty requirements"
+              value={`${(sourceHealth.emptyRequirementsRate * 100).toFixed(1)}%`}
+            />
+            <InspectorRow
+              label="Source profile coverage"
+              value={`${(sourceHealth.sourceCompanyProfileCoverageRate * 100).toFixed(1)}%`}
+            />
+            <InspectorRow
+              label="Apply URL coverage"
+              value={`${(sourceHealth.applyUrlCoverageRate * 100).toFixed(1)}%`}
+            />
+          </div>
+          <p className="text-text-soft text-xs leading-6">{sourceHealth.guidance}</p>
         </div>
       ) : null}
 

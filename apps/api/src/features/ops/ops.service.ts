@@ -6,6 +6,9 @@ import { Logger } from 'nestjs-pino';
 import {
   apiRequestEventsTable,
   authorizationEventsTable,
+  companyAliasesTable,
+  companiesTable,
+  contractTypesTable,
   jobOffersTable,
   jobSourceCallbackEventsTable,
   jobSourceRunEventsTable,
@@ -144,6 +147,23 @@ export class OpsService {
         .select({ value: count() })
         .from(jobOffersTable)
         .where(gte(jobOffersTable.lastMatchedAt, cutoff));
+      const [offersWithoutCategoryRow] = await this.db
+        .select({ value: count() })
+        .from(jobOffersTable)
+        .where(and(eq(jobOffersTable.source, 'PRACUJ_PL'), isNull(jobOffersTable.jobCategoryId)));
+      const [offersWithoutEmploymentTypeRow] = await this.db
+        .select({ value: count() })
+        .from(jobOffersTable)
+        .where(and(eq(jobOffersTable.source, 'PRACUJ_PL'), isNull(jobOffersTable.employmentTypeId)));
+      const [redundantCompanyAliasesRow] = await this.db
+        .select({ value: count() })
+        .from(companyAliasesTable)
+        .innerJoin(companiesTable, eq(companyAliasesTable.companyId, companiesTable.id))
+        .where(sql<boolean>`${companyAliasesTable.normalizedAlias} = ${companiesTable.normalizedName}`);
+      const [suspiciousContractTypesRow] = await this.db
+        .select({ value: count() })
+        .from(contractTypesTable)
+        .where(sql<boolean>`${contractTypesTable.slug} ~ '[,;/|]' or ${contractTypesTable.label} ~ '[,;/|]'`);
       const [dueSchedulesRow] = await this.db
         .select({ value: count() })
         .from(scrapeSchedulesTable)
@@ -249,6 +269,10 @@ export class OpsService {
         catalog: {
           freshAcceptedOffers: Number(freshCatalogOffersRow?.value ?? 0),
           matchedRecently: Number(catalogMatchedRecentlyRow?.value ?? 0),
+          offersWithoutCategory: Number(offersWithoutCategoryRow?.value ?? 0),
+          offersWithoutEmploymentType: Number(offersWithoutEmploymentTypeRow?.value ?? 0),
+          redundantCompanyAliases: Number(redundantCompanyAliasesRow?.value ?? 0),
+          suspiciousContractTypes: Number(suspiciousContractTypesRow?.value ?? 0),
         },
         lifecycle: {
           staleReconciledRuns: Number(staleReconciledRunsRow?.value ?? 0),
@@ -1775,6 +1799,10 @@ export class OpsService {
       catalog: {
         freshAcceptedOffers: 0,
         matchedRecently: 0,
+        offersWithoutCategory: 0,
+        offersWithoutEmploymentType: 0,
+        redundantCompanyAliases: 0,
+        suspiciousContractTypes: 0,
       },
       lifecycle: {
         staleReconciledRuns: 0,

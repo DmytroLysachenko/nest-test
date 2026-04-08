@@ -42,6 +42,18 @@ class OpsCatalogMetricsResponse {
 
   @ApiProperty()
   matchedRecently!: number;
+
+  @ApiProperty()
+  offersWithoutCategory!: number;
+
+  @ApiProperty()
+  offersWithoutEmploymentType!: number;
+
+  @ApiProperty()
+  redundantCompanyAliases!: number;
+
+  @ApiProperty()
+  suspiciousContractTypes!: number;
 }
 
 class OpsLifecycleMetricsResponse {

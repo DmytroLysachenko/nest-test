@@ -151,6 +151,29 @@ export const OpsPage = () => {
         />
       </div>
 
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label="Missing categories"
+          value={String(overview.metrics.catalog.offersWithoutCategory)}
+          caption="Pracuj offers without resolved job category"
+        />
+        <MetricCard
+          label="Missing employment"
+          value={String(overview.metrics.catalog.offersWithoutEmploymentType)}
+          caption="Pracuj offers without resolved employment type"
+        />
+        <MetricCard
+          label="Redundant aliases"
+          value={String(overview.metrics.catalog.redundantCompanyAliases)}
+          caption="Alias rows matching canonical company normalization"
+        />
+        <MetricCard
+          label="Suspicious contracts"
+          value={String(overview.metrics.catalog.suspiciousContractTypes)}
+          caption="Contract taxonomy rows that still look combined"
+        />
+      </div>
+
       <div className="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
         <Card
           title="Scheduler Communication Health"
@@ -236,6 +259,30 @@ export const OpsPage = () => {
           </div>
         </Card>
       ) : null}
+
+      <Card
+        title="Catalog Quality Signals"
+        description="These counts help distinguish parser-quality debt from scheduler or worker transport issues."
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="app-muted-panel">
+            <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Fresh accepted offers</p>
+            <p className="text-text-strong mt-2 text-sm">{overview.metrics.catalog.freshAcceptedOffers}</p>
+          </div>
+          <div className="app-muted-panel">
+            <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Matched recently</p>
+            <p className="text-text-strong mt-2 text-sm">{overview.metrics.catalog.matchedRecently}</p>
+          </div>
+          <div className="app-muted-panel">
+            <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Missing category rows</p>
+            <p className="text-text-strong mt-2 text-sm">{overview.metrics.catalog.offersWithoutCategory}</p>
+          </div>
+          <div className="app-muted-panel">
+            <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Missing employment rows</p>
+            <p className="text-text-strong mt-2 text-sm">{overview.metrics.catalog.offersWithoutEmploymentType}</p>
+          </div>
+        </div>
+      </Card>
 
       <div className="grid gap-5 xl:grid-cols-3">
         <Card
@@ -394,6 +441,9 @@ export const OpsPage = () => {
                 <p className="text-text-soft mt-1 text-sm">
                   {runForensicsQuery.data.run.failureType ?? runForensicsQuery.data.run.status}
                 </p>
+                <p className="text-text-soft mt-1 text-xs">
+                  Likely failure stage: {runForensicsQuery.data.signals.likelyFailureStage}
+                </p>
               </div>
               <div className="space-y-2 text-sm">
                 {Object.entries(runForensicsQuery.data.stageSummary).map(([stage, summary]) => (
@@ -409,6 +459,9 @@ export const OpsPage = () => {
                 Callback events: {runForensicsQuery.data.callbackEvents.length}
                 {' | '}
                 Execution events: {runForensicsQuery.data.executionEvents.length}
+                {runForensicsQuery.data.signals.reconcileReason
+                  ? ` | ${runForensicsQuery.data.signals.reconcileReason}`
+                  : ''}
               </div>
             </div>
           )}
