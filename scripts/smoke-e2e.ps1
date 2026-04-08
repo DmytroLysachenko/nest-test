@@ -819,18 +819,27 @@ $sourceRunId = $scrapePayload.data.sourceRunId
 if ([string]::IsNullOrWhiteSpace($sourceRunId)) {
   throw 'Scrape enqueue did not return sourceRunId.'
 }
-
+$reusedFromRunId = $scrapePayload.data.reusedFromRunId
+$scrapeStatus = [string]$scrapePayload.data.status
+$scrapeWasReused = $scrapeStatus -eq 'reused'
+$offerRunIdsToMatch = @($sourceRunId)
+if (-not [string]::IsNullOrWhiteSpace($reusedFromRunId)) {
+  $offerRunIdsToMatch += $reusedFromRunId
+}
+$callbackHeaders = $null
 if ($forceCallback) {
-  Write-Host '10.5) Forcing deterministic worker completion callback...'
-  $stage = 'force-worker-callback'
   if ([string]::IsNullOrWhiteSpace($workerCallbackToken)) {
     throw 'SMOKE_FORCE_CALLBACK=true requires WORKER_CALLBACK_TOKEN to be set.'
   }
-
   $callbackHeaders = @{
     Authorization = "Bearer $workerCallbackToken"
     'x-request-id' = "smoke-callback-$([Guid]::NewGuid().ToString())"
   }
+}
+
+if ($forceCallback -and -not $scrapeWasReused) {
+  Write-Host '10.5) Forcing deterministic worker completion callback...'
+  $stage = 'force-worker-callback'
 
   $callbackBody = @{
     source = 'pracuj-pl'
@@ -860,6 +869,8 @@ if ($forceCallback) {
 
   $callbackResponse = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/complete" -Method Post -Headers $callbackHeaders -ContentType 'application/json' -Body $callbackBody -UseBasicParsing -TimeoutSec 20
   Assert-StatusCode -Actual $callbackResponse.StatusCode -Allowed @(200, 201) -Context 'Force scrape completion callback'
+} elseif ($forceCallback -and $scrapeWasReused) {
+  Write-Host "10.5) Skipping deterministic callback because scrape was served from reuse. sourceRunId=$sourceRunId reusedFromRunId=$reusedFromRunId"
 }
 
 Write-Host '11) Waiting for scrape run completion callback...'
@@ -907,9 +918,20 @@ $offersApproxPayload = $offersApprox.Content | ConvertFrom-Json
 if ($offersApproxPayload.data.mode -ne 'approx') {
   throw "Expected approx ranking mode in response. got=$($offersApproxPayload.data.mode)"
 }
-$matched = @($offersApproxPayload.data.items | Where-Object { $_.sourceRunId -eq $sourceRunId })
+$matched = @($offersApproxPayload.data.items | Where-Object { $offerRunIdsToMatch -contains $_.sourceRunId })
 if ($matched.Count -lt 1) {
-  throw "No persisted user job offers found for sourceRunId=$sourceRunId"
+  $runDiagnostics = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$sourceRunId/diagnostics" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+  Assert-StatusCode -Actual $runDiagnostics.StatusCode -Allowed @(200) -Context 'Get scrape run diagnostics for persisted offers verification'
+  $runDiagnosticsPayload = $runDiagnostics.Content | ConvertFrom-Json
+  $linkedOffersValue = $runDiagnosticsPayload.data.diagnostics.notebookVisibility.userInsertedOffers
+  if ($null -eq $linkedOffersValue) {
+    $linkedOffersValue = 0
+  }
+  $linkedOffers = [int]$linkedOffersValue
+  if ($linkedOffers -lt 1) {
+    throw "No persisted user job offers found for sourceRunId=$sourceRunId reusedFromRunId=$reusedFromRunId"
+  }
+  throw "Scrape run linked offers according to diagnostics, but no notebook items were returned in list response. sourceRunId=$sourceRunId reusedFromRunId=$reusedFromRunId"
 }
 
 Write-Host '12.01) Verifying incremental ingestion survives failed terminal scrape...'
