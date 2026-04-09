@@ -7,6 +7,7 @@ type JsonLdJob = {
   title?: string;
   description?: string;
   datePosted?: string;
+  validThrough?: string;
   employmentType?: string | string[];
   hiringOrganization?: { name?: string } | string;
   jobLocation?:
@@ -154,6 +155,20 @@ const extractListBySelectors = (html: string, selectors: string[]) => {
   return [];
 };
 
+const extractBulletListByHeading = (html: string, headingPatterns: RegExp[]) => {
+  const $ = load(html);
+  const section = findSectionByHeading($, headingPatterns);
+  if (!section) {
+    return [];
+  }
+
+  return section
+    .find('li')
+    .map((_, el) => cleanText($(el).text()))
+    .get()
+    .filter(Boolean);
+};
+
 const extractChipText = (value: string) => cleanText(value.replace(/[,;]\s*$/, '').replace(/\s*\|\s*/g, ' '));
 
 const extractChips = (html: string, selectors: string[]) => {
@@ -266,6 +281,7 @@ const extractJobOfferSections = (jobOffer: Record<string, unknown> | null) => {
   };
 
   return {
+    aboutProject: collect('about-project'),
     responsibilities: collect('responsibilities'),
     requirementsExpected: collect('requirements-expected'),
     requirementsOptional: collect('requirements-optional'),
@@ -335,6 +351,19 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
     ? offerSections.benefits
     : extractChips(html, ['[data-test="section-benefits"]', '[data-test="offer-benefits"]']);
   const jsonLdBenefits = splitList(jsonLd?.jobBenefits);
+  const aboutProject =
+    offerSections.aboutProject.length > 0
+      ? offerSections.aboutProject
+      : extractBulletListByHeading(html, [/About the project/i, /O projekcie/i]);
+  const responsibilities =
+    offerSections.responsibilities.length > 0
+      ? offerSections.responsibilities
+      : extractBulletListByHeading(html, [/Your responsibilities/i, /Responsibilities/i, /Zakres obowiązków/i]);
+  const offered =
+    offerSections.offered.length > 0
+      ? offerSections.offered
+      : extractBulletListByHeading(html, [/What we offer/i, /To oferujemy/i, /Offered/i]);
+  const additionalInformation = extractBulletListByHeading(html, [/Additional information/i, /Dodatkowe informacje/i]);
   const requiredReq = offerSections.requirementsExpected;
   const optionalReq = offerSections.requirementsOptional;
   const allReq = requiredReq.length || optionalReq.length ? Array.from(new Set([...requiredReq, ...optionalReq])) : [];
@@ -362,7 +391,11 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
     !benefits.length &&
     !companyDescription &&
     !workplace &&
-    !companyLocation
+    !companyLocation &&
+    !aboutProject.length &&
+    !responsibilities.length &&
+    !offered.length &&
+    !additionalInformation.length
   ) {
     return undefined;
   }
@@ -399,6 +432,15 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
     companyDescription,
     workplace,
     companyLocation,
+    sections:
+      aboutProject.length || responsibilities.length || offered.length || additionalInformation.length
+        ? {
+            aboutProject: aboutProject.length ? aboutProject : undefined,
+            responsibilities: responsibilities.length ? responsibilities : undefined,
+            offered: offered.length ? offered : undefined,
+            additionalInformation: additionalInformation.length ? additionalInformation : undefined,
+          }
+        : undefined,
   };
 };
 
@@ -509,6 +551,7 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
       extractHrefBySelectors(page.html, ['[data-test="link-company-profile"]']) ||
       undefined;
     const postedAt = jsonLd?.datePosted?.trim() || resolveJobOfferScalar(jobOffer, ['publishedAt', 'datePosted']);
+    const expiresAt = jsonLd?.validThrough?.trim() || resolveJobOfferScalar(jobOffer, ['validThrough', 'expiresAt']);
     const requirements =
       offerSections.requirementsExpected.length || offerSections.requirementsOptional.length
         ? [...offerSections.requirementsExpected, ...offerSections.requirementsOptional]
@@ -525,6 +568,7 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
       url: page.url,
       applyUrl,
       postedAt,
+      expiresAt,
       sourceCompanyProfileUrl,
       salary,
       employmentType: employmentType?.toString(),
@@ -534,6 +578,7 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
       isExpired: page.isExpired,
       rawPayload: {
         jobOffer: jobOffer ?? null,
+        jobPosting: jsonLd ?? null,
       },
     };
   });

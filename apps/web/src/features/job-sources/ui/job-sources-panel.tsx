@@ -32,7 +32,42 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
   } = jobSourcesPanel.scheduleForm;
   const preflight = jobSourcesPanel.preflightQuery.data;
   const sourceHealth = jobSourcesPanel.sourceHealthQuery.data?.items?.[0] ?? null;
+  const scheduleEvents = jobSourcesPanel.scheduleEventsQuery.data?.items ?? [];
   const formatTimestamp = (value: string | null | undefined) => (value ? new Date(value).toLocaleString() : 'n/a');
+  const latestScheduleSuccess =
+    scheduleEvents.find((event) => event.eventType === 'schedule_enqueue_succeeded') ?? null;
+  const latestScheduleFailure =
+    scheduleEvents.find((event) => event.severity === 'error' || event.eventType === 'schedule_enqueue_failed') ?? null;
+  const scheduleStory = !jobSourcesPanel.scheduleResult?.enabled
+    ? {
+        tone: 'neutral' as const,
+        title: 'Schedule is currently off',
+        description: 'Turn it on once your targeting is stable. Manual runs are still available above.',
+      }
+    : sourceHealth?.activePause
+      ? {
+          tone: 'warning' as const,
+          title: 'Automation is paused by source health',
+          description: sourceHealth.guidance,
+        }
+      : latestScheduleFailure
+        ? {
+            tone: 'danger' as const,
+            title: 'Recent scheduled attempt failed',
+            description: latestScheduleFailure.message,
+          }
+        : latestScheduleSuccess
+          ? {
+              tone: 'positive' as const,
+              title: 'Recent scheduled trigger succeeded',
+              description: latestScheduleSuccess.message,
+            }
+          : {
+              tone: 'warning' as const,
+              title: 'Schedule is enabled but not yet proven',
+              description:
+                'Watch the recent schedule events below to confirm automatic triggering is actually happening.',
+            };
   const getStoryTone = (value?: 'positive' | 'warning' | 'danger' | 'neutral') => {
     if (value === 'positive') {
       return 'border-app-success-border bg-app-success-soft';
@@ -475,6 +510,11 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           <InspectorRow label="Next run" value={formatTimestamp(jobSourcesPanel.scheduleResult?.nextRunAt)} />
         </div>
 
+        <div className={`rounded-2xl border p-3 ${getStoryTone(scheduleStory.tone)}`}>
+          <p className="text-text-strong font-semibold">{scheduleStory.title}</p>
+          <p className="text-text-soft mt-1">{scheduleStory.description}</p>
+        </div>
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-text-soft text-xs">
             Saving the schedule does not start a run immediately. Use Trigger now if you want the schedule config
@@ -492,6 +532,34 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               {jobSourcesPanel.isTriggeringSchedule ? 'Triggering...' : 'Trigger scheduled run now'}
             </Button>
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-text-strong text-sm font-semibold">Recent schedule events</p>
+            <span className="app-badge">{jobSourcesPanel.scheduleEventsQuery.data?.total ?? 0} total</span>
+          </div>
+          {scheduleEvents.length ? (
+            <div className="space-y-2">
+              {scheduleEvents.slice(0, 6).map((event) => (
+                <div key={event.id} className="border-border/60 bg-surface/70 rounded-2xl border p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="app-badge">{event.eventType}</span>
+                    <span className="app-badge">{event.severity}</span>
+                    {event.code ? <span className="app-badge">{event.code}</span> : null}
+                  </div>
+                  <p className="text-text-strong mt-2 text-sm font-medium">{event.message}</p>
+                  <p className="text-text-soft mt-1 text-xs">{formatTimestamp(event.createdAt)}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <WorkflowInlineNotice
+              title="No schedule events recorded yet"
+              description="Once the scheduler or manual trigger touches this schedule, the event history will appear here."
+              tone="info"
+            />
+          )}
         </div>
       </form>
 

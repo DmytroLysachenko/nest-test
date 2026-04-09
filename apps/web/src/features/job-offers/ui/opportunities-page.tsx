@@ -58,7 +58,7 @@ export const OpportunitiesPage = ({
         }
       />
 
-      <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.9fr)]">
+      <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(420px,0.8fr)] 2xl:grid-cols-[minmax(0,1.25fr)_minmax(480px,0.75fr)]">
         <div>
           {opportunities.listQuery.isLoading ? (
             <SectionLoadingState title="Opportunities" description="Loading the discovery queue..." rows={6} />
@@ -99,11 +99,11 @@ export const OpportunitiesPage = ({
         </div>
 
         {showRail ? (
-          <div className="hidden xl:sticky xl:top-24 xl:block xl:self-start">
+          <div className="hidden min-w-0 xl:sticky xl:top-24 xl:block xl:self-start">
             <UtilityRail
               title="Decision rail"
               description="Keep discovery lightweight here: fit, essentials, and the keep-or-dismiss decision."
-              className="bg-transparent p-0"
+              className="min-w-0 bg-transparent p-0"
             >
               <OpportunityDetailsRail
                 offer={opportunities.selectedOffer}

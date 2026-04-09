@@ -201,6 +201,20 @@ const normalizeString = (value: string | undefined | null) => {
   return trimmed ? trimmed : null;
 };
 
+const normalizeDateString = (value: string | undefined | null) => {
+  const normalized = normalizeString(value);
+  if (!normalized) {
+    return null;
+  }
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
+
+const parseOptionalDate = (value: string | undefined | null) => {
+  const normalized = normalizeDateString(value);
+  return normalized ? new Date(normalized) : null;
+};
+
 const excludedColumn = (column: { name: string }) => sql.raw(`excluded."${column.name}"`);
 
 const sanitizeStringArray = (value: string[] | undefined | null) =>
@@ -265,6 +279,7 @@ const sanitizeCallbackJobs = (jobs: ScrapeCompleteDto['jobs']) => {
       sourceId: normalizeString(job.sourceId) ?? undefined,
       applyUrl: normalizeString(job.applyUrl) ?? undefined,
       postedAt: normalizeString(job.postedAt) ?? undefined,
+      expiresAt: normalizeDateString(job.expiresAt) ?? undefined,
       sourceCompanyProfileUrl: normalizeString(job.sourceCompanyProfileUrl) ?? undefined,
       company: normalizeString(job.company) ?? undefined,
       location: normalizeString(job.location) ?? undefined,
@@ -683,6 +698,40 @@ export class JobSourcesService {
       lastTriggeredAt: schedule.lastTriggeredAt?.toISOString() ?? null,
       nextRunAt: schedule.nextRunAt?.toISOString() ?? null,
       lastRunStatus: schedule.lastRunStatus ?? null,
+    };
+  }
+
+  async getScheduleEvents(userId: string, limit = 12) {
+    const sanitizedLimit = Math.min(Math.max(Number(limit) || 12, 1), 50);
+    const items = await this.db
+      .select({
+        id: scrapeScheduleEventsTable.id,
+        eventType: scrapeScheduleEventsTable.eventType,
+        severity: scrapeScheduleEventsTable.severity,
+        code: scrapeScheduleEventsTable.code,
+        message: scrapeScheduleEventsTable.message,
+        sourceRunId: scrapeScheduleEventsTable.sourceRunId,
+        requestId: scrapeScheduleEventsTable.requestId,
+        meta: scrapeScheduleEventsTable.meta,
+        createdAt: scrapeScheduleEventsTable.createdAt,
+      })
+      .from(scrapeScheduleEventsTable)
+      .where(eq(scrapeScheduleEventsTable.userId, userId))
+      .orderBy(desc(scrapeScheduleEventsTable.createdAt))
+      .limit(sanitizedLimit);
+
+    const [{ value }] = await this.db
+      .select({ value: count() })
+      .from(scrapeScheduleEventsTable)
+      .where(eq(scrapeScheduleEventsTable.userId, userId));
+
+    return {
+      items: items.map((item) => ({
+        ...item,
+        meta: (item.meta as Record<string, unknown> | null) ?? null,
+        createdAt: item.createdAt.toISOString(),
+      })),
+      total: Number(value ?? 0),
     };
   }
 
@@ -3022,6 +3071,7 @@ export class JobSourcesService {
         sourceCompanyProfileUrl: job.sourceCompanyProfileUrl ?? normalizedRefs?.sourceCompanyProfileUrl ?? null,
         applyUrl: job.applyUrl ?? null,
         postedAt: job.postedAt ? new Date(job.postedAt) : null,
+        expiresAt: parseOptionalDate(job.expiresAt),
         description: job.description,
         requirements: job.requirements?.length ? job.requirements : null,
         details: job.details ?? null,
@@ -3029,7 +3079,6 @@ export class JobSourcesService {
         qualityState: ACCEPTED_QUALITY_STATE,
         qualityReason: deriveCatalogQualityReason(job),
         isExpired: job.isExpired ?? false,
-        expiresAt: job.isExpired ? now : null,
         lastFullScrapeAt: now,
         firstSeenAt: now,
         lastSeenAt: now,
@@ -3105,8 +3154,8 @@ export class JobSourcesService {
           END`,
           isExpired: excludedColumn(cols.isExpired),
           expiresAt: sql`CASE
-            WHEN ${excludedColumn(cols.isExpired)} = TRUE AND ${jobOffersTable.expiresAt} IS NULL
-            THEN ${excludedColumn(cols.expiresAt)}
+            WHEN ${excludedColumn(cols.expiresAt)} IS NOT NULL THEN ${excludedColumn(cols.expiresAt)}
+            WHEN ${excludedColumn(cols.isExpired)} = TRUE THEN ${jobOffersTable.expiresAt}
             ELSE ${jobOffersTable.expiresAt}
           END`,
           lastFullScrapeAt: excludedColumn(cols.lastFullScrapeAt),
@@ -3160,6 +3209,8 @@ export class JobSourcesService {
         employmentType: job.employmentType ?? null,
         applyUrl: job.applyUrl ?? null,
         postedAt: job.postedAt ? new Date(job.postedAt) : null,
+        isExpired: job.isExpired ?? false,
+        expiresAt: parseOptionalDate(job.expiresAt),
         description: job.description,
         requirements: job.requirements?.length ? job.requirements : null,
         details: job.details ?? null,
@@ -3183,6 +3234,7 @@ export class JobSourcesService {
               employmentType: job.employmentType ?? null,
               applyUrl: job.applyUrl ?? null,
               postedAt: job.postedAt ?? null,
+              expiresAt: job.expiresAt ?? null,
               sourceCompanyProfileUrl: job.sourceCompanyProfileUrl ?? null,
               requirements: job.requirements ?? [],
               details: job.details ?? null,
@@ -4620,6 +4672,7 @@ export class JobSourcesService {
       title: normalizeString(job.title),
       applyUrl: normalizeString(job.applyUrl),
       postedAt: normalizeString(job.postedAt),
+      expiresAt: normalizeDateString(job.expiresAt),
       sourceCompanyProfileUrl: normalizeString(job.sourceCompanyProfileUrl),
       company: normalizeString(job.company),
       location: normalizeString(job.location),

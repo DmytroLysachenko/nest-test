@@ -37,6 +37,12 @@ export type JobDetails = {
   companyLocation?: string;
   companyDescription?: string;
   benefits?: string[];
+  sections?: {
+    aboutProject?: string[];
+    responsibilities?: string[];
+    offered?: string[];
+    additionalInformation?: string[];
+  };
 };
 
 export type ListingJobSummary = {
@@ -59,6 +65,7 @@ export type ParsedJob = {
   url: string;
   applyUrl?: string;
   postedAt?: string;
+  expiresAt?: string;
   sourceCompanyProfileUrl?: string;
   salary?: string;
   employmentType?: string;
@@ -80,6 +87,7 @@ export type NormalizedJob = {
   url: string;
   applyUrl?: string | null;
   postedAt?: string | null;
+  expiresAt?: string | null;
   sourceCompanyProfileUrl?: string | null;
   tags: string[];
   salary: string | null;

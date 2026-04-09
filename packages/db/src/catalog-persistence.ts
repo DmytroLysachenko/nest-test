@@ -99,6 +99,8 @@ export type CatalogObservationPayload = {
   employmentType?: string | null;
   applyUrl?: string | null;
   postedAt?: Date | null;
+  isExpired?: boolean;
+  expiresAt?: Date | null;
   description: string;
   requirements?: unknown;
   details?: unknown;
@@ -519,6 +521,8 @@ export const persistCatalogObservation = async (db: NodePgDatabase, payload: Cat
       employmentType: payload.employmentType ?? null,
       applyUrl: payload.applyUrl ?? null,
       postedAt: payload.postedAt ?? null,
+      isExpired: payload.isExpired ?? false,
+      expiresAt: payload.expiresAt ?? null,
       description: payload.description,
       requirements: payload.requirements ?? null,
       details: payload.details ?? null,

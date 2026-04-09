@@ -346,22 +346,24 @@ export const NotebookOffersListCard = ({
                         {offer.location ?? 'Unknown location'}
                       </p>
                     </div>
-                    <span className="app-badge">status: {offer.status}</span>
+                    <span className="app-badge">{offer.status}</span>
                   </div>
                 </button>
               </div>
 
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <span className="app-badge">score: {offer.matchScore ?? 'n/a'}</span>
+                {typeof offer.matchScore === 'number' ? (
+                  <span className="app-badge">Match {offer.matchScore}</span>
+                ) : null}
                 {offer.rankingScore !== undefined ? (
-                  <span className="app-badge">rank: {offer.rankingScore}</span>
+                  <span className="app-badge">Priority {offer.rankingScore}</span>
                 ) : null}
                 {offer.followUpState && offer.followUpState !== 'none' ? (
                   <span className={`app-badge ${getFollowUpTone(offer.followUpState)}`}>
-                    follow-up: {offer.followUpState}
+                    Follow-up {offer.followUpState}
                   </span>
                 ) : null}
-                {offer.sourceRunId ? <span className="app-badge">run: {offer.sourceRunId.slice(0, 8)}</span> : null}
+                {offer.isExpired ? <span className="app-badge">Expired</span> : null}
                 {(offer.explanationTags ?? []).slice(0, 3).map((tag) => (
                   <span key={tag} className="app-badge">
                     {tag}

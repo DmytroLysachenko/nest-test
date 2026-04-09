@@ -61,7 +61,12 @@ export const OfferStructuredDetailsPanel = ({ structuredDetails }: OfferStructur
       {companySummary ? (
         <div className="app-muted-panel space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-text-strong text-sm font-semibold">{companySummary.canonicalName}</p>
+            <Link
+              href={`/companies/${companySummary.id}`}
+              className="text-text-strong text-sm font-semibold hover:underline"
+            >
+              {companySummary.canonicalName}
+            </Link>
             {companySummary.websiteUrl ? (
               <Link
                 href={companySummary.websiteUrl}
@@ -85,7 +90,17 @@ export const OfferStructuredDetailsPanel = ({ structuredDetails }: OfferStructur
               </Link>
             ) : null}
           </div>
-          {companySummary.hqLocation ? <p className="text-text-soft text-sm">HQ: {companySummary.hqLocation}</p> : null}
+          {companySummary.hqLocation ? (
+            <div className="flex flex-wrap gap-2">
+              <p className="text-text-soft text-sm">HQ: {companySummary.hqLocation}</p>
+              <Link
+                href={`/companies?location=${encodeURIComponent(companySummary.hqLocation)}`}
+                className="text-primary inline-flex text-xs underline-offset-4 hover:underline"
+              >
+                Browse this location
+              </Link>
+            </div>
+          ) : null}
           {companySummary.description ? (
             <p className="text-text-soft text-sm leading-6">{companySummary.description}</p>
           ) : null}

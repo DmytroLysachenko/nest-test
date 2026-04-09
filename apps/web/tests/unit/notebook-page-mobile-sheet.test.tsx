@@ -37,6 +37,8 @@ const offer: JobOfferListItemDto = {
   company: 'Example',
   location: 'Remote',
   salary: null,
+  isExpired: false,
+  expiresAt: null,
   employmentType: null,
   description: 'Role description',
   requirements: null,

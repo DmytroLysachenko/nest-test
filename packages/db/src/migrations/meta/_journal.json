@@ -260,6 +260,13 @@
       "when": 1775491782626,
       "tag": "0036_strong_doctor_doom",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1775750400000,
+      "tag": "0037_job_offer_observation_expiry",
+      "breakpoints": true
     }
   ]
 }

@@ -43,14 +43,21 @@ export const OpportunityDetailsRail = ({
       <div className="space-y-4 text-sm">
         <div className="app-inset-stack space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="app-badge">status: {offer.status}</span>
-            <span className="app-badge">score: {offer.matchScore ?? 'n/a'}</span>
-            {offer.isInPipeline ? <span className="app-badge">already in pipeline</span> : null}
+            <span className="app-badge">{offer.status}</span>
+            {typeof offer.matchScore === 'number' ? <span className="app-badge">Match {offer.matchScore}</span> : null}
+            {offer.isInPipeline ? <span className="app-badge">In pipeline</span> : null}
+            {offer.isExpired ? <span className="app-badge">Expired</span> : null}
           </div>
           <p className="text-secondary-foreground font-medium">
-            {offer.company ?? 'Unknown company'} | {offer.location ?? 'Unknown location'}
+            {offer.company ?? 'Unknown company'}
+            {offer.location ? ` | ${offer.location}` : ''}
           </p>
           <p className="text-text-strong text-sm font-semibold">{offer.fitSummary ?? 'Review this role manually.'}</p>
+          {offer.expiresAt ? (
+            <p className="text-text-soft text-xs">
+              {offer.isExpired ? 'Offer expired' : 'Offer valid until'} {new Date(offer.expiresAt).toLocaleString()}
+            </p>
+          ) : null}
         </div>
 
         {offer.fitHighlights.length ? (
@@ -71,17 +78,35 @@ export const OpportunityDetailsRail = ({
           <p className="text-text-soft line-clamp-6 text-sm leading-6">
             {offer.description?.trim() || 'Open the source listing if you need the full job description.'}
           </p>
-          {offer.url ? (
-            <Link
-              href={offer.url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary inline-flex text-sm underline-offset-4 hover:underline"
-            >
-              Open source listing
-              <ExternalLink className="ml-1 h-3.5 w-3.5" />
-            </Link>
-          ) : null}
+          <div className="flex flex-wrap gap-3">
+            {offer.url ? (
+              <Link
+                href={offer.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary inline-flex text-sm underline-offset-4 hover:underline"
+              >
+                Open source listing
+                <ExternalLink className="ml-1 h-3.5 w-3.5" />
+              </Link>
+            ) : null}
+            {offer.structuredDetails?.companySummary?.id ? (
+              <Link
+                href={`/companies/${offer.structuredDetails.companySummary.id}`}
+                className="text-primary inline-flex text-sm underline-offset-4 hover:underline"
+              >
+                Open company profile
+              </Link>
+            ) : null}
+            {offer.location ? (
+              <Link
+                href={`/companies?location=${encodeURIComponent(offer.location)}`}
+                className="text-primary inline-flex text-sm underline-offset-4 hover:underline"
+              >
+                More companies in {offer.location}
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">

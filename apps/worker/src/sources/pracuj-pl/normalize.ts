@@ -17,6 +17,15 @@ const normalizeList = (value?: string[]) => {
   return items.length ? items : undefined;
 };
 
+const normalizeIsoDate = (value?: string | null) => {
+  const trimmed = normalizeText(value);
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
+
 const splitCanonicalValues = (value?: string | null) =>
   value
     ? value
@@ -124,6 +133,14 @@ const normalizeDetails = (details?: JobDetails): JobDetails | undefined => {
     companyLocation: normalizeText(details.companyLocation) ?? undefined,
     companyDescription: normalizeText(details.companyDescription) ?? undefined,
     benefits: normalizeList(details.benefits),
+    sections: details.sections
+      ? {
+          aboutProject: normalizeList(details.sections.aboutProject),
+          responsibilities: normalizeList(details.sections.responsibilities),
+          offered: normalizeList(details.sections.offered),
+          additionalInformation: normalizeList(details.sections.additionalInformation),
+        }
+      : undefined,
   };
 
   if (
@@ -137,7 +154,11 @@ const normalizeDetails = (details?: JobDetails): JobDetails | undefined => {
     !normalized.workplace &&
     !normalized.companyLocation &&
     !normalized.companyDescription &&
-    !normalized.benefits
+    !normalized.benefits &&
+    !normalized.sections?.aboutProject &&
+    !normalized.sections?.responsibilities &&
+    !normalized.sections?.offered &&
+    !normalized.sections?.additionalInformation
   ) {
     return undefined;
   }
@@ -146,37 +167,43 @@ const normalizeDetails = (details?: JobDetails): JobDetails | undefined => {
 };
 
 export const normalizePracujPl = (jobs: ParsedJob[], source = 'pracuj-pl'): NormalizedJob[] => {
-  return jobs.map((job) => ({
-    source,
-    sourceId: job.sourceId ? job.sourceId.trim() : null,
-    title: job.title.trim(),
-    company: normalizeText(job.company),
-    location: normalizeText(job.location),
-    description: job.description.trim(),
-    url: job.url,
-    applyUrl: normalizeText(job.applyUrl),
-    postedAt: normalizeText(job.postedAt),
-    sourceCompanyProfileUrl: normalizeText(job.sourceCompanyProfileUrl),
-    tags: Array.from(
-      new Set(
-        [
-          ...(job.tags?.map((item) => item.trim()).filter(Boolean) ?? []),
-          ...(job.employmentType ? [] : ['missing-employment-type']),
-          ...((job.requirements?.length ?? 0) > 0 ? [] : ['missing-requirements']),
-          ...(job.details?.technologies?.all?.length || job.details?.technologies?.required?.length
-            ? []
-            : ['sparse-technologies']),
-        ].filter(Boolean),
+  return jobs.map((job) => {
+    const expiresAt = normalizeIsoDate(job.expiresAt);
+    const isExpired = job.isExpired ?? (expiresAt ? new Date(expiresAt).getTime() <= Date.now() : undefined);
+
+    return {
+      source,
+      sourceId: job.sourceId ? job.sourceId.trim() : null,
+      title: job.title.trim(),
+      company: normalizeText(job.company),
+      location: normalizeText(job.location),
+      description: job.description.trim(),
+      url: job.url,
+      applyUrl: normalizeText(job.applyUrl),
+      postedAt: normalizeIsoDate(job.postedAt),
+      expiresAt,
+      sourceCompanyProfileUrl: normalizeText(job.sourceCompanyProfileUrl),
+      tags: Array.from(
+        new Set(
+          [
+            ...(job.tags?.map((item) => item.trim()).filter(Boolean) ?? []),
+            ...(job.employmentType ? [] : ['missing-employment-type']),
+            ...((job.requirements?.length ?? 0) > 0 ? [] : ['missing-requirements']),
+            ...(job.details?.technologies?.all?.length || job.details?.technologies?.required?.length
+              ? []
+              : ['sparse-technologies']),
+          ].filter(Boolean),
+        ),
       ),
-    ),
-    salary: normalizeText(job.salary),
-    employmentType:
-      splitCanonicalValues(job.employmentType)
-        .map((item) => canonicalizeContractType(item))
-        .find((value): value is string => Boolean(value)) ?? null,
-    requirements: job.requirements?.map((item) => item.trim()).filter(Boolean) ?? [],
-    details: normalizeDetails(job.details),
-    isExpired: job.isExpired,
-    rawPayload: job.rawPayload,
-  }));
+      salary: normalizeText(job.salary),
+      employmentType:
+        splitCanonicalValues(job.employmentType)
+          .map((item) => canonicalizeContractType(item))
+          .find((value): value is string => Boolean(value)) ?? null,
+      requirements: job.requirements?.map((item) => item.trim()).filter(Boolean) ?? [],
+      details: normalizeDetails(job.details),
+      isExpired,
+      rawPayload: job.rawPayload,
+    };
+  });
 };

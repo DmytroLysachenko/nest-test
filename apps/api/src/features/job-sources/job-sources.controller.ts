@@ -24,6 +24,7 @@ import {
   UpdateScrapeScheduleDto,
 } from './dto/scrape-schedule.dto';
 import { JobSourceHealthResponse } from './dto/source-health.response';
+import { ScrapeScheduleEventsResponseDto } from './dto/schedule-events.response';
 
 @ApiTags('job-sources')
 @ApiBearerAuth()
@@ -146,6 +147,13 @@ export class JobSourcesController {
   @ApiOkResponse({ type: ScrapeScheduleResponseDto })
   async getSchedule(@CurrentUser() user: JwtValidateUser) {
     return this.jobSourcesService.getSchedule(user.userId);
+  }
+
+  @Get('schedule/events')
+  @ApiOperation({ summary: 'Get recent scrape schedule events for current user' })
+  @ApiOkResponse({ type: ScrapeScheduleEventsResponseDto })
+  async getScheduleEvents(@CurrentUser() user: JwtValidateUser, @Query('limit') limit?: number) {
+    return this.jobSourcesService.getScheduleEvents(user.userId, limit);
   }
 
   @Put('schedule')

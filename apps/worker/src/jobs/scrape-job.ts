@@ -204,6 +204,7 @@ export const computeNormalizedJobContentHash = (
     | 'title'
     | 'applyUrl'
     | 'postedAt'
+    | 'expiresAt'
     | 'sourceCompanyProfileUrl'
     | 'company'
     | 'location'
@@ -223,6 +224,7 @@ export const computeNormalizedJobContentHash = (
         title: normalizeString(job.title),
         applyUrl: normalizeString(job.applyUrl),
         postedAt: normalizeString(job.postedAt),
+        expiresAt: normalizeString(job.expiresAt),
         sourceCompanyProfileUrl: normalizeString(job.sourceCompanyProfileUrl),
         company: normalizeString(job.company),
         location: normalizeString(job.location),
@@ -416,6 +418,7 @@ export const sanitizeCallbackJobs = (jobs: NormalizedJob[] | undefined) => {
       employmentType: normalizeString(job.employmentType),
       applyUrl: normalizeString(job.applyUrl),
       postedAt: normalizeString(job.postedAt),
+      expiresAt: normalizeString(job.expiresAt),
       sourceCompanyProfileUrl: normalizeString(job.sourceCompanyProfileUrl),
       requirements: sanitizeStringArray(job.requirements),
       isExpired: job.isExpired,

@@ -7,6 +7,7 @@ import {
   getJobSourceHealth,
   getScrapePreflight,
   getScrapeSchedule,
+  getScrapeScheduleEvents,
   listJobSourceRuns,
 } from '@/features/job-sources/api/job-sources-api';
 import { env } from '@/shared/config/env';
@@ -20,6 +21,7 @@ import type {
   JobSourceRunsListDto,
   ScrapePreflightDto,
   ScrapeScheduleDto,
+  ScrapeScheduleEventsDto,
 } from '@/shared/types/api';
 
 const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
@@ -69,6 +71,15 @@ export const useJobSourcesQueries = (
     }),
   );
 
+  const scheduleEventsQuery = useQuery(
+    buildAuthedQueryOptions<ScrapeScheduleEventsDto>({
+      token,
+      queryKey: queryKeys.jobSources.scheduleEvents(token, 12),
+      queryFn: (authToken) => getScrapeScheduleEvents(authToken, 12),
+      ...mutableQueryPreset(),
+    }),
+  );
+
   const sourceHealthQuery = useQuery(
     buildAuthedQueryOptions<JobSourceHealthDto>({
       token,
@@ -92,6 +103,7 @@ export const useJobSourcesQueries = (
     diagnosticsQuery,
     sourceHealthQuery,
     scheduleQuery,
+    scheduleEventsQuery,
     preflightQuery,
   };
 };

@@ -31,6 +31,7 @@ const baseNavItems: AppNavItem[] = [
   { href: '/planning', label: 'Planning', shortLabel: 'PL' },
   { href: '/opportunities', label: 'Opportunities', shortLabel: 'OC' },
   { href: '/notebook', label: 'Notebook', shortLabel: 'NB' },
+  { href: '/companies', label: 'Companies', shortLabel: 'CO' },
   { href: '/activity', label: 'Activity Board', shortLabel: 'AC' },
   { href: '/profile', label: 'Profile Studio', shortLabel: 'PS' },
 ];
@@ -132,6 +133,7 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
       ...baseNavItems.map((item) =>
         item.href === '/notebook' ||
         item.href === '/opportunities' ||
+        item.href === '/companies' ||
         item.href === '/planning' ||
         item.href === '/activity'
           ? {

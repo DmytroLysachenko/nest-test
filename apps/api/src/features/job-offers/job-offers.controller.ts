@@ -238,7 +238,7 @@ export class JobOffersController {
   }
 
   @Post(':id/score')
-  @ApiOperation({ summary: 'Score a job offer using LLM' })
+  @ApiOperation({ summary: 'Score a job offer using deterministic matching' })
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   async score(
     @CurrentUser() user: JwtValidateUser,

@@ -21,7 +21,6 @@ import {
   workSchedulesTable,
   workModesTable,
 } from '@repo/db';
-import { z } from 'zod';
 
 import { Drizzle } from '@/common/decorators';
 import { GeminiService } from '@/common/modules/gemini/gemini.service';
@@ -62,7 +61,6 @@ import {
 import type { Env } from '@/config/env';
 import type { JobOfferStatus, JobSource } from '@repo/db';
 
-const LLM_SCORE_TIMEOUT_MS = 20000;
 const toIsoString = (value: Date | null) => (value ? value.toISOString() : null);
 
 @Injectable()
@@ -230,6 +228,9 @@ export class JobOffersService {
     const fetchOffset = mode === 'explore' ? offset : 0;
 
     const conditions = [eq(userJobOffersTable.userId, userId)];
+    if (query.includeExpired !== 'true') {
+      conditions.push(eq(jobOffersTable.isExpired, false));
+    }
     if (query.status) {
       conditions.push(eq(userJobOffersTable.status, query.status));
     }
@@ -288,6 +289,8 @@ export class JobOffersService {
         location: jobOffersTable.location,
         salary: jobOffersTable.salary,
         employmentType: jobOffersTable.employmentType,
+        isExpired: jobOffersTable.isExpired,
+        expiresAt: jobOffersTable.expiresAt,
         companySummaryId: companiesTable.id,
         companyCanonicalName: companiesTable.canonicalName,
         companyWebsiteUrl: companiesTable.websiteUrl,
@@ -355,6 +358,7 @@ export class JobOffersService {
           followUpState: resolveFollowUpState(item.status, item, followUpNow),
           pipelineMeta: buildPipelineMetaWithFollowUp(item.pipelineMeta, followUpFields),
           followUpAt: toIsoString(followUpFields.followUpAt),
+          expiresAt: toIsoString(item.expiresAt),
           nextStep: followUpFields.nextStep,
           followUpNote: followUpFields.followUpNote,
           applicationUrl: followUpFields.applicationUrl,
@@ -478,6 +482,9 @@ export class JobOffersService {
     const fetchWindow = Math.max(limit * 4, limit + offset + 20);
 
     const conditions = [eq(userJobOffersTable.userId, userId)];
+    if (query.includeExpired !== 'true') {
+      conditions.push(eq(jobOffersTable.isExpired, false));
+    }
     if (query.status) {
       conditions.push(eq(userJobOffersTable.status, query.status));
     }
@@ -536,6 +543,8 @@ export class JobOffersService {
         location: jobOffersTable.location,
         salary: jobOffersTable.salary,
         employmentType: jobOffersTable.employmentType,
+        isExpired: jobOffersTable.isExpired,
+        expiresAt: jobOffersTable.expiresAt,
         companySummaryId: companiesTable.id,
         companyCanonicalName: companiesTable.canonicalName,
         companyWebsiteUrl: companiesTable.websiteUrl,
@@ -606,6 +615,7 @@ export class JobOffersService {
           followUpState: resolveFollowUpState(item.status, item, followUpNow),
           pipelineMeta: buildPipelineMetaWithFollowUp(item.pipelineMeta, followUpFields),
           followUpAt: toIsoString(followUpFields.followUpAt),
+          expiresAt: toIsoString(item.expiresAt),
           nextStep: followUpFields.nextStep,
           followUpNote: followUpFields.followUpNote,
           applicationUrl: followUpFields.applicationUrl,
@@ -655,7 +665,8 @@ export class JobOffersService {
         status: userJobOffersTable.status,
       })
       .from(userJobOffersTable)
-      .where(eq(userJobOffersTable.userId, userId));
+      .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .where(and(eq(userJobOffersTable.userId, userId), eq(jobOffersTable.isExpired, false)));
 
     const activeItems = items.filter((item) => !['DISMISSED', 'ARCHIVED', 'REJECTED'].includes(item.status));
     const unseen = activeItems.filter((item) => item.status === 'NEW').length;
@@ -698,7 +709,7 @@ export class JobOffersService {
       })
       .from(userJobOffersTable)
       .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
-      .where(eq(userJobOffersTable.userId, userId))
+      .where(and(eq(userJobOffersTable.userId, userId), eq(jobOffersTable.isExpired, false)))
       .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt));
 
     const total = items.length;
@@ -895,7 +906,7 @@ export class JobOffersService {
       })
       .from(userJobOffersTable)
       .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
-      .where(eq(userJobOffersTable.userId, userId))
+      .where(and(eq(userJobOffersTable.userId, userId), eq(jobOffersTable.isExpired, false)))
       .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt));
 
     const now = new Date();
@@ -1180,7 +1191,7 @@ export class JobOffersService {
       })
       .from(userJobOffersTable)
       .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
-      .where(eq(userJobOffersTable.userId, userId))
+      .where(and(eq(userJobOffersTable.userId, userId), eq(jobOffersTable.isExpired, false)))
       .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt));
 
     const now = new Date();
@@ -1801,6 +1812,8 @@ export class JobOffersService {
         location: jobOffersTable.location,
         url: jobOffersTable.url,
         description: jobOffersTable.description,
+        isExpired: jobOffersTable.isExpired,
+        expiresAt: jobOffersTable.expiresAt,
         requirements: jobOffersTable.requirements,
         companySummaryId: companiesTable.id,
         companyCanonicalName: companiesTable.canonicalName,
@@ -1871,6 +1884,8 @@ export class JobOffersService {
         location: offer.location,
         url: offer.url,
         description: offer.description,
+        isExpired: offer.isExpired,
+        expiresAt: toIsoString(offer.expiresAt),
         requirements: offer.requirements,
         structuredDetails,
       },
@@ -2034,6 +2049,8 @@ export class JobOffersService {
         company: jobOffersTable.company,
         location: jobOffersTable.location,
         employmentType: jobOffersTable.employmentType,
+        isExpired: jobOffersTable.isExpired,
+        expiresAt: jobOffersTable.expiresAt,
         contractType: contractTypesTable.slug,
         employmentSchedule: employmentTypesTable.slug,
         workMode: workModesTable.slug,
@@ -2102,30 +2119,11 @@ export class JobOffersService {
       salaryText: offer.salary,
     });
 
-    const prompt = this.buildScorePrompt(parsedProfile.data, offer, deterministic);
-    let llmScoreDelta = 0;
-    let llmSummary = '';
-    try {
-      const content = await Promise.race([
-        this.geminiService.generateText(prompt, { model: this.scoringModel }),
-        new Promise<string>((_, reject) =>
-          setTimeout(() => reject(new Error('LLM scoring request timed out')), LLM_SCORE_TIMEOUT_MS),
-        ),
-      ]);
-      const parsed = this.parseScoreJson(content);
-      if (parsed) {
-        llmScoreDelta = Math.max(-10, Math.min(10, Math.round(parsed.score)));
-        llmSummary = parsed.summary;
-      }
-    } catch {
-      llmScoreDelta = 0;
-    }
-
-    const score = Math.max(0, Math.min(100, Math.round(deterministic.score + llmScoreDelta)));
+    const score = Math.max(0, Math.min(100, Math.round(deterministic.score)));
     const isMatch = score >= minScore;
     const scoredAt = new Date().toISOString();
     const matchMeta = {
-      engine: 'hybrid-profile-v1',
+      engine: 'deterministic-profile-v1',
       score,
       minScore,
       profileSchemaVersion: parsedProfile.data.schemaVersion,
@@ -2133,13 +2131,10 @@ export class JobOffersService {
       hardConstraintViolations: deterministic.hardConstraintViolations,
       softPreferenceGaps: deterministic.softPreferenceGaps,
       breakdown: deterministic.breakdown,
-      llmSummary,
-      llmScoreDelta,
       audit: {
-        provider: 'vertex-ai',
-        model: this.scoringModel,
+        provider: 'deterministic',
+        model: 'candidate-matcher',
         scoredAt,
-        timeoutMs: LLM_SCORE_TIMEOUT_MS,
       },
     };
 
@@ -2255,56 +2250,13 @@ export class JobOffersService {
     return updated;
   }
 
-  private buildScorePrompt(
-    profile: Record<string, unknown>,
-    offer: Record<string, unknown>,
-    deterministic: { score: number },
-  ) {
-    return [
-      'You are a job matching assistant for post-processing deterministic score.',
-      'Return ONLY JSON in this exact shape:',
-      '{ "score": number, "summary": string }',
-      'The score is delta adjustment in range -10..10.',
-      '',
-      'Candidate profile JSON:',
-      JSON.stringify(profile),
-      '',
-      'Job offer:',
-      JSON.stringify(offer),
-      '',
-      `Deterministic baseline score: ${deterministic.score}`,
-    ].join('\n');
-  }
-
-  private parseScoreJson(content: string) {
-    const match = content.match(/```json\s*([\s\S]*?)\s*```/i);
-    const candidate = match?.[1] ?? this.extractJsonObject(content);
-    if (!candidate) {
+  private extractJsonObject(content: string): string | null {
+    const start = content.indexOf('{');
+    const end = content.lastIndexOf('}');
+    if (start === -1 || end === -1 || end <= start) {
       return null;
     }
 
-    try {
-      const raw = JSON.parse(candidate);
-      const schema = z.object({
-        score: z.number(),
-        summary: z.string(),
-      });
-      const parsed = schema.safeParse(raw);
-      if (!parsed.success) {
-        return null;
-      }
-      return parsed.data;
-    } catch {
-      return null;
-    }
-  }
-
-  private extractJsonObject(content: string) {
-    const first = content.indexOf('{');
-    const last = content.lastIndexOf('}');
-    if (first === -1 || last === -1 || last <= first) {
-      return null;
-    }
-    return content.slice(first, last + 1);
+    return content.slice(start, end + 1);
   }
 }

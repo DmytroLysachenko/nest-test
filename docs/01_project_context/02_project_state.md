@@ -143,7 +143,7 @@ That framing should guide future implementation more than raw source count.
   - diagnostics now also expose artifact manifests, stage metrics, and silent-failure classification so completed-but-useless runs are not treated as healthy success
   - source-specific alias normalization is now deterministic for contract type, work mode, and seniority fields
   - multi-value contract/work-mode/work-schedule source strings are now split before canonicalization so combined labels stop creating low-value taxonomy rows
-  - Pracuj parsing now carries source profile URL, apply URL, posted-at hints, raw payload snapshots, and sparse-field diagnostics into callback normalization
+  - Pracuj parsing now carries source profile URL, apply URL, posted-at hints, source-derived expiry dates, structured section snapshots, raw payload subsets, and sparse-field diagnostics into callback normalization
   - callback envelope is replay-safe and increasingly support-friendly
 - Web
   - major move from panel-heavy internal tooling toward guided product workflow

@@ -100,8 +100,9 @@ export const OpportunitiesListCard = ({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className="app-badge">status: {offer.status}</span>
-            <span className="app-badge">score: {offer.matchScore ?? 'n/a'}</span>
+            <span className="app-badge">{offer.status}</span>
+            {typeof offer.matchScore === 'number' ? <span className="app-badge">Match {offer.matchScore}</span> : null}
+            {offer.isExpired ? <span className="app-badge">Expired</span> : null}
           </div>
         </div>
         <p className="text-text-strong mt-3 text-sm font-medium">{offer.fitSummary ?? 'Review this role manually.'}</p>
@@ -118,11 +119,13 @@ export const OpportunitiesListCard = ({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-text-soft text-xs">
-          {offer.isInPipeline
-            ? 'Already in your active workflow.'
-            : offer.status === 'SEEN'
-              ? 'Already reviewed once. Decide whether to save or dismiss.'
-              : 'Fresh match ready for first-pass review.'}
+          {offer.isExpired
+            ? 'This offer is no longer active, but you can still inspect the saved context.'
+            : offer.isInPipeline
+              ? 'Already in your active workflow.'
+              : offer.status === 'SEEN'
+                ? 'Already reviewed once. Decide whether to save or dismiss.'
+                : 'Fresh match ready for first-pass review.'}
         </p>
         <Button type="button" variant="ghost" className="h-8 px-0 text-xs" onClick={() => onSelectOffer(offer.id)}>
           Open details

@@ -20,6 +20,7 @@ import { CareerProfilesModule } from '@/features/career-profiles/career-profiles
 import { JobMatchingModule } from '@/features/job-matching/job-matching.module';
 import { JobSourcesModule } from '@/features/job-sources/job-sources.module';
 import { JobOffersModule } from '@/features/job-offers/job-offers.module';
+import { CompaniesModule } from '@/features/companies/companies.module';
 import { OnboardingDraftsModule } from '@/features/onboarding-drafts/onboarding-drafts.module';
 import { WorkspaceModule } from '@/features/workspace/workspace.module';
 import { OpsModule } from '@/features/ops/ops.module';
@@ -85,6 +86,7 @@ import type { Env } from '@/config/env';
     JobMatchingModule,
     JobSourcesModule,
     JobOffersModule,
+    CompaniesModule,
     OnboardingDraftsModule,
     WorkspaceModule,
     OpsModule,

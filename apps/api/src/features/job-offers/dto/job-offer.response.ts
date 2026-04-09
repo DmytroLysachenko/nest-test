@@ -197,6 +197,12 @@ export class JobOfferItem {
   @ApiProperty({ required: false })
   employmentType!: string | null;
 
+  @ApiProperty({ required: false })
+  isExpired!: boolean;
+
+  @ApiProperty({ required: false })
+  expiresAt!: string | null;
+
   @ApiProperty()
   description!: string;
 
@@ -390,6 +396,12 @@ class PrepPacketSummary {
 
   @ApiProperty({ required: false })
   description!: string | null;
+
+  @ApiProperty({ required: false })
+  isExpired!: boolean;
+
+  @ApiProperty({ required: false })
+  expiresAt!: string | null;
 
   @ApiProperty({ required: false })
   requirements!: unknown | null;

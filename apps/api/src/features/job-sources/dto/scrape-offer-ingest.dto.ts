@@ -44,6 +44,11 @@ class ScrapeOfferIngestJobDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  expiresAt?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   sourceCompanyProfileUrl?: string;
 
   @ApiPropertyOptional()

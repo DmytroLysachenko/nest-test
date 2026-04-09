@@ -98,23 +98,6 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
         }
         notebook.rescore({ id: notebook.selectedOffer.id });
       }}
-      onSaveFeedback={(score, notes) => {
-        if (!notebook.selectedOffer) {
-          return;
-        }
-        notebook.updateFeedback({
-          id: notebook.selectedOffer.id,
-          aiFeedbackScore: score,
-          aiFeedbackNotes: notes,
-        });
-      }}
-      onGeneratePrep={(instructions) => {
-        if (!notebook.selectedOffer) {
-          return;
-        }
-        notebook.generatePrep({ id: notebook.selectedOffer.id, instructions });
-      }}
-      isGeneratingPrep={notebook.isGeneratingPrep}
     />
   );
 
