@@ -55,8 +55,21 @@ export const queryKeys = {
     sourceHealth: (token: string | null, windowHours: number) =>
       ['job-sources', 'source-health', token, windowHours] as const,
     schedule: (token: string | null) => ['job-sources', 'schedule', token] as const,
+    scheduleEvents: (token: string | null, limit: number) => ['job-sources', 'schedule-events', token, limit] as const,
     preflight: (token: string | null, params?: Record<string, unknown>) =>
       ['job-sources', 'preflight', token, params] as const,
+  },
+  companies: {
+    list: (
+      token: string | null,
+      params: {
+        search?: string;
+        location?: string;
+        limit?: number;
+        offset?: number;
+      },
+    ) => ['companies', token, params] as const,
+    detail: (token: string | null, companyId: string | null) => ['companies', 'detail', token, companyId] as const,
   },
   jobOffers: {
     discovery: (

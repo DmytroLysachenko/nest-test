@@ -679,6 +679,56 @@ export type ScrapeScheduleDto = {
   lastRunStatus: string | null;
 };
 
+export type ScrapeScheduleEventDto = {
+  id: string;
+  eventType: string;
+  severity: 'info' | 'warning' | 'error';
+  code: string | null;
+  message: string;
+  sourceRunId: string | null;
+  requestId: string | null;
+  meta: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type ScrapeScheduleEventsDto = {
+  items: ScrapeScheduleEventDto[];
+  total: number;
+};
+
+export type CompanyListItemDto = {
+  id: string;
+  canonicalName: string;
+  websiteUrl: string | null;
+  sourceProfileUrl: string | null;
+  logoUrl: string | null;
+  description: string | null;
+  hqLocation: string | null;
+  activeOfferCount: number;
+  totalOfferCount: number;
+  lastSeenAt: string;
+};
+
+export type CompanyLinkedOfferDto = {
+  id: string;
+  title: string;
+  location: string | null;
+  salary: string | null;
+  url: string;
+  isExpired: boolean;
+  expiresAt: string | null;
+  lastSeenAt: string;
+};
+
+export type CompaniesListDto = {
+  items: CompanyListItemDto[];
+  total: number;
+};
+
+export type CompanyDetailDto = CompanyListItemDto & {
+  recentOffers: CompanyLinkedOfferDto[];
+};
+
 export type JobOfferStatus =
   | 'NEW'
   | 'SEEN'
@@ -743,6 +793,8 @@ export type JobOfferListItemDto = {
   company: string | null;
   location: string | null;
   salary: string | null;
+  isExpired: boolean;
+  expiresAt: string | null;
   employmentType: string | null;
   description: string;
   requirements: unknown | null;
