@@ -52,8 +52,10 @@ Current standardization direction:
 - scrape ingestion now preserves raw offer snapshot fields while also resolving structured catalog references when confidence is acceptable
 - first active structured refs are company, contract type, employment type, work mode, and selected category context
 - canonical offer rows now also persist structured salary columns, source-company profile URL, apply URL, and posted-at when available
+- canonical offer rows now also persist `expires_at` from source-derived offer validity signals when available; source JSON-LD `validThrough` is the preferred expiry signal for Pracuj
 - multi-value offer facts now persist in normalized relation tables for contract types, work modes, work schedules, seniority levels, and technologies
 - per-run observed source facts and raw payloads are persisted separately from the canonical offer row for replay/debug safety
+- per-run observed source facts now include expiry state/date and a bounded structured section snapshot so removed offers remain understandable without storing full HTML
 - cache/catalog reuse now requires a minimum fresh candidate yield instead of relying only on gross reused result counts
 - enqueue responses now return explicit reuse diagnostics when catalog rematch or DB reuse is rejected before worker dispatch
 - source health now includes observation-backed coverage metrics for missing employment type, empty requirements, source-profile capture, and apply-link capture
@@ -81,6 +83,7 @@ Current enqueue contract direction:
 - when reuse is considered but rejected, `reuseDiagnostics` explains whether the cause was insufficient fresh candidates, no matchable catalog rows, no cached run, or no cached offers
 - accepted offers can now be persisted incrementally during a running scrape instead of waiting only for terminal callback completion
 - terminal scrape failure now preserves already-ingested offers and links them into `user_job_offers` when possible instead of dropping the run output
+- worker offer payloads now carry both `isExpired` and `expiresAt`; `isExpired` supports quick filtering while `expiresAt` preserves the source-derived validity date for audits and later UX
 - schedule cron handling now supports weekday expressions such as `0 6 * * 1-5` without collapsing to a daily default
 - stale watchdog failures now distinguish `worker-not-started` from `heartbeat-stopped-or-callback-missing` in the stored run error
 - worker pipeline orchestration now uses a source-adapter contract so future sites can reuse fetch/parse/normalize stages without copying the Pracuj orchestration path
