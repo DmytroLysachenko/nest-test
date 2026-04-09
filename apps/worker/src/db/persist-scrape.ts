@@ -185,6 +185,8 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
           sourceCompanyProfileUrl: job.sourceCompanyProfileUrl,
           applyUrl: job.applyUrl,
           postedAt: job.postedAt ? new Date(job.postedAt) : null,
+          isExpired: job.isExpired ?? false,
+          expiresAt: job.expiresAt ? new Date(job.expiresAt) : null,
           salaryMin: catalogNormalizationRefs[index]?.parsedSalary.salaryMin ?? null,
           salaryMax: catalogNormalizationRefs[index]?.parsedSalary.salaryMax ?? null,
           salaryCurrency: catalogNormalizationRefs[index]?.parsedSalary.salaryCurrency ?? null,
@@ -242,6 +244,11 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
           sourceCompanyProfileUrl: sql`coalesce(excluded."source_company_profile_url", "job_offers"."source_company_profile_url")`,
           applyUrl: sql`coalesce(excluded."apply_url", "job_offers"."apply_url")`,
           postedAt: sql`coalesce(excluded."posted_at", "job_offers"."posted_at")`,
+          isExpired: sql`excluded."is_expired"`,
+          expiresAt: sql`CASE
+            WHEN excluded."expires_at" IS NOT NULL THEN excluded."expires_at"
+            ELSE "job_offers"."expires_at"
+          END`,
           description: sql`CASE
             WHEN excluded."description" IS NOT NULL AND excluded."description" != '' AND excluded."description" != 'No description found'
             THEN excluded."description"
