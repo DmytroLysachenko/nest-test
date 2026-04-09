@@ -4,6 +4,7 @@ import type {
   EnqueueScrapeResponseDto,
   ScrapePreflightDto,
   ScrapeScheduleDto,
+  ScrapeScheduleEventsDto,
   JobSourceHealthDto,
   JobSourceRunDiagnosticsDto,
   JobSourceRunDiagnosticsSummaryDto,
@@ -115,6 +116,12 @@ export const exportJobSourceRunsCsv = (token: string) =>
 
 export const getScrapeSchedule = (token: string) =>
   apiRequest<ScrapeScheduleDto>('/job-sources/schedule', {
+    method: 'GET',
+    token,
+  });
+
+export const getScrapeScheduleEvents = (token: string, limit = 12) =>
+  apiRequest<ScrapeScheduleEventsDto>(`/job-sources/schedule/events?limit=${limit}`, {
     method: 'GET',
     token,
   });

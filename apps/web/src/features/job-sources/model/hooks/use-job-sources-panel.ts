@@ -52,7 +52,7 @@ export const useJobSourcesPanel = (token: string) => {
     [limit, listingUrl, mode],
   );
 
-  const { runsQuery, diagnosticsQuery, sourceHealthQuery, scheduleQuery, preflightQuery } = useJobSourcesQueries(
+  const { runsQuery, diagnosticsQuery, sourceHealthQuery, scheduleQuery, scheduleEventsQuery, preflightQuery } = useJobSourcesQueries(
     token,
     selectedRunId,
     preflightParams,
@@ -109,6 +109,7 @@ export const useJobSourcesPanel = (token: string) => {
     diagnosticsQuery,
     sourceHealthQuery,
     scheduleQuery,
+    scheduleEventsQuery,
     preflightQuery,
     selectedRunId,
     setSelectedRunId,
