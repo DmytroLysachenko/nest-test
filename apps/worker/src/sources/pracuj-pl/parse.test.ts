@@ -49,3 +49,27 @@ test('parsePracujPl sanitizes noisy company description and extracts workplace m
   assert.equal(result?.details?.workplace, 'Hybrid');
   assert.equal(result?.details?.companyLocation, 'Warszawa, Prosta 1');
 });
+
+test('parsePracujPl extracts validThrough expiry and richer structured sections', () => {
+  const [result] = parsePracujPl([
+    {
+      url: 'https://it.pracuj.pl/praca/senior-full-stack-engineer,oferta,999',
+      html: readFixture('detail-expiry-rich.html'),
+    },
+  ]);
+
+  assert.equal(result?.postedAt, '2026-04-01T08:00:00.000Z');
+  assert.equal(result?.expiresAt, '2099-04-30T21:59:59Z');
+  assert.equal(result?.applyUrl, 'https://pracuj.pl/apply/999');
+  assert.equal(result?.sourceCompanyProfileUrl, 'https://pracuj.pl/future-systems');
+  assert.deepEqual(result?.requirements, ['TypeScript', 'Node.js', 'AWS']);
+  assert.deepEqual(result?.details?.sections?.aboutProject, [
+    'Platform modernization for regulated fintech systems.',
+  ]);
+  assert.deepEqual(result?.details?.sections?.responsibilities, [
+    'Build backend APIs',
+    'Improve frontend workflows',
+  ]);
+  assert.deepEqual(result?.details?.sections?.offered, ['Flexible working hours', 'Training budget']);
+  assert.deepEqual(result?.details?.sections?.additionalInformation, ['Team size: 8 engineers']);
+});

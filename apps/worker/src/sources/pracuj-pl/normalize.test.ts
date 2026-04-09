@@ -66,6 +66,7 @@ test('normalizePracujPl keeps source metadata and marks missing employment type'
       url: 'https://www.pracuj.pl/praca/office-manager,oferta,3',
       applyUrl: 'https://www.pracuj.pl/praca/office-manager,oferta,3',
       postedAt: '2026-04-01T09:00:00.000Z',
+      expiresAt: '2099-04-30T21:59:59Z',
       sourceCompanyProfileUrl: 'https://pracodawcy.pracuj.pl/company/123',
       requirements: [],
       details: {
@@ -116,6 +117,33 @@ test('normalizePracujPl preserves readable labels with Polish diacritics in work
   ]);
 
   assert.deepEqual(job?.details?.workSchedules, ['Pełny etat', 'Elastyczny czas pracy']);
+});
+
+test('normalizePracujPl preserves expiresAt and structured narrative sections', () => {
+  const [job] = normalizePracujPl([
+    {
+      sourceId: 'offer-6',
+      title: ' Office Manager ',
+      company: ' Example Corp ',
+      location: ' Warsaw ',
+      description: ' Coordinate office operations ',
+      url: 'https://www.pracuj.pl/praca/office-manager,oferta,6',
+      applyUrl: 'https://www.pracuj.pl/praca/office-manager,oferta,6',
+      postedAt: '2026-04-01T09:00:00.000Z',
+      expiresAt: '2099-04-30T21:59:59Z',
+      sourceCompanyProfileUrl: 'https://pracodawcy.pracuj.pl/company/123',
+      details: {
+        sections: {
+          aboutProject: ['Keep office operations stable'],
+        },
+      },
+    },
+  ]);
+
+  assert.equal(job?.postedAt, '2026-04-01T09:00:00.000Z');
+  assert.equal(job?.expiresAt, '2099-04-30T21:59:59.000Z');
+  assert.equal(job?.isExpired, false);
+  assert.deepEqual(job?.details?.sections?.aboutProject, ['Keep office operations stable']);
 });
 
 test('shared catalog normalization resolves company names and pracuj categories conservatively', () => {
