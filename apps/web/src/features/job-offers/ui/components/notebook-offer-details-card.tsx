@@ -44,11 +44,11 @@ type NotebookOfferDetailsCardProps = {
   onCompleteFollowUp: (nextAction?: 'clear' | 'tomorrow' | 'in3days' | 'in1week') => void;
   onSnoozeFollowUp: (durationHours: number) => void;
   onClearFollowUp: () => void;
-  onSaveFeedback: (score: number, notes: string) => void;
   onRescore: () => void;
-  onGeneratePrep: (instructions?: string) => void;
-  isGeneratingPrep?: boolean;
 };
+
+const normalizePipelineMetaRecord = (value: unknown) =>
+  value && typeof value === 'object' && !Array.isArray(value) ? ({ ...value } as Record<string, unknown>) : {};
 
 export const NotebookOfferDetailsCard = ({
   offer,
@@ -66,13 +66,11 @@ export const NotebookOfferDetailsCard = ({
   onRescore,
 }: NotebookOfferDetailsCardProps) => {
   const [pendingConfirmStatus, setPendingConfirmStatus] = useState<JobOfferStatus | null>(null);
-  const [pipelineMetaStr, setPipelineMetaStr] = useState<string>(
-    offer?.pipelineMeta ? JSON.stringify(offer.pipelineMeta, null, 2) : '',
-  );
+  const [pipelineDraft, setPipelineDraft] = useState<Record<string, unknown>>(normalizePipelineMetaRecord(offer?.pipelineMeta));
   const drafts = useNotebookOfferDetailsDrafts({ offer });
 
   useEffect(() => {
-    setPipelineMetaStr(offer?.pipelineMeta ? JSON.stringify(offer.pipelineMeta, null, 2) : '');
+    setPipelineDraft(normalizePipelineMetaRecord(offer?.pipelineMeta));
   }, [offer?.id, offer?.pipelineMeta]);
 
   if (!offer) {
@@ -87,25 +85,16 @@ export const NotebookOfferDetailsCard = ({
     );
   }
 
-  const matchMeta = offer.matchMeta ?? {};
-  const pipelineMeta =
-    offer.pipelineMeta && typeof offer.pipelineMeta === 'object' && !Array.isArray(offer.pipelineMeta)
-      ? (offer.pipelineMeta as Record<string, unknown>)
-      : {};
-  const hasPipelineDraftChanges =
-    pipelineMetaStr !== (offer.pipelineMeta ? JSON.stringify(offer.pipelineMeta, null, 2) : '');
+  const pipelineMeta = normalizePipelineMetaRecord(offer.pipelineMeta);
+  const hasPipelineDraftChanges = JSON.stringify(pipelineDraft) !== JSON.stringify(pipelineMeta);
   const followUpAt =
-    offer.followUpAt ?? (pipelineMeta && typeof pipelineMeta.followUpAt === 'string' ? pipelineMeta.followUpAt : '');
+    offer.followUpAt ?? (typeof pipelineDraft.followUpAt === 'string' ? pipelineDraft.followUpAt : '');
   const applicationUrl =
-    offer.applicationUrl ??
-    (pipelineMeta && typeof pipelineMeta.applicationUrl === 'string' ? pipelineMeta.applicationUrl : '');
-  const nextStep =
-    offer.nextStep ?? (pipelineMeta && typeof pipelineMeta.nextStep === 'string' ? pipelineMeta.nextStep : '');
-  const contactName =
-    offer.contactName ?? (pipelineMeta && typeof pipelineMeta.contactName === 'string' ? pipelineMeta.contactName : '');
+    offer.applicationUrl ?? (typeof pipelineDraft.applicationUrl === 'string' ? pipelineDraft.applicationUrl : '');
+  const nextStep = offer.nextStep ?? (typeof pipelineDraft.nextStep === 'string' ? pipelineDraft.nextStep : '');
+  const contactName = offer.contactName ?? (typeof pipelineDraft.contactName === 'string' ? pipelineDraft.contactName : '');
   const followUpNote =
-    offer.followUpNote ??
-    (pipelineMeta && typeof pipelineMeta.followUpNote === 'string' ? pipelineMeta.followUpNote : '');
+    offer.followUpNote ?? (typeof pipelineDraft.followUpNote === 'string' ? pipelineDraft.followUpNote : '');
   const followUpState = offer.followUpState ?? 'none';
   const followUpSummary =
     followUpState === 'due'
@@ -115,40 +104,18 @@ export const NotebookOfferDetailsCard = ({
         : offer.status === 'APPLIED' || offer.status === 'INTERVIEWING' || offer.status === 'OFFER'
           ? 'No follow-up is scheduled yet. Add a date, next step, and note so this role does not drift.'
           : 'Capture the next step early so this role stays actionable if it becomes a keeper.';
-  const decisionDueAt =
-    pipelineMeta && typeof pipelineMeta.decisionDueAt === 'string' ? pipelineMeta.decisionDueAt : null;
-  const prepRecommended =
-    pipelineMeta && typeof pipelineMeta.prepRecommended === 'boolean' ? pipelineMeta.prepRecommended : false;
+  const decisionDueAt = typeof pipelineDraft.decisionDueAt === 'string' ? pipelineDraft.decisionDueAt : null;
+  const prepRecommended = typeof pipelineDraft.prepRecommended === 'boolean' ? pipelineDraft.prepRecommended : false;
 
   const setStructuredPipelineField = (field: string, value: unknown) => {
-    const current =
-      pipelineMetaStr.trim() && hasPipelineDraftChanges
-        ? (() => {
-            try {
-              const parsed = JSON.parse(pipelineMetaStr);
-              return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-                ? (parsed as Record<string, unknown>)
-                : { ...pipelineMeta };
-            } catch {
-              return { ...pipelineMeta };
-            }
-          })()
-        : { ...pipelineMeta };
-
-    current[field] = value;
-    setPipelineMetaStr(JSON.stringify(current, null, 2));
+    setPipelineDraft((current) => ({
+      ...current,
+      [field]: value,
+    }));
   };
 
   const handleSavePipeline = () => {
-    try {
-      const nextPipelineMeta = pipelineMetaStr.trim() ? JSON.parse(pipelineMetaStr) : {};
-      if (!nextPipelineMeta || typeof nextPipelineMeta !== 'object' || Array.isArray(nextPipelineMeta)) {
-        return;
-      }
-      onSavePipeline(nextPipelineMeta as Record<string, unknown>);
-    } catch {
-      return;
-    }
+    onSavePipeline(pipelineDraft);
   };
 
   return (
@@ -157,7 +124,7 @@ export const NotebookOfferDetailsCard = ({
         <div className="app-inset-stack space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="app-badge border-primary/20 bg-primary/5 text-primary">{offer.status}</span>
-            <span className="app-badge">Score {offer.matchScore ?? 'n/a'}</span>
+            {typeof offer.matchScore === 'number' ? <span className="app-badge">Match {offer.matchScore}</span> : null}
             {offer.followUpState && offer.followUpState !== 'none' ? (
               <span
                 className={`app-badge ${
@@ -170,10 +137,17 @@ export const NotebookOfferDetailsCard = ({
               </span>
             ) : null}
             <DataFreshnessBadge updatedAt={updatedAt} label="Offer data" />
+            {offer.isExpired ? <span className="app-badge">Expired</span> : null}
           </div>
           <p className="text-secondary-foreground font-medium">
-            {offer.company ?? 'Unknown company'} | {offer.location ?? 'Unknown location'}
+            {offer.company ?? 'Unknown company'}
+            {offer.location ? ` | ${offer.location}` : ''}
           </p>
+          {offer.expiresAt ? (
+            <p className="text-text-soft text-xs">
+              {offer.isExpired ? 'Offer expired' : 'Offer valid until'} {new Date(offer.expiresAt).toLocaleString()}
+            </p>
+          ) : null}
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
@@ -229,6 +203,14 @@ export const NotebookOfferDetailsCard = ({
             >
               Open source listing
               <ExternalLink className="ml-1 h-3.5 w-3.5" />
+            </Link>
+          ) : null}
+          {offer.structuredDetails?.companySummary?.id ? (
+            <Link
+              href={`/companies/${offer.structuredDetails.companySummary.id}`}
+              className="border-border bg-surface-muted/50 text-text-soft hover:bg-surface-muted inline-flex items-center rounded-xl border px-3 py-1.5 text-[11px] transition-colors"
+            >
+              Company profile
             </Link>
           ) : null}
           {offer.sourceRunId ? (
@@ -543,40 +525,7 @@ export const NotebookOfferDetailsCard = ({
 
         <details className="group">
           <summary className="text-text-strong hover:text-primary cursor-pointer text-sm font-medium transition-colors">
-            Advanced metadata
-          </summary>
-          <div className="mt-3 space-y-3">
-            <p className="text-text-soft text-xs">
-              Use raw JSON only for fields that do not belong in the structured workflow controls above.
-            </p>
-            <div className="app-field-group">
-              <Label htmlFor="pipeline-meta" className="app-inline-label">
-                Pipeline Metadata (JSON)
-              </Label>
-              <Textarea
-                id="pipeline-meta"
-                rows={5}
-                value={pipelineMetaStr}
-                onChange={(event) => setPipelineMetaStr(event.target.value)}
-                placeholder='{ "interviewDate": "2026-04-01" }'
-                className="font-mono text-xs"
-              />
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={isBusy || !hasPipelineDraftChanges}
-              onClick={handleSavePipeline}
-            >
-              Save metadata JSON
-            </Button>
-          </div>
-        </details>
-
-        <details className="group">
-          <summary className="text-text-strong hover:text-primary cursor-pointer text-sm font-medium transition-colors">
-            Job Description
+            Full description
           </summary>
           <div className="mt-3">
             <pre className="app-code whitespace-pre-wrap">{offer.description}</pre>
@@ -613,18 +562,6 @@ export const NotebookOfferDetailsCard = ({
           </details>
         ) : null}
 
-        <details className="group">
-          <summary className="text-text-strong hover:text-primary cursor-pointer text-sm font-medium transition-colors">
-            Advanced fit diagnostics
-          </summary>
-          <div className="mt-3 space-y-3">
-            <p className="text-text-soft text-xs">
-              This is internal match metadata. Keep it out of the normal review flow unless you are debugging why a role
-              was ranked this way.
-            </p>
-            <pre className="app-code">{JSON.stringify(matchMeta, null, 2)}</pre>
-          </div>
-        </details>
       </div>
 
       <ConfirmActionDialog
