@@ -28,6 +28,13 @@ const ATTENTION_VALUES = [
 ] as const;
 
 export class ListJobOffersQuery {
+  @ApiPropertyOptional({
+    description: 'Include expired offers in notebook/discovery lists. Defaults to false.',
+  })
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  includeExpired?: string;
+
   @ApiPropertyOptional({ enum: RANKING_MODE_VALUES, default: 'strict' })
   @IsOptional()
   @IsIn(RANKING_MODE_VALUES)

@@ -1,4 +1,5 @@
 import { JobOffersService } from './job-offers.service';
+import { PgDialect } from 'drizzle-orm/pg-core';
 
 const createSelectOfferQuery = (offer: Record<string, unknown> | undefined) => {
   const joinChain: Record<string, jest.Mock> = {
@@ -266,25 +267,18 @@ describe('JobOffersService', () => {
     jest.useRealTimers();
   });
 
-  it('stores deterministic score when LLM JSON cannot be parsed', async () => {
-    const { service, update } = createService(jest.fn().mockResolvedValue('not-json-response'));
+  it('stores deterministic score without calling LLM scoring', async () => {
+    const generateText = jest.fn();
+    const { service, update } = createService(generateText);
 
     const result = await service.scoreOffer('user-1', 'ujo-1', 0);
     expect(result.score).toBeGreaterThan(0);
     expect(update).toHaveBeenCalledTimes(1);
+    expect(generateText).not.toHaveBeenCalled();
   });
 
-  it('stores deterministic score when LLM generation fails', async () => {
-    const { service, update } = createService(jest.fn().mockRejectedValue(new Error('vertex unavailable')));
-
-    const result = await service.scoreOffer('user-1', 'ujo-1', 0);
-    expect(result.score).toBeGreaterThan(0);
-    expect(update).toHaveBeenCalledTimes(1);
-  });
-
-  it('stores scoring audit metadata with model and timestamp on success', async () => {
-    const payload = '```json\n{"score":8,"summary":"Strong fit"}\n```';
-    const { service, set, update } = createService(jest.fn().mockResolvedValue(payload));
+  it('stores deterministic scoring audit metadata with matcher engine and timestamp', async () => {
+    const { service, set, update } = createService(jest.fn());
 
     const result = await service.scoreOffer('user-1', 'ujo-1', 70);
 
@@ -293,9 +287,10 @@ describe('JobOffersService', () => {
       expect.objectContaining({
         matchScore: expect.any(Number),
         matchMeta: expect.objectContaining({
+          engine: 'deterministic-profile-v1',
           audit: expect.objectContaining({
-            provider: 'vertex-ai',
-            model: 'gemini-1.5-flash-test',
+            provider: 'deterministic',
+            model: 'candidate-matcher',
             scoredAt: expect.any(String),
           }),
         }),
@@ -924,18 +919,141 @@ describe('JobOffersService', () => {
     expect(result.items[1]).toEqual(expect.objectContaining({ id: 'ujo-saved', isInPipeline: true }));
   });
 
+  it('filters expired offers out of notebook list by default', async () => {
+    let capturedWhere: unknown;
+    const select = jest.fn().mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        innerJoin: jest.fn().mockReturnValue({
+          leftJoin: jest.fn().mockReturnThis(),
+          where: jest.fn().mockImplementation((whereClause: unknown) => {
+            capturedWhere = whereClause;
+            return {
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  offset: jest.fn().mockResolvedValue([]),
+                }),
+              }),
+            };
+          }),
+        }),
+      }),
+    });
+    const service = new JobOffersService(
+      { select } as any,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'NOTEBOOK_APPROX_VIOLATION_PENALTY') return 15;
+          if (key === 'NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY') return 45;
+          if (key === 'NOTEBOOK_APPROX_SCORED_BONUS') return 5;
+          if (key === 'NOTEBOOK_EXPLORE_UNSCORED_BASE') return 55;
+          if (key === 'NOTEBOOK_EXPLORE_RECENCY_WEIGHT') return 12;
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          return undefined;
+        }),
+      } as any,
+    );
+    jest.spyOn(service as any, 'loadStructuredOfferRelations').mockResolvedValue(new Map());
+
+    await service.list('user-1', { mode: 'strict', limit: 20, offset: 0 });
+
+    const dialect = new PgDialect();
+    const whereQuery = dialect.sqlToQuery(capturedWhere as any);
+    expect(whereQuery.sql).toContain('"job_offers"."is_expired" = $');
+  });
+
+  it('allows expired offers into notebook list when includeExpired is true', async () => {
+    let capturedWhere: unknown;
+    const select = jest.fn().mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        innerJoin: jest.fn().mockReturnValue({
+          leftJoin: jest.fn().mockReturnThis(),
+          where: jest.fn().mockImplementation((whereClause: unknown) => {
+            capturedWhere = whereClause;
+            return {
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  offset: jest.fn().mockResolvedValue([]),
+                }),
+              }),
+            };
+          }),
+        }),
+      }),
+    });
+    const service = new JobOffersService(
+      { select } as any,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'NOTEBOOK_APPROX_VIOLATION_PENALTY') return 15;
+          if (key === 'NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY') return 45;
+          if (key === 'NOTEBOOK_APPROX_SCORED_BONUS') return 5;
+          if (key === 'NOTEBOOK_EXPLORE_UNSCORED_BASE') return 55;
+          if (key === 'NOTEBOOK_EXPLORE_RECENCY_WEIGHT') return 12;
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          return undefined;
+        }),
+      } as any,
+    );
+    jest.spyOn(service as any, 'loadStructuredOfferRelations').mockResolvedValue(new Map());
+
+    await service.list('user-1', { mode: 'strict', includeExpired: 'true', limit: 20, offset: 0 });
+
+    const dialect = new PgDialect();
+    const whereQuery = dialect.sqlToQuery(capturedWhere as any);
+    expect(whereQuery.sql).not.toContain('"job_offers"."is_expired" = $');
+  });
+
+  it('filters expired offers out of discovery summary counts', async () => {
+    let capturedWhere: unknown;
+    const select = jest.fn().mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        innerJoin: jest.fn().mockReturnValue({
+          where: jest.fn().mockImplementation((whereClause: unknown) => {
+            capturedWhere = whereClause;
+            return Promise.resolve([{ status: 'NEW' }]);
+          }),
+        }),
+      }),
+    });
+    const service = new JobOffersService(
+      { select } as any,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'NOTEBOOK_APPROX_VIOLATION_PENALTY') return 15;
+          if (key === 'NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY') return 45;
+          if (key === 'NOTEBOOK_APPROX_SCORED_BONUS') return 5;
+          if (key === 'NOTEBOOK_EXPLORE_UNSCORED_BASE') return 55;
+          if (key === 'NOTEBOOK_EXPLORE_RECENCY_WEIGHT') return 12;
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          return undefined;
+        }),
+      } as any,
+    );
+
+    await service.getDiscoverySummary('user-1');
+
+    const dialect = new PgDialect();
+    const whereQuery = dialect.sqlToQuery(capturedWhere as any);
+    expect(whereQuery.sql).toContain('"job_offers"."is_expired" = $');
+  });
+
   it('returns discovery summary counts for unseen, reviewed, and pipeline buckets', async () => {
     const select = jest.fn().mockReturnValue({
       from: jest.fn().mockReturnValue({
-        where: jest
-          .fn()
-          .mockResolvedValue([
-            { status: 'NEW' },
-            { status: 'SEEN' },
-            { status: 'SAVED' },
-            { status: 'APPLIED' },
-            { status: 'DISMISSED' },
-          ]),
+        innerJoin: jest.fn().mockReturnValue({
+          where: jest
+            .fn()
+            .mockResolvedValue([
+              { status: 'NEW' },
+              { status: 'SEEN' },
+              { status: 'SAVED' },
+              { status: 'APPLIED' },
+              { status: 'DISMISSED' },
+            ]),
+        }),
       }),
     });
     const service = new JobOffersService(
