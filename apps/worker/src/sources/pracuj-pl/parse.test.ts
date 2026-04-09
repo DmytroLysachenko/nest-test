@@ -63,13 +63,8 @@ test('parsePracujPl extracts validThrough expiry and richer structured sections'
   assert.equal(result?.applyUrl, 'https://pracuj.pl/apply/999');
   assert.equal(result?.sourceCompanyProfileUrl, 'https://pracuj.pl/future-systems');
   assert.deepEqual(result?.requirements, ['TypeScript', 'Node.js', 'AWS']);
-  assert.deepEqual(result?.details?.sections?.aboutProject, [
-    'Platform modernization for regulated fintech systems.',
-  ]);
-  assert.deepEqual(result?.details?.sections?.responsibilities, [
-    'Build backend APIs',
-    'Improve frontend workflows',
-  ]);
+  assert.deepEqual(result?.details?.sections?.aboutProject, ['Platform modernization for regulated fintech systems.']);
+  assert.deepEqual(result?.details?.sections?.responsibilities, ['Build backend APIs', 'Improve frontend workflows']);
   assert.deepEqual(result?.details?.sections?.offered, ['Flexible working hours', 'Training budget']);
   assert.deepEqual(result?.details?.sections?.additionalInformation, ['Team size: 8 engineers']);
 });

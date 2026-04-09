@@ -21,6 +21,7 @@ import {
   workSchedulesTable,
   workModesTable,
 } from '@repo/db';
+
 import { Drizzle } from '@/common/decorators';
 import { GeminiService } from '@/common/modules/gemini/gemini.service';
 import { DEFAULT_GEMINI_MODEL } from '@/common/modules/gemini/gemini-config';

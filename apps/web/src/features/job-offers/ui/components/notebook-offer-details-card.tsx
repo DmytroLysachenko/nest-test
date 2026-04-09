@@ -66,7 +66,9 @@ export const NotebookOfferDetailsCard = ({
   onRescore,
 }: NotebookOfferDetailsCardProps) => {
   const [pendingConfirmStatus, setPendingConfirmStatus] = useState<JobOfferStatus | null>(null);
-  const [pipelineDraft, setPipelineDraft] = useState<Record<string, unknown>>(normalizePipelineMetaRecord(offer?.pipelineMeta));
+  const [pipelineDraft, setPipelineDraft] = useState<Record<string, unknown>>(
+    normalizePipelineMetaRecord(offer?.pipelineMeta),
+  );
   const drafts = useNotebookOfferDetailsDrafts({ offer });
 
   useEffect(() => {
@@ -87,12 +89,12 @@ export const NotebookOfferDetailsCard = ({
 
   const pipelineMeta = normalizePipelineMetaRecord(offer.pipelineMeta);
   const hasPipelineDraftChanges = JSON.stringify(pipelineDraft) !== JSON.stringify(pipelineMeta);
-  const followUpAt =
-    offer.followUpAt ?? (typeof pipelineDraft.followUpAt === 'string' ? pipelineDraft.followUpAt : '');
+  const followUpAt = offer.followUpAt ?? (typeof pipelineDraft.followUpAt === 'string' ? pipelineDraft.followUpAt : '');
   const applicationUrl =
     offer.applicationUrl ?? (typeof pipelineDraft.applicationUrl === 'string' ? pipelineDraft.applicationUrl : '');
   const nextStep = offer.nextStep ?? (typeof pipelineDraft.nextStep === 'string' ? pipelineDraft.nextStep : '');
-  const contactName = offer.contactName ?? (typeof pipelineDraft.contactName === 'string' ? pipelineDraft.contactName : '');
+  const contactName =
+    offer.contactName ?? (typeof pipelineDraft.contactName === 'string' ? pipelineDraft.contactName : '');
   const followUpNote =
     offer.followUpNote ?? (typeof pipelineDraft.followUpNote === 'string' ? pipelineDraft.followUpNote : '');
   const followUpState = offer.followUpState ?? 'none';
@@ -561,7 +563,6 @@ export const NotebookOfferDetailsCard = ({
             </div>
           </details>
         ) : null}
-
       </div>
 
       <ConfirmActionDialog

@@ -65,7 +65,8 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           : {
               tone: 'warning' as const,
               title: 'Schedule is enabled but not yet proven',
-              description: 'Watch the recent schedule events below to confirm automatic triggering is actually happening.',
+              description:
+                'Watch the recent schedule events below to confirm automatic triggering is actually happening.',
             };
   const getStoryTone = (value?: 'positive' | 'warning' | 'danger' | 'neutral') => {
     if (value === 'positive') {

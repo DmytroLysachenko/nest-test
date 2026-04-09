@@ -1,5 +1,6 @@
-import { JobOffersService } from './job-offers.service';
 import { PgDialect } from 'drizzle-orm/pg-core';
+
+import { JobOffersService } from './job-offers.service';
 
 const createSelectOfferQuery = (offer: Record<string, unknown> | undefined) => {
   const joinChain: Record<string, jest.Mock> = {

@@ -61,7 +61,10 @@ export const OfferStructuredDetailsPanel = ({ structuredDetails }: OfferStructur
       {companySummary ? (
         <div className="app-muted-panel space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/companies/${companySummary.id}`} className="text-text-strong text-sm font-semibold hover:underline">
+            <Link
+              href={`/companies/${companySummary.id}`}
+              className="text-text-strong text-sm font-semibold hover:underline"
+            >
               {companySummary.canonicalName}
             </Link>
             {companySummary.websiteUrl ? (

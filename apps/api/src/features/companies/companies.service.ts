@@ -52,8 +52,7 @@ export class CompaniesService {
         description: companiesTable.description,
         hqLocation: companiesTable.hqLocation,
         lastSeenAt: companiesTable.lastSeenAt,
-        activeOfferCount:
-          sql<number>`count(*) filter (where ${jobOffersTable.id} is not null and ${jobOffersTable.isExpired} = false)`,
+        activeOfferCount: sql<number>`count(*) filter (where ${jobOffersTable.id} is not null and ${jobOffersTable.isExpired} = false)`,
         totalOfferCount: sql<number>`count(${jobOffersTable.id})`,
       })
       .from(companiesTable)
@@ -95,8 +94,7 @@ export class CompaniesService {
     const [counts, recentOffers] = await Promise.all([
       this.db
         .select({
-          activeOfferCount:
-            sql<number>`count(*) filter (where ${jobOffersTable.isExpired} = false and ${jobOffersTable.companyId} = ${id})`,
+          activeOfferCount: sql<number>`count(*) filter (where ${jobOffersTable.isExpired} = false and ${jobOffersTable.companyId} = ${id})`,
           totalOfferCount: sql<number>`count(*) filter (where ${jobOffersTable.companyId} = ${id})`,
         })
         .from(jobOffersTable)

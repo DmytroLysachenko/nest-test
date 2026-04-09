@@ -129,9 +129,7 @@ export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPagePr
                     </span>
                   ) : null}
                 </div>
-                <p className="text-text-soft text-xs">
-                  Last seen {new Date(company.lastSeenAt).toLocaleString()}
-                </p>
+                <p className="text-text-soft text-xs">Last seen {new Date(company.lastSeenAt).toLocaleString()}</p>
                 <div className="flex flex-wrap gap-2">
                   <Link href={`/companies/${company.id}`}>
                     <Button type="button" size="sm">
@@ -174,10 +172,20 @@ export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPagePr
           Showing {companies.length ? offset + 1 : 0}-{Math.min(offset + companies.length, total)} of {total}
         </p>
         <div className="flex gap-2">
-          <Button type="button" variant="secondary" disabled={!canPrev} onClick={() => setOffset((value) => value - PAGE_SIZE)}>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!canPrev}
+            onClick={() => setOffset((value) => value - PAGE_SIZE)}
+          >
             Previous
           </Button>
-          <Button type="button" variant="secondary" disabled={!canNext} onClick={() => setOffset((value) => value + PAGE_SIZE)}>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!canNext}
+            onClick={() => setOffset((value) => value + PAGE_SIZE)}
+          >
             Next
           </Button>
         </div>

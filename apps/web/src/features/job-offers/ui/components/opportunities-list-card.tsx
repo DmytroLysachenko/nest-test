@@ -117,17 +117,17 @@ export const OpportunitiesListCard = ({
         ) : null}
       </button>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-text-soft text-xs">
-            {offer.isExpired
-              ? 'This offer is no longer active, but you can still inspect the saved context.'
-              : offer.isInPipeline
-                ? 'Already in your active workflow.'
-                : offer.status === 'SEEN'
-                  ? 'Already reviewed once. Decide whether to save or dismiss.'
-                  : 'Fresh match ready for first-pass review.'}
-          </p>
-          <Button type="button" variant="ghost" className="h-8 px-0 text-xs" onClick={() => onSelectOffer(offer.id)}>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-text-soft text-xs">
+          {offer.isExpired
+            ? 'This offer is no longer active, but you can still inspect the saved context.'
+            : offer.isInPipeline
+              ? 'Already in your active workflow.'
+              : offer.status === 'SEEN'
+                ? 'Already reviewed once. Decide whether to save or dismiss.'
+                : 'Fresh match ready for first-pass review.'}
+        </p>
+        <Button type="button" variant="ghost" className="h-8 px-0 text-xs" onClick={() => onSelectOffer(offer.id)}>
           Open details
           <ArrowRight className="ml-1 h-3.5 w-3.5" />
         </Button>

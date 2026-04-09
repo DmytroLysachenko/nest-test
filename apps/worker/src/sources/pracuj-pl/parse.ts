@@ -363,10 +363,7 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
     offerSections.offered.length > 0
       ? offerSections.offered
       : extractBulletListByHeading(html, [/What we offer/i, /To oferujemy/i, /Offered/i]);
-  const additionalInformation = extractBulletListByHeading(
-    html,
-    [/Additional information/i, /Dodatkowe informacje/i],
-  );
+  const additionalInformation = extractBulletListByHeading(html, [/Additional information/i, /Dodatkowe informacje/i]);
   const requiredReq = offerSections.requirementsExpected;
   const optionalReq = offerSections.requirementsOptional;
   const allReq = requiredReq.length || optionalReq.length ? Array.from(new Set([...requiredReq, ...optionalReq])) : [];

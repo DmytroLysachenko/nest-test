@@ -98,7 +98,10 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
         }
       />
 
-      <Card title="Company context" description="Use this page to understand the employer and jump into recent linked offers.">
+      <Card
+        title="Company context"
+        description="Use this page to understand the employer and jump into recent linked offers."
+      >
         <div className="grid gap-4 md:grid-cols-2">
           <div className="app-inset-stack space-y-2">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Headquarters</p>
@@ -128,7 +131,11 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {offer.isExpired ? <span className="app-badge">Expired</span> : <span className="app-badge">Active</span>}
+                    {offer.isExpired ? (
+                      <span className="app-badge">Expired</span>
+                    ) : (
+                      <span className="app-badge">Active</span>
+                    )}
                     {offer.expiresAt ? (
                       <span className="app-badge">
                         {offer.isExpired ? 'Expired' : 'Valid until'} {new Date(offer.expiresAt).toLocaleDateString()}

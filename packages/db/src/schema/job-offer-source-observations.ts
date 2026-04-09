@@ -1,4 +1,15 @@
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
 
 import { jobOfferQualityStateEnum, jobSourceEnum } from './_enums';
 import { companiesTable } from './companies';

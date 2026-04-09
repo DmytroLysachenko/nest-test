@@ -52,11 +52,8 @@ export const useJobSourcesPanel = (token: string) => {
     [limit, listingUrl, mode],
   );
 
-  const { runsQuery, diagnosticsQuery, sourceHealthQuery, scheduleQuery, scheduleEventsQuery, preflightQuery } = useJobSourcesQueries(
-    token,
-    selectedRunId,
-    preflightParams,
-  );
+  const { runsQuery, diagnosticsQuery, sourceHealthQuery, scheduleQuery, scheduleEventsQuery, preflightQuery } =
+    useJobSourcesQueries(token, selectedRunId, preflightParams);
   const { enqueueMutation, updateScheduleMutation, triggerScheduleNowMutation } = useJobSourcesMutations(token, form);
 
   useEffect(() => {

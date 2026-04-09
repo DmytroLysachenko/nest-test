@@ -352,7 +352,9 @@ export const NotebookOffersListCard = ({
               </div>
 
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                {typeof offer.matchScore === 'number' ? <span className="app-badge">Match {offer.matchScore}</span> : null}
+                {typeof offer.matchScore === 'number' ? (
+                  <span className="app-badge">Match {offer.matchScore}</span>
+                ) : null}
                 {offer.rankingScore !== undefined ? (
                   <span className="app-badge">Priority {offer.rankingScore}</span>
                 ) : null}

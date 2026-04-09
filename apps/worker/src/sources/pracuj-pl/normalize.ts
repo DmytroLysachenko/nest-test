@@ -169,9 +169,7 @@ const normalizeDetails = (details?: JobDetails): JobDetails | undefined => {
 export const normalizePracujPl = (jobs: ParsedJob[], source = 'pracuj-pl'): NormalizedJob[] => {
   return jobs.map((job) => {
     const expiresAt = normalizeIsoDate(job.expiresAt);
-    const isExpired =
-      job.isExpired ??
-      (expiresAt ? new Date(expiresAt).getTime() <= Date.now() : undefined);
+    const isExpired = job.isExpired ?? (expiresAt ? new Date(expiresAt).getTime() <= Date.now() : undefined);
 
     return {
       source,
