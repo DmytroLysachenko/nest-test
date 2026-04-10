@@ -77,7 +77,11 @@ export const NotebookOfferDetailsCard = ({
 
   if (!offer) {
     return (
-      <Card title="Offer details" description="Select an offer from the list to inspect and edit it.">
+      <Card
+        title="Offer details"
+        description="Select an offer from the list to inspect and edit it."
+        className="xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto"
+      >
         <EmptyState
           icon={<Pointer className="h-8 w-8" />}
           title="No offer selected"
@@ -121,7 +125,7 @@ export const NotebookOfferDetailsCard = ({
   };
 
   return (
-    <Card title="Offer details" description={offer.title}>
+    <Card title="Offer details" description={offer.title} className="xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto">
       <div className="space-y-4 text-sm">
         <div className="app-inset-stack space-y-2">
           <div className="flex flex-wrap items-center gap-2">

@@ -28,7 +28,11 @@ export const OpportunityDetailsRail = ({
 }: OpportunityDetailsRailProps) => {
   if (!offer) {
     return (
-      <Card title="Opportunity details" description="Select a role from the discovery queue to inspect it.">
+      <Card
+        title="Opportunity details"
+        description="Select a role from the discovery queue to inspect it."
+        className="xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto"
+      >
         <EmptyState
           icon={<Pointer className="h-8 w-8" />}
           title="No opportunity selected"
@@ -39,7 +43,11 @@ export const OpportunityDetailsRail = ({
   }
 
   return (
-    <Card title="Opportunity details" description={offer.title}>
+    <Card
+      title="Opportunity details"
+      description={offer.title}
+      className="xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto"
+    >
       <div className="space-y-4 text-sm">
         <div className="app-inset-stack space-y-2">
           <div className="flex flex-wrap items-center gap-2">
