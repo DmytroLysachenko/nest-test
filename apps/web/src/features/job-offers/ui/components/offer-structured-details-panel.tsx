@@ -54,7 +54,7 @@ export const OfferStructuredDetailsPanel = ({ structuredDetails }: OfferStructur
       <div className="space-y-1">
         <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Structured context</p>
         <p className="text-text-strong text-sm font-semibold">
-          Use the normalized company and taxonomy view before dropping into raw listing text.
+          Start with the saved company and role facts here before reading the longer listing summary.
         </p>
       </div>
 

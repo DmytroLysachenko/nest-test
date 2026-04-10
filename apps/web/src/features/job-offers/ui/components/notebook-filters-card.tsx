@@ -11,6 +11,12 @@ import { FilterChipBar } from '@/shared/ui/filter-chip-bar';
 
 import type { JobOfferStatus, JobOfferSummaryDto } from '@/shared/types/api';
 
+const REVIEW_MODE_LABELS: Record<'strict' | 'approx' | 'explore', string> = {
+  strict: 'Strict fit',
+  approx: 'Near matches',
+  explore: 'Wide discovery',
+};
+
 const STATUSES: JobOfferStatus[] = [
   'NEW',
   'SEEN',
@@ -174,9 +180,9 @@ export const NotebookFiltersCard = ({
                 value={mode}
                 onChange={(e) => onModeChange(e.target.value as 'strict' | 'approx' | 'explore')}
               >
-                <option value="strict">Strict (Grounding check)</option>
-                <option value="approx">Approximate (Relaxed constraints)</option>
-                <option value="explore">Explore (Global discovery)</option>
+                <option value="strict">{REVIEW_MODE_LABELS.strict}</option>
+                <option value="approx">{REVIEW_MODE_LABELS.approx}</option>
+                <option value="explore">{REVIEW_MODE_LABELS.explore}</option>
               </select>
             </div>
           ) : null}
@@ -251,7 +257,10 @@ export const NotebookFiltersCard = ({
               {isPipeline ? 'roles in the active application workspace' : 'offers in the active triage view'}
             </p>
             {!isPipeline && mode === 'strict' && hiddenByModeCount > 0 ? (
-              <p className="text-app-warning mt-2 text-xs">{hiddenByModeCount} hidden by strict mode</p>
+              <p className="text-app-warning mt-2 text-xs">{hiddenByModeCount} hidden outside the strict-fit slice</p>
+            ) : null}
+            {!isPipeline ? (
+              <p className="text-text-soft mt-2 text-xs">Current slice: {REVIEW_MODE_LABELS[mode]}</p>
             ) : null}
             <div className="mt-3">
               <DataFreshnessBadge updatedAt={listUpdatedAt} />

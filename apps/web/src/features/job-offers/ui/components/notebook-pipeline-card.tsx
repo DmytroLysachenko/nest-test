@@ -85,9 +85,11 @@ const PipelineColumn = ({
                     {offer.location ?? 'Unknown location'}
                   </p>
                 </div>
-                <span className="bg-surface-elevated rounded px-1.5 py-0.5 text-[10px] font-medium">
-                  {offer.matchScore ?? 'n/a'}
-                </span>
+                {typeof offer.matchScore === 'number' ? (
+                  <span className="bg-surface-elevated rounded px-1.5 py-0.5 text-[10px] font-medium">
+                    Match {offer.matchScore}
+                  </span>
+                ) : null}
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-1.5">
