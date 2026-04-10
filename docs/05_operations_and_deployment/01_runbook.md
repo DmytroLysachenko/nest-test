@@ -478,6 +478,14 @@ For exact variable-level mapping and secret sources, use:
    - worker-style offer ingest into a running scrape
    - terminal failed callback
    - persisted `user_job_offers` still present for that failed run
+16. If `pnpm verify:prepush` fails before package tests start:
+   - run `pnpm deps:check` first and clear any critical advisory before broader dependency refreshes
+   - current blocking policy is `pnpm audit --audit-level critical`
+   - prefer narrow dependency upgrades and lockfile refresh over broad version churn
+17. If schedule automation appears inactive in the web planning surface:
+   - compare `lastRunStatus`, `lastTriggeredAt`, and `nextRunAt`
+   - inspect `GET /api/job-sources/schedule/events?limit=20`
+   - distinguish `enabled but not yet proven`, `due but paused by source health`, and `recent scheduled attempt failed` before changing cron settings
 
 ## Change Workflow
 
