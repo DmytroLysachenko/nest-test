@@ -168,6 +168,84 @@ describe('JobSourcesService', () => {
     jest.restoreAllMocks();
   });
 
+  it('returns recent schedule events ordered by createdAt and respects the limit cap', async () => {
+    const limitMock = jest.fn().mockResolvedValue([
+      {
+        id: 'event-1',
+        eventType: 'schedule_enqueue_failed',
+        severity: 'error',
+        code: 'source_paused',
+        message: 'Automation paused by source health',
+        sourceRunId: null,
+        requestId: 'req-1',
+        meta: { pause: true },
+        createdAt: new Date('2026-04-10T09:00:00.000Z'),
+      },
+      {
+        id: 'event-2',
+        eventType: 'schedule_enqueue_succeeded',
+        severity: 'info',
+        code: null,
+        message: 'Scheduled scrape started',
+        sourceRunId: 'run-1',
+        requestId: 'req-2',
+        meta: null,
+        createdAt: new Date('2026-04-09T09:00:00.000Z'),
+      },
+    ]);
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: limitMock,
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ value: 2 }]),
+          }),
+        }),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db, {} as any, {} as any);
+
+    const result = await service.getScheduleEvents('user-1', 999);
+
+    expect(result).toEqual({
+      items: [
+        {
+          id: 'event-1',
+          eventType: 'schedule_enqueue_failed',
+          severity: 'error',
+          code: 'source_paused',
+          message: 'Automation paused by source health',
+          sourceRunId: null,
+          requestId: 'req-1',
+          meta: { pause: true },
+          createdAt: '2026-04-10T09:00:00.000Z',
+        },
+        {
+          id: 'event-2',
+          eventType: 'schedule_enqueue_succeeded',
+          severity: 'info',
+          code: null,
+          message: 'Scheduled scrape started',
+          sourceRunId: 'run-1',
+          requestId: 'req-2',
+          meta: null,
+          createdAt: '2026-04-09T09:00:00.000Z',
+        },
+      ],
+      total: 2,
+    });
+    expect(limitMock).toHaveBeenCalledWith(50);
+  });
+
   it('returns accepted scrape response with sourceRunId', async () => {
     const db = {
       select: jest.fn().mockReturnValue({
