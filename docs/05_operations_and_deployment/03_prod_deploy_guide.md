@@ -2,7 +2,7 @@
 
 Step-by-step checklist to deploy this monorepo to production and keep it auto-updated from `main`.
 
-Last updated: 2026-03-03
+Last updated: 2026-04-10
 
 ## 1) One-time GCP bootstrap
 
@@ -15,7 +15,7 @@ Last updated: 2026-03-03
    - `WEB_SERVICE=<cloud-run-web-service-name>`
    - `BUCKET_NAME=<existing-gcs-bucket>`
 2. Enable required APIs:
-   - `gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com cloudtasks.googleapis.com iamcredentials.googleapis.com`
+   - `gcloud services enable run.googleapis.com artifactregistry.googleapis.com cloudtasks.googleapis.com iamcredentials.googleapis.com`
 3. Create Artifact Registry Docker repo (if missing):
    - `gcloud artifacts repositories create $GAR_REPOSITORY --repository-format=docker --location=$REGION`
 4. Create Cloud Tasks queue:
@@ -34,26 +34,20 @@ Last updated: 2026-03-03
    - Worker runtime SA
    - Web runtime SA
 4. Grant runtime permissions:
-   - API runtime: Secret Manager accessor, Cloud Tasks enqueuer.
-   - Worker runtime: Secret Manager accessor.
+   - API runtime: Cloud Tasks enqueuer and any app-specific runtime access.
+   - Worker runtime: minimum required runtime access.
    - Web runtime: minimum required runtime access.
 
-## 3) Secret Manager values
-
-Create secrets and versions for values used by API/Worker:
-
-1. `DATABASE_URL`
-2. `ACCESS_TOKEN_SECRET`
-3. `REFRESH_TOKEN_SECRET`
-4. `MAIL_USERNAME`
-5. `MAIL_PASSWORD`
-6. Optional hardening:
-   - `WORKER_AUTH_TOKEN`
-   - `WORKER_CALLBACK_SIGNING_SECRET`
-
-## 4) Configure Cloud Run runtime env
+## 3) Configure Cloud Run runtime env
 
 Use `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md` as canonical source.
+
+Production policy in this repo:
+
+1. GitHub `production` variables and secrets are the deployment source of truth.
+2. `deploy-cloud-run-prod.sh` injects those values directly into Cloud Run runtime env vars.
+3. Secret Manager is not part of the default production deploy path.
+4. This is an explicit cost-over-security tradeoff for the current stage of the product.
 
 Required core values:
 
@@ -81,7 +75,7 @@ Required core values:
    - `NEXT_PUBLIC_WORKER_URL=https://<worker-url>`
    - `NEXT_PUBLIC_ENABLE_TESTER=false`
 
-## 5) Configure GitHub Actions OIDC and production config
+## 4) Configure GitHub Actions OIDC and production config
 
 1. Create Workload Identity Pool + Provider in GCP.
 2. Allow your GitHub repo to impersonate `GCP_DEPLOYER_SERVICE_ACCOUNT`.
@@ -130,14 +124,14 @@ Required core values:
    - `SCHEDULER_AUTH_TOKEN`
    - `OPS_INTERNAL_TOKEN`
 
-## 6) CI/CD behavior in this repo
+## 5) CI/CD behavior in this repo
 
 Current pipeline after this setup:
 
 1. Push to `main` (or `master`) triggers `CI Verify`.
 2. If `CI Verify` succeeds, `Deploy Prod On Main` workflow runs automatically.
 3. It builds/pushes Docker images (`api`, `worker`, `web`) tagged with commit SHA.
-4. It syncs runtime secrets to Secret Manager.
+4. It injects runtime env vars and secrets directly into Cloud Run during deploy.
 5. It deploys Worker -> API -> Web, resolves service URLs dynamically, finalizes callback/CORS config, and verifies health.
 
 Cost profile defaults:
@@ -146,7 +140,7 @@ Cost profile defaults:
 2. API/Web memory `512Mi`, Worker memory `1Gi`.
 3. Max instances capped at `2` per service by default.
 
-## 7) First production test
+## 6) First production test
 
 1. Commit and push a small change to `main`.
 2. Confirm workflows:
@@ -155,7 +149,7 @@ Cost profile defaults:
 3. Run smoke against production:
    - `API_BASE_URL=<api-url> WORKER_BASE_URL=<worker-url> WEB_BASE_URL=<web-url> SMOKE_SKIP_SEED=true pnpm smoke:e2e`
 
-## 8) Rollback
+## 7) Rollback
 
 1. Find previous working image tag (commit SHA) in Artifact Registry.
 2. Redeploy specific service revision:

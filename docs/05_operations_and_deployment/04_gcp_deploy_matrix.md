@@ -2,7 +2,7 @@
 
 Canonical runtime/deploy contract for Google Cloud Run production deployments.
 
-Last updated: 2026-03-29
+Last updated: 2026-04-10
 
 For the complete local + production inventory, use:
 
@@ -106,16 +106,16 @@ For the complete local + production inventory, use:
 | `NODE_ENV` | literal | `production` | must be `production` |
 | `HOST` | literal | `0.0.0.0` | required by app env schema |
 | `PORT` | Cloud Run | `8080` | auto-provided by Cloud Run |
-| `DATABASE_URL` | Secret Manager | `postgresql://...` | Cloud SQL connection string |
-| `ACCESS_TOKEN_SECRET` | Secret Manager | `<secret>` | non-empty |
+| `DATABASE_URL` | Cloud Run env from GitHub secret | `postgresql://...` | Cloud SQL connection string |
+| `ACCESS_TOKEN_SECRET` | Cloud Run env from GitHub secret | `<secret>` | non-empty |
 | `ACCESS_TOKEN_EXPIRATION` | env | `15m` | jwt duration |
-| `REFRESH_TOKEN_SECRET` | Secret Manager | `<secret>` | non-empty |
+| `REFRESH_TOKEN_SECRET` | Cloud Run env from GitHub secret | `<secret>` | non-empty |
 | `REFRESH_TOKEN_EXPIRATION` | env | `30d` | jwt duration |
 | `MAIL_HOST` | env/secret | `smtp.sendgrid.net` | non-empty |
 | `MAIL_PORT` | env | `587` | integer |
 | `MAIL_SECURE` | env | `false` | boolean |
-| `MAIL_USERNAME` | Secret Manager | `<username>` | non-empty |
-| `MAIL_PASSWORD` | Secret Manager | `<password>` | non-empty |
+| `MAIL_USERNAME` | Cloud Run env from GitHub secret | `<username>` | non-empty |
+| `MAIL_PASSWORD` | Cloud Run env from GitHub secret | `<password>` | non-empty |
 | `GCS_BUCKET` | env | `career-assistant-prod-docs` | existing bucket |
 | `GCP_PROJECT_ID` | env | `<project-id>` | Vertex/GCS project id |
 | `GCP_LOCATION` | env | `europe-west1` | Vertex AI region |
@@ -179,7 +179,7 @@ For the complete local + production inventory, use:
 |---|---|---|
 | `TASKS_SERVICE_ACCOUNT_EMAIL` | `api-enqueue@...iam.gserviceaccount.com` | preferred OIDC validation for `/tasks` |
 | `TASKS_OIDC_AUDIENCE` | `https://worker-...run.app/tasks` | optional explicit audience |
-| `TASKS_AUTH_TOKEN` | `<secret>` | optional shared token fallback |
+| `TASKS_AUTH_TOKEN` | `<secret>` | optional shared token fallback; injected directly into worker env when bearer mode is used |
 | `WORKER_LOG_LEVEL` | `info` | production logging |
 | `WORKER_MAX_BODY_BYTES` | `262144` | request size guardrail |
 | `WORKER_MAX_CONCURRENT_TASKS` | `1` | start conservative; scale after profiling |
@@ -243,14 +243,21 @@ For the complete local + production inventory, use:
 | CPU | 1 |
 | Memory | 512Mi |
 
-## 3) Promotion Input Validation Rules
+## 3) Secret Handling Policy
+
+1. GitHub `production` variables and secrets are the source of truth for production runtime config.
+2. `deploy-cloud-run-prod.sh` injects those values directly into Cloud Run env vars with `gcloud run deploy --set-env-vars`.
+3. Secret Manager is intentionally not used in the default production deploy path.
+4. This reduces fixed GCP cost, but it is a weaker secret-management posture than managed secret references.
+
+## 4) Promotion Input Validation Rules
 
 `Promote To Prod` workflow expects:
 
 1. `release_sha` must be full 40-char git SHA.
 2. All required `vars.*` and `secrets.*` listed above must be present.
 
-## 4) First Production Rollout Sequence
+## 5) First Production Rollout Sequence
 
 1. Merge to `master` with green CI (`CI Verify`, `Smoke Gate`).
 2. Create and push RC tag:
@@ -262,14 +269,14 @@ For the complete local + production inventory, use:
 6. Run smoke against deployed services:
    - `API_BASE_URL=<api-url> WORKER_BASE_URL=<worker-url> WEB_BASE_URL=<web-url> SMOKE_SKIP_SEED=true pnpm smoke:e2e`
 
-## 5) Queue/Auth Contract
+## 6) Queue/Auth Contract
 
 - API enqueue provider should be `WORKER_TASK_PROVIDER=cloud-tasks` in production.
 - Worker ingress auth can be:
   - OIDC (recommended): API signs task OIDC (`WORKER_TASKS_SERVICE_ACCOUNT_EMAIL`) and worker pins `TASKS_SERVICE_ACCOUNT_EMAIL`.
   - Shared token fallback: API `WORKER_AUTH_TOKEN` + worker `TASKS_AUTH_TOKEN`.
 
-## 6) Schedule Automation Contract
+## 7) Schedule Automation Contract
 
 - `deploy-cloud-run-prod.sh` now upserts a Cloud Scheduler HTTP job after API deploy.
 - Target endpoint: `POST ${API_URL}/api/job-sources/schedule/trigger`.
