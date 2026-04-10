@@ -23,7 +23,7 @@
     "@repo/ts-config": "workspace:*",
     "@supercharge/request-ip": "^1.2.0",
     "argon2": "^0.43.0",
-    "axios": "^1.13.6",
+    "axios": "^1.15.0",
     "body-parser": "^2.2.0",
     "chalk": "^5.4.1",
     "class-transformer": "^0.5.1",
