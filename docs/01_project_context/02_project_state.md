@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-04-02
+Last updated: 2026-04-10
 
 ## Purpose
 
@@ -357,6 +357,11 @@ That framing should guide future implementation more than raw source count.
 - Running scrapes now persist accepted offers incrementally, so timeout/finalization issues no longer imply full result loss by default.
 - Weekday schedule cron expressions are now computed correctly with timezone-aware next-run calculation.
 - Worker source orchestration now has an explicit adapter boundary for future non-Pracuj sources, but only Pracuj is production-ready.
+- Web schedule planning now explains schedule trust states more explicitly (`off`, `enabled but not yet proven`, `recent failure`, `due but paused`, `waiting for next window`) using schedule events plus source-health state.
+- Company discovery read APIs are now test-covered for search/location filtering and linked-offer summary fields.
+- Offer scoring remains deterministic-only in the active match path, with explicit tests preventing fallback to per-offer LLM scoring.
+- Root dependency audit gate now targets critical advisories first; `axios` is pinned at `>=1.15.0` to clear the current SSRF blocker from `verify:prepush`.
+- Production deploy now injects GitHub-managed runtime secrets directly into Cloud Run env vars; Secret Manager is no longer part of the default deploy path in order to cut fixed GCP cost.
 
 ## Highest-Value Remaining Gaps
 

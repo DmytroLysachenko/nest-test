@@ -33,11 +33,20 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
   const preflight = jobSourcesPanel.preflightQuery.data;
   const sourceHealth = jobSourcesPanel.sourceHealthQuery.data?.items?.[0] ?? null;
   const scheduleEvents = jobSourcesPanel.scheduleEventsQuery.data?.items ?? [];
+  const now = Date.now();
   const formatTimestamp = (value: string | null | undefined) => (value ? new Date(value).toLocaleString() : 'n/a');
   const latestScheduleSuccess =
     scheduleEvents.find((event) => event.eventType === 'schedule_enqueue_succeeded') ?? null;
   const latestScheduleFailure =
     scheduleEvents.find((event) => event.severity === 'error' || event.eventType === 'schedule_enqueue_failed') ?? null;
+  const lastTriggeredAtValue = jobSourcesPanel.scheduleResult?.lastTriggeredAt
+    ? new Date(jobSourcesPanel.scheduleResult.lastTriggeredAt).getTime()
+    : null;
+  const nextRunAtValue = jobSourcesPanel.scheduleResult?.nextRunAt
+    ? new Date(jobSourcesPanel.scheduleResult.nextRunAt).getTime()
+    : null;
+  const scheduleIsDue = typeof nextRunAtValue === 'number' && nextRunAtValue <= now;
+  const scheduleHasTriggered = typeof lastTriggeredAtValue === 'number' && Number.isFinite(lastTriggeredAtValue);
   const scheduleStory = !jobSourcesPanel.scheduleResult?.enabled
     ? {
         tone: 'neutral' as const,
@@ -47,27 +56,50 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
     : sourceHealth?.activePause
       ? {
           tone: 'warning' as const,
-          title: 'Automation is paused by source health',
+          title: scheduleIsDue
+            ? 'Schedule is due but paused by source health'
+            : 'Automation is paused by source health',
           description: sourceHealth.guidance,
         }
-      : latestScheduleFailure
+      : jobSourcesPanel.scheduleResult?.lastRunStatus === 'FAILED'
         ? {
             tone: 'danger' as const,
-            title: 'Recent scheduled attempt failed',
-            description: latestScheduleFailure.message,
+            title: 'Last scheduled run failed',
+            description:
+              latestScheduleFailure?.message ??
+              'Check the recent schedule events below to confirm whether the failure was in scheduling or worker execution.',
           }
-        : latestScheduleSuccess
+        : latestScheduleFailure
           ? {
-              tone: 'positive' as const,
-              title: 'Recent scheduled trigger succeeded',
-              description: latestScheduleSuccess.message,
+              tone: 'danger' as const,
+              title: 'Recent scheduled attempt failed',
+              description: latestScheduleFailure.message,
             }
-          : {
-              tone: 'warning' as const,
-              title: 'Schedule is enabled but not yet proven',
-              description:
-                'Watch the recent schedule events below to confirm automatic triggering is actually happening.',
-            };
+          : latestScheduleSuccess
+            ? {
+                tone: 'positive' as const,
+                title: 'Recent scheduled trigger succeeded',
+                description: latestScheduleSuccess.message,
+              }
+            : !scheduleHasTriggered
+              ? {
+                  tone: 'warning' as const,
+                  title: 'Schedule is enabled but not yet proven',
+                  description:
+                    'Watch the recent schedule events below to confirm automatic triggering is actually happening.',
+                }
+              : scheduleIsDue
+                ? {
+                    tone: 'warning' as const,
+                    title: 'Schedule looks overdue',
+                    description:
+                      'The next scheduled run time has passed without a newer success event. Check the recent schedule events below.',
+                  }
+                : {
+                    tone: 'warning' as const,
+                    title: 'Schedule is enabled and waiting for the next window',
+                    description: 'The schedule is configured and the next run window is still ahead.',
+                  };
   const getStoryTone = (value?: 'positive' | 'warning' | 'danger' | 'neutral') => {
     if (value === 'positive') {
       return 'border-app-success-border bg-app-success-soft';
@@ -329,72 +361,89 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
 
       {jobSourcesPanel.enqueueResult ? (
         <div className="app-muted-panel mt-4 space-y-3 text-sm">
-          <p className="text-text-strong font-semibold">Latest enqueue metadata</p>
+          <p className="text-text-strong font-semibold">Latest run request</p>
+          <WorkflowInlineNotice
+            title="A new sourcing request was accepted"
+            description="The run is now queued. Use the recent runs and schedule sections below to confirm whether sourcing starts and finishes cleanly."
+            tone="success"
+          />
           <InspectorRow label="Status" value={jobSourcesPanel.enqueueResult.status} />
           {jobSourcesPanel.enqueueResult.resolvedFromProfile ? (
-            <InspectorRow label="Resolved from active profile" value="yes" />
+            <InspectorRow label="Targeting source" value="Active profile and saved filters" />
           ) : null}
-          {jobSourcesPanel.enqueueResult.intentFingerprint ? (
-            <InspectorRow label="Intent fingerprint" value={jobSourcesPanel.enqueueResult.intentFingerprint} />
-          ) : null}
-          {jobSourcesPanel.enqueueResult.acceptedFilters ? (
+          {diagnosticsEnabled &&
+          (jobSourcesPanel.enqueueResult.intentFingerprint ||
+            jobSourcesPanel.enqueueResult.acceptedFilters ||
+            jobSourcesPanel.enqueueResult.reuseDiagnostics) ? (
             <details className="mt-2">
-              <summary className="text-text-strong cursor-pointer font-medium">Accepted filters</summary>
-              <pre className="app-code mt-2 whitespace-pre-wrap">
-                {JSON.stringify(jobSourcesPanel.enqueueResult.acceptedFilters, null, 2)}
-              </pre>
-            </details>
-          ) : null}
-          {jobSourcesPanel.enqueueResult.reuseDiagnostics ? (
-            <div className="space-y-2">
-              <p className="text-text-strong font-medium">Reuse diagnostics</p>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
-                  <InspectorRow
-                    label="Catalog rematch"
-                    value={
-                      jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.accepted
-                        ? 'accepted'
-                        : (jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.reason ?? 'skipped')
-                    }
-                  />
-                  <InspectorRow
-                    label="Fresh matches"
-                    value={String(
-                      jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.matchedFreshCandidates ?? 0,
-                    )}
-                  />
-                  <InspectorRow
-                    label="Minimum target"
-                    value={String(
-                      jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.minimumFreshCandidateTarget ?? 0,
-                    )}
-                  />
-                </div>
-                <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
-                  <InspectorRow
-                    label="DB reuse"
-                    value={
-                      jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.accepted
-                        ? 'accepted'
-                        : (jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.reason ?? 'skipped')
-                    }
-                  />
-                  <InspectorRow
-                    label="Fresh matches"
-                    value={String(
-                      jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.matchedFreshCandidates ?? 0,
-                    )}
-                  />
-                  <InspectorRow
-                    label="Minimum target"
-                    value={String(
-                      jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.minimumFreshCandidateTarget ?? 0,
-                    )}
-                  />
-                </div>
+              <summary className="text-text-strong cursor-pointer font-medium">Operator details</summary>
+              <div className="mt-3 space-y-3">
+                {jobSourcesPanel.enqueueResult.intentFingerprint ? (
+                  <InspectorRow label="Intent fingerprint" value={jobSourcesPanel.enqueueResult.intentFingerprint} />
+                ) : null}
+                {jobSourcesPanel.enqueueResult.acceptedFilters ? (
+                  <details>
+                    <summary className="text-text-strong cursor-pointer font-medium">Accepted filters</summary>
+                    <pre className="app-code mt-2 whitespace-pre-wrap">
+                      {JSON.stringify(jobSourcesPanel.enqueueResult.acceptedFilters, null, 2)}
+                    </pre>
+                  </details>
+                ) : null}
+                {jobSourcesPanel.enqueueResult.reuseDiagnostics ? (
+                  <div className="space-y-2">
+                    <p className="text-text-strong font-medium">Reuse diagnostics</p>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
+                        <InspectorRow
+                          label="Catalog rematch"
+                          value={
+                            jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.accepted
+                              ? 'accepted'
+                              : (jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.reason ?? 'skipped')
+                          }
+                        />
+                        <InspectorRow
+                          label="Fresh matches"
+                          value={String(
+                            jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.matchedFreshCandidates ?? 0,
+                          )}
+                        />
+                        <InspectorRow
+                          label="Minimum target"
+                          value={String(
+                            jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.minimumFreshCandidateTarget ??
+                              0,
+                          )}
+                        />
+                      </div>
+                      <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
+                        <InspectorRow
+                          label="DB reuse"
+                          value={
+                            jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.accepted
+                              ? 'accepted'
+                              : (jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.reason ?? 'skipped')
+                          }
+                        />
+                        <InspectorRow
+                          label="Fresh matches"
+                          value={String(
+                            jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.matchedFreshCandidates ?? 0,
+                          )}
+                        />
+                        <InspectorRow
+                          label="Minimum target"
+                          value={String(
+                            jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.minimumFreshCandidateTarget ??
+                              0,
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            </div>
+            </details>
           ) : null}
         </div>
       ) : null}

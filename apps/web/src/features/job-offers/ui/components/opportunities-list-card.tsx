@@ -11,6 +11,12 @@ import { WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 import type { DiscoveryJobOfferListItemDto } from '@/shared/types/api';
 
+const REVIEW_MODE_LABELS: Record<'strict' | 'approx' | 'explore', string> = {
+  strict: 'Strict fit',
+  approx: 'Near matches',
+  explore: 'Wide discovery',
+};
+
 type OpportunitiesListCardProps = {
   offers: DiscoveryJobOfferListItemDto[];
   total: number;
@@ -167,9 +173,9 @@ export const OpportunitiesListCard = ({
               value={mode}
               onChange={(event) => onModeChange(event.target.value as 'strict' | 'approx' | 'explore')}
             >
-              <option value="strict">Strict</option>
-              <option value="approx">Approx</option>
-              <option value="explore">Explore</option>
+              <option value="strict">{REVIEW_MODE_LABELS.strict}</option>
+              <option value="approx">{REVIEW_MODE_LABELS.approx}</option>
+              <option value="explore">{REVIEW_MODE_LABELS.explore}</option>
             </select>
           </div>
           <div className="app-field-group">
@@ -216,6 +222,7 @@ export const OpportunitiesListCard = ({
             <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Current queue</p>
             <p className="text-text-strong mt-2 text-2xl font-semibold tracking-[-0.03em]">{total}</p>
             <p className="text-text-soft mt-1 text-sm">matched opportunities available for review</p>
+            <p className="text-text-soft mt-2 text-xs">Current slice: {REVIEW_MODE_LABELS[mode]}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="secondary" onClick={onResetFilters} className="h-9 px-4">

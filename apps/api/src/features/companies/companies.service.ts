@@ -6,6 +6,7 @@ import { companiesTable, jobOffersTable } from '@repo/db';
 import { Drizzle } from '@/common/decorators';
 
 import type { ListCompaniesQuery } from './dto/list-companies.query';
+import type { SQL } from 'drizzle-orm';
 
 @Injectable()
 export class CompaniesService {
@@ -14,7 +15,7 @@ export class CompaniesService {
   async list(query: ListCompaniesQuery) {
     const limit = query.limit ? Number(query.limit) : 20;
     const offset = query.offset ? Number(query.offset) : 0;
-    const conditions = [];
+    const conditions: SQL[] = [];
 
     if (query.search) {
       const term = `%${query.search}%`;

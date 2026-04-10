@@ -300,6 +300,37 @@ describe('JobOffersService', () => {
     expect(update).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps deterministic scoring active even when the score is below the requested threshold', async () => {
+    const generateText = jest.fn();
+    const { service, set, update } = createService(generateText);
+
+    const result = await service.scoreOffer('user-1', 'ujo-1', 99);
+
+    expect(result.isMatch).toBe(false);
+    expect(result.matchMeta).toEqual(
+      expect.objectContaining({
+        engine: 'deterministic-profile-v1',
+        minScore: 99,
+        audit: expect.objectContaining({
+          provider: 'deterministic',
+          model: 'candidate-matcher',
+        }),
+      }),
+    );
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        matchScore: result.score,
+        matchMeta: expect.objectContaining({
+          audit: expect.objectContaining({
+            provider: 'deterministic',
+          }),
+        }),
+      }),
+    );
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
   it('builds focus queues for due follow-ups, strict matches, unscored leads, and active funnel slices', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-03-09T10:00:00.000Z'));
 
