@@ -487,6 +487,7 @@ For exact variable-level mapping and secret sources, use:
    - inspect `GET /api/job-sources/schedule/events?limit=20`
    - distinguish `enabled but not yet proven`, `due but paused by source health`, and `recent scheduled attempt failed` before changing cron settings
 18. After the first production deploy that uses direct Cloud Run env injection, clean up the retired Secret Manager resources manually:
+   - the first migration deploy removes legacy Secret Manager env bindings with `--remove-secrets` before setting the same names as direct Cloud Run env vars
    - confirm deployed API/worker revisions no longer use `--set-secrets`
    - verify production smoke passes against the new revisions
    - delete the retired `app-*` Secret Manager secrets only after rollback no longer depends on those old revisions
