@@ -591,6 +591,67 @@ describe('JobOffersService', () => {
     );
   });
 
+  it('returns reminder preview buckets from existing notebook workflow fields', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-03-09T10:00:00.000Z'));
+
+    const select = jest.fn().mockReturnValue(
+      createSummaryQuery([
+        {
+          id: 'ujo-overdue',
+          status: 'SAVED',
+          pipelineMeta: { followUpAt: '2026-03-08T10:00:00.000Z', nextStep: 'Email recruiter' },
+          title: 'Frontend Engineer',
+          company: 'Acme',
+          location: 'Remote',
+          createdAt: new Date('2026-03-01T12:00:00.000Z'),
+          lastStatusAt: new Date('2026-03-01T12:00:00.000Z'),
+        },
+        {
+          id: 'ujo-stale',
+          status: 'APPLIED',
+          pipelineMeta: { nextStep: 'Check ATS' },
+          title: 'Platform Engineer',
+          company: 'Globex',
+          location: 'Warsaw',
+          createdAt: new Date('2026-02-20T12:00:00.000Z'),
+          lastStatusAt: new Date('2026-02-20T12:00:00.000Z'),
+        },
+      ]),
+    );
+
+    const service = new JobOffersService(
+      { select } as any,
+      { generateText: jest.fn() } as any,
+      { get: jest.fn((key: string) => (key === 'GEMINI_MODEL' ? 'gemini-1.5-flash-test' : undefined)) } as any,
+    );
+
+    const result = await service.getReminderPreview('user-1');
+
+    expect(result.counts).toEqual(
+      expect.objectContaining({
+        overdue: 1,
+        stale: 2,
+      }),
+    );
+    expect(result.buckets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'overdue',
+          items: [
+            expect.objectContaining({
+              id: 'ujo-overdue',
+              recommendedAction: expect.objectContaining({ key: 'complete-overdue-follow-up' }),
+            }),
+          ],
+        }),
+        expect.objectContaining({
+          key: 'stale',
+          count: 2,
+        }),
+      ]),
+    );
+  });
+
   it('filters notebook list by degraded scrape results attention bucket', async () => {
     const select = jest.fn().mockReturnValue(
       createListQuery([

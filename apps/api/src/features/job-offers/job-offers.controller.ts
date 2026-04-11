@@ -30,6 +30,7 @@ import {
   JobOfferFocusResponse,
   JobOfferListResponse,
   JobOfferPrepPacketResponse,
+  JobOfferReminderPreviewResponse,
   JobOfferSummaryResponse,
 } from './dto/job-offer.response';
 import { UpdateJobOfferMetaDto } from './dto/update-job-offer-meta.dto';
@@ -91,6 +92,13 @@ export class JobOffersController {
   @ApiOkResponse({ type: JobOfferActionPlanResponse })
   async getActionPlan(@CurrentUser() user: JwtValidateUser) {
     return this.jobOffersService.getActionPlan(user.userId);
+  }
+
+  @Get('reminders/preview')
+  @ApiOperation({ summary: 'Preview notebook follow-up and stale-pipeline reminders for current user' })
+  @ApiOkResponse({ type: JobOfferReminderPreviewResponse })
+  async getReminderPreview(@CurrentUser() user: JwtValidateUser) {
+    return this.jobOffersService.getReminderPreview(user.userId);
   }
 
   @Get('preferences')

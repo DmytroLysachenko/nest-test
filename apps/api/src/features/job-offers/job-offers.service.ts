@@ -49,6 +49,7 @@ import {
   type StructuredOfferRelations,
   type StructuredOfferSelectRow,
 } from './job-offers-structured-details';
+import { buildRecommendedAction } from './job-offers-recommended-action';
 import { UpdateNotebookPreferencesDto } from './dto/notebook-preferences.dto';
 import {
   buildPipelineMetaWithFollowUp,
@@ -355,6 +356,7 @@ export class JobOffersService {
           rankingScore: ranking.rankingScore,
           explanationTags: ranking.explanationTags,
           attentionSignals: buildAttentionSignals({ status: item.status, source: item, now: followUpNow }),
+          recommendedAction: buildRecommendedAction(item, followUpNow),
           followUpState: resolveFollowUpState(item.status, item, followUpNow),
           pipelineMeta: buildPipelineMetaWithFollowUp(item.pipelineMeta, followUpFields),
           followUpAt: toIsoString(followUpFields.followUpAt),
@@ -612,6 +614,7 @@ export class JobOffersService {
           rankingScore: ranking.rankingScore,
           explanationTags: ranking.explanationTags,
           attentionSignals: buildAttentionSignals({ status: item.status, source: item, now: followUpNow }),
+          recommendedAction: buildRecommendedAction(item, followUpNow),
           followUpState: resolveFollowUpState(item.status, item, followUpNow),
           pipelineMeta: buildPipelineMetaWithFollowUp(item.pipelineMeta, followUpFields),
           followUpAt: toIsoString(followUpFields.followUpAt),
@@ -921,6 +924,7 @@ export class JobOffersService {
         followUpState: 'due' as const,
         nextStep: extractFollowUpFields(item).nextStep,
         attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+        recommendedAction: buildRecommendedAction(item, now),
       }));
     const followUpDue = followUpDueItems.slice(0, 5);
 
@@ -939,6 +943,7 @@ export class JobOffersService {
         followUpState: resolveFollowUpState(item.status, item, now),
         nextStep: extractFollowUpFields(item).nextStep,
         attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+        recommendedAction: buildRecommendedAction(item, now),
       }));
     const followUpDueToday = followUpDueTodayItems.slice(0, 5);
 
@@ -965,6 +970,7 @@ export class JobOffersService {
         followUpState: item.followUpState,
         nextStep: extractFollowUpFields(item).nextStep,
         attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+        recommendedAction: buildRecommendedAction(item, now),
       }));
     const strictTopMatches = strictTopMatchesItems.slice(0, 5);
 
@@ -979,6 +985,7 @@ export class JobOffersService {
         followUpState: resolveFollowUpState(item.status, item, now),
         nextStep: extractFollowUpFields(item).nextStep,
         attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+        recommendedAction: buildRecommendedAction(item, now),
       }));
     const unscoredFresh = unscoredFreshItems.slice(0, 5);
 
@@ -993,6 +1000,7 @@ export class JobOffersService {
         followUpState: 'upcoming' as const,
         nextStep: extractFollowUpFields(item).nextStep,
         attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+        recommendedAction: buildRecommendedAction(item, now),
       }));
     const followUpUpcoming = followUpUpcomingItems.slice(0, 5);
 
@@ -1007,6 +1015,7 @@ export class JobOffersService {
         followUpState: resolveFollowUpState(item.status, item, now),
         nextStep: extractFollowUpFields(item).nextStep,
         attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+        recommendedAction: buildRecommendedAction(item, now),
       }));
     const savedNeedsAttention = savedNeedsAttentionItems.slice(0, 5);
 
@@ -1021,6 +1030,7 @@ export class JobOffersService {
         followUpState: resolveFollowUpState(item.status, item, now),
         nextStep: extractFollowUpFields(item).nextStep,
         attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+        recommendedAction: buildRecommendedAction(item, now),
       }));
     const appliedActive = appliedActiveItems.slice(0, 5);
 
@@ -1039,6 +1049,7 @@ export class JobOffersService {
         followUpState: resolveFollowUpState(item.status, item, now),
         nextStep: extractFollowUpFields(item).nextStep,
         attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+        recommendedAction: buildRecommendedAction(item, now),
       }));
     const prepRecommended = prepRecommendedItems.slice(0, 5);
 
@@ -1058,6 +1069,7 @@ export class JobOffersService {
         followUpState: resolveFollowUpState(item.status, item, now),
         nextStep: extractFollowUpFields(item).nextStep,
         attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+        recommendedAction: buildRecommendedAction(item, now),
       }));
     const staleUntriaged = staleUntriagedItems.slice(0, 5);
     const degradedResultItems = items
@@ -1071,6 +1083,7 @@ export class JobOffersService {
         followUpState: resolveFollowUpState(item.status, item, now),
         nextStep: extractFollowUpFields(item).nextStep,
         attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+        recommendedAction: buildRecommendedAction(item, now),
       }));
     const degradedResults = degradedResultItems.slice(0, 5);
 
@@ -1330,6 +1343,84 @@ export class JobOffersService {
 
     return {
       buckets,
+    };
+  }
+
+  async getReminderPreview(userId: string) {
+    const items = await this.db
+      .select({
+        id: userJobOffersTable.id,
+        status: userJobOffersTable.status,
+        pipelineMeta: userJobOffersTable.pipelineMeta,
+        prepMaterials: userJobOffersTable.prepMaterials,
+        followUpAt: userJobOffersTable.followUpAt,
+        nextStep: userJobOffersTable.nextStep,
+        followUpNote: userJobOffersTable.followUpNote,
+        applicationUrl: userJobOffersTable.applicationUrl,
+        contactName: userJobOffersTable.contactName,
+        lastFollowUpCompletedAt: userJobOffersTable.lastFollowUpCompletedAt,
+        lastFollowUpSnoozedAt: userJobOffersTable.lastFollowUpSnoozedAt,
+        title: jobOffersTable.title,
+        company: jobOffersTable.company,
+        location: jobOffersTable.location,
+        createdAt: userJobOffersTable.createdAt,
+        lastStatusAt: userJobOffersTable.lastStatusAt,
+      })
+      .from(userJobOffersTable)
+      .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .where(and(eq(userJobOffersTable.userId, userId), eq(jobOffersTable.isExpired, false)))
+      .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt));
+
+    const now = new Date();
+    const toCandidate = (item: (typeof items)[number]) => {
+      const fields = extractFollowUpFields(item);
+      return {
+        id: item.id,
+        title: item.title,
+        company: item.company,
+        location: item.location,
+        status: item.status,
+        followUpAt: toIsoString(fields.followUpAt),
+        nextStep: fields.nextStep,
+        followUpNote: fields.followUpNote,
+        attentionSignals: buildAttentionSignals({ status: item.status, source: item, now }),
+        recommendedAction: buildRecommendedAction(item, now),
+      };
+    };
+
+    const overdue = items.filter((item) => resolveFollowUpState(item.status, item, now) === 'due').map(toCandidate);
+    const today = items
+      .filter((item) =>
+        buildAttentionSignals({ status: item.status, source: item, now }).some(
+          (signal) => signal.key === 'follow_up_due_today',
+        ),
+      )
+      .map(toCandidate);
+    const upcoming = items
+      .filter((item) => resolveFollowUpState(item.status, item, now) === 'upcoming')
+      .map(toCandidate);
+    const stale = items
+      .filter((item) =>
+        buildAttentionSignals({ status: item.status, source: item, now }).some(
+          (signal) => signal.key === 'stale_pipeline',
+        ),
+      )
+      .map(toCandidate);
+
+    return {
+      generatedAt: now.toISOString(),
+      counts: {
+        overdue: overdue.length,
+        today: today.length,
+        upcoming: upcoming.length,
+        stale: stale.length,
+      },
+      buckets: [
+        { key: 'overdue' as const, label: 'Overdue', count: overdue.length, items: overdue.slice(0, 10) },
+        { key: 'today' as const, label: 'Due today', count: today.length, items: today.slice(0, 10) },
+        { key: 'upcoming' as const, label: 'Upcoming', count: upcoming.length, items: upcoming.slice(0, 10) },
+        { key: 'stale' as const, label: 'Stale pipeline', count: stale.length, items: stale.slice(0, 10) },
+      ],
     };
   }
 

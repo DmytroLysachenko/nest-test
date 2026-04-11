@@ -63,6 +63,28 @@ class JobOfferAttentionSignal {
   reason!: string;
 }
 
+class JobOfferRecommendedAction {
+  @ApiProperty()
+  key!:
+    | 'complete-overdue-follow-up'
+    | 'handle-today-follow-up'
+    | 'set-next-step'
+    | 'review-stale-pipeline'
+    | 'prepare-application'
+    | 'set-decision-checkpoint'
+    | 'review-upcoming-follow-up'
+    | 'triage-offer';
+
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  reason!: string;
+
+  @ApiProperty()
+  href!: string;
+}
+
 class JobOfferCollectionState {
   @ApiProperty()
   key!: 'hidden' | 'degraded' | 'failed' | 'empty';
@@ -139,6 +161,9 @@ export class JobOfferItem {
 
   @ApiProperty({ required: false, type: [JobOfferAttentionSignal] })
   attentionSignals?: JobOfferAttentionSignal[];
+
+  @ApiProperty({ required: false, type: JobOfferRecommendedAction })
+  recommendedAction?: JobOfferRecommendedAction;
 
   @ApiProperty({ required: false })
   followUpAt!: string | null;
@@ -327,6 +352,9 @@ class JobOfferFocusItem {
 
   @ApiProperty({ required: false, type: [JobOfferAttentionSignal] })
   attentionSignals?: JobOfferAttentionSignal[];
+
+  @ApiProperty({ required: false, type: JobOfferRecommendedAction })
+  recommendedAction?: JobOfferRecommendedAction;
 }
 
 class JobOfferFocusGroup {
@@ -562,4 +590,66 @@ export class DiscoverySummaryResponse {
 export class JobOfferFocusResponse {
   @ApiProperty({ type: [JobOfferFocusGroup] })
   groups!: JobOfferFocusGroup[];
+}
+
+class JobOfferReminderCandidate {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty({ required: false })
+  company!: string | null;
+
+  @ApiProperty({ required: false })
+  location!: string | null;
+
+  @ApiProperty()
+  status!: string;
+
+  @ApiProperty({ required: false })
+  followUpAt!: string | null;
+
+  @ApiProperty({ required: false })
+  nextStep!: string | null;
+
+  @ApiProperty({ required: false })
+  followUpNote!: string | null;
+
+  @ApiProperty({ required: false, type: [JobOfferAttentionSignal] })
+  attentionSignals!: JobOfferAttentionSignal[];
+
+  @ApiProperty({ required: false, type: JobOfferRecommendedAction })
+  recommendedAction!: JobOfferRecommendedAction;
+}
+
+class JobOfferReminderBucket {
+  @ApiProperty()
+  key!: 'overdue' | 'today' | 'upcoming' | 'stale';
+
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  count!: number;
+
+  @ApiProperty({ type: [JobOfferReminderCandidate] })
+  items!: JobOfferReminderCandidate[];
+}
+
+export class JobOfferReminderPreviewResponse {
+  @ApiProperty()
+  generatedAt!: string;
+
+  @ApiProperty({ type: Object })
+  counts!: {
+    overdue: number;
+    today: number;
+    upcoming: number;
+    stale: number;
+  };
+
+  @ApiProperty({ type: [JobOfferReminderBucket] })
+  buckets!: JobOfferReminderBucket[];
 }
