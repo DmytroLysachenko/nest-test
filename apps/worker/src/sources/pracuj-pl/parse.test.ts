@@ -68,3 +68,22 @@ test('parsePracujPl extracts validThrough expiry and richer structured sections'
   assert.deepEqual(result?.details?.sections?.offered, ['Flexible working hours', 'Training budget']);
   assert.deepEqual(result?.details?.sections?.additionalInformation, ['Team size: 8 engineers']);
 });
+
+test('parsePracujPl preserves critical fields when source section headings drift', () => {
+  const [result] = parsePracujPl([
+    {
+      url: 'https://it.pracuj.pl/praca/qa-automation-engineer,oferta,321',
+      html: readFixture('detail-drifted-sections.html'),
+    },
+  ]);
+
+  assert.equal(result?.title, 'QA Automation Engineer');
+  assert.equal(result?.company, 'Drift Labs');
+  assert.equal(result?.location, 'Gdansk, pomorskie');
+  assert.equal(result?.postedAt, '2026-04-05T09:00:00.000Z');
+  assert.equal(result?.expiresAt, '2099-05-05T21:59:59Z');
+  assert.equal(result?.applyUrl, 'https://pracuj.pl/apply/321');
+  assert.equal(result?.sourceCompanyProfileUrl, 'https://pracuj.pl/drift-labs');
+  assert.deepEqual(result?.requirements, ['Playwright', 'TypeScript', 'API testing']);
+  assert.ok(result?.description);
+});

@@ -87,7 +87,7 @@ const splitList = (value?: string) => {
     return [];
   }
   const parts = value
-    .split(/,\s*/)
+    .split(/[;,]\s*/)
     .map((item) => item.trim())
     .filter(Boolean);
   return parts.length ? parts : [];
