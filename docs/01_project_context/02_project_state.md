@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-04-10
+Last updated: 2026-04-11
 
 ## Purpose
 
@@ -102,6 +102,8 @@ That framing should guide future implementation more than raw source count.
   - one-click follow-up complete/snooze/clear actions
   - prep packet read model for reply/interview preparation
   - workflow attention signals now classify active roles as overdue, due-today, prep-recommended, awaiting-decision, missing-next-step, or stale-pipeline directly in the notebook read model
+  - notebook list/focus read models now expose deterministic recommended actions so the web can show next moves without duplicating workflow business logic
+  - notebook reminder preview now exposes overdue, due-today, upcoming, and stale-pipeline work as an in-app read model; external reminder delivery remains out of scope
   - dashboard focus and action-plan lanes now include due-today, prep-next, and awaiting-decision workflow slices with explicit rationale and CTA metadata
   - pipeline bulk editing now supports decision checkpoints and prep-needed flags in addition to follow-up planning
   - bulk status flows, metadata, scoring, prep generation
@@ -141,9 +143,11 @@ That framing should guide future implementation more than raw source count.
   - scrape lifecycle visibility is materially stronger
   - diagnostics now distinguish degraded/empty/blocked/partial outcomes
   - diagnostics now also expose artifact manifests, stage metrics, and silent-failure classification so completed-but-useless runs are not treated as healthy success
+  - run diagnostics now expose a dedicated usefulness read model for listing, candidate, match, notebook-linking, strict-hidden, and degraded-output impact
   - source-specific alias normalization is now deterministic for contract type, work mode, and seniority fields
   - multi-value contract/work-mode/work-schedule source strings are now split before canonicalization so combined labels stop creating low-value taxonomy rows
   - Pracuj parsing now carries source profile URL, apply URL, posted-at hints, source-derived expiry dates, structured section snapshots, raw payload subsets, and sparse-field diagnostics into callback normalization
+  - Pracuj parser drift tests now cover changed detail-section headings and semicolon-delimited requirement strings
   - callback envelope is replay-safe and increasingly support-friendly
 - Web
   - major move from panel-heavy internal tooling toward guided product workflow
@@ -286,6 +290,7 @@ That framing should guide future implementation more than raw source count.
 - Worker diagnostics now classify empty/degraded/blocked outcomes with explicit `resultKind`, `emptyReason`, and `sourceQuality` fields.
 - Worker normalization now canonicalizes source aliases for employment type, work mode, and seniority before persistence/callback emission.
 - Job-source health summary now includes outcome/failure rollups (`networkFailures`, `parseFailures`, `degradedRuns`, `partialSuccessRuns`, `blockedOutcomeRuns`, `filtersExhaustedRuns`, `detailParseGapRuns`).
+- Job-source health summary now also exposes expiry capture coverage alongside employment type, requirements, source profile, and apply URL coverage.
 - Documents now support authenticated extraction recovery endpoints (`POST /api/documents/:id/retry-extraction`, `POST /api/documents/retry-failed`) with audit events.
 - Document retry responses now return explicit recovery outcome summaries so the UI can report what was recovered and what still needs attention.
 - Job-source UX now exposes authenticated scrape preflight (`GET /api/job-sources/preflight`) and user-triggered schedule enqueue (`POST /api/job-sources/schedule/trigger-now`).

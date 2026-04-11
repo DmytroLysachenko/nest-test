@@ -1,6 +1,6 @@
 # Notebook Feature
 
-Last updated: 2026-04-01
+Last updated: 2026-04-11
 
 ## Purpose
 
@@ -51,11 +51,13 @@ Current catalog-facing read model additions:
 - notebook and discovery offer details now include additive structured company and taxonomy summaries
 - prep packet offer summaries now expose the same structured catalog context alongside raw listing fields
 - notebook list items now also expose additive workflow attention signals derived from persisted follow-up and pipeline state
+- notebook list and focus items now expose deterministic recommended actions derived by API, not duplicated in web
 - notebook list responses now expose API-owned collection-state guidance for hidden/degraded/empty queue trust messaging
 
 Current workflow-facing additions:
 
 - dashboard/notebook focus lanes now include due-today, prep-next, and awaiting-decision slices
+- reminder preview now exposes overdue, due-today, upcoming, and stale-pipeline work as an in-app read model without external notification delivery
 - active pipeline bulk editing now supports decision checkpoints and prep-needed flags in addition to follow-up fields
 - prep packet responses now include workflow-aware attention context and requirement highlights
 
@@ -67,6 +69,10 @@ Schema references:
 ## APIs/events
 
 Representative endpoints live under `apps/api/src/features/job-offers` and `apps/api/src/features/workspace`.
+
+Current reminder/read-model endpoint:
+
+- `GET /api/job-offers/reminders/preview`
 
 ## Dependencies
 

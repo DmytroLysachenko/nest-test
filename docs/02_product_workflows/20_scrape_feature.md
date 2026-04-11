@@ -1,6 +1,6 @@
 # Scrape Feature
 
-Last updated: 2026-04-01
+Last updated: 2026-04-11
 
 ## Purpose
 
@@ -58,7 +58,7 @@ Current standardization direction:
 - per-run observed source facts now include expiry state/date and a bounded structured section snapshot so removed offers remain understandable without storing full HTML
 - cache/catalog reuse now requires a minimum fresh candidate yield instead of relying only on gross reused result counts
 - enqueue responses now return explicit reuse diagnostics when catalog rematch or DB reuse is rejected before worker dispatch
-- source health now includes observation-backed coverage metrics for missing employment type, empty requirements, source-profile capture, and apply-link capture
+- source health now includes observation-backed coverage metrics for missing employment type, empty requirements, source-profile capture, apply-link capture, and expiry capture
 
 Schema references:
 
@@ -88,6 +88,8 @@ Current enqueue contract direction:
 - stale watchdog failures now distinguish `worker-not-started` from `heartbeat-stopped-or-callback-missing` in the stored run error
 - worker pipeline orchestration now uses a source-adapter contract so future sites can reuse fetch/parse/normalize stages without copying the Pracuj orchestration path
 - local worker diagnostics now include `pnpm --filter worker scrape:once -- --source pracuj-pl-it --listingUrl <url> --limit <n>` for single-run execution outside the full stack
+- run diagnostics now expose a usefulness read model so UI/support can distinguish useful, hidden, degraded, blocked, empty, failed, and pending outcomes without recomputing raw counters
+- Pracuj parser drift coverage now includes changed detail-section headings and semicolon-delimited requirement strings
 
 Operational and recovery endpoints live under `apps/api/src/features/ops`.
 
