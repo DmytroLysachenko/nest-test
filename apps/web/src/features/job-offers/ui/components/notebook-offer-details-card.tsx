@@ -159,7 +159,12 @@ export const NotebookOfferDetailsCard = ({
         <div className="grid gap-3 md:grid-cols-2">
           <div className="app-inset-stack space-y-2">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Next action</p>
-            <p className="text-text-strong text-sm font-semibold">{followUpSummary}</p>
+            <p className="text-text-strong text-sm font-semibold">
+              {offer.recommendedAction?.label ?? followUpSummary}
+            </p>
+            {offer.recommendedAction ? (
+              <p className="text-text-soft text-sm">{offer.recommendedAction.reason}</p>
+            ) : null}
             {nextStep ? <p className="text-text-soft text-sm">Next step: {nextStep}</p> : null}
             {followUpAt ? (
               <p className="text-text-soft text-sm">Scheduled for: {new Date(followUpAt).toLocaleString()}</p>

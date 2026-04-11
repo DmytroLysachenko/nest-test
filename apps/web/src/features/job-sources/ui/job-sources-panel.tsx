@@ -203,6 +203,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               label="Apply URL coverage"
               value={`${(sourceHealth.applyUrlCoverageRate * 100).toFixed(1)}%`}
             />
+            <InspectorRow label="Expiry coverage" value={`${(sourceHealth.expiryCoverageRate * 100).toFixed(1)}%`} />
           </div>
           <p className="text-text-soft text-xs leading-6">{sourceHealth.guidance}</p>
         </div>
@@ -672,6 +673,22 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             label="Silent failure"
             value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.silentFailure ? 'yes' : 'no'}
           />
+          {jobSourcesPanel.diagnosticsQuery.data.usefulness ? (
+            <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
+              <p className="text-text-strong font-medium">Usefulness</p>
+              <div className="mt-2 space-y-1">
+                <InspectorRow label="Status" value={jobSourcesPanel.diagnosticsQuery.data.usefulness.status} />
+                <InspectorRow
+                  label="Linked notebook offers"
+                  value={String(jobSourcesPanel.diagnosticsQuery.data.usefulness.linkedNotebookOffers)}
+                />
+                <InspectorRow
+                  label="Recommended action"
+                  value={jobSourcesPanel.diagnosticsQuery.data.usefulness.recommendedAction}
+                />
+              </div>
+            </div>
+          ) : null}
           <div className="grid gap-3 md:grid-cols-2">
             <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
               <p className="text-text-strong font-medium">Acquisition</p>

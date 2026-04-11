@@ -373,13 +373,14 @@ export const NotebookOffersListCard = ({
 
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-text-soft text-xs leading-6">
-                  {offer.followUpState === 'due'
-                    ? 'Due now. Handle this before widening the funnel.'
-                    : offer.followUpState === 'upcoming'
-                      ? 'Upcoming follow-up scheduled. Keep the thread warm.'
-                      : offer.status === 'NEW' || offer.status === 'SEEN'
-                        ? 'First-pass triage candidate.'
-                        : 'Continue moving this role through the pipeline.'}
+                  {offer.recommendedAction?.reason ??
+                    (offer.followUpState === 'due'
+                      ? 'Due now. Handle this before widening the funnel.'
+                      : offer.followUpState === 'upcoming'
+                        ? 'Upcoming follow-up scheduled. Keep the thread warm.'
+                        : offer.status === 'NEW' || offer.status === 'SEEN'
+                          ? 'First-pass triage candidate.'
+                          : 'Continue moving this role through the pipeline.')}
                 </p>
                 <Button
                   type="button"
@@ -387,7 +388,7 @@ export const NotebookOffersListCard = ({
                   className="h-8 px-0 text-xs"
                   onClick={() => onSelectOffer(offer.id)}
                 >
-                  Open workspace
+                  {offer.recommendedAction?.label ?? 'Open workspace'}
                   <ArrowRight className="ml-1 h-3.5 w-3.5" />
                 </Button>
               </div>

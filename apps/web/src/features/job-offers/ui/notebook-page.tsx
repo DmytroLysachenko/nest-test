@@ -116,6 +116,20 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
         tone="info"
       />
 
+      {notebook.reminderPreview &&
+      notebook.reminderPreview.counts.overdue +
+        notebook.reminderPreview.counts.today +
+        notebook.reminderPreview.counts.upcoming +
+        notebook.reminderPreview.counts.stale >
+        0 ? (
+        <GuidancePanel
+          eyebrow="Reminder preview"
+          title={`${notebook.reminderPreview.counts.overdue} overdue, ${notebook.reminderPreview.counts.today} due today, ${notebook.reminderPreview.counts.upcoming} upcoming, ${notebook.reminderPreview.counts.stale} stale`}
+          description="These are deterministic in-app reminders from your notebook fields. No external notification delivery is enabled yet."
+          tone={notebook.reminderPreview.counts.overdue > 0 ? 'warning' : 'info'}
+        />
+      ) : null}
+
       <NotebookFiltersCard
         status={notebook.filters.status}
         mode={notebook.filters.mode}
