@@ -36,7 +36,7 @@ const createPanelState = (overrides: Record<string, unknown> = {}) =>
       careerProfileId: null,
       filters: null,
       lastTriggeredAt: null,
-      nextRunAt: '2026-04-11T09:00:00.000Z',
+      nextRunAt: '2099-04-11T09:00:00.000Z',
       lastRunStatus: null,
     },
     enqueueResult: null,
