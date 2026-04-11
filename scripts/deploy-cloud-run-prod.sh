@@ -9,6 +9,18 @@ require_var() {
   fi
 }
 
+require_plain_env_value() {
+  local name="$1"
+  local value="${!name:-}"
+  if [[ -z "$value" ]]; then
+    return
+  fi
+  if [[ "$value" == *"="* || "$value" == *[[:space:]]* ]]; then
+    echo "Invalid env var $name: provide only the raw value, not multiple KEY=value pairs" >&2
+    exit 1
+  fi
+}
+
 resolve_service_url() {
   local service="$1"
   gcloud run services describe "$service" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format='value(status.url)' 2>/dev/null || true
@@ -189,6 +201,7 @@ fi
 
 if [[ "$DEPLOY_API" == "true" || "$DEPLOY_WORKER" == "true" ]]; then
   require_var WORKER_CALLBACK_TOKEN
+  require_plain_env_value WORKER_TASKS_SERVICE_ACCOUNT_EMAIL
 fi
 
 if [[ "$DEPLOY_API" == "true" ]]; then
