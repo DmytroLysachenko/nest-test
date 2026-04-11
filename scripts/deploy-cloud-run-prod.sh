@@ -308,14 +308,6 @@ if [[ "$DEPLOY_API" == "true" || "$DEPLOY_WORKER" == "true" ]]; then
     "$TASKS_MAX_RETRY_DURATION_SEC"
 fi
 
-if [[ "$DEPLOY_WORKER" == "true" ]]; then
-  remove_legacy_secret_env_vars "$GCP_WORKER_SERVICE" "$WORKER_LEGACY_SECRET_ENV_VARS"
-fi
-
-if [[ "$DEPLOY_API" == "true" ]]; then
-  remove_legacy_secret_env_vars "$GCP_API_SERVICE" "$API_LEGACY_SECRET_ENV_VARS"
-fi
-
 API_URL="$(resolve_service_url "$GCP_API_SERVICE")"
 WORKER_URL="$(resolve_service_url "$GCP_WORKER_SERVICE")"
 WEB_URL="$(resolve_service_url "$GCP_WEB_SERVICE")"
@@ -332,31 +324,26 @@ if [[ -n "$API_CALLBACK_URL" ]]; then
 fi
 
 if [[ "$DEPLOY_WORKER" == "true" ]]; then
-  CURRENT_WORKER_SHA="$(resolve_service_sha "$GCP_WORKER_SERVICE")"
-  if [[ "$CURRENT_WORKER_SHA" == "$RELEASE_SHA" ]]; then
-    echo "Worker is already at SHA $RELEASE_SHA. Skipping deploy."
-  else
-    echo "Deploy worker (pass 1)..."
-    WORKER_TASK_URL="https://example.com/tasks"
-    if [[ -n "$WORKER_URL" ]]; then
-      WORKER_TASK_URL="${WORKER_URL%/}/tasks"
-    fi
-
-    gcloud run deploy "$GCP_WORKER_SERVICE" \
-      --project="$GCP_PROJECT_ID" \
-      --region="$GCP_REGION" \
-      --platform=managed \
-      --image="${IMAGE_BASE}/worker:${RELEASE_SHA}" \
-      --allow-unauthenticated \
-      --service-account="$WORKER_RUNTIME_SA" \
-      --min-instances="${WORKER_MIN_INSTANCES}" \
-      --max-instances="${WORKER_MAX_INSTANCES}" \
-      --cpu="${WORKER_CPU}" \
-      --memory="${WORKER_MEMORY}" \
-      --remove-secrets="${WORKER_LEGACY_SECRET_ENV_VARS}" \
-      --set-env-vars="${WORKER_BASE_ENV_VARS}|TASKS_URL=${WORKER_TASK_URL}|TASKS_OIDC_AUDIENCE=${WORKER_TASK_URL}" \
-      >/dev/null
+  echo "Deploy worker (pass 1)..."
+  WORKER_TASK_URL="https://example.com/tasks"
+  if [[ -n "$WORKER_URL" ]]; then
+    WORKER_TASK_URL="${WORKER_URL%/}/tasks"
   fi
+
+  gcloud run deploy "$GCP_WORKER_SERVICE" \
+    --project="$GCP_PROJECT_ID" \
+    --region="$GCP_REGION" \
+    --platform=managed \
+    --image="${IMAGE_BASE}/worker:${RELEASE_SHA}" \
+    --allow-unauthenticated \
+    --service-account="$WORKER_RUNTIME_SA" \
+    --min-instances="${WORKER_MIN_INSTANCES}" \
+    --max-instances="${WORKER_MAX_INSTANCES}" \
+    --cpu="${WORKER_CPU}" \
+    --memory="${WORKER_MEMORY}" \
+    --remove-secrets="${WORKER_LEGACY_SECRET_ENV_VARS}" \
+    --set-env-vars="${WORKER_BASE_ENV_VARS}|TASKS_URL=${WORKER_TASK_URL}|TASKS_OIDC_AUDIENCE=${WORKER_TASK_URL}" \
+    >/dev/null
 
   WORKER_URL="$(resolve_service_url "$GCP_WORKER_SERVICE")"
   if [[ -z "$WORKER_URL" ]]; then
@@ -374,31 +361,26 @@ if [[ "$DEPLOY_API" == "true" ]]; then
     exit 1
   fi
 
-  CURRENT_API_SHA="$(resolve_service_sha "$GCP_API_SERVICE")"
-  if [[ "$CURRENT_API_SHA" == "$RELEASE_SHA" ]]; then
-    echo "API is already at SHA $RELEASE_SHA. Skipping deploy."
-  else
-    echo "Deploy api..."
-    API_ALLOWED_ORIGINS="$(merge_csv_unique "$PRIMARY_WEB_ORIGINS" "$WEB_URLS_CSV")"
-    if [[ -z "$API_ALLOWED_ORIGINS" ]]; then
-      API_ALLOWED_ORIGINS="https://example.com"
-    fi
-
-    gcloud run deploy "$GCP_API_SERVICE" \
-      --project="$GCP_PROJECT_ID" \
-      --region="$GCP_REGION" \
-      --platform=managed \
-      --image="${IMAGE_BASE}/api:${RELEASE_SHA}" \
-      --allow-unauthenticated \
-      --service-account="$API_RUNTIME_SA" \
-      --min-instances=0 \
-      --max-instances=2 \
-      --cpu=1 \
-      --memory=512Mi \
-      --remove-secrets="${API_LEGACY_SECRET_ENV_VARS}" \
-      --set-env-vars="${API_BASE_ENV_VARS}|ALLOWED_ORIGINS=${API_ALLOWED_ORIGINS}|WORKER_TASK_URL=${WORKER_URL}/tasks|WORKER_TASKS_OIDC_AUDIENCE=${WORKER_URL}/tasks|WORKER_CALLBACK_URL=${API_CALLBACK_URL}" \
-      >/dev/null
+  echo "Deploy api..."
+  API_ALLOWED_ORIGINS="$(merge_csv_unique "$PRIMARY_WEB_ORIGINS" "$WEB_URLS_CSV")"
+  if [[ -z "$API_ALLOWED_ORIGINS" ]]; then
+    API_ALLOWED_ORIGINS="https://example.com"
   fi
+
+  gcloud run deploy "$GCP_API_SERVICE" \
+    --project="$GCP_PROJECT_ID" \
+    --region="$GCP_REGION" \
+    --platform=managed \
+    --image="${IMAGE_BASE}/api:${RELEASE_SHA}" \
+    --allow-unauthenticated \
+    --service-account="$API_RUNTIME_SA" \
+    --min-instances=0 \
+    --max-instances=2 \
+    --cpu=1 \
+    --memory=512Mi \
+    --remove-secrets="${API_LEGACY_SECRET_ENV_VARS}" \
+    --set-env-vars="${API_BASE_ENV_VARS}|ALLOWED_ORIGINS=${API_ALLOWED_ORIGINS}|WORKER_TASK_URL=${WORKER_URL}/tasks|WORKER_TASKS_OIDC_AUDIENCE=${WORKER_URL}/tasks|WORKER_CALLBACK_URL=${API_CALLBACK_URL}" \
+    >/dev/null
 
   API_URL="$(resolve_service_url "$GCP_API_SERVICE")"
   if [[ -z "$API_URL" ]]; then
