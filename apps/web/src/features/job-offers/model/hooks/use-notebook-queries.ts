@@ -7,6 +7,7 @@ import {
   getJobOfferActionPlan,
   getJobOfferHistory,
   getJobOfferPrepPacket,
+  getJobOfferReminderPreview,
   getNotebookPreferences,
   getNotebookSummary,
   listJobOffers,
@@ -83,6 +84,15 @@ export const useNotebookQueries = ({
     }),
   );
 
+  const reminderPreviewQuery = useQuery(
+    buildAuthedQueryOptions({
+      token,
+      queryKey: queryKeys.jobOffers.reminderPreview(token),
+      queryFn: getJobOfferReminderPreview,
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+    }),
+  );
+
   const prepPacketQuery = useQuery(
     buildAuthedQueryOptions({
       token,
@@ -99,6 +109,7 @@ export const useNotebookQueries = ({
     historyQuery,
     preferencesQuery,
     actionPlanQuery,
+    reminderPreviewQuery,
     prepPacketQuery,
     summaryQuery: {
       ...summaryQuery,

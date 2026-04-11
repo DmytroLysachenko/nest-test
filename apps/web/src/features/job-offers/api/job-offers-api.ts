@@ -8,6 +8,7 @@ import type {
   JobOfferActionPlanDto,
   JobOfferSummaryDto,
   JobOfferPrepPacketDto,
+  JobOfferReminderPreviewDto,
   JobOffersListDto,
   JobOfferScoreResultDto,
   JobOfferStatus,
@@ -227,6 +228,12 @@ export const getJobOfferFocus = (token: string) =>
 
 export const getJobOfferActionPlan = (token: string) =>
   apiRequest<JobOfferActionPlanDto>('/job-offers/action-plan', {
+    method: 'GET',
+    token,
+  });
+
+export const getJobOfferReminderPreview = (token: string) =>
+  apiRequest<JobOfferReminderPreviewDto>('/job-offers/reminders/preview', {
     method: 'GET',
     token,
   });

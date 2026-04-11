@@ -73,13 +73,21 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     ],
   );
 
-  const { listQuery, selectedOffer, historyQuery, preferencesQuery, summaryQuery, actionPlanQuery, prepPacketQuery } =
-    useNotebookQueries({
-      token,
-      listParams,
-      selectedId,
-      sharedNotebookSummary: notebookSummary,
-    });
+  const {
+    listQuery,
+    selectedOffer,
+    historyQuery,
+    preferencesQuery,
+    summaryQuery,
+    actionPlanQuery,
+    reminderPreviewQuery,
+    prepPacketQuery,
+  } = useNotebookQueries({
+    token,
+    listParams,
+    selectedId,
+    sharedNotebookSummary: notebookSummary,
+  });
 
   const {
     statusMutation,
@@ -402,6 +410,7 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     workspaceSummary: summary,
     notebookSummary: summaryQuery.data,
     actionPlan: actionPlanQuery.data,
+    reminderPreview: reminderPreviewQuery.data,
     prepPacket: prepPacketQuery.data,
     selectedOffer,
     selectedId,

@@ -114,6 +114,7 @@ export const queryKeys = {
     summary: (token: string | null) => ['job-offers', 'summary', token] as const,
     focus: (token: string | null) => ['job-offers', 'focus', token] as const,
     actionPlan: (token: string | null) => ['job-offers', 'action-plan', token] as const,
+    reminderPreview: (token: string | null) => ['job-offers', 'reminder-preview', token] as const,
     prepPacket: (token: string | null, offerId: string | null) =>
       ['job-offers', 'prep-packet', token, offerId] as const,
   },

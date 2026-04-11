@@ -419,6 +419,7 @@ export type JobSourceHealthDto = {
     emptyRequirementsRate: number;
     sourceCompanyProfileCoverageRate: number;
     applyUrlCoverageRate: number;
+    expiryCoverageRate: number;
     activePause: boolean;
     pauseOpenedAt: string | null;
     pauseResumeAt: string | null;
@@ -449,6 +450,18 @@ export type JobSourceRunDiagnosticsDto = {
     summary: string;
     recommendedAction: string;
     userVisibility: 'positive' | 'warning' | 'danger' | 'neutral';
+  };
+  usefulness?: {
+    status: 'useful' | 'hidden' | 'blocked' | 'empty' | 'degraded' | 'failed' | 'pending';
+    listingsFound: number;
+    candidateOffers: number;
+    matchedOffers: number;
+    linkedNotebookOffers: number;
+    hiddenByStrict: number;
+    usefulOfferCount: number;
+    degradedAcceptedOffers: number;
+    reasons: string[];
+    recommendedAction: string;
   };
   diagnostics: {
     relaxationTrail: string[];
@@ -753,6 +766,21 @@ export type JobOfferAttentionSignalDto = {
   reason: string;
 };
 
+export type JobOfferRecommendedActionDto = {
+  key:
+    | 'complete-overdue-follow-up'
+    | 'handle-today-follow-up'
+    | 'set-next-step'
+    | 'review-stale-pipeline'
+    | 'prepare-application'
+    | 'set-decision-checkpoint'
+    | 'review-upcoming-follow-up'
+    | 'triage-offer';
+  label: string;
+  reason: string;
+  href: string;
+};
+
 export type JobOfferCollectionStateDto = {
   key: 'hidden' | 'degraded' | 'failed' | 'empty';
   title: string;
@@ -771,6 +799,7 @@ export type JobOfferListItemDto = {
   explanationTags?: string[];
   followUpState?: 'due' | 'upcoming' | 'none';
   attentionSignals?: JobOfferAttentionSignalDto[];
+  recommendedAction?: JobOfferRecommendedActionDto;
   followUpAt?: string | null;
   nextStep?: string | null;
   followUpNote?: string | null;
@@ -926,6 +955,34 @@ export type JobOfferFocusDto = {
       followUpState: 'due' | 'upcoming' | 'none';
       nextStep: string | null;
       attentionSignals?: JobOfferAttentionSignalDto[];
+      recommendedAction?: JobOfferRecommendedActionDto;
+    }>;
+  }>;
+};
+
+export type JobOfferReminderPreviewDto = {
+  generatedAt: string;
+  counts: {
+    overdue: number;
+    today: number;
+    upcoming: number;
+    stale: number;
+  };
+  buckets: Array<{
+    key: 'overdue' | 'today' | 'upcoming' | 'stale';
+    label: string;
+    count: number;
+    items: Array<{
+      id: string;
+      title: string;
+      company: string | null;
+      location: string | null;
+      status: JobOfferStatus;
+      followUpAt: string | null;
+      nextStep: string | null;
+      followUpNote: string | null;
+      attentionSignals: JobOfferAttentionSignalDto[];
+      recommendedAction: JobOfferRecommendedActionDto;
     }>;
   }>;
 };
