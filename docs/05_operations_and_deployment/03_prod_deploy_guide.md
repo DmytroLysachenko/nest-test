@@ -119,10 +119,12 @@ Required core values:
    - `MAIL_USERNAME`
    - `MAIL_PASSWORD`
    - `GOOGLE_OAUTH_CLIENT_SECRET`
-   - `WORKER_SHARED_TOKEN`
    - `WORKER_CALLBACK_TOKEN`
    - `SCHEDULER_AUTH_TOKEN`
    - `OPS_INTERNAL_TOKEN`
+5. Optional worker ingress fallback:
+   - `WORKER_SHARED_TOKEN` can be left unset to use Cloud Tasks OIDC.
+   - `WORKER_TASKS_SERVICE_ACCOUNT_EMAIL` can be set as a GitHub production variable for a dedicated caller service account; if unset, deploy uses `GCP_API_RUNTIME_SERVICE_ACCOUNT`.
 
 ## 5) CI/CD behavior in this repo
 

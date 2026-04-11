@@ -153,6 +153,7 @@ Last updated: 2026-04-10
   - `MAIL_SECURE`
   - `WORKER_TASKS_QUEUE`
   - `WORKER_TASKS_DLQ`
+  - `WORKER_TASKS_SERVICE_ACCOUNT_EMAIL`
   - `TASKS_MAX_ATTEMPTS`
   - `TASKS_MIN_BACKOFF_SEC`
   - `TASKS_MAX_BACKOFF_SEC`
@@ -185,10 +186,11 @@ Last updated: 2026-04-10
   - `MAIL_USERNAME`
   - `MAIL_PASSWORD`
   - `GOOGLE_OAUTH_CLIENT_SECRET`
-  - `WORKER_SHARED_TOKEN`
   - `WORKER_CALLBACK_TOKEN`
   - `SCHEDULER_AUTH_TOKEN`
   - `OPS_INTERNAL_TOKEN`
+- Optional runtime secrets:
+  - `WORKER_SHARED_TOKEN` for shared-token worker ingress; leave unset to use Cloud Tasks OIDC via `WORKER_TASKS_SERVICE_ACCOUNT_EMAIL`
 - Deploy behavior:
   - CI/CD injects GitHub production secret values directly into Cloud Run runtime env vars during deploy.
   - Routine code-only deploys reuse the same GitHub secret source of truth without Secret Manager version churn.

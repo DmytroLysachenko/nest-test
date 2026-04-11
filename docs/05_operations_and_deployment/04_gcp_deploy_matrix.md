@@ -74,6 +74,7 @@ For the complete local + production inventory, use:
 | `OPS_RECONCILE_CRON` | deploy-prod-on-main, promote-to-prod | Optional reconcile cron expression (default `0 2 * * *`) |
 | `OPS_RECONCILE_TIMEZONE` | deploy-prod-on-main, promote-to-prod | Optional reconcile timezone (default `Europe/Warsaw`) |
 | `WORKER_TASKS_DLQ` | deploy-prod-on-main, promote-to-prod | Optional DLQ queue name provisioned by deploy script (default `worker-scrape-dlq`) |
+| `WORKER_TASKS_SERVICE_ACCOUNT_EMAIL` | deploy-prod-on-main, promote-to-prod | Optional Cloud Tasks OIDC caller identity; defaults to the API runtime service account when `WORKER_SHARED_TOKEN` is unset |
 | `TASKS_MAX_ATTEMPTS` | deploy-prod-on-main, promote-to-prod | Optional Cloud Tasks retry max attempts (default `8`) |
 | `TASKS_MIN_BACKOFF_SEC` | deploy-prod-on-main, promote-to-prod | Optional retry min backoff seconds (default `5`) |
 | `TASKS_MAX_BACKOFF_SEC` | deploy-prod-on-main, promote-to-prod | Optional retry max backoff seconds (default `300`) |
@@ -90,10 +91,15 @@ For the complete local + production inventory, use:
 | `REFRESH_TOKEN_SECRET` | deploy-prod-on-main, promote-to-prod | JWT signing secret |
 | `MAIL_USERNAME` | deploy-prod-on-main, promote-to-prod | SMTP username |
 | `MAIL_PASSWORD` | deploy-prod-on-main, promote-to-prod | SMTP password |
-| `WORKER_SHARED_TOKEN` | deploy-prod-on-main, promote-to-prod | shared worker ingress token |
 | `WORKER_CALLBACK_TOKEN` | deploy-prod-on-main, promote-to-prod | shared worker callback token |
 | `SCHEDULER_AUTH_TOKEN` | deploy-prod-on-main, promote-to-prod | shared bearer token for `/api/job-sources/schedule/trigger` |
 | `OPS_INTERNAL_TOKEN` | deploy-prod-on-main, promote-to-prod | shared bearer token for `/api/ops/reconcile-stale-runs` |
+
+### Optional GitHub Secrets (`secrets.*`)
+
+| Name | Used by | Notes |
+|---|---|---|
+| `WORKER_SHARED_TOKEN` | deploy-prod-on-main, promote-to-prod | optional shared worker ingress token fallback; leave unset to use Cloud Tasks OIDC |
 
 ## 2) Cloud Run Runtime Contract
 
@@ -273,8 +279,9 @@ For the complete local + production inventory, use:
 
 - API enqueue provider should be `WORKER_TASK_PROVIDER=cloud-tasks` in production.
 - Worker ingress auth can be:
-  - OIDC (recommended): API signs task OIDC (`WORKER_TASKS_SERVICE_ACCOUNT_EMAIL`) and worker pins `TASKS_SERVICE_ACCOUNT_EMAIL`.
+  - OIDC (recommended): API signs task OIDC (`WORKER_TASKS_SERVICE_ACCOUNT_EMAIL`) and worker pins `TASKS_SERVICE_ACCOUNT_EMAIL`; deploy defaults both to the API runtime service account when `WORKER_SHARED_TOKEN` is unset.
   - Shared token fallback: API `WORKER_AUTH_TOKEN` + worker `TASKS_AUTH_TOKEN`.
+- When using OIDC, the task caller service account must be in the same project as the Cloud Tasks queue, and the service account that creates tasks must have `iam.serviceAccounts.actAs` for that caller identity.
 
 ## 7) Schedule Automation Contract
 
