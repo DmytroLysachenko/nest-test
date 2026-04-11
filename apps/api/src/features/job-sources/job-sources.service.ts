@@ -349,6 +349,59 @@ const classifySilentFailure = (input: {
   return classifiedOutcome !== 'filters_exhausted' && classifiedOutcome !== 'listing_empty';
 };
 
+const buildRunUsefulness = (input: {
+  status: string;
+  story: { phase: RunStoryPhase; recommendedAction: string };
+  notebookVisibility: {
+    candidateOffers: number;
+    matchedOffers: number;
+    userInsertedOffers: number;
+    hiddenByStrict: number;
+    usefulOfferCount: number;
+    listingsFound: number;
+  };
+  degradedAcceptedOffers: number;
+  silentFailure: boolean;
+  classifiedOutcome: string | null;
+}) => {
+  const notebook = input.notebookVisibility;
+  const status =
+    input.status === 'COMPLETED' && notebook.userInsertedOffers > 0
+      ? 'useful'
+      : input.status === 'COMPLETED' && notebook.matchedOffers > notebook.userInsertedOffers
+        ? 'hidden'
+        : input.silentFailure
+          ? 'blocked'
+          : input.status === 'COMPLETED' && notebook.candidateOffers === 0
+            ? 'empty'
+            : input.status === 'COMPLETED' && input.degradedAcceptedOffers > 0
+              ? 'degraded'
+              : input.status === 'FAILED'
+                ? 'failed'
+                : 'pending';
+
+  const reasons = [
+    notebook.userInsertedOffers > 0 ? 'notebook-linked' : null,
+    notebook.hiddenByStrict > 0 ? 'hidden-by-strict' : null,
+    input.degradedAcceptedOffers > 0 ? 'degraded-candidates' : null,
+    input.silentFailure ? 'silent-failure' : null,
+    input.classifiedOutcome ? `outcome:${input.classifiedOutcome}` : null,
+  ].filter((item): item is string => Boolean(item));
+
+  return {
+    status,
+    listingsFound: notebook.listingsFound,
+    candidateOffers: notebook.candidateOffers,
+    matchedOffers: notebook.matchedOffers,
+    linkedNotebookOffers: notebook.userInsertedOffers,
+    hiddenByStrict: notebook.hiddenByStrict,
+    usefulOfferCount: notebook.usefulOfferCount,
+    degradedAcceptedOffers: input.degradedAcceptedOffers,
+    reasons,
+    recommendedAction: input.story.recommendedAction,
+  };
+};
+
 const toRunFailureType = (value?: string | null): RunFailureType | null => {
   if (!value) {
     return null;
@@ -3512,6 +3565,7 @@ export class JobSourcesService {
               emptyRequirementsCount: sql<number>`sum(case when ${jobOfferSourceObservationsTable.requirements} is null or (${jobOfferSourceObservationsTable.requirements}::jsonb = '[]'::jsonb) then 1 else 0 end)`,
               sourceCompanyProfileCount: sql<number>`sum(case when ${jobOfferSourceObservationsTable.sourceCompanyProfileUrl} is null or btrim(${jobOfferSourceObservationsTable.sourceCompanyProfileUrl}) = '' then 0 else 1 end)`,
               applyUrlCount: sql<number>`sum(case when ${jobOfferSourceObservationsTable.applyUrl} is null or btrim(${jobOfferSourceObservationsTable.applyUrl}) = '' then 0 else 1 end)`,
+              expiryCount: sql<number>`sum(case when ${jobOfferSourceObservationsTable.expiresAt} is null then 0 else 1 end)`,
             })
             .from(jobOfferSourceObservationsTable)
             .innerJoin(jobSourceRunsTable, eq(jobOfferSourceObservationsTable.runId, jobSourceRunsTable.id))
@@ -3531,6 +3585,7 @@ export class JobSourcesService {
         emptyRequirementsCount: number;
         sourceCompanyProfileCount: number;
         applyUrlCount: number;
+        expiryCount: number;
       }
     >(
       observationCoverageRows.map((row) => [
@@ -3541,6 +3596,7 @@ export class JobSourcesService {
           emptyRequirementsCount: Number(row.emptyRequirementsCount ?? 0),
           sourceCompanyProfileCount: Number(row.sourceCompanyProfileCount ?? 0),
           applyUrlCount: Number(row.applyUrlCount ?? 0),
+          expiryCount: Number(row.expiryCount ?? 0),
         },
       ]),
     );
@@ -3683,6 +3739,15 @@ export class JobSourcesService {
                 ? Number(
                     (
                       (observationCoverageBySource.get(item.source)?.applyUrlCount ?? 0) /
+                      (observationCoverageBySource.get(item.source)?.observationCount ?? 1)
+                    ).toFixed(4),
+                  )
+                : 0,
+            expiryCoverageRate:
+              (observationCoverageBySource.get(item.source)?.observationCount ?? 0) > 0
+                ? Number(
+                    (
+                      (observationCoverageBySource.get(item.source)?.expiryCount ?? 0) /
                       (observationCoverageBySource.get(item.source)?.observationCount ?? 1)
                     ).toFixed(4),
                   )
@@ -3956,6 +4021,14 @@ export class JobSourcesService {
       error: run.error,
       silentFailure,
     });
+    const usefulness = buildRunUsefulness({
+      status: run.status,
+      story,
+      notebookVisibility,
+      degradedAcceptedOffers: productivityBreakdown.degradedAcceptedOffers,
+      silentFailure,
+      classifiedOutcome,
+    });
 
     return {
       runId: run.id,
@@ -3971,6 +4044,7 @@ export class JobSourcesService {
       lastEventAt: latestRunEvent?.createdAt ?? null,
       progress: (run.progress as Record<string, unknown> | null) ?? null,
       story,
+      usefulness,
       executionStages,
       diagnostics: {
         relaxationTrail: Array.isArray(diagnostics.relaxationTrail)

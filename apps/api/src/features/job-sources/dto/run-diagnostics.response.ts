@@ -214,6 +214,38 @@ class ScrapeRunExecutionStageSummaryResponse {
   warning!: number;
 }
 
+class ScrapeRunUsefulnessResponse {
+  @ApiProperty()
+  status!: 'useful' | 'hidden' | 'blocked' | 'empty' | 'degraded' | 'failed' | 'pending';
+
+  @ApiProperty()
+  listingsFound!: number;
+
+  @ApiProperty()
+  candidateOffers!: number;
+
+  @ApiProperty()
+  matchedOffers!: number;
+
+  @ApiProperty()
+  linkedNotebookOffers!: number;
+
+  @ApiProperty()
+  hiddenByStrict!: number;
+
+  @ApiProperty()
+  usefulOfferCount!: number;
+
+  @ApiProperty()
+  degradedAcceptedOffers!: number;
+
+  @ApiProperty({ type: [String] })
+  reasons!: string[];
+
+  @ApiProperty()
+  recommendedAction!: string;
+}
+
 export class ScrapeRunDiagnosticsResponse {
   @ApiProperty({ format: 'uuid' })
   runId!: string;
@@ -258,6 +290,9 @@ export class ScrapeRunDiagnosticsResponse {
     recommendedAction: string;
     userVisibility: string;
   };
+
+  @ApiProperty({ type: ScrapeRunUsefulnessResponse })
+  usefulness!: ScrapeRunUsefulnessResponse;
 
   @ApiProperty({ type: [ScrapeRunExecutionStageSummaryResponse] })
   executionStages!: ScrapeRunExecutionStageSummaryResponse[];

@@ -92,6 +92,9 @@ class JobSourceHealthItemResponse {
   applyUrlCoverageRate!: number;
 
   @ApiProperty()
+  expiryCoverageRate!: number;
+
+  @ApiProperty()
   activePause!: boolean;
 
   @ApiProperty({ nullable: true })
