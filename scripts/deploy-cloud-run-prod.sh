@@ -153,6 +153,22 @@ ensure_service_enabled() {
   fi
 }
 
+remove_legacy_secret_env_vars() {
+  local service="$1"
+  local secret_env_vars="$2"
+
+  if [[ -z "$(resolve_service_url "$service")" ]]; then
+    return
+  fi
+
+  echo "Removing legacy Secret Manager env bindings from $service..."
+  gcloud run services update "$service" \
+    --project="$GCP_PROJECT_ID" \
+    --region="$GCP_REGION" \
+    --remove-secrets="$secret_env_vars" \
+    >/dev/null
+}
+
 require_var GCP_PROJECT_ID
 require_var GCP_REGION
 require_var GAR_REPOSITORY
@@ -269,6 +285,14 @@ if [[ "$DEPLOY_API" == "true" || "$DEPLOY_WORKER" == "true" ]]; then
     "$TASKS_MAX_BACKOFF_SEC" \
     "$TASKS_MAX_DOUBLINGS" \
     "$TASKS_MAX_RETRY_DURATION_SEC"
+fi
+
+if [[ "$DEPLOY_WORKER" == "true" ]]; then
+  remove_legacy_secret_env_vars "$GCP_WORKER_SERVICE" "$WORKER_LEGACY_SECRET_ENV_VARS"
+fi
+
+if [[ "$DEPLOY_API" == "true" ]]; then
+  remove_legacy_secret_env_vars "$GCP_API_SERVICE" "$API_LEGACY_SECRET_ENV_VARS"
 fi
 
 API_URL="$(resolve_service_url "$GCP_API_SERVICE")"
