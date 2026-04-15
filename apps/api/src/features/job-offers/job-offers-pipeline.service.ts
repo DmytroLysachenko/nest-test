@@ -18,6 +18,7 @@ import { GeminiService } from '@/common/modules/gemini/gemini.service';
 import { DEFAULT_GEMINI_MODEL } from '@/common/modules/gemini/gemini-config';
 import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
 import { scoreCandidateAgainstJob } from '@/features/job-matching/candidate-matcher';
+import { computeNotebookOfferRanking } from '@/features/job-offers/notebook-ranking';
 
 import { buildAttentionSignals } from './job-offers-attention';
 import {
