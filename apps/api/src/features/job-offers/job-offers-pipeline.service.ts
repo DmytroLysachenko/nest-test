@@ -279,11 +279,18 @@ export class JobOffersPipelineService {
         structuredDetails: buildStructuredOfferDetails(offer, structuredRelations),
       },
       profile: summarizeActiveProfile(parsedProfile.data),
-      prepTalkingPoints: buildPrepTalkingPoints(parsedProfile.data, offer),
+      prepTalkingPoints: buildPrepTalkingPoints({
+        offerTitle: offer.title,
+        company: offer.company,
+        nextStep: offer.nextStep,
+        followUpNote: offer.followUpNote,
+        profileSummary: summarizeActiveProfile(parsedProfile.data),
+        matchMeta: (offer.matchMeta as Record<string, unknown> | null) ?? null,
+      }),
       requirementHighlights: extractRequirementHighlights(offer.requirements),
       humanFit: {
-        summary: buildHumanFitSummary(parsedProfile.data, offer),
-        highlights: getHumanFitHighlights(parsedProfile.data, offer),
+        summary: buildHumanFitSummary(parsedProfile.data, offer, offer.matchScore),
+        highlights: getHumanFitHighlights(parsedProfile.data, offer, offer.matchScore),
       },
       attentionContext: {
         attentionSignals,
