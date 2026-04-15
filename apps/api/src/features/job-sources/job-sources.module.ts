@@ -5,11 +5,12 @@ import { AuthModule } from '@/features/auth/auth.module';
 
 import { JobSourcesController } from './job-sources.controller';
 import { JobSourcesService } from './job-sources.service';
+import { JobSourcesCoreService } from './job-sources-core.service';
 
 @Module({
-  imports: [JobOffersModule, AuthModule],
+  imports: [AuthModule, JobOffersModule],
   controllers: [JobSourcesController],
-  providers: [JobSourcesService],
-  exports: [JobSourcesService],
+  providers: [JobSourcesService, JobSourcesCoreService],
+  exports: [JobSourcesService, JobSourcesCoreService],
 })
 export class JobSourcesModule {}
