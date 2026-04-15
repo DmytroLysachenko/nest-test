@@ -196,6 +196,7 @@ export class JobOffersPipelineService {
       .select({
         id: userJobOffersTable.id,
         status: userJobOffersTable.status,
+        matchScore: userJobOffersTable.matchScore,
         matchMeta: userJobOffersTable.matchMeta,
         pipelineMeta: userJobOffersTable.pipelineMeta,
         followUpAt: userJobOffersTable.followUpAt,
@@ -273,6 +274,22 @@ export class JobOffersPipelineService {
     const attentionSignals = buildAttentionSignals({ status: offer.status, source: offer, now });
     const fields = extractFollowUpFields(offer);
 
+    // We need ranking for explanationTags
+    const ranking = computeNotebookOfferRanking(
+      {
+        matchScore: offer.matchScore,
+        matchMeta: (offer.matchMeta as Record<string, unknown> | null) ?? null,
+      },
+      'strict',
+      {
+        approxViolationPenalty: this.configService.get('NOTEBOOK_APPROX_VIOLATION_PENALTY', { infer: true }),
+        approxMaxViolationPenalty: this.configService.get('NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY', { infer: true }),
+        approxScoredBonus: this.configService.get('NOTEBOOK_APPROX_SCORED_BONUS', { infer: true }),
+        exploreUnscoredBase: this.configService.get('NOTEBOOK_EXPLORE_UNSCORED_BASE', { infer: true }),
+        exploreRecencyWeight: this.configService.get('NOTEBOOK_EXPLORE_RECENCY_WEIGHT', { infer: true }),
+      },
+    );
+
     return {
       offer: {
         ...offer,
@@ -289,8 +306,16 @@ export class JobOffersPipelineService {
       }),
       requirementHighlights: extractRequirementHighlights(offer.requirements),
       humanFit: {
-        summary: buildHumanFitSummary(parsedProfile.data, offer, offer.matchScore),
-        highlights: getHumanFitHighlights(parsedProfile.data, offer, offer.matchScore),
+        summary: buildHumanFitSummary(
+          (offer.matchMeta as Record<string, unknown> | null) ?? null,
+          ranking.explanationTags,
+          offer.matchScore,
+        ),
+        highlights: getHumanFitHighlights(
+          (offer.matchMeta as Record<string, unknown> | null) ?? null,
+          ranking.explanationTags,
+          offer.matchScore,
+        ),
       },
       attentionContext: {
         attentionSignals,
