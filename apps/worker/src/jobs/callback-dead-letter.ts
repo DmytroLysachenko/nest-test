@@ -18,7 +18,7 @@ type DeadLetterPayload = {
 
 const buildSignaturePayload = (entry: DeadLetterPayload, timestampSec: number) => {
   const sourceRunId = typeof entry.payload.sourceRunId === 'string' ? entry.payload.sourceRunId : '';
-  const status = typeof entry.payload.status === 'string' ? entry.payload.status : '';
+  const status = typeof entry.payload.status === 'string' ? entry.payload.status : entry.payload.job ? 'INGEST' : '';
   const runId = typeof entry.payload.runId === 'string' ? entry.payload.runId : '';
   const eventId = typeof entry.payload.eventId === 'string' ? entry.payload.eventId : '';
   return `${timestampSec}.${sourceRunId}.${status}.${runId}.${entry.requestId ?? ''}.${eventId}`;
