@@ -63,7 +63,7 @@ import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';
 import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';
-import { ScrapeOfferIngestDto } from './dto/scrape-offer-ingest.dto';
+import { ScrapeOfferBatchIngestDto, ScrapeOfferIngestDto } from './dto/scrape-offer-ingest.dto';
 import { buildFiltersFromProfile, buildMatchingFiltersFromProfile, inferPracujSource } from './scrape-request-resolver';
 import { RunDiagnosticsSummaryCache } from './run-diagnostics-summary-cache';
 import { UpdateScrapeScheduleDto } from './dto/scrape-schedule.dto';
@@ -452,6 +452,25 @@ const normalizeOfferUrl = (value: string) => {
     return value.toLowerCase();
   }
 };
+const canonicalizeListingUrl = (value: string) => {
+  try {
+    const parsed = new URL(value);
+    const params = Array.from(parsed.searchParams.entries())
+      .filter(([key]) => !/^utm_/i.test(key) && !['fbclid', 'gclid', 'msclkid'].includes(key.toLowerCase()))
+      .sort(([leftKey, leftValue], [rightKey, rightValue]) =>
+        leftKey === rightKey ? leftValue.localeCompare(rightValue) : leftKey.localeCompare(rightKey),
+      );
+    parsed.hostname = parsed.hostname.toLowerCase();
+    parsed.hash = '';
+    parsed.search = '';
+    for (const [key, item] of params) {
+      parsed.searchParams.append(key, item);
+    }
+    return parsed.toString();
+  } catch {
+    return value.trim().toLowerCase();
+  }
+};
 const computeOfferIdentityKey = (job: { sourceId?: string | null; url: string }) => {
   const sourceId = normalizeString(job.sourceId);
   if (sourceId) {
@@ -466,8 +485,8 @@ const resolveCallbackPayloadHash = (dto: ScrapeCompleteDto) =>
     source: normalizeString(dto.source),
     runId: normalizeString(dto.runId),
     sourceRunId: dto.sourceRunId,
-    attemptNo: dto.attemptNo ?? 1,
-    emittedAt: normalizeString(dto.emittedAt),
+    taskId: normalizeString(dto.taskId),
+    dedupeKey: normalizeString(dto.dedupeKey),
     listingUrl: normalizeString(dto.listingUrl),
     status: dto.status ?? 'COMPLETED',
     scrapedCount: dto.scrapedCount ?? null,
@@ -493,6 +512,9 @@ const DEFAULT_CATALOG_REMATCH_MIN_SCORE = 60;
 const DEFAULT_SCRAPE_SOURCE_FAILURE_WINDOW_RUNS = 5;
 const DEFAULT_SCRAPE_SOURCE_FAILURE_THRESHOLD = 3;
 const DEFAULT_SCRAPE_SOURCE_AUTOMATION_BACKOFF_MINUTES = 30;
+const DEFAULT_WORKER_TASK_TIMEOUT_MS = 180_000;
+const DEFAULT_WORKER_TASK_DISPATCH_DEADLINE_MS = 240_000;
+const DEFAULT_WORKER_REQUEST_TIMEOUT_MS = 10_000;
 const HEARTBEAT_EVENT_DEDUP_WINDOW_MS = 15_000;
 const SOURCE_AUTOMATION_TRIGGER_CODES = new Set([
   'blocked_by_source',
@@ -1485,6 +1507,7 @@ export class JobSourcesService {
         userId,
         careerProfileId,
         listingUrl,
+        canonicalListingUrl: canonicalizeListingUrl(listingUrl),
         filters: normalizedFilters ?? null,
         status: 'PENDING',
         startedAt: new Date(),
@@ -1520,12 +1543,19 @@ export class JobSourcesService {
     const heartbeatUrl = this.resolveWorkerHeartbeatUrl(run.id);
     const ingestUrl = this.resolveWorkerOfferIngestUrl(run.id);
     const callbackToken = this.configService.get('WORKER_CALLBACK_TOKEN', { infer: true });
+    const taskTimeoutMs =
+      this.configService.get('WORKER_TASK_TIMEOUT_MS', { infer: true }) ?? DEFAULT_WORKER_TASK_TIMEOUT_MS;
+    const dispatchDeadlineMs =
+      this.configService.get('WORKER_TASK_DISPATCH_DEADLINE_MS', { infer: true }) ??
+      DEFAULT_WORKER_TASK_DISPATCH_DEADLINE_MS;
+    const leaseExpiresAt = new Date(Date.now() + dispatchDeadlineMs);
     if (!workerUrl) {
       await this.markRunFailed(run.id, 'Worker task URL is not configured');
       throw new ServiceUnavailableException('Worker task URL is not configured');
     }
 
-    const timeoutMs = this.configService.get('WORKER_REQUEST_TIMEOUT_MS', { infer: true });
+    const timeoutMs =
+      this.configService.get('WORKER_REQUEST_TIMEOUT_MS', { infer: true }) ?? DEFAULT_WORKER_REQUEST_TIMEOUT_MS;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -1534,9 +1564,13 @@ export class JobSourcesService {
         taskSchemaVersion: WORKER_TASK_SCHEMA_VERSION,
         source,
         sourceRunId: run.id,
+        taskId: run.id,
         traceId: run.traceId,
         requestId,
         dedupeKey: intentFingerprint,
+        taskTimeoutMs,
+        dispatchDeadlineMs,
+        leaseExpiresAt: leaseExpiresAt.toISOString(),
         callbackUrl,
         heartbeatUrl,
         ingestUrl,
@@ -1571,7 +1605,13 @@ export class JobSourcesService {
       }
 
       if (workerTaskProvider === 'cloud-tasks') {
-        const cloudTask = await this.enqueueWorkerCloudTask(serializedPayload, requestId, workerUrl, authToken);
+        const cloudTask = await this.enqueueWorkerCloudTask(
+          serializedPayload,
+          requestId,
+          workerUrl,
+          dispatchDeadlineMs,
+          authToken,
+        );
         await this.markRunRunning(run.id);
         await this.appendRunEvents([
           {
@@ -1585,6 +1625,10 @@ export class JobSourcesService {
               provider: 'cloud-tasks',
               taskName: cloudTask.taskName,
               taskId: cloudTask.taskId,
+              dedupeKey: intentFingerprint,
+              taskTimeoutMs,
+              dispatchDeadlineMs,
+              leaseExpiresAt: leaseExpiresAt.toISOString(),
             },
           },
           {
@@ -1618,6 +1662,9 @@ export class JobSourcesService {
           taskId: cloudTask.taskId,
           dedupeKey: intentFingerprint,
           taskSchemaVersion: WORKER_TASK_SCHEMA_VERSION,
+          taskTimeoutMs,
+          dispatchDeadlineMs,
+          leaseExpiresAt: leaseExpiresAt.toISOString(),
           acceptedAt: (run.createdAt ?? new Date()).toISOString(),
           droppedFilters: normalizedFiltersResult.dropped,
           acceptedFilters: normalizedFilters ?? null,
@@ -1670,6 +1717,11 @@ export class JobSourcesService {
           message: 'Scrape run dispatched directly to worker over HTTP.',
           meta: {
             workerUrl,
+            dedupeKey: intentFingerprint,
+            taskId: run.id,
+            taskTimeoutMs,
+            dispatchDeadlineMs,
+            leaseExpiresAt: leaseExpiresAt.toISOString(),
           },
         },
         {
@@ -1736,6 +1788,9 @@ export class JobSourcesService {
           provider: 'worker-http',
           dedupeKey: intentFingerprint,
           taskSchemaVersion: WORKER_TASK_SCHEMA_VERSION,
+          taskTimeoutMs,
+          dispatchDeadlineMs,
+          leaseExpiresAt: leaseExpiresAt.toISOString(),
           acceptedAt: (run.createdAt ?? new Date()).toISOString(),
           warning: 'Worker response timed out. Scrape continues in background.',
           acceptedFilters: normalizedFilters ?? null,
@@ -1767,6 +1822,7 @@ export class JobSourcesService {
     serializedPayload: string,
     requestId: string,
     workerUrl: string,
+    dispatchDeadlineMs: number,
     authToken?: string,
   ) {
     const projectId = this.configService.get('WORKER_TASKS_PROJECT_ID', { infer: true });
@@ -1787,6 +1843,9 @@ export class JobSourcesService {
     const [task] = await this.cloudTasksClient.createTask({
       parent,
       task: {
+        dispatchDeadline: {
+          seconds: Math.ceil(dispatchDeadlineMs / 1000),
+        },
         httpRequest: {
           httpMethod: 'POST',
           url: workerUrl,
@@ -1853,7 +1912,8 @@ export class JobSourcesService {
       throw new NotFoundException('Job source run not found');
     }
 
-    const callbackAttemptNo = Math.max(1, dto.attemptNo ?? 1);
+    const scrapeAttemptNo = Math.max(1, dto.scrapeAttemptNo ?? dto.attemptNo ?? 1);
+    const callbackAttemptNo = Math.max(1, dto.callbackAttemptNo ?? dto.attemptNo ?? 1);
     const callbackProvidedPayloadHash = normalizeString(dto.payloadHash);
     const callbackPayloadHash = callbackProvidedPayloadHash ?? resolveCallbackPayloadHash(dto);
     const callbackEmittedAt = dto.emittedAt ? new Date(dto.emittedAt) : null;
@@ -1991,7 +2051,7 @@ export class JobSourcesService {
       });
       const emptyReason = normalizeScrapeEmptyReason(dto.diagnostics?.emptyReason ?? null);
       const sourceQuality = normalizeScrapeSourceQuality(dto.diagnostics?.sourceQuality ?? null) ?? 'failed';
-      await this.registerRunAttempt(run.id, callbackAttemptNo, {
+      await this.registerRunAttempt(run.id, scrapeAttemptNo, {
         status: 'FAILED',
         payloadHash: callbackPayloadHash,
         emittedAt: callbackEmittedAt,
@@ -2134,7 +2194,7 @@ export class JobSourcesService {
       });
       statusForCompletion = 'RUNNING';
     }
-    await this.registerRunAttempt(run.id, callbackAttemptNo, {
+    await this.registerRunAttempt(run.id, scrapeAttemptNo, {
       status: 'COMPLETED',
       payloadHash: callbackPayloadHash,
       emittedAt: callbackEmittedAt,
@@ -2358,7 +2418,8 @@ export class JobSourcesService {
       return { ok: true, status: run.status, ignored: true };
     }
 
-    const attemptNo = Math.max(1, dto.attemptNo ?? 1);
+    const attemptNo = Math.max(1, dto.pipelineAttemptNo ?? dto.attemptNo ?? 1);
+    const callbackAttemptNo = Math.max(1, dto.callbackAttemptNo ?? 1);
     const persisted = await this.persistAcceptedJobsForRun(run, sanitizedJobs);
     const linked = await this.linkPersistedOffersForRun(run, persisted.offerIds);
     const linkedCount = await this.countLinkedOffersForRun(run.id);
@@ -2394,7 +2455,119 @@ export class JobSourcesService {
       message: 'Worker incrementally persisted an accepted offer before terminal callback.',
       meta: {
         eventId: dto.eventId,
+        callbackAttemptNo,
+        taskId: normalizeString(dto.taskId),
+        dedupeKey: normalizeString(dto.dedupeKey),
         offerIdentityKey: persisted.offerIdentityKeys[0] ?? null,
+        insertedOffers: linked.insertedCount,
+      },
+    });
+
+    return {
+      ok: true,
+      status: run.status === 'PENDING' ? 'RUNNING' : run.status,
+      ingested: persisted.offerIds.length,
+      linked: linked.insertedCount,
+    };
+  }
+
+  async ingestScrapeOfferBatch(
+    runId: string,
+    dto: ScrapeOfferBatchIngestDto,
+    authorization?: string,
+    requestId?: string,
+    workerSignature?: string,
+    workerTimestamp?: string,
+  ) {
+    await this.verifyWorkerCallbackAuthorization(authorization);
+    this.verifyWorkerSignature(
+      {
+        sourceRunId: runId,
+        status: 'INGEST',
+        runId: dto.runId,
+        eventId: dto.eventId,
+      },
+      requestId,
+      workerSignature,
+      workerTimestamp,
+    );
+
+    if (dto.sourceRunId !== runId) {
+      throw new BadRequestException('sourceRunId path and payload mismatch');
+    }
+
+    const run = await this.db
+      .select({
+        id: jobSourceRunsTable.id,
+        traceId: jobSourceRunsTable.traceId,
+        source: jobSourceRunsTable.source,
+        userId: jobSourceRunsTable.userId,
+        careerProfileId: jobSourceRunsTable.careerProfileId,
+        status: jobSourceRunsTable.status,
+        listingUrl: jobSourceRunsTable.listingUrl,
+        filters: jobSourceRunsTable.filters,
+        progress: jobSourceRunsTable.progress,
+      })
+      .from(jobSourceRunsTable)
+      .where(eq(jobSourceRunsTable.id, runId))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!run) {
+      throw new NotFoundException('Job source run not found');
+    }
+
+    if (run.status === 'COMPLETED' || run.status === 'FAILED') {
+      return { ok: true, status: run.status, ignored: true };
+    }
+
+    const sanitizedJobs = dto.jobs.flatMap((job) => sanitizeIncrementalJob(job));
+    if (!sanitizedJobs.length) {
+      return { ok: true, status: run.status, ignored: true };
+    }
+
+    const attemptNo = Math.max(1, dto.pipelineAttemptNo ?? dto.attemptNo ?? 1);
+    const callbackAttemptNo = Math.max(1, dto.callbackAttemptNo ?? 1);
+    const persisted = await this.persistAcceptedJobsForRun(run, sanitizedJobs);
+    const linked = await this.linkPersistedOffersForRun(run, persisted.offerIds);
+    const linkedCount = await this.countLinkedOffersForRun(run.id);
+    const now = new Date();
+    const nextProgress = {
+      ...(((run.progress as Record<string, unknown> | null) ?? {}) as Record<string, unknown>),
+      candidateOffers:
+        Number(
+          run.progress && typeof run.progress === 'object'
+            ? ((run.progress as Record<string, unknown>).candidateOffers ?? 0)
+            : 0,
+        ) + persisted.offerIds.length,
+      userInsertedOffers: linkedCount,
+      incrementalOfferIngestedAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+
+    await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        status: run.status === 'PENDING' ? 'RUNNING' : run.status,
+        lastHeartbeatAt: now,
+        progress: nextProgress,
+      })
+      .where(eq(jobSourceRunsTable.id, run.id));
+
+    await this.appendRunEvent({
+      sourceRunId: run.id,
+      traceId: run.traceId,
+      eventType: 'offer_batch_incrementally_ingested',
+      requestId,
+      attemptNo,
+      message: 'Worker incrementally persisted accepted offers before terminal callback.',
+      meta: {
+        eventId: dto.eventId,
+        callbackAttemptNo,
+        taskId: normalizeString(dto.taskId),
+        dedupeKey: normalizeString(dto.dedupeKey),
+        offeredJobs: dto.jobs.length,
+        persistedOffers: persisted.offerIds.length,
         insertedOffers: linked.insertedCount,
       },
     });
@@ -4578,7 +4751,7 @@ export class JobSourcesService {
       if (input.normalizedFilters) {
         return stableJson(run.filters) === targetFilters;
       }
-      return run.listingUrl === input.listingUrl;
+      return canonicalizeListingUrl(run.listingUrl) === canonicalizeListingUrl(input.listingUrl);
     });
     if (!reusedRun) {
       return {
@@ -4620,6 +4793,7 @@ export class JobSourcesService {
         userId: input.userId,
         careerProfileId: input.careerProfileId,
         listingUrl: input.listingUrl,
+        canonicalListingUrl: canonicalizeListingUrl(input.listingUrl),
         filters: input.normalizedFilters,
         status: 'COMPLETED',
         startedAt: now,
@@ -5481,7 +5655,7 @@ export class JobSourcesService {
   ) {
     const payload = stableJson({
       source,
-      listingUrl,
+      listingUrl: canonicalizeListingUrl(listingUrl),
       normalizedFilters,
     });
     return createHash('sha256').update(payload).digest('hex');

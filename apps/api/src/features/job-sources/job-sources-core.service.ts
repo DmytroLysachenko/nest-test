@@ -58,6 +58,9 @@ import {
 import type { Env } from '@/config/env';
 
 const STALE_RUN_ERROR_PREFIX = '[timeout] run stale watchdog';
+const DEFAULT_WORKER_TASK_TIMEOUT_MS = 180_000;
+const DEFAULT_WORKER_TASK_DISPATCH_DEADLINE_MS = 240_000;
+const DEFAULT_WORKER_REQUEST_TIMEOUT_MS = 10_000;
 
 const deriveFailureType = (error?: string | null) => {
   const normalized = (error ?? '').toLowerCase();
@@ -369,12 +372,19 @@ export class JobSourcesCoreService {
     const heartbeatUrl = this.resolveWorkerHeartbeatUrl(run.id);
     const ingestUrl = this.resolveWorkerOfferIngestUrl(run.id);
     const callbackToken = this.configService.get('WORKER_CALLBACK_TOKEN', { infer: true });
+    const taskTimeoutMs =
+      this.configService.get('WORKER_TASK_TIMEOUT_MS', { infer: true }) ?? DEFAULT_WORKER_TASK_TIMEOUT_MS;
+    const dispatchDeadlineMs =
+      this.configService.get('WORKER_TASK_DISPATCH_DEADLINE_MS', { infer: true }) ??
+      DEFAULT_WORKER_TASK_DISPATCH_DEADLINE_MS;
+    const leaseExpiresAt = new Date(Date.now() + dispatchDeadlineMs);
     if (!workerUrl) {
       await this.markRunFailed(run.id, 'Worker task URL is not configured');
       throw new ServiceUnavailableException('Worker task URL is not configured');
     }
 
-    const timeoutMs = this.configService.get('WORKER_REQUEST_TIMEOUT_MS', { infer: true });
+    const timeoutMs =
+      this.configService.get('WORKER_REQUEST_TIMEOUT_MS', { infer: true }) ?? DEFAULT_WORKER_REQUEST_TIMEOUT_MS;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -383,9 +393,13 @@ export class JobSourcesCoreService {
         taskSchemaVersion: WORKER_TASK_SCHEMA_VERSION,
         source,
         sourceRunId: run.id,
+        taskId: run.id,
         traceId: run.traceId,
         requestId,
         dedupeKey: intentFingerprint,
+        taskTimeoutMs,
+        dispatchDeadlineMs,
+        leaseExpiresAt: leaseExpiresAt.toISOString(),
         callbackUrl,
         heartbeatUrl,
         ingestUrl,
@@ -420,7 +434,13 @@ export class JobSourcesCoreService {
       }
 
       if (workerTaskProvider === 'cloud-tasks') {
-        const cloudTask = await this.enqueueWorkerCloudTask(serializedPayload, requestId, workerUrl, authToken);
+        const cloudTask = await this.enqueueWorkerCloudTask(
+          serializedPayload,
+          requestId,
+          workerUrl,
+          dispatchDeadlineMs,
+          authToken,
+        );
         await this.markRunRunning(run.id);
         await this.appendRunEvents([
           {
@@ -434,6 +454,10 @@ export class JobSourcesCoreService {
               provider: 'cloud-tasks',
               taskName: cloudTask.taskName,
               taskId: cloudTask.taskId,
+              dedupeKey: intentFingerprint,
+              taskTimeoutMs,
+              dispatchDeadlineMs,
+              leaseExpiresAt: leaseExpiresAt.toISOString(),
             },
           },
           {
@@ -467,6 +491,9 @@ export class JobSourcesCoreService {
           taskId: cloudTask.taskId,
           dedupeKey: intentFingerprint,
           taskSchemaVersion: WORKER_TASK_SCHEMA_VERSION,
+          taskTimeoutMs,
+          dispatchDeadlineMs,
+          leaseExpiresAt: leaseExpiresAt.toISOString(),
           acceptedAt: (run.createdAt ?? new Date()).toISOString(),
           droppedFilters: normalizedFiltersResult.dropped,
           acceptedFilters: normalizedFilters ?? null,
@@ -519,6 +546,11 @@ export class JobSourcesCoreService {
           message: 'Scrape run dispatched directly to worker over HTTP.',
           meta: {
             workerUrl,
+            dedupeKey: intentFingerprint,
+            taskId: run.id,
+            taskTimeoutMs,
+            dispatchDeadlineMs,
+            leaseExpiresAt: leaseExpiresAt.toISOString(),
           },
         },
         {
@@ -579,6 +611,9 @@ export class JobSourcesCoreService {
           provider: 'worker-http',
           dedupeKey: intentFingerprint,
           taskSchemaVersion: WORKER_TASK_SCHEMA_VERSION,
+          taskTimeoutMs,
+          dispatchDeadlineMs,
+          leaseExpiresAt: leaseExpiresAt.toISOString(),
           acceptedAt: (run.createdAt ?? new Date()).toISOString(),
           warning: 'Worker response timed out. Scrape continues in background.',
           acceptedFilters: normalizedFilters ?? null,
@@ -748,6 +783,7 @@ export class JobSourcesCoreService {
     serializedPayload: string,
     requestId: string,
     workerUrl: string,
+    dispatchDeadlineMs: number,
     authToken?: string,
   ) {
     const projectId = this.configService.get('WORKER_TASKS_PROJECT_ID', { infer: true });
@@ -768,6 +804,9 @@ export class JobSourcesCoreService {
     const [task] = await this.cloudTasksClient.createTask({
       parent,
       task: {
+        dispatchDeadline: {
+          seconds: Math.ceil(dispatchDeadlineMs / 1000),
+        },
         httpRequest: {
           httpMethod: 'POST',
           url: workerUrl,

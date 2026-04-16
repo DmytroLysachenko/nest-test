@@ -381,11 +381,39 @@ export class ScrapeCompleteDto {
   @MaxLength(128)
   eventId?: string;
 
-  @ApiPropertyOptional({ description: 'Worker scrape attempt ordinal (starts at 1)', minimum: 1, default: 1 })
+  @ApiPropertyOptional({ description: 'Worker task id for queue/execution correlation' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  taskId?: string;
+
+  @ApiPropertyOptional({ description: 'Worker/API dedupe key for the scrape intent' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  dedupeKey?: string;
+
+  @ApiPropertyOptional({ description: 'Legacy attempt ordinal. Prefer scrapeAttemptNo/callbackAttemptNo.', minimum: 1 })
   @IsOptional()
   @IsInt()
   @Min(1)
   attemptNo?: number;
+
+  @ApiPropertyOptional({ description: 'Worker scrape attempt ordinal (starts at 1)', minimum: 1, default: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  scrapeAttemptNo?: number;
+
+  @ApiPropertyOptional({
+    description: 'Worker callback delivery attempt ordinal (starts at 1)',
+    minimum: 1,
+    default: 1,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  callbackAttemptNo?: number;
 
   @ApiPropertyOptional({ description: 'Worker callback emission timestamp (ISO-8601)' })
   @IsOptional()

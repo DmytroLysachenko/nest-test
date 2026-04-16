@@ -10,7 +10,7 @@ import { JwtValidateUser } from '@/types/interface/jwt';
 
 import { EnqueueScrapeDto, EnqueueScrapeResponseDto } from './dto/enqueue-scrape.dto';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
-import { ScrapeOfferIngestDto } from './dto/scrape-offer-ingest.dto';
+import { ScrapeOfferBatchIngestDto, ScrapeOfferIngestDto } from './dto/scrape-offer-ingest.dto';
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { JobSourcesService } from './job-sources.service';
 import { ScrapeRunDiagnosticsResponse } from './dto/run-diagnostics.response';
@@ -207,6 +207,28 @@ export class JobSourcesController {
     @Body() dto: ScrapeOfferIngestDto,
   ) {
     return this.jobSourcesService.ingestScrapeOffer(
+      id,
+      dto,
+      authorization,
+      requestId,
+      workerSignature,
+      workerTimestamp,
+    );
+  }
+
+  @Post('runs/:id/offers/batch')
+  @Public()
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Worker batch offer ingestion for active scrape runs' })
+  async ingestOfferBatch(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-worker-signature') workerSignature: string | undefined,
+    @Headers('x-worker-timestamp') workerTimestamp: string | undefined,
+    @Headers('x-request-id') requestId: string | undefined,
+    @Body() dto: ScrapeOfferBatchIngestDto,
+  ) {
+    return this.jobSourcesService.ingestScrapeOfferBatch(
       id,
       dto,
       authorization,
