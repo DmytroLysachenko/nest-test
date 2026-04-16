@@ -1,6 +1,6 @@
 # Docs Index
 
-Last updated: 2026-03-30
+Last updated: 2026-04-16
 
 ## Purpose
 
@@ -55,6 +55,8 @@ Future-facing planning documents.
 - `02_sprint_plan.md`
 - `03_year_plan.md`
 - `04_feature_evolution_plan.md`
+- `05_catalog_standardization_implementation_plan.md`
+- `06_scrape_reliability_and_catalog_audit_plan.md`
 
 ### `04_architecture_and_data`
 
@@ -72,6 +74,7 @@ Runtime operations, debugging, deploy guidance, and env/deploy contracts.
 - `03_prod_deploy_guide.md`
 - `04_gcp_deploy_matrix.md`
 - `05_env_matrix.md`
+- `06_scrape_performance_efficiency_stability_audit.md`
 
 ### `06_engineering_standards`
 
