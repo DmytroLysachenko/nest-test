@@ -127,16 +127,16 @@ export const runPipeline = async (
   },
 ) => {
   const pipeline = resolvePipeline(source);
-  const crawlResult = await runFetchStage({
+  const crawlResult = await runFetchStage(pipeline, {
     headless: input.headless,
     listingUrl: input.listingUrl,
     limit: input.limit,
     logger: input.logger,
     options: input.options,
   });
-  const detailParsedJobs = runParseStage(crawlResult);
+  const detailParsedJobs = runParseStage(pipeline, crawlResult);
   const parsedJobs = runPostProcessStage(detailParsedJobs, crawlResult, Boolean(input.options?.listingOnly));
-  const normalized = runNormalizeStage(parsedJobs, pipeline.normalizeSource);
+  const normalized = runNormalizeStage(pipeline, parsedJobs, pipeline.normalizeSource);
 
   return {
     pipeline,
@@ -146,16 +146,19 @@ export const runPipeline = async (
   };
 };
 
-export const runFetchStage = async (input: {
-  headless: boolean;
-  listingUrl: string;
-  limit?: number;
-  logger: Logger | undefined;
-  options?: Parameters<typeof crawlPracujPl>[4];
-}) => pipelines['pracuj-pl'].fetch(input) as Promise<Awaited<ReturnType<typeof crawlPracujPl>>>;
+export const runFetchStage = async (
+  pipeline: PipelineDefinition,
+  input: {
+    headless: boolean;
+    listingUrl: string;
+    limit?: number;
+    logger: Logger | undefined;
+    options?: Parameters<typeof crawlPracujPl>[4];
+  },
+) => pipeline.fetch(input) as Promise<Awaited<ReturnType<typeof crawlPracujPl>>>;
 
-export const runParseStage = (crawlResult: Awaited<ReturnType<typeof runFetchStage>>) =>
-  crawlResult.pages.length > 0 ? pipelines['pracuj-pl'].parse(crawlResult.pages) : [];
+export const runParseStage = (pipeline: PipelineDefinition, crawlResult: Awaited<ReturnType<typeof runFetchStage>>) =>
+  crawlResult.pages.length > 0 ? pipeline.parse(crawlResult.pages) : [];
 
 export const runPostProcessStage = (
   detailParsedJobs: ParsedJob[],
@@ -166,5 +169,5 @@ export const runPostProcessStage = (
     ? []
     : mergeParsedJobsWithListingSalvage(detailParsedJobs, crawlResult.listingSummaries, crawlResult.skippedUrls);
 
-export const runNormalizeStage = (parsedJobs: ParsedJob[], normalizeSource: string) =>
-  pipelines['pracuj-pl'].normalize(parsedJobs, normalizeSource);
+export const runNormalizeStage = (pipeline: PipelineDefinition, parsedJobs: ParsedJob[], normalizeSource: string) =>
+  pipeline.normalize(parsedJobs, normalizeSource);
