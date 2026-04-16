@@ -4,7 +4,7 @@ import { createServer } from 'http';
 import { OAuth2Client } from 'google-auth-library';
 
 import { replayDeadLetters } from '../jobs/callback-dead-letter';
-import { appendScrapeExecutionEvent } from '../db/scrape-execution-events';
+import { appendScrapeExecutionEvent, findActiveScrapeExecutionLease } from '../db/scrape-execution-events';
 import { TaskRunner } from '../queue/task-runner';
 import { taskEnvelopeSchema } from '../queue/task-types';
 
@@ -287,10 +287,44 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         task.payload.requestId = requestId;
       }
 
+      const activeLease = await findActiveScrapeExecutionLease(env.DATABASE_URL, {
+        sourceRunId: task.payload.sourceRunId,
+      }).catch((error) => {
+        logger.warn({ requestId, error: formatError(error) }, 'Failed to check active scrape execution lease');
+        return null;
+      });
+      if (activeLease) {
+        logger.warn(
+          {
+            requestId,
+            sourceRunId: task.payload.sourceRunId ?? null,
+            activeTaskId: activeLease.taskId ?? null,
+            activeLeaseExpiresAt: activeLease.leaseExpiresAt?.toISOString?.() ?? null,
+          },
+          'Task skipped because an active scrape execution lease exists',
+        );
+        sendJson(res, 202, {
+          ok: true,
+          status: 'duplicate',
+          reason: 'active-execution-lease',
+          queueProvider: env.QUEUE_PROVIDER,
+          requestId,
+          runId: task.payload.runId ?? null,
+          sourceRunId: task.payload.sourceRunId ?? null,
+          activeTaskId: activeLease.taskId ?? null,
+          leaseExpiresAt: activeLease.leaseExpiresAt?.toISOString?.() ?? null,
+        });
+        return;
+      }
+
       await appendScrapeExecutionEvent(env.DATABASE_URL, {
         sourceRunId: task.payload.sourceRunId,
         traceId: task.payload.traceId,
         requestId,
+        taskId: task.payload.taskId,
+        dedupeKey: task.payload.dedupeKey,
+        leaseExpiresAt: task.payload.leaseExpiresAt ? new Date(task.payload.leaseExpiresAt) : undefined,
+        executionStatus: 'accepted',
         stage: 'task_ingress',
         status: 'info',
         code: 'WORKER_TASK_ACCEPTED',
@@ -298,6 +332,11 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         meta: {
           taskName: task.name,
           queueProvider: env.QUEUE_PROVIDER,
+          taskId: task.payload.taskId ?? null,
+          dedupeKey: task.payload.dedupeKey ?? null,
+          taskTimeoutMs: task.payload.taskTimeoutMs ?? null,
+          dispatchDeadlineMs: task.payload.dispatchDeadlineMs ?? null,
+          leaseExpiresAt: task.payload.leaseExpiresAt ?? null,
         },
       }).catch((error) => {
         logger.warn({ requestId, error: formatError(error) }, 'Failed to persist task ingress audit event');
