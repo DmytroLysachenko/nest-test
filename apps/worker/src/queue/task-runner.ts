@@ -108,15 +108,23 @@ export class TaskRunner {
   private async run(item: QueueItem) {
     const task = item.task;
     const start = Date.now();
+    const controller = new AbortController();
     let timeoutRef: NodeJS.Timeout | null = null;
     try {
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutRef = setTimeout(() => {
+          controller.abort();
           reject(new Error(`Task timed out after ${this.taskTimeoutMs}ms`));
         }, this.taskTimeoutMs);
         timeoutRef?.unref?.();
       });
-      const result = await Promise.race([handleTask(task, this.logger, this.options), timeoutPromise]);
+      const result = await Promise.race([
+        handleTask(task, this.logger, {
+          ...this.options,
+          abortSignal: controller.signal,
+        }),
+        timeoutPromise,
+      ]);
       this.logger.info(
         {
           taskName: task.name,
