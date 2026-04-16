@@ -179,6 +179,28 @@ export class OpsService {
         .where(
           and(eq(scrapeSchedulesTable.lastRunStatus, 'ENQUEUE_FAILED'), gte(scrapeSchedulesTable.updatedAt, cutoff)),
         );
+      const [callbackDeadLettersRow] = await this.db
+        .select({ value: count() })
+        .from(scrapeExecutionEventsTable)
+        .where(
+          and(
+            eq(scrapeExecutionEventsTable.code, 'CALLBACK_DEAD_LETTERED'),
+            gte(scrapeExecutionEventsTable.createdAt, cutoff),
+          ),
+        );
+      const [incrementalIngestDeadLettersRow] = await this.db
+        .select({ value: count() })
+        .from(scrapeExecutionEventsTable)
+        .where(
+          and(
+            eq(scrapeExecutionEventsTable.code, 'OFFER_BATCH_INGEST_DEAD_LETTERED'),
+            gte(scrapeExecutionEventsTable.createdAt, cutoff),
+          ),
+        );
+      const [sourceDegradedRunsRow] = await this.db
+        .select({ value: count() })
+        .from(jobSourceRunsTable)
+        .where(and(eq(jobSourceRunsTable.sourceQuality, 'degraded'), gte(jobSourceRunsTable.createdAt, cutoff)));
       const latestTrigger = await this.db
         .select({ lastTriggeredAt: scrapeSchedulesTable.lastTriggeredAt })
         .from(scrapeSchedulesTable)
@@ -246,6 +268,12 @@ export class OpsService {
       const conflictingPayloadEvents24h = Array.from(conflictGroups.values()).filter(
         (hashes) => hashes.size > 1,
       ).length;
+      const callbackDeadLetters = Number(callbackDeadLettersRow?.value ?? 0);
+      const incrementalIngestDeadLetters = Number(incrementalIngestDeadLettersRow?.value ?? 0);
+      const sourceDegradedRuns = Number(sourceDegradedRunsRow?.value ?? 0);
+      const runningWithoutHeartbeat =
+        Number(runningWithoutHeartbeatRow?.value ?? 0) + Number(runningStaleHeartbeatRow?.value ?? 0);
+      const enqueueFailures24h = Number(enqueueFailuresRow?.value ?? 0);
 
       return {
         windowHours,
@@ -253,8 +281,7 @@ export class OpsService {
           activeRuns: Number(activeRunsRow?.value ?? 0),
           pendingRuns: Number(pendingRunsRow?.value ?? 0),
           runningRuns: Number(runningRunsRow?.value ?? 0),
-          runningWithoutHeartbeat:
-            Number(runningWithoutHeartbeatRow?.value ?? 0) + Number(runningStaleHeartbeatRow?.value ?? 0),
+          runningWithoutHeartbeat,
         },
         scrape: {
           totalRuns,
@@ -286,13 +313,24 @@ export class OpsService {
           failedRate: callbackEvents.length ? Number((failedEvents / callbackEvents.length).toFixed(4)) : 0,
           retryRate24h: callbackEvents.length ? Number((retriedEvents / callbackEvents.length).toFixed(4)) : 0,
           conflictingPayloadEvents24h,
+          deadLetters24h: callbackDeadLetters,
           failuresByType,
           failuresByCode,
+        },
+        ingest: {
+          incrementalDeadLetters24h: incrementalIngestDeadLetters,
         },
         scheduler: {
           lastTriggerAt: latestTrigger?.lastTriggeredAt?.toISOString() ?? null,
           dueSchedules: Number(dueSchedulesRow?.value ?? 0),
-          enqueueFailures24h: Number(enqueueFailuresRow?.value ?? 0),
+          enqueueFailures24h,
+        },
+        alerts: {
+          staleRuns: runningWithoutHeartbeat > 0 || Number(staleReconciledRunsRow?.value ?? 0) > 0,
+          callbackDeadLetters: callbackDeadLetters > 0,
+          incrementalIngestDeadLetters: incrementalIngestDeadLetters > 0,
+          sourceDegradation: sourceDegradedRuns > 0,
+          scheduleEnqueueFailures: enqueueFailures24h > 0,
         },
       };
     } catch (error) {
@@ -1816,13 +1854,24 @@ export class OpsService {
         failedRate: 0,
         retryRate24h: 0,
         conflictingPayloadEvents24h: 0,
+        deadLetters24h: 0,
         failuresByType: {},
         failuresByCode: {},
+      },
+      ingest: {
+        incrementalDeadLetters24h: 0,
       },
       scheduler: {
         lastTriggerAt: null,
         dueSchedules: 0,
         enqueueFailures24h: 0,
+      },
+      alerts: {
+        staleRuns: false,
+        callbackDeadLetters: false,
+        incrementalIngestDeadLetters: false,
+        sourceDegradation: false,
+        scheduleEnqueueFailures: false,
       },
     };
   }
