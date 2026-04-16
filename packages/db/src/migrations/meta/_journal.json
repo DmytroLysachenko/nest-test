@@ -267,6 +267,13 @@
       "when": 1775750400000,
       "tag": "0037_job_offer_observation_expiry",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1776290400000,
+      "tag": "0038_scrape_execution_deadline_metadata",
+      "breakpoints": true
     }
   ]
 }

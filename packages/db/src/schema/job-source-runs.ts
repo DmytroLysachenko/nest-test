@@ -12,6 +12,7 @@ export const jobSourceRunsTable = pgTable(
     userId: uuid('user_id').references(() => usersTable.id, { onDelete: 'set null' }),
     careerProfileId: uuid('career_profile_id').references(() => careerProfilesTable.id, { onDelete: 'set null' }),
     listingUrl: text('listing_url').notNull(),
+    canonicalListingUrl: text('canonical_listing_url'),
     filters: jsonb('filters'),
     traceId: uuid('trace_id').defaultRandom().notNull(),
     status: jobSourceRunStatusEnum('status').default('PENDING').notNull(),
@@ -48,5 +49,6 @@ export const jobSourceRunsTable = pgTable(
       table.status,
       table.createdAt.desc(),
     ),
+    canonicalListingUrlIdx: index('job_source_runs_canonical_listing_url_idx').on(table.canonicalListingUrl),
   }),
 );

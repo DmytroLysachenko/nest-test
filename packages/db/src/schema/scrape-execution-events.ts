@@ -11,6 +11,10 @@ export const scrapeExecutionEventsTable = pgTable(
       .references(() => jobSourceRunsTable.id, { onDelete: 'cascade' }),
     traceId: uuid('trace_id'),
     requestId: varchar('request_id', { length: 128 }),
+    taskId: varchar('task_id', { length: 128 }),
+    dedupeKey: varchar('dedupe_key', { length: 128 }),
+    leaseExpiresAt: timestamp('lease_expires_at', { withTimezone: true }),
+    executionStatus: varchar('execution_status', { length: 32 }),
     stage: varchar('stage', { length: 64 }).notNull(),
     status: varchar('status', { length: 32 }).notNull(),
     code: varchar('code', { length: 128 }),
@@ -23,6 +27,11 @@ export const scrapeExecutionEventsTable = pgTable(
     stageCreatedAtIdx: index('scrape_execution_events_stage_created_at_idx').on(table.stage, table.createdAt.desc()),
     requestCreatedAtIdx: index('scrape_execution_events_request_created_at_idx').on(
       table.requestId,
+      table.createdAt.desc(),
+    ),
+    taskCreatedAtIdx: index('scrape_execution_events_task_created_at_idx').on(table.taskId, table.createdAt.desc()),
+    executionStatusCreatedAtIdx: index('scrape_execution_events_execution_status_created_at_idx').on(
+      table.executionStatus,
       table.createdAt.desc(),
     ),
   }),
