@@ -18,7 +18,10 @@ import { RunDiagnosticsSummaryCache } from './run-diagnostics-summary-cache';
     JobSourcesCoreService,
     JobSourcesLifecycleService,
     JobSourcesDiagnosticsService,
-    RunDiagnosticsSummaryCache,
+    {
+      provide: RunDiagnosticsSummaryCache,
+      useFactory: () => new RunDiagnosticsSummaryCache<unknown>(30000),
+    },
   ],
   exports: [JobSourcesService, JobSourcesCoreService, JobSourcesLifecycleService, JobSourcesDiagnosticsService],
 })

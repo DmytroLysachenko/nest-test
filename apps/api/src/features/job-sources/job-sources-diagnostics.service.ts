@@ -12,6 +12,7 @@ import {
 } from '@repo/db';
 
 import { Drizzle } from '@/common/decorators';
+
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import {
   type RunStatus,
@@ -31,7 +32,7 @@ export class JobSourcesDiagnosticsService {
     private readonly configService: ConfigService<Env, true>,
     private readonly logger: Logger,
     @Drizzle() private readonly db: NodePgDatabase,
-    private readonly diagnosticsSummaryCache: RunDiagnosticsSummaryCache,
+    private readonly diagnosticsSummaryCache: RunDiagnosticsSummaryCache<unknown>,
   ) {}
 
   async listRuns(userId: string, query: ListJobSourceRunsQuery) {

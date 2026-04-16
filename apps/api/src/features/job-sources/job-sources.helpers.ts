@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+
 import { BadRequestException } from '@nestjs/common';
 import {
   type JobOfferQualityState,
@@ -7,6 +8,7 @@ import {
   normalizeScrapeSourceQuality,
   classifyScrapeOutcome,
 } from '@repo/db';
+
 import {
   type CallbackJobPayload,
   type RunFailureType,

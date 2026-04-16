@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto';
+
 import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, eq, sql } from 'drizzle-orm';
@@ -16,6 +17,7 @@ import {
 } from '@repo/db';
 
 import { Drizzle } from '@/common/decorators';
+
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeOfferIngestDto } from './dto/scrape-offer-ingest.dto';
 import { ScrapeHeartbeatDto } from './dto/scrape-heartbeat.dto';

@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+
 import {
   BadRequestException,
   HttpException,
@@ -35,6 +36,7 @@ import {
   type CandidateProfile,
 } from '@/features/career-profiles/schema/candidate-profile.schema';
 import { scoreCandidateAgainstJob } from '@/features/job-matching/candidate-matcher';
+
 import { buildFiltersFromProfile, buildMatchingFiltersFromProfile, inferPracujSource } from './scrape-request-resolver';
 import { EnqueueScrapeDto } from './dto/enqueue-scrape.dto';
 import { ScrapeFiltersDto } from './dto/scrape-filters.dto';

@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { type JobOfferQualityState, JobSourceRunStatus } from '@repo/db';
+
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeOfferIngestDto } from './dto/scrape-offer-ingest.dto';
 
