@@ -95,6 +95,27 @@ describe('validateEnv', () => {
     ).not.toThrow();
   });
 
+  it('rejects worker dispatch deadline below task timeout', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        WORKER_TASK_TIMEOUT_MS: '180000',
+        WORKER_TASK_DISPATCH_DEADLINE_MS: '180000',
+      }),
+    ).toThrow('WORKER_TASK_DISPATCH_DEADLINE_MS must be greater than WORKER_TASK_TIMEOUT_MS');
+  });
+
+  it('rejects stale running threshold below dispatch deadline', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        WORKER_TASK_TIMEOUT_MS: '60000',
+        WORKER_TASK_DISPATCH_DEADLINE_MS: '120000',
+        SCRAPE_STALE_RUNNING_MINUTES: '2',
+      }),
+    ).toThrow('SCRAPE_STALE_RUNNING_MINUTES must exceed WORKER_TASK_DISPATCH_DEADLINE_MS');
+  });
+
   it('requires canonical cloud-tasks ingress endpoint shape', () => {
     expect(() =>
       validateEnv({

@@ -5,6 +5,7 @@ import { classifyScrapeOutcome } from '@repo/db';
 
 import {
   assessNormalizedJobs,
+  buildScrapeOfferBatchIngestPayload,
   buildScrapeCallbackPayload,
   buildScrapeOfferIngestPayload,
   buildWorkerCallbackSignaturePayload,
@@ -112,6 +113,33 @@ test('computeCallbackPayloadHash is deterministic for canonical payload shape', 
   };
 
   assert.equal(computeCallbackPayloadHash(payload as Record<string, unknown>), computeCallbackPayloadHash(reordered));
+});
+
+test('computeCallbackPayloadHash ignores delivery attempt metadata', () => {
+  const payload = buildScrapeCallbackPayload({
+    eventId: 'event-1',
+    source: 'pracuj-pl',
+    runId: 'run-1',
+    sourceRunId: 'run-source-1',
+    scrapeAttemptNo: 2,
+    callbackAttemptNo: 1,
+    attemptNo: 2,
+    emittedAt: '2026-03-03T10:00:00.000Z',
+    listingUrl: 'https://it.pracuj.pl/praca?wm=home-office',
+    status: 'COMPLETED',
+    scrapedCount: 8,
+  });
+  const retryPayload = {
+    ...payload,
+    callbackAttemptNo: 3,
+    attemptNo: 3,
+    emittedAt: '2026-03-03T10:00:05.000Z',
+  };
+
+  assert.equal(
+    computeCallbackPayloadHash(payload as Record<string, unknown>),
+    computeCallbackPayloadHash(retryPayload as Record<string, unknown>),
+  );
 });
 
 test('buildScrapeCallbackPayload emits failure callback fields', () => {
@@ -343,6 +371,39 @@ test('buildScrapeOfferIngestPayload emits incremental offer fields', () => {
   assert.equal(payload.eventId, 'event-ingest-1');
   assert.equal(payload.job.title, 'Backend Engineer');
   assert.equal(payload.attemptNo, 2);
+});
+
+test('buildScrapeOfferBatchIngestPayload emits batch incremental offer fields', () => {
+  const payload = buildScrapeOfferBatchIngestPayload({
+    eventId: 'event-ingest-batch-1',
+    source: 'pracuj-pl',
+    runId: 'run-1',
+    sourceRunId: 'source-run-1',
+    taskId: 'task-1',
+    dedupeKey: 'dedupe-1',
+    pipelineAttemptNo: 2,
+    emittedAt: '2026-04-04T08:00:00.000Z',
+    jobs: [
+      {
+        source: 'pracuj-pl-it',
+        sourceId: '123',
+        title: 'Backend Engineer',
+        company: 'ACME',
+        location: 'Remote',
+        description: 'Build services.',
+        url: 'https://it.pracuj.pl/praca/backend,oferta,123',
+        tags: [],
+        salary: null,
+        employmentType: 'B2B',
+        requirements: ['TypeScript'],
+      },
+    ],
+  });
+
+  assert.equal(payload.eventId, 'event-ingest-batch-1');
+  assert.equal(payload.taskId, 'task-1');
+  assert.equal(payload.pipelineAttemptNo, 2);
+  assert.equal(payload.jobs.length, 1);
 });
 
 test('computeCallbackRetryDelayMs applies exponential backoff without jitter', () => {
