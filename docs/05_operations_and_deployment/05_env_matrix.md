@@ -69,8 +69,10 @@ Last updated: 2026-04-10
 | `WORKER_TASK_MAX_PAYLOAD_BYTES` | optional | optional | no | Cloud Run env | default `262144` |
 | `API_BODY_LIMIT` | optional | optional | no | Cloud Run env | default `1mb` |
 | `DISK_HEALTH_THRESHOLD` | optional | optional | no | Cloud Run env | default `0.98` |
-| `API_THROTTLE_*` | optional | optional | no | Cloud Run env | API throttle tuning |
-| `AUTH_*_THROTTLE_*` | optional | optional | no | Cloud Run env | auth throttle tuning |
+| `API_READ_THROTTLE_*` | optional | optional | no | Cloud Run env | default/read API throttle tuning |
+| `API_WRITE_THROTTLE_*` | optional | optional | no | Cloud Run env | write API throttle tuning |
+| `API_AUTH_THROTTLE_*` | optional | optional | no | Cloud Run env | auth API throttle tuning |
+| `API_SENSITIVE_THROTTLE_*` | optional | optional | no | Cloud Run env | expensive API throttle tuning |
 | `SCRAPE_*` | optional | optional | no | Cloud Run env | scrape lifecycle tuning |
 | `AUTO_SCORE_*` | optional | optional | no | Cloud Run env | ingest-time scoring tuning |
 | `NOTEBOOK_*` | optional | optional | no | Cloud Run env | notebook ranking tuning |
@@ -160,16 +162,14 @@ Last updated: 2026-04-10
   - `TASKS_MAX_DOUBLINGS`
   - `TASKS_MAX_RETRY_DURATION_SEC`
   - `WORKER_ALLOWED_ORIGINS`
-  - `API_THROTTLE_TTL_MS`
-  - `API_THROTTLE_LIMIT`
-  - `AUTH_LOGIN_THROTTLE_TTL_MS`
-  - `AUTH_LOGIN_THROTTLE_LIMIT`
-  - `AUTH_REFRESH_THROTTLE_TTL_MS`
-  - `AUTH_REFRESH_THROTTLE_LIMIT`
-  - `AUTH_REGISTER_THROTTLE_TTL_MS`
-  - `AUTH_REGISTER_THROTTLE_LIMIT`
-  - `AUTH_OTP_THROTTLE_TTL_MS`
-  - `AUTH_OTP_THROTTLE_LIMIT`
+  - `API_READ_THROTTLE_TTL_MS`
+  - `API_READ_THROTTLE_LIMIT`
+  - `API_WRITE_THROTTLE_TTL_MS`
+  - `API_WRITE_THROTTLE_LIMIT`
+  - `API_AUTH_THROTTLE_TTL_MS`
+  - `API_AUTH_THROTTLE_LIMIT`
+  - `API_SENSITIVE_THROTTLE_TTL_MS`
+  - `API_SENSITIVE_THROTTLE_LIMIT`
   - `WEB_QUERY_STALE_TIME_MS`
   - `WEB_QUERY_REFETCH_ON_WINDOW_FOCUS`
   - `WEB_QUERY_DIAGNOSTICS_REFETCH_MS`

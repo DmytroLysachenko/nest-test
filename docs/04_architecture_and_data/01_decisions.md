@@ -542,9 +542,15 @@ ADR-lite log for major architectural and contract decisions.
 ## 2026-03-05: Config-Driven Request Budget Guardrails (API + Web)
 
 - Decision:
-  - Make global API throttling env-configurable via:
-    - `API_THROTTLE_TTL_MS`
-    - `API_THROTTLE_LIMIT`
+  - Make grouped API throttling env-configurable via:
+    - `API_READ_THROTTLE_TTL_MS`
+    - `API_READ_THROTTLE_LIMIT`
+    - `API_WRITE_THROTTLE_TTL_MS`
+    - `API_WRITE_THROTTLE_LIMIT`
+    - `API_AUTH_THROTTLE_TTL_MS`
+    - `API_AUTH_THROTTLE_LIMIT`
+    - `API_SENSITIVE_THROTTLE_TTL_MS`
+    - `API_SENSITIVE_THROTTLE_LIMIT`
   - Make frontend React Query traffic defaults env-configurable via:
     - `NEXT_PUBLIC_QUERY_STALE_TIME_MS`
     - `NEXT_PUBLIC_QUERY_REFETCH_ON_WINDOW_FOCUS`
@@ -552,7 +558,7 @@ ADR-lite log for major architectural and contract decisions.
   - Keep production Cloud Run baseline at `min-instances=0` for all services.
 - Why:
   - Reduce production request churn/cost while preserving explicit control over freshness.
-  - Avoid hardcoded global throttle values that block admin/testing loops or require code edits per environment.
+  - Avoid per-endpoint env sprawl while preserving separate route buckets for read, write, auth, and expensive paths.
   - Keep runtime tuning aligned with low-cost cold-start strategy.
 
 ## 2026-03-05: Normalized API Error Taxonomy Contract
