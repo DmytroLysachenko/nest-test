@@ -45,29 +45,32 @@ import type { Env } from '@/config/env';
       useFactory: (configService: ConfigService<Env, true>) => ({
         throttlers: [
           {
-            name: 'api',
-            ttl: configService.get('API_THROTTLE_TTL_MS', { infer: true }),
-            limit: configService.get('API_THROTTLE_LIMIT', { infer: true }),
+            name: 'default',
+            ttl:
+              configService.get('API_READ_THROTTLE_TTL_MS', { infer: true }) ??
+              configService.get('API_THROTTLE_TTL_MS', { infer: true }),
+            limit:
+              configService.get('API_READ_THROTTLE_LIMIT', { infer: true }) ??
+              configService.get('API_THROTTLE_LIMIT', { infer: true }),
           },
           {
-            name: 'login',
-            ttl: configService.get('AUTH_LOGIN_THROTTLE_TTL_MS', { infer: true }),
-            limit: configService.get('AUTH_LOGIN_THROTTLE_LIMIT', { infer: true }),
+            name: 'write',
+            ttl: configService.get('API_WRITE_THROTTLE_TTL_MS', { infer: true }),
+            limit: configService.get('API_WRITE_THROTTLE_LIMIT', { infer: true }),
           },
           {
-            name: 'otp',
-            ttl: configService.get('AUTH_OTP_THROTTLE_TTL_MS', { infer: true }),
-            limit: configService.get('AUTH_OTP_THROTTLE_LIMIT', { infer: true }),
+            name: 'auth',
+            ttl:
+              configService.get('API_AUTH_THROTTLE_TTL_MS', { infer: true }) ??
+              configService.get('AUTH_LOGIN_THROTTLE_TTL_MS', { infer: true }),
+            limit:
+              configService.get('API_AUTH_THROTTLE_LIMIT', { infer: true }) ??
+              configService.get('AUTH_LOGIN_THROTTLE_LIMIT', { infer: true }),
           },
           {
-            name: 'register',
-            ttl: configService.get('AUTH_REGISTER_THROTTLE_TTL_MS', { infer: true }),
-            limit: configService.get('AUTH_REGISTER_THROTTLE_LIMIT', { infer: true }),
-          },
-          {
-            name: 'refresh',
-            ttl: configService.get('AUTH_REFRESH_THROTTLE_TTL_MS', { infer: true }),
-            limit: configService.get('AUTH_REFRESH_THROTTLE_LIMIT', { infer: true }),
+            name: 'sensitive',
+            ttl: configService.get('API_SENSITIVE_THROTTLE_TTL_MS', { infer: true }),
+            limit: configService.get('API_SENSITIVE_THROTTLE_LIMIT', { infer: true }),
           },
         ],
       }),
