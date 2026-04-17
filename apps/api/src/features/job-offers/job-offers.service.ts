@@ -2147,6 +2147,8 @@ export class JobOffersService {
         workMode: workModesTable.slug,
         jobCategory: jobCategoriesTable.slug,
         salary: jobOffersTable.salary,
+        salaryMin: jobOffersTable.salaryMin,
+        salaryMax: jobOffersTable.salaryMax,
         requirements: jobOffersTable.requirements,
         details: jobOffersTable.details,
       })
@@ -2208,6 +2210,8 @@ export class JobOffersService {
       seniorityLevels: structuredRelations.seniorityLevels,
       technologies: structuredRelations.technologies.map((technology) => technology.label),
       salaryText: offer.salary,
+      salaryMin: offer.salaryMin,
+      salaryMax: offer.salaryMax,
     });
 
     const score = Math.max(0, Math.min(100, Math.round(deterministic.score)));
@@ -2221,6 +2225,7 @@ export class JobOffersService {
       matched: deterministic.matchedCompetencies,
       hardConstraintViolations: deterministic.hardConstraintViolations,
       softPreferenceGaps: deterministic.softPreferenceGaps,
+      evidence: deterministic.evidence,
       breakdown: deterministic.breakdown,
       audit: {
         provider: 'deterministic',

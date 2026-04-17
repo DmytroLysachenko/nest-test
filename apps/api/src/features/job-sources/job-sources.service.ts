@@ -149,6 +149,8 @@ type CatalogOfferRow = {
   company: string | null;
   location: string | null;
   salary: string | null;
+  salaryMin: number | null;
+  salaryMax: number | null;
   employmentType: string | null;
   contractType: string | null;
   employmentSchedule: string | null;
@@ -4952,6 +4954,7 @@ export class JobSourcesService {
       hardConstraintViolations: deterministic.hardConstraintViolations,
       softPreferenceGaps: deterministic.softPreferenceGaps,
       matchedCompetencies: deterministic.matchedCompetencies,
+      evidence: deterministic.evidence,
     };
   }
 
@@ -4991,6 +4994,8 @@ export class JobSourcesService {
           company: jobOffersTable.company,
           location: jobOffersTable.location,
           salary: jobOffersTable.salary,
+          salaryMin: jobOffersTable.salaryMin,
+          salaryMax: jobOffersTable.salaryMax,
           employmentType: jobOffersTable.employmentType,
           contractType: contractTypesTable.slug,
           employmentSchedule: employmentTypesTable.slug,
@@ -5091,6 +5096,8 @@ export class JobSourcesService {
           workModes: offer.workMode ? [offer.workMode] : [],
           jobCategory: offer.jobCategory,
           salaryText: offer.salary,
+          salaryMin: offer.salaryMin,
+          salaryMax: offer.salaryMax,
         }),
       }))
       .filter(({ deterministic }) =>

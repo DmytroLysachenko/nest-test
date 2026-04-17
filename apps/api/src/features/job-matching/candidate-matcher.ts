@@ -14,6 +14,8 @@ type JobContext = {
   seniorityLevels?: string[] | null;
   technologies?: string[] | null;
   salaryText?: string | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
 };
 
 const SENIORITY_ORDER: Record<'intern' | 'junior' | 'mid' | 'senior' | 'lead' | 'manager', number> = {
@@ -81,7 +83,38 @@ const tokenize = (value: string) =>
 
 const asTokenSet = (value: string) => new Set(tokenize(value));
 
-const intersects = (source: Set<string>, values: string[]) => values.some((value) => source.has(value));
+const TOKEN_ALIASES: Record<string, string[]> = {
+  javascript: ['javascript', 'js', 'ecmascript'],
+  typescript: ['typescript', 'ts'],
+  react: ['react', 'reactjs', 'react.js'],
+  next: ['next', 'nextjs', 'next.js'],
+  node: ['node', 'nodejs', 'node.js'],
+  nest: ['nest', 'nestjs', 'nest.js'],
+  postgresql: ['postgresql', 'postgres'],
+  kubernetes: ['kubernetes', 'k8s'],
+  cicd: ['ci', 'cd', 'cicd', 'ci/cd'],
+  rest: ['rest', 'api', 'apis'],
+  aws: ['aws', 'amazon web services'],
+  gcp: ['gcp', 'google cloud'],
+  azure: ['azure', 'microsoft azure'],
+};
+
+const expandTokenAliases = (tokens: string[]) => {
+  const expanded = new Set(tokens);
+  for (const token of tokens) {
+    for (const aliases of Object.values(TOKEN_ALIASES)) {
+      if (aliases.includes(token)) {
+        aliases.forEach((alias) => expanded.add(alias));
+      }
+    }
+  }
+  return Array.from(expanded);
+};
+
+const asExpandedTokenSet = (value: string) => new Set(expandTokenAliases(tokenize(value)));
+
+const intersects = (source: Set<string>, values: string[]) =>
+  expandTokenAliases(values).some((value) => source.has(value));
 
 const normalizeScore = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 
@@ -109,6 +142,55 @@ const WORK_MODE_ALIASES: Record<string, string[]> = {
 const hasAnyAlias = (normalizedText: string, aliasesByKey: Record<string, string[]>) =>
   Object.values(aliasesByKey).some((aliases) => aliases.some((alias) => normalizedText.includes(alias)));
 
+const normalizeSenioritySlug = (value: string | null | undefined) => {
+  const normalized = value ? normalizeAscii(value) : '';
+  if (!normalized) {
+    return null;
+  }
+  if (/(intern|trainee|graduate|praktykant|stazysta|staz)/.test(normalized)) {
+    return 'intern';
+  }
+  if (/(junior|associate|assistant|mlodszy)/.test(normalized)) {
+    return 'junior';
+  }
+  if (/(mid|regular|specjalista|specialist|samodzielny)/.test(normalized)) {
+    return 'mid';
+  }
+  if (/(senior|expert|ekspert|starszy|staff)/.test(normalized)) {
+    return 'senior';
+  }
+  if (/(lead|principal|architekt)/.test(normalized)) {
+    return 'lead';
+  }
+  if (/(manager|menedzer|kierownik|head)/.test(normalized)) {
+    return 'manager';
+  }
+  return null;
+};
+
+const selectHighestSeniority = (values: string[]) => {
+  const normalized = values
+    .map((value) => normalizeSenioritySlug(value))
+    .filter((value): value is keyof typeof SENIORITY_ORDER => Boolean(value));
+  if (!normalized.length) {
+    return null;
+  }
+  return Array.from(new Set(normalized)).reduce((acc, current) =>
+    SENIORITY_ORDER[current] > SENIORITY_ORDER[acc] ? current : acc,
+  );
+};
+
+const getSalaryCandidates = (context: JobContext) => {
+  const structured = [context.salaryMin, context.salaryMax]
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0)
+    .map((value) => Math.round(value));
+  if (structured.length) {
+    return { values: structured, source: 'structured' as const };
+  }
+  const textValues = context.salaryText ? parseAmountCandidates(context.salaryText) : [];
+  return { values: textValues, source: textValues.length ? ('text' as const) : ('unknown' as const) };
+};
+
 export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: JobContext) => {
   const structuredWorkModes = (context.workModes ?? []).filter(Boolean);
   const structuredContractTypes = (context.contractTypes ?? []).filter(Boolean);
@@ -131,7 +213,7 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
     .filter(Boolean)
     .join(' ');
   const normalizedText = normalizeAscii(text);
-  const jobTokens = asTokenSet(text);
+  const jobTokens = asExpandedTokenSet(text);
   const structuredWorkModeSet = new Set(structuredWorkModes.map((item) => normalizeAscii(item)));
   const structuredEmploymentTypeSet = new Set(
     [context.contractType, context.employmentSchedule, ...structuredContractTypes, ...structuredEmploymentSchedules]
@@ -143,16 +225,26 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
   const matchedCompetencies: Array<{ name: string; confidenceScore: number; importance: string }> = [];
   const primarySeniority = profile.candidateCore.seniority.primary;
   const maxAllowedSeniorityOrder = primarySeniority ? SENIORITY_ORDER[primarySeniority] : null;
-  const senioritySignal = detectJobSeniority(text);
+  const evidence: Record<string, string> = {};
+  const structuredSeniority = selectHighestSeniority(context.seniorityLevels ?? []);
+  const titleSenioritySignal = detectJobSeniority(context.title ?? '');
+  const bodySenioritySignal = detectJobSeniority(text);
+  const senioritySignal = structuredSeniority
+    ? { detected: structuredSeniority, ambiguous: false, matches: [structuredSeniority], source: 'structured' }
+    : titleSenioritySignal.detected
+      ? { ...titleSenioritySignal, source: 'title' }
+      : { ...bodySenioritySignal, source: 'text' };
 
   if (maxAllowedSeniorityOrder && senioritySignal.detected) {
     const jobOrder = SENIORITY_ORDER[senioritySignal.detected];
     if (jobOrder > maxAllowedSeniorityOrder) {
       hardViolations.push('seniority');
+      evidence.seniority = senioritySignal.source;
     }
   }
-  if (senioritySignal.ambiguous) {
+  if (senioritySignal.ambiguous && senioritySignal.source !== 'structured') {
     softGaps.push('seniority:ambiguous');
+    evidence.seniority = senioritySignal.source;
   }
 
   const competencyTotalWeight = profile.competencies.reduce((acc, item) => {
@@ -176,11 +268,11 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
     return acc + weight;
   }, 0);
 
-  const roleTokens = profile.targetRoles.flatMap((role) => tokenize(role.title));
+  const roleTokens = expandTokenAliases(profile.targetRoles.flatMap((role) => tokenize(role.title)));
   const roleMatches = roleTokens.filter((token) => jobTokens.has(token));
   const roleScore = roleTokens.length ? (roleMatches.length / roleTokens.length) * 20 : 0;
 
-  const keywordTokens = profile.searchSignals.keywords.flatMap((item) => tokenize(item.value));
+  const keywordTokens = expandTokenAliases(profile.searchSignals.keywords.flatMap((item) => tokenize(item.value)));
   const keywordMatches = keywordTokens.filter((token) => jobTokens.has(token));
   const keywordScore = keywordTokens.length ? (keywordMatches.length / keywordTokens.length) * 10 : 0;
 
@@ -215,8 +307,11 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
 
   if (profile.workPreferences.hardConstraints.minSalary) {
     const expectedMin = profile.workPreferences.hardConstraints.minSalary.amount;
-    const discovered = parseAmountCandidates(text);
-    if (!discovered.length || Math.max(...discovered) < expectedMin) {
+    const discovered = getSalaryCandidates(context);
+    evidence.salary = discovered.source;
+    if (!discovered.values.length) {
+      softGaps.push('minSalary:unknown');
+    } else if (Math.max(...discovered.values) < expectedMin) {
       hardViolations.push('minSalary');
     }
   }
@@ -246,8 +341,9 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
   const softSalaryScore = profile.workPreferences.softPreferences.salary
     ? (() => {
         const expected = profile.workPreferences.softPreferences.salary.value.amount;
-        const values = parseAmountCandidates(text);
-        if (!values.length || Math.max(...values) < expected) {
+        const discovered = getSalaryCandidates(context);
+        evidence.salary = discovered.source;
+        if (!discovered.values.length || Math.max(...discovered.values) < expected) {
           softGaps.push('salary');
           return 0;
         }
@@ -281,5 +377,6 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
     softPreferenceGaps: Array.from(new Set(softGaps)),
     matchedCompetencies,
     blockedByHardConstraints,
+    evidence,
   };
 };
