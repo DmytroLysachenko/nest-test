@@ -43,6 +43,13 @@ Job matching should prefer structured offer facts in this order:
 Unknown information should reduce confidence or create soft gaps. It should not become a hard blocker unless the offer
 explicitly conflicts with a candidate hard constraint.
 
+## Delivered Utilities
+
+- `pnpm --filter @repo/db audit:matching-data-quality` prints a JSON summary of matching data quality.
+- `pnpm --filter @repo/db repair:taxonomy-dimensions` prints known noisy taxonomy rows in dry-run mode.
+- `APPLY_CHANGES=true pnpm --filter @repo/db repair:taxonomy-dimensions` rewrites known noisy taxonomy references to
+  canonical rows after review.
+
 ## Implementation Commits
 
 1. Group throttle env configuration under read, write, auth, and sensitive budgets.
