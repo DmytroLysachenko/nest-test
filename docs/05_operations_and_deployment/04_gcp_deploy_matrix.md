@@ -26,16 +26,14 @@ For the complete local + production inventory, use:
 | `GOOGLE_OAUTH_CLIENT_ID` | release-candidate, deploy-prod-on-main, promote-to-prod | Public Google OAuth client id used by web build and API token verification |
 | `GEMINI_MODEL` | deploy-prod-on-main, promote-to-prod | Vertex AI model id injected into API runtime |
 | `GCS_BUCKET` | deploy-prod-on-main, promote-to-prod | document storage bucket |
-| `API_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | global API throttle window |
-| `API_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | global API throttle limit |
-| `AUTH_LOGIN_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | auth login throttle window |
-| `AUTH_LOGIN_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | auth login throttle limit |
-| `AUTH_REFRESH_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | auth refresh throttle window |
-| `AUTH_REFRESH_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | auth refresh throttle limit |
-| `AUTH_REGISTER_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | auth register throttle window |
-| `AUTH_REGISTER_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | auth register throttle limit |
-| `AUTH_OTP_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | auth OTP throttle window |
-| `AUTH_OTP_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | auth OTP throttle limit |
+| `API_READ_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | default/read API throttle window |
+| `API_READ_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | default/read API throttle limit |
+| `API_WRITE_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | write API throttle window |
+| `API_WRITE_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | write API throttle limit |
+| `API_AUTH_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | auth API throttle window |
+| `API_AUTH_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | auth API throttle limit |
+| `API_SENSITIVE_THROTTLE_TTL_MS` | deploy-prod-on-main, promote-to-prod | expensive API throttle window |
+| `API_SENSITIVE_THROTTLE_LIMIT` | deploy-prod-on-main, promote-to-prod | expensive API throttle limit |
 | `WORKER_REQUEST_TIMEOUT_MS` | deploy-prod-on-main, promote-to-prod | API wait timeout for worker accept |
 | `WORKER_TASK_MAX_PAYLOAD_BYTES` | deploy-prod-on-main, promote-to-prod | API/worker payload guardrail |
 | `API_BODY_LIMIT` | deploy-prod-on-main, promote-to-prod | API body parser limit |
@@ -146,8 +144,14 @@ For the complete local + production inventory, use:
 | `WORKER_CALLBACK_SIGNING_SECRET` | `<secret>` | optional HMAC callback signature defense |
 | `WORKER_CALLBACK_SIGNATURE_TOLERANCE_SEC` | `300` | default is acceptable |
 | `API_BODY_LIMIT` | `1mb` | ingress guardrail |
-| `API_THROTTLE_TTL_MS` | `60000` | global API throttle window (ms) |
-| `API_THROTTLE_LIMIT` | `120` | global API throttle request budget per window |
+| `API_READ_THROTTLE_TTL_MS` | `60000` | default/read API throttle window (ms) |
+| `API_READ_THROTTLE_LIMIT` | `120` | default/read request budget per window |
+| `API_WRITE_THROTTLE_TTL_MS` | `60000` | write API throttle window (ms) |
+| `API_WRITE_THROTTLE_LIMIT` | `60` | write request budget per window |
+| `API_AUTH_THROTTLE_TTL_MS` | `60000` | auth API throttle window (ms) |
+| `API_AUTH_THROTTLE_LIMIT` | `10` | auth request budget per window |
+| `API_SENSITIVE_THROTTLE_TTL_MS` | `60000` | expensive API throttle window (ms) |
+| `API_SENSITIVE_THROTTLE_LIMIT` | `8` | expensive request budget per window |
 | `WORKER_REQUEST_TIMEOUT_MS` | `5000` | API wait timeout for worker accept response |
 | `GOOGLE_OAUTH_CLIENT_ID` | `<google-client-id>` | required for `/auth/oauth/google` verification |
 | `SCHEDULER_AUTH_TOKEN` | `<secret>` | required for internal schedule trigger endpoint |

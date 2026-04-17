@@ -251,7 +251,7 @@ That framing should guide future implementation more than raw source count.
 - Workspace summary now also exposes server-driven recovery guidance (`readinessBreakdown`, `blockerDetails`, `recommendedSequence`) for dashboard and notebook blocked states.
 - Workspace blocker details now also declare affected surfaces (`blockedRoutes`) so notebook route gating can choose the right server-driven CTA instead of using a generic first blocker.
 - Profile Studio now reuses the same recovery guidance so blocked document/profile-generation steps point to explicit next actions.
-- Global API throttling is now env-tunable (`API_THROTTLE_TTL_MS`, `API_THROTTLE_LIMIT`).
+- API throttling is env-tunable through grouped read/write/auth/sensitive budgets (`API_*_THROTTLE_*`).
 - Frontend query freshness/polling defaults are env-tunable (`NEXT_PUBLIC_QUERY_*`).
 - Frontend runtime env guard now rejects localhost/non-https API/worker URLs in production.
 - API error responses now expose normalized top-level fields (`code`, `message`, `requestId`, `timestamp`) with backward-compatible payload.
@@ -260,7 +260,7 @@ That framing should guide future implementation more than raw source count.
 - Production startup now fails fast when required operational tables are missing from the active database.
 - API runtime now rejects retired Gemini 1.5 model defaults at boot and only accepts allowlisted Gemini model/location pairs.
 - Vertex provider access/configuration failures now surface as stable AI-specific service errors instead of raw provider payload leakage.
-- Auth endpoint throttles are env-tunable (`AUTH_*_THROTTLE_*`).
+- Legacy per-auth throttle env vars are optional migration fallbacks; new deployments should use `API_AUTH_THROTTLE_*`.
 - Google OAuth login endpoint is available (`POST /api/auth/oauth/google`) with verified-id-token account linking.
 - Successful login now persists `users.last_login_at`, and JWT validation rejects inactive or soft-deleted users immediately.
 - Users can now soft-delete their own account through `DELETE /api/user`; sessions are revoked while operational history remains auditable.

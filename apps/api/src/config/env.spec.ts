@@ -95,6 +95,27 @@ describe('validateEnv', () => {
     ).not.toThrow();
   });
 
+  it('rejects worker dispatch deadline below task timeout', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        WORKER_TASK_TIMEOUT_MS: '180000',
+        WORKER_TASK_DISPATCH_DEADLINE_MS: '180000',
+      }),
+    ).toThrow('WORKER_TASK_DISPATCH_DEADLINE_MS must be greater than WORKER_TASK_TIMEOUT_MS');
+  });
+
+  it('rejects stale running threshold below dispatch deadline', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        WORKER_TASK_TIMEOUT_MS: '60000',
+        WORKER_TASK_DISPATCH_DEADLINE_MS: '120000',
+        SCRAPE_STALE_RUNNING_MINUTES: '2',
+      }),
+    ).toThrow('SCRAPE_STALE_RUNNING_MINUTES must exceed WORKER_TASK_DISPATCH_DEADLINE_MS');
+  });
+
   it('requires canonical cloud-tasks ingress endpoint shape', () => {
     expect(() =>
       validateEnv({
@@ -110,12 +131,15 @@ describe('validateEnv', () => {
     ).toThrow('WORKER_TASK_URL must end with /tasks or /scrape for cloud-tasks provider');
   });
 
-  it('accepts explicit global API throttle config', () => {
+  it('accepts explicit grouped API throttle config', () => {
     expect(() =>
       validateEnv({
         ...baseEnv(),
-        API_THROTTLE_TTL_MS: '120000',
-        API_THROTTLE_LIMIT: '120',
+        API_READ_THROTTLE_TTL_MS: '120000',
+        API_READ_THROTTLE_LIMIT: '120',
+        API_WRITE_THROTTLE_LIMIT: '60',
+        API_AUTH_THROTTLE_LIMIT: '12',
+        API_SENSITIVE_THROTTLE_LIMIT: '8',
       }),
     ).not.toThrow();
   });
@@ -148,11 +172,11 @@ describe('validateEnv', () => {
     ).toThrow('GCP_LOCATION=moon-base1 is not in the supported Vertex AI Gemini allowlist');
   });
 
-  it('rejects invalid global API throttle config', () => {
+  it('rejects invalid grouped API throttle config', () => {
     expect(() =>
       validateEnv({
         ...baseEnv(),
-        API_THROTTLE_TTL_MS: '500',
+        API_READ_THROTTLE_TTL_MS: '500',
       }),
     ).toThrow();
   });
@@ -166,7 +190,7 @@ describe('validateEnv', () => {
     ).not.toThrow();
   });
 
-  it('accepts explicit auth throttle config', () => {
+  it('accepts legacy auth throttle config as optional fallback during migration', () => {
     expect(() =>
       validateEnv({
         ...baseEnv(),

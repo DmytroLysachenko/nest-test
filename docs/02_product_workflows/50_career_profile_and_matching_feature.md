@@ -1,6 +1,6 @@
 # Career Profile And Matching Feature
 
-Last updated: 2026-03-30
+Last updated: 2026-04-17
 
 ## Purpose
 
@@ -16,7 +16,12 @@ Includes profile input, career profile generation, schema validation, matching l
 
 Current matching direction:
 
-- prefer normalized contract/work-mode/category context when the catalog has it
+- prefer normalized contract/work-mode/category/seniority/technology context when the catalog has it
+- use structured numeric salary before salary text parsing
+- treat unknown salary as a soft evidence gap instead of a hard blocker
+- use title or structured seniority for hard seniority blockers; full-description seniority is fallback evidence
+- expand common technology aliases deterministically, such as JS/JavaScript, TS/TypeScript, React/React.js, Next/Next.js,
+  Node/Node.js, Postgres/PostgreSQL, and Kubernetes/K8s
 - keep raw-text fallback for unresolved legacy offers
 
 Does not own raw scrape transport, notebook status workflow, or auth.
@@ -49,6 +54,16 @@ Does not own raw scrape transport, notebook status workflow, or auth.
 ## Data model
 
 Primary data areas: career profile tables, profile input tables, `user_job_offers.match_score`, and `user_job_offers.match_meta`.
+
+`match_meta` stores deterministic evidence, hard constraint violations, soft gaps, score breakdown, and matched
+competencies. New matching changes should preserve this auditability.
+
+## Data Quality Audits
+
+- `pnpm --filter @repo/db audit:matching-data-quality` reports offer coverage, score distribution, hard violations,
+  noisy taxonomy rows, duplicate candidates, and user-offer match versions.
+- `pnpm --filter @repo/db repair:taxonomy-dimensions` runs a dry-run report for known noisy taxonomy rows.
+- `APPLY_CHANGES=true pnpm --filter @repo/db repair:taxonomy-dimensions` applies the taxonomy repair after dry-run review.
 
 ## APIs/events
 

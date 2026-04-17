@@ -2796,6 +2796,7 @@ describe('JobSourcesService', () => {
         softSalary: 0,
       },
       blockedByHardConstraints: true,
+      evidence: {},
     });
 
     const service = new JobSourcesService(
@@ -2882,6 +2883,7 @@ describe('JobSourcesService', () => {
         softSalary: 0,
       },
       blockedByHardConstraints: true,
+      evidence: {},
     });
 
     const service = new JobSourcesService(

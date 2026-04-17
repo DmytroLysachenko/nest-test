@@ -13,10 +13,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { SensitiveRateLimit } from '@/common/rate-limits/rate-limit-groups';
 import { JwtValidateUser } from '@/types/interface/jwt';
 
 import { JobOffersService } from './job-offers.service';
@@ -234,7 +234,7 @@ export class JobOffersController {
 
   @Post(':id/generate-prep')
   @ApiOperation({ summary: 'Generate interview prep materials and cover letter' })
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @SensitiveRateLimit()
   async generatePrepMaterials(
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -247,7 +247,7 @@ export class JobOffersController {
 
   @Post(':id/score')
   @ApiOperation({ summary: 'Score a job offer using deterministic matching' })
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @SensitiveRateLimit()
   async score(
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,

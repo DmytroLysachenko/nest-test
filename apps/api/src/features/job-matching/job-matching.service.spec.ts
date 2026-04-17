@@ -222,4 +222,123 @@ describe('JobMatchingService scoring', () => {
       expect.arrayContaining(['employmentTypes:unspecified', 'workModes:unspecified']),
     );
   });
+
+  it('treats unknown salary as a soft gap instead of a hard blocker', () => {
+    const result = scoreCandidateAgainstJob(
+      {
+        schemaVersion: '1.0.0',
+        candidateCore: {
+          headline: 'Frontend Engineer',
+          summary: 'Frontend profile',
+          seniority: { primary: 'mid', secondary: [] },
+          languages: [],
+        },
+        targetRoles: [{ title: 'Frontend Developer', confidenceScore: 0.8, confidenceLevel: 'medium', priority: 1 }],
+        competencies: [],
+        workPreferences: {
+          hardConstraints: {
+            workModes: [],
+            employmentTypes: [],
+            locations: [],
+            minSalary: { amount: 18000, currency: 'PLN', period: 'month' },
+            noPolishRequired: false,
+            onlyEmployerOffers: false,
+            onlyWithProjectDescription: false,
+          },
+          softPreferences: { workModes: [], employmentTypes: [], locations: [] },
+        },
+        searchSignals: { keywords: [], specializations: [], technologies: [] },
+        riskAndGrowth: { gaps: [], growthDirections: [], transferableStrengths: [] },
+      } as any,
+      {
+        text: 'Frontend developer role with product work.',
+      },
+    );
+
+    expect(result.hardConstraintViolations).not.toContain('minSalary');
+    expect(result.softPreferenceGaps).toContain('minSalary:unknown');
+    expect(result.evidence.salary).toBe('unknown');
+  });
+
+  it('uses structured salary for hard salary mismatches', () => {
+    const result = scoreCandidateAgainstJob(
+      {
+        schemaVersion: '1.0.0',
+        candidateCore: {
+          headline: 'Frontend Engineer',
+          summary: 'Frontend profile',
+          seniority: { primary: 'mid', secondary: [] },
+          languages: [],
+        },
+        targetRoles: [],
+        competencies: [],
+        workPreferences: {
+          hardConstraints: {
+            workModes: [],
+            employmentTypes: [],
+            locations: [],
+            minSalary: { amount: 18000, currency: 'PLN', period: 'month' },
+            noPolishRequired: false,
+            onlyEmployerOffers: false,
+            onlyWithProjectDescription: false,
+          },
+          softPreferences: { workModes: [], employmentTypes: [], locations: [] },
+        },
+        searchSignals: { keywords: [], specializations: [], technologies: [] },
+        riskAndGrowth: { gaps: [], growthDirections: [], transferableStrengths: [] },
+      } as any,
+      {
+        text: 'Frontend developer role.',
+        salaryMin: 12000,
+        salaryMax: 15000,
+      },
+    );
+
+    expect(result.hardConstraintViolations).toContain('minSalary');
+    expect(result.evidence.salary).toBe('structured');
+  });
+
+  it('matches common technology aliases deterministically', () => {
+    const result = scoreCandidateAgainstJob(
+      {
+        schemaVersion: '1.0.0',
+        candidateCore: {
+          headline: 'Frontend Engineer',
+          summary: 'Frontend profile',
+          seniority: { primary: 'senior', secondary: [] },
+          languages: [],
+        },
+        targetRoles: [],
+        competencies: [
+          {
+            name: 'TypeScript',
+            type: 'technology',
+            confidenceScore: 0.9,
+            confidenceLevel: 'high',
+            importance: 'high',
+            evidence: [],
+            isTransferable: false,
+          },
+        ],
+        workPreferences: {
+          hardConstraints: {
+            workModes: [],
+            employmentTypes: [],
+            locations: [],
+            noPolishRequired: false,
+            onlyEmployerOffers: false,
+            onlyWithProjectDescription: false,
+          },
+          softPreferences: { workModes: [], employmentTypes: [], locations: [] },
+        },
+        searchSignals: { keywords: [], specializations: [], technologies: [] },
+        riskAndGrowth: { gaps: [], growthDirections: [], transferableStrengths: [] },
+      },
+      {
+        text: 'Senior frontend role using TS and React.',
+      },
+    );
+
+    expect(result.matchedCompetencies.map((item) => item.name)).toContain('TypeScript');
+  });
 });

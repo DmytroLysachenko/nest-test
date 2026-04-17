@@ -122,6 +122,18 @@ export class ScrapeOfferIngestDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(128)
+  taskId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  dedupeKey?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   payloadHash?: string;
 
   @ApiPropertyOptional()
@@ -135,6 +147,18 @@ export class ScrapeOfferIngestDto {
   @Min(1)
   attemptNo?: number;
 
+  @ApiPropertyOptional({ minimum: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  pipelineAttemptNo?: number;
+
+  @ApiPropertyOptional({ minimum: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  callbackAttemptNo?: number;
+
   @ApiProperty()
   @IsString()
   source!: string;
@@ -143,4 +167,76 @@ export class ScrapeOfferIngestDto {
   @ValidateNested()
   @Type(() => ScrapeOfferIngestJobDto)
   job!: ScrapeOfferIngestJobDto;
+}
+
+export class ScrapeOfferBatchIngestDto {
+  @ApiProperty()
+  @IsUUID('4')
+  sourceRunId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  runId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID('4')
+  traceId?: string;
+
+  @ApiProperty()
+  @IsString()
+  @MaxLength(128)
+  eventId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  taskId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  dedupeKey?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  payloadHash?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  emittedAt?: string;
+
+  @ApiPropertyOptional({ minimum: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  attemptNo?: number;
+
+  @ApiPropertyOptional({ minimum: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  pipelineAttemptNo?: number;
+
+  @ApiPropertyOptional({ minimum: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  callbackAttemptNo?: number;
+
+  @ApiProperty()
+  @IsString()
+  source!: string;
+
+  @ApiProperty({ type: () => [ScrapeOfferIngestJobDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ScrapeOfferIngestJobDto)
+  jobs!: ScrapeOfferIngestJobDto[];
 }

@@ -91,16 +91,14 @@ $googleOauthClientId = Get-EnvValue $apiProdFiles "GOOGLE_OAUTH_CLIENT_ID"
 $googleOauthClientSecret = Get-EnvValue $apiProdFiles "GOOGLE_OAUTH_CLIENT_SECRET"
 $geminiModel = Get-EnvValue $apiProdFiles "GEMINI_MODEL"
 $workerTasksQueue = Get-EnvValue $apiProdFiles "WORKER_TASKS_QUEUE"
-$apiThrottleTtlMs = Get-EnvValue $apiProdFiles "API_THROTTLE_TTL_MS"
-$apiThrottleLimit = Get-EnvValue $apiProdFiles "API_THROTTLE_LIMIT"
-$authLoginThrottleTtlMs = Get-EnvValue $apiProdFiles "AUTH_LOGIN_THROTTLE_TTL_MS"
-$authLoginThrottleLimit = Get-EnvValue $apiProdFiles "AUTH_LOGIN_THROTTLE_LIMIT"
-$authRefreshThrottleTtlMs = Get-EnvValue $apiProdFiles "AUTH_REFRESH_THROTTLE_TTL_MS"
-$authRefreshThrottleLimit = Get-EnvValue $apiProdFiles "AUTH_REFRESH_THROTTLE_LIMIT"
-$authRegisterThrottleTtlMs = Get-EnvValue $apiProdFiles "AUTH_REGISTER_THROTTLE_TTL_MS"
-$authRegisterThrottleLimit = Get-EnvValue $apiProdFiles "AUTH_REGISTER_THROTTLE_LIMIT"
-$authOtpThrottleTtlMs = Get-EnvValue $apiProdFiles "AUTH_OTP_THROTTLE_TTL_MS"
-$authOtpThrottleLimit = Get-EnvValue $apiProdFiles "AUTH_OTP_THROTTLE_LIMIT"
+$apiReadThrottleTtlMs = Get-EnvValue $apiProdFiles "API_READ_THROTTLE_TTL_MS"
+$apiReadThrottleLimit = Get-EnvValue $apiProdFiles "API_READ_THROTTLE_LIMIT"
+$apiWriteThrottleTtlMs = Get-EnvValue $apiProdFiles "API_WRITE_THROTTLE_TTL_MS"
+$apiWriteThrottleLimit = Get-EnvValue $apiProdFiles "API_WRITE_THROTTLE_LIMIT"
+$apiAuthThrottleTtlMs = Get-EnvValue $apiProdFiles "API_AUTH_THROTTLE_TTL_MS"
+$apiAuthThrottleLimit = Get-EnvValue $apiProdFiles "API_AUTH_THROTTLE_LIMIT"
+$apiSensitiveThrottleTtlMs = Get-EnvValue $apiProdFiles "API_SENSITIVE_THROTTLE_TTL_MS"
+$apiSensitiveThrottleLimit = Get-EnvValue $apiProdFiles "API_SENSITIVE_THROTTLE_LIMIT"
 $workerRequestTimeoutMs = Get-EnvValue $apiProdFiles "WORKER_REQUEST_TIMEOUT_MS"
 $workerTaskMaxPayloadBytes = Get-EnvValue $apiProdFiles "WORKER_TASK_MAX_PAYLOAD_BYTES"
 $apiBodyLimit = Get-EnvValue $apiProdFiles "API_BODY_LIMIT"
@@ -167,16 +165,14 @@ if ([string]::IsNullOrWhiteSpace($tasksMinBackoffSec)) { $tasksMinBackoffSec = "
 if ([string]::IsNullOrWhiteSpace($tasksMaxBackoffSec)) { $tasksMaxBackoffSec = "300" }
 if ([string]::IsNullOrWhiteSpace($tasksMaxDoublings)) { $tasksMaxDoublings = "5" }
 if ([string]::IsNullOrWhiteSpace($tasksMaxRetryDurationSec)) { $tasksMaxRetryDurationSec = "1800" }
-if ([string]::IsNullOrWhiteSpace($apiThrottleTtlMs)) { $apiThrottleTtlMs = "60000" }
-if ([string]::IsNullOrWhiteSpace($apiThrottleLimit)) { $apiThrottleLimit = "120" }
-if ([string]::IsNullOrWhiteSpace($authLoginThrottleTtlMs)) { $authLoginThrottleTtlMs = "60000" }
-if ([string]::IsNullOrWhiteSpace($authLoginThrottleLimit)) { $authLoginThrottleLimit = "5" }
-if ([string]::IsNullOrWhiteSpace($authRefreshThrottleTtlMs)) { $authRefreshThrottleTtlMs = "60000" }
-if ([string]::IsNullOrWhiteSpace($authRefreshThrottleLimit)) { $authRefreshThrottleLimit = "10" }
-if ([string]::IsNullOrWhiteSpace($authRegisterThrottleTtlMs)) { $authRegisterThrottleTtlMs = "60000" }
-if ([string]::IsNullOrWhiteSpace($authRegisterThrottleLimit)) { $authRegisterThrottleLimit = "3" }
-if ([string]::IsNullOrWhiteSpace($authOtpThrottleTtlMs)) { $authOtpThrottleTtlMs = "60000" }
-if ([string]::IsNullOrWhiteSpace($authOtpThrottleLimit)) { $authOtpThrottleLimit = "3" }
+if ([string]::IsNullOrWhiteSpace($apiReadThrottleTtlMs)) { $apiReadThrottleTtlMs = "60000" }
+if ([string]::IsNullOrWhiteSpace($apiReadThrottleLimit)) { $apiReadThrottleLimit = "120" }
+if ([string]::IsNullOrWhiteSpace($apiWriteThrottleTtlMs)) { $apiWriteThrottleTtlMs = "60000" }
+if ([string]::IsNullOrWhiteSpace($apiWriteThrottleLimit)) { $apiWriteThrottleLimit = "60" }
+if ([string]::IsNullOrWhiteSpace($apiAuthThrottleTtlMs)) { $apiAuthThrottleTtlMs = "60000" }
+if ([string]::IsNullOrWhiteSpace($apiAuthThrottleLimit)) { $apiAuthThrottleLimit = "10" }
+if ([string]::IsNullOrWhiteSpace($apiSensitiveThrottleTtlMs)) { $apiSensitiveThrottleTtlMs = "60000" }
+if ([string]::IsNullOrWhiteSpace($apiSensitiveThrottleLimit)) { $apiSensitiveThrottleLimit = "8" }
 if ([string]::IsNullOrWhiteSpace($workerRequestTimeoutMs)) { $workerRequestTimeoutMs = "5000" }
 if ([string]::IsNullOrWhiteSpace($workerTaskMaxPayloadBytes)) { $workerTaskMaxPayloadBytes = "262144" }
 if ([string]::IsNullOrWhiteSpace($apiBodyLimit)) { $apiBodyLimit = "1mb" }
@@ -234,16 +230,14 @@ Set-RepoVar "TASKS_MIN_BACKOFF_SEC" $tasksMinBackoffSec
 Set-RepoVar "TASKS_MAX_BACKOFF_SEC" $tasksMaxBackoffSec
 Set-RepoVar "TASKS_MAX_DOUBLINGS" $tasksMaxDoublings
 Set-RepoVar "TASKS_MAX_RETRY_DURATION_SEC" $tasksMaxRetryDurationSec
-Set-RepoVar "API_THROTTLE_TTL_MS" $apiThrottleTtlMs
-Set-RepoVar "API_THROTTLE_LIMIT" $apiThrottleLimit
-Set-RepoVar "AUTH_LOGIN_THROTTLE_TTL_MS" $authLoginThrottleTtlMs
-Set-RepoVar "AUTH_LOGIN_THROTTLE_LIMIT" $authLoginThrottleLimit
-Set-RepoVar "AUTH_REFRESH_THROTTLE_TTL_MS" $authRefreshThrottleTtlMs
-Set-RepoVar "AUTH_REFRESH_THROTTLE_LIMIT" $authRefreshThrottleLimit
-Set-RepoVar "AUTH_REGISTER_THROTTLE_TTL_MS" $authRegisterThrottleTtlMs
-Set-RepoVar "AUTH_REGISTER_THROTTLE_LIMIT" $authRegisterThrottleLimit
-Set-RepoVar "AUTH_OTP_THROTTLE_TTL_MS" $authOtpThrottleTtlMs
-Set-RepoVar "AUTH_OTP_THROTTLE_LIMIT" $authOtpThrottleLimit
+Set-RepoVar "API_READ_THROTTLE_TTL_MS" $apiReadThrottleTtlMs
+Set-RepoVar "API_READ_THROTTLE_LIMIT" $apiReadThrottleLimit
+Set-RepoVar "API_WRITE_THROTTLE_TTL_MS" $apiWriteThrottleTtlMs
+Set-RepoVar "API_WRITE_THROTTLE_LIMIT" $apiWriteThrottleLimit
+Set-RepoVar "API_AUTH_THROTTLE_TTL_MS" $apiAuthThrottleTtlMs
+Set-RepoVar "API_AUTH_THROTTLE_LIMIT" $apiAuthThrottleLimit
+Set-RepoVar "API_SENSITIVE_THROTTLE_TTL_MS" $apiSensitiveThrottleTtlMs
+Set-RepoVar "API_SENSITIVE_THROTTLE_LIMIT" $apiSensitiveThrottleLimit
 Set-RepoVar "WORKER_REQUEST_TIMEOUT_MS" $workerRequestTimeoutMs
 Set-RepoVar "WORKER_TASK_MAX_PAYLOAD_BYTES" $workerTaskMaxPayloadBytes
 Set-RepoVar "API_BODY_LIMIT" $apiBodyLimit

@@ -374,7 +374,10 @@ Check:
 
 - `api_request_events`
 - frontend polling frequency
-- `API_THROTTLE_LIMIT`
+- `API_READ_THROTTLE_LIMIT`
+- `API_WRITE_THROTTLE_LIMIT`
+- `API_AUTH_THROTTLE_LIMIT`
+- `API_SENSITIVE_THROTTLE_LIMIT`
 - ops page and dashboard query cadence
 
 Interpretation:

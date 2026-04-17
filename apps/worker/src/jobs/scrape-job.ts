@@ -31,6 +31,10 @@ type CallbackPayload = {
   runId: string;
   sourceRunId?: string;
   traceId?: string;
+  taskId?: string;
+  dedupeKey?: string;
+  scrapeAttemptNo?: number;
+  callbackAttemptNo?: number;
   attemptNo?: number;
   emittedAt?: string;
   payloadHash?: string;
@@ -124,10 +128,17 @@ type OfferIngestPayload = {
   runId: string;
   sourceRunId?: string;
   traceId?: string;
+  taskId?: string;
+  dedupeKey?: string;
+  pipelineAttemptNo?: number;
+  callbackAttemptNo?: number;
   attemptNo?: number;
   emittedAt?: string;
   payloadHash?: string;
   job: NormalizedJob;
+};
+type OfferBatchIngestPayload = Omit<OfferIngestPayload, 'job'> & {
+  jobs: NormalizedJob[];
 };
 
 export type ScrapeFailureType = 'validation' | 'network' | 'parse' | 'callback' | 'timeout' | 'unknown';
@@ -161,7 +172,40 @@ const DETAIL_FETCH_BUDGET_PER_ITEM_MS = 21_000;
 const DETAIL_FETCH_BROWSER_FALLBACK_BUFFER_MS = 16_000;
 const DETAIL_FETCH_FINALIZATION_BUFFER_MS = 3_000;
 
-const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const combineAbortSignals = (signals: Array<AbortSignal | undefined>) => {
+  const activeSignals = signals.filter((signal): signal is AbortSignal => Boolean(signal));
+  if (!activeSignals.length) {
+    return undefined;
+  }
+  const controller = new AbortController();
+  const abort = (signal: AbortSignal) => {
+    if (!controller.signal.aborted) {
+      controller.abort(signal.reason);
+    }
+  };
+  for (const signal of activeSignals) {
+    if (signal.aborted) {
+      abort(signal);
+      break;
+    }
+    signal.addEventListener('abort', () => abort(signal), { once: true });
+  }
+  return controller.signal;
+};
+
+const sleep = async (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason instanceof Error ? signal.reason : new Error('Operation aborted'));
+      return;
+    }
+    const timeout = setTimeout(resolve, ms);
+    const abort = () => {
+      clearTimeout(timeout);
+      reject(signal?.reason instanceof Error ? signal.reason : new Error('Operation aborted'));
+    };
+    signal?.addEventListener('abort', abort, { once: true });
+  });
 const toError = (error: unknown) => (error instanceof Error ? error : new Error('Unknown error'));
 const normalizeString = (value: string | null | undefined) => {
   const trimmed = value?.trim();
@@ -194,8 +238,16 @@ const canonicalize = (value: unknown): unknown => {
 };
 
 const stableJson = (value: unknown) => JSON.stringify(canonicalize(value ?? null));
-export const computeCallbackPayloadHash = (payload: Record<string, unknown>) =>
-  createHash('sha256').update(stableJson(payload)).digest('hex');
+export const computeCallbackPayloadHash = (payload: Record<string, unknown>) => {
+  const {
+    attemptNo: _attemptNo,
+    callbackAttemptNo: _callbackAttemptNo,
+    emittedAt: _emittedAt,
+    payloadHash: _payloadHash,
+    ...stablePayload
+  } = payload;
+  return createHash('sha256').update(stableJson(stablePayload)).digest('hex');
+};
 export const computeNormalizedJobContentHash = (
   job: Pick<
     NormalizedJob,
@@ -533,11 +585,33 @@ export const buildScrapeOfferIngestPayload = (input: OfferIngestPayload) => ({
   runId: input.runId,
   sourceRunId: input.sourceRunId,
   traceId: input.traceId,
+  taskId: input.taskId,
+  dedupeKey: input.dedupeKey,
+  pipelineAttemptNo: input.pipelineAttemptNo,
+  callbackAttemptNo: input.callbackAttemptNo,
   attemptNo: input.attemptNo,
   emittedAt: input.emittedAt,
   payloadHash: input.payloadHash,
   job: input.job,
 });
+
+export const buildScrapeOfferBatchIngestPayload = (input: OfferBatchIngestPayload) => ({
+  eventId: input.eventId,
+  source: input.source,
+  runId: input.runId,
+  sourceRunId: input.sourceRunId,
+  traceId: input.traceId,
+  taskId: input.taskId,
+  dedupeKey: input.dedupeKey,
+  pipelineAttemptNo: input.pipelineAttemptNo,
+  callbackAttemptNo: input.callbackAttemptNo,
+  attemptNo: input.attemptNo,
+  emittedAt: input.emittedAt,
+  payloadHash: input.payloadHash,
+  jobs: input.jobs,
+});
+
+const resolveOfferBatchIngestUrl = (url: string) => (url.endsWith('/batch') ? url : `${url.replace(/\/+$/, '')}/batch`);
 
 const notifyHeartbeat = async (
   url: string,
@@ -638,6 +712,7 @@ const notifyCallback = async (
     retryMaxDelayMs: number;
     retryJitterPct: number;
     deadLetterDir?: string;
+    signal?: AbortSignal;
     onRejected?: (input: { attempt: number; statusCode?: number; error: string }) => Promise<void>;
     onRetryScheduled?: (input: {
       attempt: number;
@@ -660,6 +735,10 @@ const notifyCallback = async (
       const signature = signingSecret
         ? createHmac('sha256', signingSecret).update(signaturePayload).digest('hex')
         : null;
+      const attemptPayload = {
+        ...payload,
+        callbackAttemptNo: attempt,
+      };
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -668,7 +747,8 @@ const notifyCallback = async (
           ...(authorization ? { Authorization: authorization } : {}),
           ...(signature ? { 'x-worker-signature': signature, 'x-worker-timestamp': String(timestampSec) } : {}),
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(attemptPayload),
+        signal: options.signal,
       });
       if (!response.ok) {
         const text = await response.text();
@@ -737,7 +817,7 @@ const notifyCallback = async (
         delayMs,
         error: lastError instanceof Error ? lastError.message : 'Unknown callback failure',
       });
-      await sleep(delayMs);
+      await sleep(delayMs, options.signal);
     }
   }
 
@@ -774,43 +854,88 @@ const notifyOfferIngest = async (
   oidcAudience: string | undefined,
   signingSecret: string | undefined,
   requestId: string | undefined,
-  payload: OfferIngestPayload,
+  payload: OfferIngestPayload | OfferBatchIngestPayload,
+  options: {
+    retryAttempts: number;
+    retryBackoffMs: number;
+    retryMaxDelayMs: number;
+    retryJitterPct: number;
+    signal?: AbortSignal;
+  },
   logger: Logger,
 ) => {
-  const authorization = await resolveOutboundAuthorizationHeader(token, oidcAudience);
-  const timestampSec = Math.floor(Date.now() / 1000);
-  const signature = signingSecret
-    ? createHmac('sha256', signingSecret)
-        .update(
-          buildWorkerCallbackSignaturePayload(
-            {
-              sourceRunId: payload.sourceRunId,
-              status: 'INGEST',
-              runId: payload.runId,
-              eventId: payload.eventId,
-            },
-            requestId,
-            timestampSec,
-          ),
-        )
-        .digest('hex')
-    : null;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= options.retryAttempts; attempt += 1) {
+    try {
+      const authorization = await resolveOutboundAuthorizationHeader(token, oidcAudience);
+      const timestampSec = Math.floor(Date.now() / 1000);
+      const signature = signingSecret
+        ? createHmac('sha256', signingSecret)
+            .update(
+              buildWorkerCallbackSignaturePayload(
+                {
+                  sourceRunId: payload.sourceRunId,
+                  status: 'INGEST',
+                  runId: payload.runId,
+                  eventId: payload.eventId,
+                },
+                requestId,
+                timestampSec,
+              ),
+            )
+            .digest('hex')
+        : null;
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(requestId ? { 'x-request-id': requestId } : {}),
-      ...(authorization ? { Authorization: authorization } : {}),
-      ...(signature ? { 'x-worker-signature': signature, 'x-worker-timestamp': String(timestampSec) } : {}),
-    },
-    body: JSON.stringify(buildScrapeOfferIngestPayload(payload)),
-  });
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(requestId ? { 'x-request-id': requestId } : {}),
+          ...(authorization ? { Authorization: authorization } : {}),
+          ...(signature ? { 'x-worker-signature': signature, 'x-worker-timestamp': String(timestampSec) } : {}),
+        },
+        body: JSON.stringify(
+          'jobs' in payload
+            ? buildScrapeOfferBatchIngestPayload({
+                ...payload,
+                callbackAttemptNo: attempt,
+              })
+            : buildScrapeOfferIngestPayload({
+                ...payload,
+                callbackAttemptNo: attempt,
+              }),
+        ),
+        signal: options.signal,
+      });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Offer ingest rejected (${response.status}): ${text}`);
+      if (response.ok) {
+        return;
+      }
+      const text = await response.text();
+      lastError = new Error(`Offer ingest rejected (${response.status}): ${text}`);
+      logger.warn(
+        { requestId, sourceRunId: payload.sourceRunId, traceId: payload.traceId, status: response.status, attempt },
+        'Offer ingest rejected',
+      );
+    } catch (error) {
+      lastError = error;
+      logger.warn(
+        { requestId, sourceRunId: payload.sourceRunId, traceId: payload.traceId, error, attempt },
+        'Failed to deliver offer ingest',
+      );
+    }
+
+    if (attempt < options.retryAttempts) {
+      const delayMs = computeCallbackRetryDelayMs(
+        attempt,
+        options.retryBackoffMs,
+        options.retryMaxDelayMs,
+        options.retryJitterPct,
+      );
+      await sleep(delayMs, options.signal);
+    }
   }
+  throw lastError instanceof Error ? lastError : new Error('Offer ingest failed after retries');
 };
 
 export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
@@ -819,6 +944,10 @@ export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
   runId: input.runId,
   sourceRunId: input.sourceRunId,
   traceId: input.traceId,
+  taskId: input.taskId,
+  dedupeKey: input.dedupeKey,
+  scrapeAttemptNo: input.scrapeAttemptNo,
+  callbackAttemptNo: input.callbackAttemptNo,
   attemptNo: input.attemptNo,
   emittedAt: input.emittedAt,
   payloadHash: input.payloadHash,
@@ -913,6 +1042,7 @@ export const runScrapeJob = async (
     callbackOidcAudience?: string;
     scrapeTimeoutMs?: number;
     databaseUrl?: string;
+    abortSignal?: AbortSignal;
   },
 ) => {
   const startedAt = Date.now();
@@ -969,6 +1099,17 @@ export const runScrapeJob = async (
         sourceRunId,
         traceId,
         requestId: payload.requestId,
+        taskId: payload.taskId,
+        dedupeKey: payload.dedupeKey,
+        leaseExpiresAt: payload.leaseExpiresAt ? new Date(payload.leaseExpiresAt) : undefined,
+        executionStatus:
+          status === 'failed'
+            ? 'failed'
+            : stage === 'scrape_start'
+              ? 'started'
+              : stage === 'scrape_complete'
+                ? 'completed'
+                : undefined,
         stage,
         status,
         code,
@@ -1009,6 +1150,11 @@ export const runScrapeJob = async (
       source: payload.source,
       listingUrl,
       requestedLimit: payload.limit ?? null,
+      taskId: payload.taskId ?? null,
+      dedupeKey: payload.dedupeKey ?? null,
+      taskTimeoutMs: payload.taskTimeoutMs ?? null,
+      dispatchDeadlineMs: payload.dispatchDeadlineMs ?? null,
+      leaseExpiresAt: payload.leaseExpiresAt ?? null,
       databaseAuditEnabled: Boolean(options.databaseUrl),
     });
 
@@ -1050,54 +1196,79 @@ export const runScrapeJob = async (
       );
     };
 
+    const timeoutMs = Math.min(payload.taskTimeoutMs ?? Number.POSITIVE_INFINITY, options.scrapeTimeoutMs ?? 180000);
+    const scrapeAbortController = new AbortController();
+    const scrapeSignal =
+      combineAbortSignals([scrapeAbortController.signal, options.abortSignal]) ?? scrapeAbortController.signal;
+
     const emitAcceptedOffers = async (jobs: NormalizedJob[], attempt: number) => {
       if (!ingestUrl || !sourceRunId || !jobs.length) {
         return;
       }
 
-      for (const job of jobs) {
-        const emittedAt = new Date().toISOString();
-        const basePayload = buildScrapeOfferIngestPayload({
-          eventId: randomUUID(),
-          source: payload.source,
-          runId,
-          sourceRunId,
-          traceId,
-          attemptNo: attempt,
-          emittedAt,
-          job,
-        });
-        try {
-          await notifyOfferIngest(
-            ingestUrl,
+      const emittedAt = new Date().toISOString();
+      const basePayload = buildScrapeOfferBatchIngestPayload({
+        eventId: randomUUID(),
+        source: payload.source,
+        runId,
+        sourceRunId,
+        traceId,
+        taskId: payload.taskId,
+        dedupeKey: payload.dedupeKey,
+        pipelineAttemptNo: attempt,
+        attemptNo: attempt,
+        emittedAt,
+        jobs,
+      });
+      const batchPayload = {
+        ...basePayload,
+        payloadHash: computeCallbackPayloadHash(basePayload as Record<string, unknown>),
+      };
+
+      try {
+        await notifyOfferIngest(
+          resolveOfferBatchIngestUrl(ingestUrl),
+          callbackToken,
+          callbackOidcAudience,
+          callbackSigningSecret,
+          payload.requestId,
+          batchPayload,
+          {
+            retryAttempts: options.callbackRetryAttempts ?? 3,
+            retryBackoffMs: options.callbackRetryBackoffMs ?? 1000,
+            retryMaxDelayMs: options.callbackRetryMaxDelayMs ?? 10000,
+            retryJitterPct: options.callbackRetryJitterPct ?? 0.2,
+            signal: scrapeSignal,
+          },
+          logger,
+        );
+      } catch (error) {
+        await persistDeadLetter(
+          {
+            callbackUrl: resolveOfferBatchIngestUrl(ingestUrl),
             callbackToken,
-            callbackOidcAudience,
-            callbackSigningSecret,
-            payload.requestId,
-            {
-              ...basePayload,
-              payloadHash: computeCallbackPayloadHash(basePayload as Record<string, unknown>),
-            },
-            logger,
-          );
-        } catch (error) {
-          await emitExecutionEvent(
-            'incremental_ingest',
-            'warning',
-            'Accepted offer incremental ingestion failed',
-            'OFFER_INGEST_REJECTED',
-            {
-              attempt,
-              url: job.url,
-              error: error instanceof Error ? error.message : String(error),
-            },
-          );
-        }
+            requestId: payload.requestId,
+            payload: batchPayload,
+            reason: error instanceof Error ? error.message : 'Unknown offer ingest failure',
+            createdAt: new Date().toISOString(),
+          },
+          options.callbackDeadLetterDir,
+          logger,
+        );
+        await emitExecutionEvent(
+          'incremental_ingest',
+          'failed',
+          'Accepted offer batch incremental ingestion moved to dead letter',
+          'OFFER_BATCH_INGEST_DEAD_LETTERED',
+          {
+            attempt,
+            offerCount: jobs.length,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
       }
     };
 
-    const timeoutMs = options.scrapeTimeoutMs ?? 180000;
-    const scrapeAbortController = new AbortController();
     let timeoutRef: NodeJS.Timeout | null = null;
     const timeoutPromiseTemplate = new Promise<never>((_, reject) => {
       const timeoutError = new Error(`Scrape timed out after ${timeoutMs}ms`);
@@ -1173,7 +1344,7 @@ export const runScrapeJob = async (
               detailCookiesPath: options.detailCookiesPath,
               detailHumanize: false,
               profileDir: options.profileDir,
-              abortSignal: scrapeAbortController.signal,
+              abortSignal: scrapeSignal,
             },
           });
           const listingCount = probe.crawlResult.jobLinks.length;
@@ -1364,7 +1535,7 @@ export const runScrapeJob = async (
               },
             );
           },
-          abortSignal: scrapeAbortController.signal,
+          abortSignal: scrapeSignal,
         },
       });
 
@@ -1586,6 +1757,9 @@ export const runScrapeJob = async (
         runId,
         sourceRunId,
         traceId,
+        taskId: payload.taskId,
+        dedupeKey: payload.dedupeKey,
+        scrapeAttemptNo: Math.max(1, attemptsExecuted),
         attemptNo: Math.max(1, attemptsExecuted),
         emittedAt,
         listingUrl,
@@ -1655,6 +1829,7 @@ export const runScrapeJob = async (
           retryMaxDelayMs: options.callbackRetryMaxDelayMs ?? 10000,
           retryJitterPct: options.callbackRetryJitterPct ?? 0.2,
           deadLetterDir: options.callbackDeadLetterDir,
+          signal: scrapeSignal,
           onRejected: async ({ attempt, statusCode, error }) => {
             stageRetryCounts.callbackDispatchFailures += 1;
             await emitExecutionEvent(
@@ -1775,6 +1950,9 @@ export const runScrapeJob = async (
         runId,
         sourceRunId,
         traceId,
+        taskId: payload.taskId,
+        dedupeKey: payload.dedupeKey,
+        scrapeAttemptNo: 1,
         attemptNo: 1,
         emittedAt,
         listingUrl,
@@ -1853,6 +2031,9 @@ export const runScrapeJob = async (
               sourceRunId,
               traceId,
               requestId: payload.requestId,
+              taskId: payload.taskId,
+              dedupeKey: payload.dedupeKey,
+              leaseExpiresAt: payload.leaseExpiresAt ? new Date(payload.leaseExpiresAt) : undefined,
               stage: 'callback_dispatch',
               status: 'warning',
               code: 'CALLBACK_REJECTED',
@@ -1870,6 +2051,9 @@ export const runScrapeJob = async (
               sourceRunId,
               traceId,
               requestId: payload.requestId,
+              taskId: payload.taskId,
+              dedupeKey: payload.dedupeKey,
+              leaseExpiresAt: payload.leaseExpiresAt ? new Date(payload.leaseExpiresAt) : undefined,
               stage: 'callback_retry',
               status: 'warning',
               code: 'CALLBACK_RETRY_SCHEDULED',
@@ -1887,6 +2071,9 @@ export const runScrapeJob = async (
               sourceRunId,
               traceId,
               requestId: payload.requestId,
+              taskId: payload.taskId,
+              dedupeKey: payload.dedupeKey,
+              leaseExpiresAt: payload.leaseExpiresAt ? new Date(payload.leaseExpiresAt) : undefined,
               stage: 'callback_dispatch',
               status: 'success',
               code: 'CALLBACK_ACCEPTED',
@@ -1904,6 +2091,10 @@ export const runScrapeJob = async (
               sourceRunId,
               traceId,
               requestId: payload.requestId,
+              taskId: payload.taskId,
+              dedupeKey: payload.dedupeKey,
+              leaseExpiresAt: payload.leaseExpiresAt ? new Date(payload.leaseExpiresAt) : undefined,
+              executionStatus: 'failed',
               stage: 'callback_dead_letter',
               status: 'failed',
               code: 'CALLBACK_DEAD_LETTERED',
@@ -1924,6 +2115,10 @@ export const runScrapeJob = async (
       sourceRunId,
       traceId,
       requestId: payload.requestId,
+      taskId: payload.taskId,
+      dedupeKey: payload.dedupeKey,
+      leaseExpiresAt: payload.leaseExpiresAt ? new Date(payload.leaseExpiresAt) : undefined,
+      executionStatus: 'failed',
       stage: 'scrape_failure',
       status: 'failed',
       code: `WORKER_${failureType.toUpperCase()}`,

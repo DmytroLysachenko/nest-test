@@ -10,9 +10,13 @@ export type ScrapeSourceJob = {
   source: string;
   runId?: string;
   sourceRunId?: string;
+  taskId?: string;
   traceId?: string;
   requestId?: string;
   dedupeKey?: string;
+  taskTimeoutMs?: number;
+  dispatchDeadlineMs?: number;
+  leaseExpiresAt?: string;
   callbackUrl?: string;
   heartbeatUrl?: string;
   ingestUrl?: string;

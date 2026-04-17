@@ -91,6 +91,14 @@ class OpsCallbackMetricsResponse {
 
   @ApiProperty()
   conflictingPayloadEvents24h!: number;
+
+  @ApiProperty()
+  deadLetters24h!: number;
+}
+
+class OpsIngestMetricsResponse {
+  @ApiProperty()
+  incrementalDeadLetters24h!: number;
 }
 
 class OpsSchedulerMetricsResponse {
@@ -102,6 +110,23 @@ class OpsSchedulerMetricsResponse {
 
   @ApiProperty()
   enqueueFailures24h!: number;
+}
+
+class OpsAlertMetricsResponse {
+  @ApiProperty()
+  staleRuns!: boolean;
+
+  @ApiProperty()
+  callbackDeadLetters!: boolean;
+
+  @ApiProperty()
+  incrementalIngestDeadLetters!: boolean;
+
+  @ApiProperty()
+  sourceDegradation!: boolean;
+
+  @ApiProperty()
+  scheduleEnqueueFailures!: boolean;
 }
 
 export class OpsMetricsResponse {
@@ -126,6 +151,12 @@ export class OpsMetricsResponse {
   @ApiProperty({ type: OpsCallbackMetricsResponse })
   callback!: OpsCallbackMetricsResponse;
 
+  @ApiProperty({ type: OpsIngestMetricsResponse })
+  ingest!: OpsIngestMetricsResponse;
+
   @ApiProperty({ type: OpsSchedulerMetricsResponse })
   scheduler!: OpsSchedulerMetricsResponse;
+
+  @ApiProperty({ type: OpsAlertMetricsResponse })
+  alerts!: OpsAlertMetricsResponse;
 }

@@ -70,6 +70,15 @@ describe('OpsService', () => {
           from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 1 }]) }),
         }) // enqueue failures
         .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 2 }]) }),
+        }) // callback dead letters
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 3 }]) }),
+        }) // incremental ingest dead letters
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 4 }]) }),
+        }) // source degraded runs
+        .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
               orderBy: jest.fn().mockReturnValue({
@@ -135,11 +144,20 @@ describe('OpsService', () => {
     expect(result.callback.failedRate).toBe(0.5);
     expect(result.callback.retryRate24h).toBe(0.5);
     expect(result.callback.conflictingPayloadEvents24h).toBe(1);
+    expect(result.callback.deadLetters24h).toBe(2);
     expect(result.callback.failuresByType).toMatchObject({ network: 1 });
     expect(result.callback.failuresByCode).toMatchObject({ WORKER_NETWORK: 1 });
+    expect(result.ingest.incrementalDeadLetters24h).toBe(3);
     expect(result.scheduler.lastTriggerAt).toBe('2026-03-03T10:00:00.000Z');
     expect(result.scheduler.dueSchedules).toBe(2);
     expect(result.scheduler.enqueueFailures24h).toBe(1);
+    expect(result.alerts).toMatchObject({
+      staleRuns: true,
+      callbackDeadLetters: true,
+      incrementalIngestDeadLetters: true,
+      sourceDegradation: true,
+      scheduleEnqueueFailures: true,
+    });
   });
 
   it('lists callback events with pagination envelope', async () => {
@@ -568,8 +586,17 @@ describe('OpsService', () => {
         failuresByCode: {},
         retryRate24h: 0,
         conflictingPayloadEvents24h: 0,
+        deadLetters24h: 0,
       },
+      ingest: { incrementalDeadLetters24h: 0 },
       scheduler: { lastTriggerAt: null, dueSchedules: 0, enqueueFailures24h: 0 },
+      alerts: {
+        staleRuns: false,
+        callbackDeadLetters: false,
+        incrementalIngestDeadLetters: false,
+        sourceDegradation: false,
+        scheduleEnqueueFailures: false,
+      },
     });
     const result = await service.getSupportOverview();
 

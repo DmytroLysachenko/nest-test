@@ -1,16 +1,17 @@
 import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
-import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import { SkipThrottle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public.decorator';
+import { SensitiveRateLimit } from '@/common/rate-limits/rate-limit-groups';
 import { JwtValidateUser } from '@/types/interface/jwt';
 
 import { EnqueueScrapeDto, EnqueueScrapeResponseDto } from './dto/enqueue-scrape.dto';
 import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
-import { ScrapeOfferIngestDto } from './dto/scrape-offer-ingest.dto';
+import { ScrapeOfferBatchIngestDto, ScrapeOfferIngestDto } from './dto/scrape-offer-ingest.dto';
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { JobSourcesService } from './job-sources.service';
 import { ScrapeRunDiagnosticsResponse } from './dto/run-diagnostics.response';
@@ -36,7 +37,7 @@ export class JobSourcesController {
   @Post('scrape')
   @ApiOperation({ summary: 'Enqueue a scrape job for job listings' })
   @ApiOkResponse({ type: EnqueueScrapeResponseDto })
-  @Throttle({ default: { limit: 6, ttl: 60000 } })
+  @SensitiveRateLimit()
   async enqueueScrape(
     @CurrentUser() user: JwtValidateUser,
     @Headers('x-request-id') requestId: string | undefined,
@@ -207,6 +208,28 @@ export class JobSourcesController {
     @Body() dto: ScrapeOfferIngestDto,
   ) {
     return this.jobSourcesService.ingestScrapeOffer(
+      id,
+      dto,
+      authorization,
+      requestId,
+      workerSignature,
+      workerTimestamp,
+    );
+  }
+
+  @Post('runs/:id/offers/batch')
+  @Public()
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Worker batch offer ingestion for active scrape runs' })
+  async ingestOfferBatch(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-worker-signature') workerSignature: string | undefined,
+    @Headers('x-worker-timestamp') workerTimestamp: string | undefined,
+    @Headers('x-request-id') requestId: string | undefined,
+    @Body() dto: ScrapeOfferBatchIngestDto,
+  ) {
+    return this.jobSourcesService.ingestScrapeOfferBatch(
       id,
       dto,
       authorization,

@@ -64,6 +64,7 @@ export class JobMatchingService {
       hardConstraintViolations: score.hardConstraintViolations,
       softPreferenceGaps: score.softPreferenceGaps,
       matchedCompetencies: score.matchedCompetencies,
+      evidence: score.evidence,
     };
 
     const [record] = await this.db
