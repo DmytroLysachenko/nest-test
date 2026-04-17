@@ -1,11 +1,12 @@
 import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
-import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import { SkipThrottle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public.decorator';
+import { SensitiveRateLimit } from '@/common/rate-limits/rate-limit-groups';
 import { JwtValidateUser } from '@/types/interface/jwt';
 
 import { EnqueueScrapeDto, EnqueueScrapeResponseDto } from './dto/enqueue-scrape.dto';
@@ -36,7 +37,7 @@ export class JobSourcesController {
   @Post('scrape')
   @ApiOperation({ summary: 'Enqueue a scrape job for job listings' })
   @ApiOkResponse({ type: EnqueueScrapeResponseDto })
-  @Throttle({ default: { limit: 6, ttl: 60000 } })
+  @SensitiveRateLimit()
   async enqueueScrape(
     @CurrentUser() user: JwtValidateUser,
     @Headers('x-request-id') requestId: string | undefined,

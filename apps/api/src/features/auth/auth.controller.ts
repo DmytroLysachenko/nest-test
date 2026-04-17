@@ -1,6 +1,5 @@
 ﻿import { BadRequestException, Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 
 import { Public } from '@/common/decorators';
@@ -8,6 +7,7 @@ import { Device, DeviceType } from '@/common/decorators/device.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@/common/guards';
 import { LocalAuthGuard } from '@/common/guards/local-auth.guard';
+import { AuthRateLimit } from '@/common/rate-limits/rate-limit-groups';
 import { JwtValidateUser } from '@/types/interface/jwt';
 
 import { LoginDto } from './dto/login-dto';
@@ -42,7 +42,7 @@ export class AuthController {
   @UseGuards(LocalAuthGuard)
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })
-  @Throttle({ login: {} })
+  @AuthRateLimit()
   async login(@Body() body: LoginDto, @Device() device: DeviceType, @Req() request: Request) {
     const user = request.user as User;
     return this.authService.login(user, device);
@@ -51,7 +51,7 @@ export class AuthController {
   @Public()
   @Post('oauth/google')
   @ApiOperation({ summary: 'Login or register with Google OAuth (authorization code or id token)' })
-  @Throttle({ login: {} })
+  @AuthRateLimit()
   async loginWithGoogle(@Body() body: GoogleOauthLoginDto, @Device() device: DeviceType) {
     return this.authService.loginWithGoogle(body, device);
   }
@@ -59,7 +59,7 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh access token using refresh token' })
-  @Throttle({ refresh: {} })
+  @AuthRateLimit()
   async refresh(@Body() body: RefreshTokenDto) {
     return this.authService.refresh(body.refreshToken);
   }
@@ -67,7 +67,7 @@ export class AuthController {
   @Public()
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
-  @Throttle({ register: {} })
+  @AuthRateLimit()
   async register(@Body() body: RegisterDto) {
     return this.authService.register(body);
   }
@@ -93,7 +93,7 @@ export class AuthController {
   @Public()
   @Post('reset-password')
   @ApiOperation({ summary: 'Reset password with verification code' })
-  @Throttle({ otp: {} })
+  @AuthRateLimit()
   async resetPassword(@Body() body: ResetPasswordDto) {
     await this.authService.resetPassword(body);
     return 'Reset password successfully';
@@ -102,7 +102,7 @@ export class AuthController {
   @Public()
   @Post('send-register-code')
   @ApiOperation({ summary: 'Send registration verification code' })
-  @Throttle({ otp: {} })
+  @AuthRateLimit()
   async sendRegisterCode(@Body() body: SendCodeDto) {
     try {
       const code = await this.optsService.generateOtpCode(body.email, 'EMAIL_REGISTER');
@@ -115,7 +115,7 @@ export class AuthController {
   @Public()
   @Post('send-reset-password-code')
   @ApiOperation({ summary: 'Send reset password verification code' })
-  @Throttle({ otp: {} })
+  @AuthRateLimit()
   async sendResetPasswordCode(@Body() body: SendCodeDto) {
     try {
       const code = await this.optsService.generateOtpCode(body.email, 'PASSWORD_RESET');
