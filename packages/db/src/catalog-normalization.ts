@@ -24,7 +24,36 @@ export const splitCanonicalValues = (value?: string | null) => {
     return [];
   }
 
+  const protectedAliases = [
+    'contract of employment',
+    'employment contract',
+    'umowa o prace',
+    'b2b contract',
+    'contract b2b',
+    'kontrakt b2b',
+    'contract of mandate',
+    'umowa zlecenie',
+    'contract of specific work',
+    'umowa o dzielo',
+    'praca hybrydowa',
+    'praca stacjonarna',
+    'praca zdalna',
+    'home office',
+    'full office',
+    'ekspertka',
+    'ekspert',
+    'praktyki',
+    'staz',
+    'b2b',
+    'uop',
+  ];
+  const aliasPattern = new RegExp(
+    `\\b(${protectedAliases.map((item) => item.replace(/\s+/g, '\\s+')).join('|')})\\b`,
+    'gi',
+  );
+
   return normalized
+    .replace(aliasPattern, ';$1;')
     .split(/\r?\n|[;,|]|\u2022|\/(?=\s)/g)
     .map((item) => collapseWhitespace(item))
     .filter(Boolean);
@@ -68,16 +97,28 @@ const resolveCanonicalDefinition = (
 
 export const CANONICAL_WORK_MODES: CanonicalTaxonomyDefinition[] = [
   { slug: 'remote', label: 'Remote', aliases: ['praca zdalna', 'home office', 'home-office', 'zdalnie'] },
-  { slug: 'hybrid', label: 'Hybrid', aliases: ['hybrydowo', 'hybrid work'] },
-  { slug: 'onsite', label: 'On-site', aliases: ['stacjonarnie', 'office', 'full office', 'in office'] },
+  { slug: 'hybrid', label: 'Hybrid', aliases: ['praca hybrydowa', 'hybrydowo', 'hybrid work'] },
+  {
+    slug: 'onsite',
+    label: 'On-site',
+    aliases: ['praca stacjonarna', 'stacjonarnie', 'office', 'full office', 'in office'],
+  },
   { slug: 'mobile', label: 'Mobile', aliases: ['field', 'mobilna', 'terenowa'] },
 ];
 
 export const CANONICAL_CONTRACT_TYPES: CanonicalTaxonomyDefinition[] = [
-  { slug: 'uop', label: 'Employment contract', aliases: ['umowa o prace', 'employment contract'] },
-  { slug: 'b2b', label: 'B2B contract', aliases: ['kontrakt b2b', 'contract b2b'] },
-  { slug: 'mandate', label: 'Mandate contract', aliases: ['umowa zlecenie', 'zlecenie'] },
-  { slug: 'specific-task', label: 'Specific-task contract', aliases: ['umowa o dzielo', 'dzielo'] },
+  {
+    slug: 'uop',
+    label: 'Employment contract',
+    aliases: ['umowa o prace', 'employment contract', 'contract of employment'],
+  },
+  { slug: 'b2b', label: 'B2B contract', aliases: ['kontrakt b2b', 'contract b2b', 'b2b contract'] },
+  { slug: 'mandate', label: 'Mandate contract', aliases: ['umowa zlecenie', 'zlecenie', 'contract of mandate'] },
+  {
+    slug: 'specific-task',
+    label: 'Specific-task contract',
+    aliases: ['umowa o dzielo', 'dzielo', 'contract of specific work'],
+  },
   { slug: 'internship', label: 'Internship', aliases: ['staz', 'praktyki', 'trainee'] },
   { slug: 'substitution', label: 'Substitution contract', aliases: ['umowa na zastepstwo'] },
   { slug: 'agency', label: 'Agency contract', aliases: ['umowa agencyjna'] },
@@ -123,8 +164,8 @@ export const CANONICAL_SENIORITY_LEVELS: CanonicalTaxonomyDefinition[] = [
   { slug: 'intern', label: 'Intern', aliases: ['praktykant', 'stazysta', 'trainee', 'intern'] },
   { slug: 'junior', label: 'Junior', aliases: ['mlodszy specjalista', 'junior', 'associate'] },
   { slug: 'mid', label: 'Mid', aliases: ['specjalista', 'mid', 'regular'] },
-  { slug: 'senior', label: 'Senior', aliases: ['starszy specjalista', 'senior'] },
-  { slug: 'lead', label: 'Lead', aliases: ['ekspert', 'lead', 'principal', 'architekt'] },
+  { slug: 'senior', label: 'Senior', aliases: ['starszy specjalista', 'senior', 'ekspert', 'ekspertka', 'expert'] },
+  { slug: 'lead', label: 'Lead', aliases: ['lead', 'principal', 'architekt'] },
   { slug: 'manager', label: 'Manager', aliases: ['manager', 'menedzer', 'kierownik', 'koordynator', 'head'] },
   { slug: 'director', label: 'Director', aliases: ['dyrektor', 'director'] },
   { slug: 'executive', label: 'Executive', aliases: ['prezes', 'executive', 'vp', 'chief'] },
