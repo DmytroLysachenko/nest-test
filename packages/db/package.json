@@ -34,6 +34,7 @@
   "packageManager": "pnpm@10.11.0",
   "scripts": {
     "audit:scrape-catalog": "tsx src/seeds/audit-scrape-catalog.ts",
+    "audit:matching-data-quality": "tsx src/seeds/audit-matching-data-quality.ts",
     "build": "tsup",
     "backfill:catalog-normalization": "tsx src/seeds/backfill-catalog-normalization.ts",
     "check-types": "tsc --noEmit -p tsconfig.json",
