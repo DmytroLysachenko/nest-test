@@ -2272,6 +2272,9 @@ describe('JobSourcesService', () => {
         acceptedOfferCount: 0,
         rejectedOfferCount: 0,
         dedupedInRunCount: 0,
+        uniqueDiscoveredOfferCount: 0,
+        fullDetailOfferCount: 0,
+        partialDetailOfferCount: 0,
         salvagedOfferCount: 0,
       },
       finalize: {

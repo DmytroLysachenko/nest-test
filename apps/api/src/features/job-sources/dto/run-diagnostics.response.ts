@@ -94,6 +94,9 @@ class ScrapeRunDiagnosticsPayloadResponse {
       acceptedOfferCount: number;
       rejectedOfferCount: number;
       dedupedInRunCount: number;
+      uniqueDiscoveredOfferCount?: number;
+      fullDetailOfferCount?: number;
+      partialDetailOfferCount?: number;
       salvagedOfferCount: number;
     };
     finalize: {

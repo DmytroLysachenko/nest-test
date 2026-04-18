@@ -341,4 +341,69 @@ describe('JobMatchingService scoring', () => {
 
     expect(result.matchedCompetencies.map((item) => item.name)).toContain('TypeScript');
   });
+
+  it('uses secondary seniority and structured fields for junior-compatible matches', () => {
+    const result = scoreCandidateAgainstJob(
+      {
+        schemaVersion: '1.0.0',
+        candidateCore: {
+          headline: 'Intern Frontend Engineer',
+          summary: 'Entry frontend profile targeting junior roles.',
+          seniority: { primary: 'intern', secondary: ['junior'] },
+          languages: [],
+        },
+        targetRoles: [{ title: 'Frontend Developer', confidenceScore: 0.9, confidenceLevel: 'high', priority: 1 }],
+        competencies: [
+          {
+            name: 'React.js',
+            type: 'technology',
+            confidenceScore: 0.9,
+            confidenceLevel: 'high',
+            importance: 'high',
+            evidence: [],
+            isTransferable: false,
+          },
+          {
+            name: 'TypeScript',
+            type: 'technology',
+            confidenceScore: 0.9,
+            confidenceLevel: 'high',
+            importance: 'high',
+            evidence: [],
+            isTransferable: false,
+          },
+        ],
+        workPreferences: {
+          hardConstraints: {
+            workModes: ['hybrid'],
+            employmentTypes: ['uop'],
+            locations: [],
+            noPolishRequired: false,
+            onlyEmployerOffers: false,
+            onlyWithProjectDescription: false,
+          },
+          softPreferences: { workModes: [], employmentTypes: [], locations: [] },
+        },
+        searchSignals: { keywords: [{ value: 'frontend', weight: 1 }], specializations: [], technologies: [] },
+        riskAndGrowth: { gaps: [], growthDirections: [], transferableStrengths: [] },
+      },
+      {
+        title: 'Junior Frontend Developer',
+        text: 'Build product UI and maintain frontend workflows.',
+        seniorityLevels: ['junior'],
+        technologies: ['React.js', 'TypeScript'],
+        workModes: ['hybrid'],
+        contractTypes: ['uop', 'mandate'],
+      },
+    );
+
+    expect(result.hardConstraintViolations).not.toContain('seniority');
+    expect(result.hardConstraintViolations).not.toContain('workModes');
+    expect(result.hardConstraintViolations).not.toContain('employmentTypes');
+    expect(result.evidence.seniority).toBeUndefined();
+    expect(result.evidence.structuredFieldsUsed).toContain('seniorityLevels');
+    expect(result.matchedCompetencies.map((item) => item.name)).toEqual(
+      expect.arrayContaining(['React.js', 'TypeScript']),
+    );
+  });
 });

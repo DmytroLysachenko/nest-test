@@ -89,6 +89,7 @@ export const sanitizeCallbackJobs = (jobs: ScrapeCompleteDto['jobs']) => {
       employmentType: normalizeString(job.employmentType) ?? undefined,
       isExpired: job.isExpired,
       requirements: sanitizeStringArray(job.requirements),
+      details: job.details ?? undefined,
       tags: sanitizeStringArray(job.tags),
       rawPayload: job.rawPayload ?? undefined,
     });

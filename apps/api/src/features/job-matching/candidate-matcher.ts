@@ -224,8 +224,24 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
   const softGaps: string[] = [];
   const matchedCompetencies: Array<{ name: string; confidenceScore: number; importance: string }> = [];
   const primarySeniority = profile.candidateCore.seniority.primary;
-  const maxAllowedSeniorityOrder = primarySeniority ? SENIORITY_ORDER[primarySeniority] : null;
+  const allowedSeniorities = [primarySeniority, ...profile.candidateCore.seniority.secondary].filter(
+    (value): value is keyof typeof SENIORITY_ORDER => Boolean(value),
+  );
+  const maxAllowedSeniorityOrder = allowedSeniorities.length
+    ? Math.max(...allowedSeniorities.map((value) => SENIORITY_ORDER[value]))
+    : null;
   const evidence: Record<string, string> = {};
+  const structuredFieldsUsed = [
+    structuredContractTypes.length ? 'contractTypes' : null,
+    structuredEmploymentSchedules.length ? 'employmentSchedules' : null,
+    structuredWorkModes.length ? 'workModes' : null,
+    context.seniorityLevels?.length ? 'seniorityLevels' : null,
+    context.technologies?.length ? 'technologies' : null,
+    typeof context.salaryMin === 'number' || typeof context.salaryMax === 'number' ? 'salary' : null,
+  ].filter((value): value is string => Boolean(value));
+  if (structuredFieldsUsed.length) {
+    evidence.structuredFieldsUsed = structuredFieldsUsed.join(',');
+  }
   const structuredSeniority = selectHighestSeniority(context.seniorityLevels ?? []);
   const titleSenioritySignal = detectJobSeniority(context.title ?? '');
   const bodySenioritySignal = detectJobSeniority(text);
@@ -235,7 +251,11 @@ export const scoreCandidateAgainstJob = (profile: CandidateProfile, context: Job
       ? { ...titleSenioritySignal, source: 'title' }
       : { ...bodySenioritySignal, source: 'text' };
 
-  if (maxAllowedSeniorityOrder && senioritySignal.detected) {
+  if (
+    maxAllowedSeniorityOrder &&
+    senioritySignal.detected &&
+    !(senioritySignal.source === 'text' && senioritySignal.ambiguous)
+  ) {
     const jobOrder = SENIORITY_ORDER[senioritySignal.detected];
     if (jobOrder > maxAllowedSeniorityOrder) {
       hardViolations.push('seniority');
