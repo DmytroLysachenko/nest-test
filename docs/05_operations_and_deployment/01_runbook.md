@@ -272,6 +272,21 @@ Use this flow before changing scraper code randomly:
    - `productivity.insertionRatio`
    - `browserSummary.failureReason` when fallback was needed
 
+## Scrape Offer Quality Signals
+
+Use these counters after Pracuj.pl parser or matcher changes:
+
+1. `stageMetrics.parse.uniqueDiscoveredOfferCount`
+   - Count of distinct primary listing links discovered before detail parsing and salvage filtering.
+2. `stageMetrics.parse.fullDetailOfferCount`
+   - Accepted offers with structured detail signals such as apply link, company profile, technologies, requirements, sections, work mode, contract type, or position level.
+3. `stageMetrics.parse.partialDetailOfferCount`
+   - Accepted offers with required fields but limited structured detail extraction.
+4. `stageMetrics.parse.salvagedOfferCount`
+   - Listing-summary offers inserted only as degraded fallback. This should stay lower than full/partial detail counts for healthy runs.
+5. Catalog `quality_reason` should improve from `listing_salvage` or `low_context` to `detail_partial` or `detail_full` when a later scrape fetches richer details for the same canonical offer URL.
+6. If `uniqueDiscoveredOfferCount` is healthy but `fullDetailOfferCount` stays near zero, inspect Pracuj detail HTML fixtures and parser selectors before changing notebook matching thresholds.
+
 ## Hook Bypass Policy
 
 1. Do not use `--no-verify` for routine commits or pushes.
