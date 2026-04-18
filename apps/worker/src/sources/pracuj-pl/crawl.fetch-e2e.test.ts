@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import test from 'node:test';
 
 import { crawlPracujPl } from './crawl';
+import { parsePracujPl } from './parse';
+
+const readFixture = (name: string) => readFileSync(new URL(`./__fixtures__/${name}`, import.meta.url), 'utf8');
 
 const startFixtureServer = async (routes: Record<string, { status?: number; html: string }>) => {
   const server = createServer((request, response) => {
@@ -76,6 +80,47 @@ test('crawlPracujPl fetches listing and detail pages over HTTP', async () => {
     assert.match(result.pages[0]?.html ?? '', /Solution Architect/);
     assert.equal(result.detailDiagnostics.length, 1);
     assert.equal(result.detailDiagnostics[0]?.blocked, false);
+  } finally {
+    await server.close();
+  }
+});
+
+test('crawlPracujPl fetches and parses a rich rendered fixture offer', async () => {
+  const server = await startFixtureServer({
+    '/praca': {
+      html: `
+        <html>
+          <head><title>Listing</title></head>
+          <body>
+            <section data-test="section-offers">
+              <a href="https://www.pracuj.pl/praca/junior-frontend-developer-krakow,oferta,1004778768">
+                Junior Frontend Developer
+              </a>
+            </section>
+          </body>
+        </html>
+      `,
+    },
+    '/praca/junior-frontend-developer-krakow,oferta,1004778768': {
+      html: readFixture('detail-rendered-rich.html'),
+    },
+  });
+
+  try {
+    const result = await crawlPracujPl(true, `${server.baseUrl}/praca`, 10, undefined, {
+      detailHost: server.baseUrl,
+    });
+    const [parsed] = parsePracujPl(result.pages);
+
+    assert.equal(result.pages.length, 1);
+    assert.equal(parsed?.title, 'Junior Frontend Developer');
+    assert.match(parsed?.salary ?? '', /5 500 - 8 000 zl brutto \/ mies/i);
+    assert.equal(parsed?.applyUrl, 'https://pracuj.pl/apply/1004778768');
+    assert.deepEqual(parsed?.details?.technologies?.required, ['TypeScript', 'React.js', 'Tailwind CSS']);
+    assert.deepEqual(parsed?.requirements, [
+      'Minimum 1 rok doswiadczenia jako Frontend Developer',
+      'Bardzo dobra znajomosc TypeScript i React',
+    ]);
   } finally {
     await server.close();
   }
