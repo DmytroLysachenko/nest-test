@@ -88,6 +88,9 @@ export const buildSalvagedListingJobs = (summaries: ListingJobSummary[]): Parsed
     requirements: [],
     tags: ['listing-salvage', 'degraded-source'],
     details: summary.details,
+    rawPayload: {
+      listingSummary: summary,
+    },
   }));
 
 const canonicalizeUrl = (value: string) => {
@@ -101,16 +104,21 @@ const canonicalizeUrl = (value: string) => {
   }
 };
 
+const canonicalizeIdentity = (value: string) => canonicalizeUrl(value);
+
 export const mergeParsedJobsWithListingSalvage = (
   parsedJobs: ParsedJob[],
   listingSummaries: ListingJobSummary[],
+  discoveredUrls: string[] = [],
   skippedUrls: string[] = [],
 ) => {
   const parsedUrlSet = new Set(parsedJobs.map((job) => canonicalizeUrl(job.url)));
   const skippedUrlSet = new Set(skippedUrls.map((url) => canonicalizeUrl(url)));
+  const discoveredUrlSet = new Set(discoveredUrls.map((url) => canonicalizeIdentity(url)));
   const salvagedJobs = buildSalvagedListingJobs(listingSummaries).filter((job) => {
     const normalizedUrl = canonicalizeUrl(job.url);
-    return !parsedUrlSet.has(normalizedUrl) && !skippedUrlSet.has(normalizedUrl);
+    const discovered = discoveredUrlSet.size === 0 || discoveredUrlSet.has(canonicalizeIdentity(job.url));
+    return discovered && !parsedUrlSet.has(normalizedUrl) && !skippedUrlSet.has(normalizedUrl);
   });
 
   return [...parsedJobs, ...salvagedJobs];
@@ -167,7 +175,12 @@ export const runPostProcessStage = (
 ) =>
   listingOnly
     ? []
-    : mergeParsedJobsWithListingSalvage(detailParsedJobs, crawlResult.listingSummaries, crawlResult.skippedUrls);
+    : mergeParsedJobsWithListingSalvage(
+        detailParsedJobs,
+        crawlResult.listingSummaries,
+        crawlResult.jobLinks,
+        crawlResult.skippedUrls,
+      );
 
 export const runNormalizeStage = (pipeline: PipelineDefinition, parsedJobs: ParsedJob[], normalizeSource: string) =>
   pipeline.normalize(parsedJobs, normalizeSource);

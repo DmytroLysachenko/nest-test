@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { runFetchStage, runNormalizeStage, runParseStage } from './scrape-pipelines';
+import { mergeParsedJobsWithListingSalvage, runFetchStage, runNormalizeStage, runParseStage } from './scrape-pipelines';
 
 type TestPipeline = Parameters<typeof runFetchStage>[0];
 
@@ -50,4 +50,47 @@ test('pipeline stages use the resolved adapter implementation', async () => {
   runNormalizeStage(adapter, [], adapter.normalizeSource);
 
   assert.deepEqual(events, ['fetch', 'parse', 'normalize']);
+});
+
+test('listing salvage is limited to discovered primary links and skips parsed duplicates', () => {
+  const parsed = [
+    {
+      title: 'Parsed Frontend',
+      description: 'Detailed parsed offer',
+      url: 'https://www.pracuj.pl/praca/frontend,oferta,100',
+      sourceId: '100',
+    },
+  ];
+  const summaries = [
+    {
+      title: 'Parsed Frontend',
+      url: 'https://www.pracuj.pl/praca/frontend,oferta,100',
+      sourceId: '100',
+      company: 'A',
+    },
+    {
+      title: 'Discovered Backend',
+      url: 'https://www.pracuj.pl/praca/backend,oferta,200',
+      sourceId: '200',
+      company: 'B',
+    },
+    {
+      title: 'Recommended Noise',
+      url: 'https://www.pracuj.pl/praca/noise,oferta,300',
+      sourceId: '300',
+      company: 'C',
+    },
+  ];
+
+  const merged = mergeParsedJobsWithListingSalvage(parsed, summaries, [
+    'https://www.pracuj.pl/praca/frontend,oferta,100',
+    'https://www.pracuj.pl/praca/backend,oferta,200',
+  ]);
+
+  assert.equal(merged.length, 2);
+  assert.deepEqual(
+    merged.map((job) => job.sourceId),
+    ['100', '200'],
+  );
+  assert.equal(merged[1]?.tags?.includes('listing-salvage'), true);
 });
