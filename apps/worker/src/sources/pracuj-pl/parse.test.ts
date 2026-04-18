@@ -87,3 +87,32 @@ test('parsePracujPl preserves critical fields when source section headings drift
   assert.deepEqual(result?.requirements, ['Playwright', 'TypeScript', 'API testing']);
   assert.ok(result?.description);
 });
+
+test('parsePracujPl extracts rich rendered Pracuj detail content', () => {
+  const [result] = parsePracujPl([
+    {
+      url: 'https://it.pracuj.pl/praca/junior-frontend-developer-krakow,oferta,1004778768',
+      html: readFixture('detail-rendered-rich.html'),
+    },
+  ]);
+
+  assert.equal(result?.title, 'Junior Frontend Developer');
+  assert.equal(result?.company, 'SYNTHETIFY LABS SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA');
+  assert.equal(result?.location, 'Krakow, malopolskie');
+  assert.match(result?.salary ?? '', /5 500 - 8 000 zl brutto \/ mies/i);
+  assert.equal(result?.applyUrl, 'https://pracuj.pl/apply/1004778768');
+  assert.equal(result?.sourceCompanyProfileUrl, 'https://pracuj.pl/synthetify-labs');
+  assert.deepEqual(result?.details?.technologies?.required, ['TypeScript', 'React.js', 'Tailwind CSS']);
+  assert.deepEqual(result?.details?.technologies?.niceToHave, ['Codex', 'Claude Code']);
+  assert.deepEqual(result?.details?.positionLevels, ['mlodszy specjalista / mlodsza specjalistka (junior)']);
+  assert.deepEqual(result?.details?.workModes, ['praca hybrydowa']);
+  assert.deepEqual(result?.details?.contractTypes, ['umowa o prace', 'umowa zlecenie', 'kontrakt B2B']);
+  assert.deepEqual(result?.requirements, [
+    'Minimum 1 rok doswiadczenia jako Frontend Developer',
+    'Bardzo dobra znajomosc TypeScript i React',
+  ]);
+  assert.deepEqual(result?.details?.sections?.responsibilities, [
+    'Rozwoj i utrzymanie aplikacji',
+    'Dbanie o jakosc kodu',
+  ]);
+});
