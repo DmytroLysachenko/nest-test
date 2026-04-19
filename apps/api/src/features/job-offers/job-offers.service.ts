@@ -14,6 +14,7 @@ import {
   jobOfferWorkSchedulesTable,
   jobOffersTable,
   jobCategoriesTable,
+  jobSourceRunsTable,
   notebookPreferencesTable,
   seniorityLevelsTable,
   technologiesTable,
@@ -34,7 +35,7 @@ import {
 } from '@/features/job-offers/notebook-ranking';
 
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
-import { buildAttentionSignals, buildCollectionState } from './job-offers-attention';
+import { buildAttentionSignals, buildCollectionState, buildOfferReliabilityContext } from './job-offers-attention';
 import { defaultNotebookFilters, normalizeNotebookFilters } from './job-offers-preferences';
 import {
   buildPrepTalkingPoints,
@@ -307,10 +308,15 @@ export class JobOffersService {
         requirements: jobOffersTable.requirements,
         details: jobOffersTable.details,
         qualityReason: jobOffersTable.qualityReason,
+        sourceQuality: jobSourceRunsTable.sourceQuality,
+        classifiedOutcome: jobSourceRunsTable.classifiedOutcome,
+        runError: jobSourceRunsTable.error,
+        runProgress: jobSourceRunsTable.progress,
         createdAt: jobOffersTable.fetchedAt,
       })
       .from(userJobOffersTable)
       .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .leftJoin(jobSourceRunsTable, eq(jobSourceRunsTable.id, userJobOffersTable.sourceRunId))
       .leftJoin(companiesTable, eq(jobOffersTable.companyId, companiesTable.id))
       .leftJoin(jobCategoriesTable, eq(jobOffersTable.jobCategoryId, jobCategoriesTable.id))
       .leftJoin(employmentTypesTable, eq(jobOffersTable.employmentTypeId, employmentTypesTable.id))
@@ -335,6 +341,13 @@ export class JobOffersService {
           this.rankingTuning,
         );
         const structuredDetails = buildStructuredOfferDetails(item, structuredRelationMap.get(item.jobOfferId) ?? null);
+        const reliabilityContext = buildOfferReliabilityContext({
+          qualityReason: item.qualityReason,
+          sourceQuality: item.sourceQuality,
+          classifiedOutcome: item.classifiedOutcome,
+          runError: item.runError,
+          progress: item.runProgress,
+        });
         const {
           companySummaryId,
           companyCanonicalName,
@@ -347,6 +360,10 @@ export class JobOffersService {
           employmentTypeLabel,
           contractTypeLabel,
           workModeLabel,
+          sourceQuality,
+          classifiedOutcome,
+          runError,
+          runProgress,
           ...responseItem
         } = item;
 
@@ -355,7 +372,12 @@ export class JobOffersService {
           structuredDetails,
           rankingScore: ranking.rankingScore,
           explanationTags: ranking.explanationTags,
-          attentionSignals: buildAttentionSignals({ status: item.status, source: item, now: followUpNow }),
+          reliabilityContext,
+          attentionSignals: buildAttentionSignals({
+            status: item.status,
+            source: { ...item, reliabilityContext },
+            now: followUpNow,
+          }),
           recommendedAction: buildRecommendedAction(item, followUpNow),
           followUpState: resolveFollowUpState(item.status, item, followUpNow),
           pipelineMeta: buildPipelineMetaWithFollowUp(item.pipelineMeta, followUpFields),
@@ -369,7 +391,7 @@ export class JobOffersService {
           lastFollowUpSnoozedAt: toIsoString(followUpFields.lastFollowUpSnoozedAt),
           __createdAtMs: new Date(item.createdAt).getTime(),
           __include: ranking.include,
-          __isDegradedSource: item.qualityReason === 'listing_salvage' || item.qualityReason === 'low_context',
+          __isDegradedSource: reliabilityContext.key !== 'healthy',
         };
       })
       .filter((item) => {
@@ -562,10 +584,15 @@ export class JobOffersService {
         requirements: jobOffersTable.requirements,
         details: jobOffersTable.details,
         qualityReason: jobOffersTable.qualityReason,
+        sourceQuality: jobSourceRunsTable.sourceQuality,
+        classifiedOutcome: jobSourceRunsTable.classifiedOutcome,
+        runError: jobSourceRunsTable.error,
+        runProgress: jobSourceRunsTable.progress,
         createdAt: jobOffersTable.fetchedAt,
       })
       .from(userJobOffersTable)
       .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .leftJoin(jobSourceRunsTable, eq(jobSourceRunsTable.id, userJobOffersTable.sourceRunId))
       .leftJoin(companiesTable, eq(jobOffersTable.companyId, companiesTable.id))
       .leftJoin(jobCategoriesTable, eq(jobOffersTable.jobCategoryId, jobCategoriesTable.id))
       .leftJoin(employmentTypesTable, eq(jobOffersTable.employmentTypeId, employmentTypesTable.id))
@@ -593,6 +620,13 @@ export class JobOffersService {
         const matchMeta = (item.matchMeta as Record<string, unknown> | null) ?? null;
         const fitHighlights = getHumanFitHighlights(matchMeta, ranking.explanationTags, item.matchScore);
         const structuredDetails = buildStructuredOfferDetails(item, structuredRelationMap.get(item.jobOfferId) ?? null);
+        const reliabilityContext = buildOfferReliabilityContext({
+          qualityReason: item.qualityReason,
+          sourceQuality: item.sourceQuality,
+          classifiedOutcome: item.classifiedOutcome,
+          runError: item.runError,
+          progress: item.runProgress,
+        });
         const {
           companySummaryId,
           companyCanonicalName,
@@ -605,6 +639,10 @@ export class JobOffersService {
           employmentTypeLabel,
           contractTypeLabel,
           workModeLabel,
+          sourceQuality,
+          classifiedOutcome,
+          runError,
+          runProgress,
           ...responseItem
         } = item;
 
@@ -613,7 +651,12 @@ export class JobOffersService {
           structuredDetails,
           rankingScore: ranking.rankingScore,
           explanationTags: ranking.explanationTags,
-          attentionSignals: buildAttentionSignals({ status: item.status, source: item, now: followUpNow }),
+          reliabilityContext,
+          attentionSignals: buildAttentionSignals({
+            status: item.status,
+            source: { ...item, reliabilityContext },
+            now: followUpNow,
+          }),
           recommendedAction: buildRecommendedAction(item, followUpNow),
           followUpState: resolveFollowUpState(item.status, item, followUpNow),
           pipelineMeta: buildPipelineMetaWithFollowUp(item.pipelineMeta, followUpFields),
@@ -654,9 +697,7 @@ export class JobOffersService {
       collectionState: buildCollectionState({
         mode,
         hiddenByModeCount: 0,
-        degradedResultCount: prioritized.filter(
-          (item) => item.qualityReason === 'listing_salvage' || item.qualityReason === 'low_context',
-        ).length,
+        degradedResultCount: prioritized.filter((item) => item.reliabilityContext?.key !== 'healthy').length,
         lastScrapeStatus: null,
       }),
     };

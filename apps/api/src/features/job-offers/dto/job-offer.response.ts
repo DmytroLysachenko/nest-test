@@ -54,7 +54,8 @@ class JobOfferAttentionSignal {
     | 'missing_next_step'
     | 'stale_pipeline'
     | 'prep_recommended'
-    | 'awaiting_decision';
+    | 'awaiting_decision'
+    | 'degraded_source';
 
   @ApiProperty()
   label!: string;
@@ -83,6 +84,23 @@ class JobOfferRecommendedAction {
 
   @ApiProperty()
   href!: string;
+}
+
+class JobOfferReliabilityContext {
+  @ApiProperty({ enum: ['healthy', 'degraded_source', 'partial_source', 'recovered_stale_run'] })
+  key!: 'healthy' | 'degraded_source' | 'partial_source' | 'recovered_stale_run';
+
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  description!: string;
+
+  @ApiProperty({ enum: ['info', 'warning'] })
+  severity!: 'info' | 'warning';
+
+  @ApiProperty({ type: [String] })
+  reasons!: string[];
 }
 
 class JobOfferCollectionState {
@@ -164,6 +182,9 @@ export class JobOfferItem {
 
   @ApiProperty({ required: false, type: JobOfferRecommendedAction })
   recommendedAction?: JobOfferRecommendedAction;
+
+  @ApiProperty({ required: false, type: JobOfferReliabilityContext })
+  reliabilityContext?: JobOfferReliabilityContext;
 
   @ApiProperty({ required: false })
   followUpAt!: string | null;

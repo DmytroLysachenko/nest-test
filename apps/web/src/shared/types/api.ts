@@ -761,9 +761,18 @@ export type JobOfferAttentionSignalDto = {
     | 'missing_next_step'
     | 'stale_pipeline'
     | 'prep_recommended'
-    | 'awaiting_decision';
+    | 'awaiting_decision'
+    | 'degraded_source';
   label: string;
   reason: string;
+};
+
+export type JobOfferReliabilityContextDto = {
+  key: 'healthy' | 'degraded_source' | 'partial_source' | 'recovered_stale_run';
+  label: string;
+  description: string;
+  severity: 'info' | 'warning';
+  reasons: string[];
 };
 
 export type JobOfferRecommendedActionDto = {
@@ -800,6 +809,7 @@ export type JobOfferListItemDto = {
   followUpState?: 'due' | 'upcoming' | 'none';
   attentionSignals?: JobOfferAttentionSignalDto[];
   recommendedAction?: JobOfferRecommendedActionDto;
+  reliabilityContext?: JobOfferReliabilityContextDto;
   followUpAt?: string | null;
   nextStep?: string | null;
   followUpNote?: string | null;
