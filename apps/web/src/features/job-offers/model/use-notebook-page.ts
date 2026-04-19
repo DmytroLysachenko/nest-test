@@ -1,30 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useNotebookMutations } from '@/features/job-offers/model/hooks/use-notebook-mutations';
 import { useNotebookQueries } from '@/features/job-offers/model/hooks/use-notebook-queries';
+import {
+  buildNotebookActiveFilters,
+  notebookQuickActionFilters,
+  toNotebookListParams,
+} from '@/features/job-offers/model/utils/notebook-filter-utils';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { useAppUiStore } from '@/shared/store/app-ui-store';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
+import type { NotebookQuickActionKey } from '@/features/job-offers/model/types/notebook-view-model';
+
 type UseNotebookPageArgs = {
   token: string;
-  initialQuickAction?:
-    | 'unscored'
-    | 'strictTop'
-    | 'saved'
-    | 'applied'
-    | 'staleUntriaged'
-    | 'followUpDue'
-    | 'followUpUpcoming'
-    | 'missingNextStep'
-    | 'stalePipeline'
-    | 'followUpDueToday'
-    | 'prepRecommended'
-    | 'awaitingDecision'
-    | 'degradedResults'
-    | null;
+  initialQuickAction?: NotebookQuickActionKey | null;
   initialOfferId?: string | null;
 };
 
@@ -48,30 +41,7 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
   const applyNotebookFilterPreset = useAppUiStore((state) => state.applyNotebookFilterPreset);
   const setNotebookOffset = useAppUiStore((state) => state.setNotebookOffset);
 
-  const listParams = useMemo(
-    () => ({
-      limit: pagination.limit,
-      offset: pagination.offset,
-      status: filters.status === 'ALL' ? undefined : filters.status,
-      mode: filters.mode,
-      search: filters.search || undefined,
-      tag: filters.tag || undefined,
-      hasScore: filters.hasScore === 'all' ? undefined : filters.hasScore === 'yes',
-      followUp: filters.followUp === 'all' ? undefined : filters.followUp,
-      attention: filters.attention === 'all' ? undefined : filters.attention,
-    }),
-    [
-      filters.attention,
-      filters.followUp,
-      filters.hasScore,
-      filters.mode,
-      filters.search,
-      filters.status,
-      filters.tag,
-      pagination.limit,
-      pagination.offset,
-    ],
-  );
+  const listParams = useMemo(() => toNotebookListParams(filters, pagination), [filters, pagination]);
 
   const {
     listQuery,
@@ -143,96 +113,8 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
   const canPrev = pagination.offset > 0;
   const canNext = (listQuery.data?.items.length ?? 0) === pagination.limit;
   const activeFilters = useMemo(
-    () => [
-      ...(filters.status !== 'ALL'
-        ? [
-            {
-              key: 'status',
-              label: `Status: ${filters.status}`,
-              onClear: () => setNotebookFilter('status', 'ALL'),
-            },
-          ]
-        : []),
-      ...(filters.mode !== 'strict'
-        ? [
-            {
-              key: 'mode',
-              label: `Mode: ${filters.mode}`,
-              onClear: () => setNotebookFilter('mode', 'strict'),
-            },
-          ]
-        : []),
-      ...(filters.hasScore !== 'all'
-        ? [
-            {
-              key: 'hasScore',
-              label: `Has score: ${filters.hasScore}`,
-              onClear: () => setNotebookFilter('hasScore', 'all'),
-            },
-          ]
-        : []),
-      ...(filters.tag
-        ? [
-            {
-              key: 'tag',
-              label: `Tag: ${filters.tag}`,
-              onClear: () => setNotebookFilter('tag', ''),
-            },
-          ]
-        : []),
-      ...(filters.search
-        ? [
-            {
-              key: 'search',
-              label: `Search: ${filters.search}`,
-              onClear: () => setNotebookFilter('search', ''),
-            },
-          ]
-        : []),
-      ...(filters.followUp !== 'all'
-        ? [
-            {
-              key: 'followUp',
-              label: `Follow-up: ${filters.followUp}`,
-              onClear: () => setNotebookFilter('followUp', 'all'),
-            },
-          ]
-        : []),
-      ...(filters.attention !== 'all'
-        ? [
-            {
-              key: 'attention',
-              label:
-                filters.attention === 'missingNextStep'
-                  ? 'Attention: missing next step'
-                  : filters.attention === 'stalePipeline'
-                    ? 'Attention: stale pipeline'
-                    : filters.attention === 'followUpOverdue'
-                      ? 'Attention: follow-up overdue'
-                      : filters.attention === 'followUpDueToday'
-                        ? 'Attention: due today'
-                        : filters.attention === 'prepRecommended'
-                          ? 'Attention: prep recommended'
-                          : filters.attention === 'awaitingDecision'
-                            ? 'Attention: awaiting decision'
-                            : filters.attention === 'degradedResults'
-                              ? 'Attention: degraded results'
-                              : 'Attention: stale untriaged',
-              onClear: () => setNotebookFilter('attention', 'all'),
-            },
-          ]
-        : []),
-    ],
-    [
-      filters.attention,
-      filters.followUp,
-      filters.hasScore,
-      filters.mode,
-      filters.search,
-      filters.status,
-      filters.tag,
-      setNotebookFilter,
-    ],
+    () => buildNotebookActiveFilters(filters, setNotebookFilter),
+    [filters, setNotebookFilter],
   );
 
   const listError = listQuery.isError
@@ -257,126 +139,22 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
   const isAllVisibleSelected =
     selectedVisibleIds.length > 0 && selectedVisibleIds.every((id) => selectedOfferIds.includes(id));
 
-  const applyQuickAction = (
-    action:
-      | 'unscored'
-      | 'strictTop'
-      | 'saved'
-      | 'applied'
-      | 'staleUntriaged'
-      | 'followUpDue'
-      | 'followUpUpcoming'
-      | 'missingNextStep'
-      | 'stalePipeline'
-      | 'followUpDueToday'
-      | 'prepRecommended'
-      | 'awaitingDecision'
-      | 'degradedResults',
-  ) => {
-    setNotebookSelectedOffer(null);
-    clearNotebookSelectedOfferIds();
-    setNotebookFilter('search', '');
-    setNotebookFilter('tag', '');
-    setNotebookFilter('followUp', 'all');
-    setNotebookFilter('attention', 'all');
+  const applyQuickAction = useCallback(
+    (action: NotebookQuickActionKey) => {
+      const nextFilters = notebookQuickActionFilters[action];
 
-    if (action === 'unscored') {
-      setNotebookFilter('status', 'ALL');
-      setNotebookFilter('mode', 'strict');
-      setNotebookFilter('hasScore', 'no');
-      return;
-    }
-
-    if (action === 'strictTop') {
-      setNotebookFilter('status', 'ALL');
-      setNotebookFilter('mode', 'strict');
-      setNotebookFilter('hasScore', 'yes');
-      return;
-    }
-
-    if (action === 'saved') {
-      setNotebookFilter('status', 'SAVED');
-      setNotebookFilter('mode', 'strict');
-      setNotebookFilter('hasScore', 'all');
-      return;
-    }
-
-    if (action === 'followUpDue') {
-      setNotebookFilter('status', 'ALL');
-      setNotebookFilter('mode', 'strict');
-      setNotebookFilter('hasScore', 'all');
-      setNotebookFilter('followUp', 'due');
-      return;
-    }
-
-    if (action === 'followUpUpcoming') {
-      setNotebookFilter('status', 'ALL');
-      setNotebookFilter('mode', 'strict');
-      setNotebookFilter('hasScore', 'all');
-      setNotebookFilter('followUp', 'upcoming');
-      return;
-    }
-
-    if (action === 'staleUntriaged') {
-      setNotebookFilter('status', 'ALL');
-      setNotebookFilter('mode', 'strict');
-      setNotebookFilter('hasScore', 'all');
-      setNotebookFilter('attention', 'staleUntriaged');
-      return;
-    }
-
-    if (action === 'missingNextStep') {
-      setNotebookFilter('status', 'ALL');
-      setNotebookFilter('mode', 'strict');
-      setNotebookFilter('hasScore', 'all');
-      setNotebookFilter('attention', 'missingNextStep');
-      return;
-    }
-
-    if (action === 'stalePipeline') {
-      setNotebookFilter('status', 'ALL');
-      setNotebookFilter('mode', 'strict');
-      setNotebookFilter('hasScore', 'all');
-      setNotebookFilter('attention', 'stalePipeline');
-      return;
-    }
-
-    if (action === 'followUpDueToday') {
-      setNotebookFilter('status', 'ALL');
-      setNotebookFilter('mode', 'strict');
-      setNotebookFilter('hasScore', 'all');
-      setNotebookFilter('attention', 'followUpDueToday');
-      return;
-    }
-
-    if (action === 'prepRecommended') {
-      setNotebookFilter('status', 'ALL');
-      setNotebookFilter('mode', 'strict');
-      setNotebookFilter('hasScore', 'all');
-      setNotebookFilter('attention', 'prepRecommended');
-      return;
-    }
-
-    if (action === 'awaitingDecision') {
-      setNotebookFilter('status', 'ALL');
-      setNotebookFilter('mode', 'strict');
-      setNotebookFilter('hasScore', 'all');
-      setNotebookFilter('attention', 'awaitingDecision');
-      return;
-    }
-
-    if (action === 'degradedResults') {
-      setNotebookFilter('status', 'ALL');
-      setNotebookFilter('mode', 'strict');
-      setNotebookFilter('hasScore', 'all');
-      setNotebookFilter('attention', 'degradedResults');
-      return;
-    }
-
-    setNotebookFilter('status', 'APPLIED');
-    setNotebookFilter('mode', 'strict');
-    setNotebookFilter('hasScore', 'all');
-  };
+      setNotebookSelectedOffer(null);
+      clearNotebookSelectedOfferIds();
+      setNotebookFilter('search', '');
+      setNotebookFilter('tag', '');
+      setNotebookFilter('status', nextFilters.status);
+      setNotebookFilter('mode', nextFilters.mode);
+      setNotebookFilter('hasScore', nextFilters.hasScore);
+      setNotebookFilter('followUp', nextFilters.followUp);
+      setNotebookFilter('attention', nextFilters.attention);
+    },
+    [clearNotebookSelectedOfferIds, setNotebookFilter, setNotebookSelectedOffer],
+  );
 
   useEffect(() => {
     if (!hydratedFromServer || appliedRouteStateRef.current) {

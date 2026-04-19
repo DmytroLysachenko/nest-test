@@ -4,12 +4,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { OpportunitiesPage } from '@/features/job-offers';
+import { isDiscoveryQuickActionKey } from '@/features/job-offers/model/utils/notebook-filter-utils';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
-
-const isDiscoveryQuickAction = (value: string | null): value is 'unscored' | 'strictTop' | 'staleUntriaged' =>
-  value === 'unscored' || value === 'strictTop' || value === 'staleUntriaged';
 
 export default function OpportunitiesRoute() {
   const router = useRouter();
@@ -66,7 +64,7 @@ export default function OpportunitiesRoute() {
   return (
     <OpportunitiesPage
       token={auth.token}
-      initialQuickAction={isDiscoveryQuickAction(focusParam) ? focusParam : null}
+      initialQuickAction={isDiscoveryQuickActionKey(focusParam) ? focusParam : null}
       initialOfferId={offerIdParam}
     />
   );

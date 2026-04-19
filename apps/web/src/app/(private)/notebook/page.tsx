@@ -4,39 +4,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { NotebookPage } from '@/features/job-offers';
+import { isNotebookQuickActionKey } from '@/features/job-offers/model/utils/notebook-filter-utils';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
-
-const isNotebookQuickAction = (
-  value: string | null,
-): value is
-  | 'unscored'
-  | 'strictTop'
-  | 'saved'
-  | 'applied'
-  | 'staleUntriaged'
-  | 'followUpDue'
-  | 'followUpUpcoming'
-  | 'missingNextStep'
-  | 'stalePipeline'
-  | 'followUpDueToday'
-  | 'prepRecommended'
-  | 'awaitingDecision'
-  | 'degradedResults' =>
-  value === 'unscored' ||
-  value === 'strictTop' ||
-  value === 'saved' ||
-  value === 'applied' ||
-  value === 'staleUntriaged' ||
-  value === 'followUpDue' ||
-  value === 'followUpUpcoming' ||
-  value === 'missingNextStep' ||
-  value === 'stalePipeline' ||
-  value === 'followUpDueToday' ||
-  value === 'prepRecommended' ||
-  value === 'awaitingDecision' ||
-  value === 'degradedResults';
 
 export default function NotebookRoute() {
   const router = useRouter();
@@ -93,7 +64,7 @@ export default function NotebookRoute() {
   return (
     <NotebookPage
       token={auth.token}
-      initialQuickAction={isNotebookQuickAction(focusParam) ? focusParam : null}
+      initialQuickAction={isNotebookQuickActionKey(focusParam) ? focusParam : null}
       initialOfferId={offerIdParam}
     />
   );

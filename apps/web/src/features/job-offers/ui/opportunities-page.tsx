@@ -8,9 +8,11 @@ import { OpportunityDetailsRail } from '@/features/job-offers/ui/components/oppo
 import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { HeroHeader, UtilityRail } from '@/shared/ui/dashboard-primitives';
 
+import type { DiscoveryQuickActionKey } from '@/features/job-offers/model/types/notebook-view-model';
+
 type OpportunitiesPageProps = {
   token: string;
-  initialQuickAction?: 'unscored' | 'strictTop' | 'staleUntriaged' | null;
+  initialQuickAction?: DiscoveryQuickActionKey | null;
   initialOfferId?: string | null;
 };
 

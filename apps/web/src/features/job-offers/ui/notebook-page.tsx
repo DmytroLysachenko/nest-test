@@ -11,23 +11,11 @@ import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
 import { GuidancePanel } from '@/shared/ui/guidance-panels';
 
+import type { NotebookQuickActionKey } from '@/features/job-offers/model/types/notebook-view-model';
+
 type NotebookPageProps = {
   token: string;
-  initialQuickAction?:
-    | 'unscored'
-    | 'strictTop'
-    | 'saved'
-    | 'applied'
-    | 'staleUntriaged'
-    | 'followUpDue'
-    | 'followUpUpcoming'
-    | 'missingNextStep'
-    | 'stalePipeline'
-    | 'followUpDueToday'
-    | 'prepRecommended'
-    | 'awaitingDecision'
-    | 'degradedResults'
-    | null;
+  initialQuickAction?: NotebookQuickActionKey | null;
   initialOfferId?: string | null;
 };
 
