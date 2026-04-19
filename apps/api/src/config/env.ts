@@ -103,6 +103,7 @@ export const EnvSchema = z.object({
   SCRAPE_STALE_PENDING_MINUTES: z.coerce.number().int().min(1).max(240).default(15),
   SCRAPE_STALE_RUNNING_MINUTES: z.coerce.number().int().min(1).max(1440).default(60),
   DOCUMENT_DIAGNOSTICS_WINDOW_HOURS: z.coerce.number().int().min(1).max(720).default(168),
+  DOCUMENT_EXTRACTION_LEASE_MINUTES: z.coerce.number().int().min(1).max(240).default(15),
   NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY: z.coerce.number().int().min(0).max(100).default(30),
   NOTEBOOK_EXPLORE_RECENCY_WEIGHT: z.coerce.number().int().min(0).max(100).default(5),
 });
