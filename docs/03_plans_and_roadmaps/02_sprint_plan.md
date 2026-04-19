@@ -211,10 +211,12 @@ Current branch status for this tranche:
   - parser and listing-section drift coverage now uses committed `pracuj` fixtures
   - run diagnostics now expose productivity-loss breakdown from listings to notebook insertion
   - source-health responses now include explicit `wait` / `retry` / `inspect` / `rematch` guidance
+  - stale scrape recovery now preserves incrementally persisted offers and returns a stable late-callback idempotency reason
+  - document extraction now has DB-visible queue, lease, and attempt metadata for restart-safe pickup
+  - notebook and discovery details now render scrape reliability context for degraded, partial, and recovered offers
 - Remaining in tranche:
-  - restart-safe dispatch recovery for incremental ingest
-  - durable async execution for documents and career-profile generation
-  - notebook attention upgrades driven by the new reliability signals
+  - durable async execution for career-profile generation
+  - external reminder delivery or notification automation
 
 ## Sprint 4: Durable Async Execution and Background Workflow Safety
 

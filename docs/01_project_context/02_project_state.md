@@ -103,6 +103,7 @@ That framing should guide future implementation more than raw source count.
   - prep packet read model for reply/interview preparation
   - workflow attention signals now classify active roles as overdue, due-today, prep-recommended, awaiting-decision, missing-next-step, or stale-pipeline directly in the notebook read model
   - notebook list/focus read models now expose deterministic recommended actions so the web can show next moves without duplicating workflow business logic
+  - notebook and discovery details now expose scrape reliability context for degraded, partial, and stale-run-recovered offers
   - notebook reminder preview now exposes overdue, due-today, upcoming, and stale-pipeline work as an in-app read model; external reminder delivery remains out of scope
   - dashboard focus and action-plan lanes now include due-today, prep-next, and awaiting-decision workflow slices with explicit rationale and CTA metadata
   - pipeline bulk editing now supports decision checkpoints and prep-needed flags in addition to follow-up planning
@@ -247,6 +248,7 @@ That framing should guide future implementation more than raw source count.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.
 - Documents now persist stage duration metrics (`document_stage_metrics`) and expose percentile summary endpoint (`/documents/diagnostics/summary`).
+- Documents now persist extraction queue lease metadata on `documents` so queued work can be reclaimed deterministically instead of depending only on in-memory process state.
 - Profile management page now includes direct document upload/confirm/extract flow with diagnostics visibility.
 - New guided onboarding flow is available at `/onboarding` with persisted draft state and step-based UX.
 - Profile input now supports structured intake payload (`intake_payload`) used for deterministic normalization.
@@ -367,6 +369,7 @@ That framing should guide future implementation more than raw source count.
 - Multi-source expansion is still more of a plan than a proven capability; only selective source growth is justified right now.
 - Scrape completion is improving, but "completed" does not automatically mean "user got useful notebook value" unless linking, ranking, and visibility remain strong.
 - Running scrapes now persist accepted offers incrementally, so timeout/finalization issues no longer imply full result loss by default.
+- Late scrape callbacks after stale-run recovery now return a stable idempotency reason instead of reopening or duplicating recovered notebook links.
 - Weekday schedule cron expressions are now computed correctly with timezone-aware next-run calculation.
 - Worker source orchestration now has an explicit adapter boundary for future non-Pracuj sources, but only Pracuj is production-ready.
 - Web schedule planning now explains schedule trust states more explicitly (`off`, `enabled but not yet proven`, `recent failure`, `due but paused`, `waiting for next window`) using schedule events plus source-health state.

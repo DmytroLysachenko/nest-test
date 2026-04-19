@@ -72,7 +72,7 @@ The project should not drift into:
      - structured company and taxonomy context in offer review surfaces
      - explicit hidden/degraded result messaging
      - continued quality improvements for Kanban throughput and active-offer workspace ergonomics
-   - Status: in progress (structured catalog context is now visible in notebook and discovery detail surfaces; attention-state read models, richer focus/action-plan queues, workflow-aware prep context, and explicit collection-state messaging are shipped; external reminder delivery and deeper pipeline automation still remain).
+   - Status: in progress (structured catalog context and scrape reliability context are now visible in notebook and discovery detail surfaces; attention-state read models, richer focus/action-plan queues, workflow-aware prep context, and explicit collection-state messaging are shipped; external reminder delivery and deeper pipeline automation still remain).
 2. Tighten scrape output usefulness, not just scrape completion.
    - Scope:
      - adaptive broad-acquisition query planning with target listing windows
@@ -87,7 +87,7 @@ The project should not drift into:
      - explicit reuse diagnostics when catalog/db reuse is rejected before worker dispatch
      - structured observation coverage metrics for missing employment type, empty requirements, apply links, and source profile capture
      - migration of legacy `job_offers.details` usage toward normalized relation tables and observation history
-   - Status: in progress (fresh-candidate gating is now exposed through enqueue reuse diagnostics; canonical offer rows now persist observation history, raw payloads, structured salary, and multi-value relations; callbacks now preserve parsed details; diagnostics now split discovered/full-detail/partial/salvaged output; broader productivity tuning remains).
+   - Status: in progress (fresh-candidate gating is now exposed through enqueue reuse diagnostics; canonical offer rows now persist observation history, raw payloads, structured salary, and multi-value relations; callbacks now preserve parsed details; diagnostics now split discovered/full-detail/partial/salvaged output; stale-run recovery preserves incrementally persisted offers; broader productivity tuning remains).
 3. Improve deterministic ranking calibration and cross-source trust handling.
    - Scope:
      - mode thresholds + penalty tuning
