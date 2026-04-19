@@ -3,10 +3,9 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation } from '@tanstack/react-query';
 
-import { deleteCurrentUser } from '@/features/auth/api/auth-api';
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
+import { useAccountDeletion } from '@/features/profile-management/model/hooks/use-account-deletion';
 import { useProfileManagementData } from '@/features/profile-management/model/hooks/use-profile-management-data';
 import { CareerProfileVersionsCard } from '@/features/profile-management/ui/components/career-profile-versions-card';
 import { DocumentsReadinessCard } from '@/features/profile-management/ui/components/documents-readiness-card';
@@ -27,6 +26,7 @@ import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
 export const ProfileManagementPage = () => {
   const router = useRouter();
   const auth = useRequireAuth();
+  const { deleteAccountMutation } = useAccountDeletion();
   const {
     summary,
     latestCareerProfile,
@@ -57,19 +57,6 @@ export const ProfileManagementPage = () => {
     sharedLatestProfileInput: latestProfileInput,
     sharedDocuments,
     sharedLatestCareerProfile: latestCareerProfile,
-  });
-
-  const deleteAccountMutation = useMutation({
-    mutationFn: async () => {
-      if (!auth.token) {
-        throw new Error('Missing session token');
-      }
-      return deleteCurrentUser(auth.token);
-    },
-    onSuccess: () => {
-      auth.clearSession();
-      router.replace('/login');
-    },
   });
 
   if (!auth.token) {

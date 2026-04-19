@@ -177,11 +177,14 @@ export const PrivateDashboardDataProvider = ({
     };
   }, [
     documentsQuery.data,
+    documentsQuery.isError,
     documentsQuery.isPending,
     documentsQuery.refetch,
     latestCareerProfileQuery.data,
+    latestCareerProfileQuery.isError,
     latestCareerProfileQuery.isPending,
     latestProfileInputQuery.data,
+    latestProfileInputQuery.isError,
     latestProfileInputQuery.isPending,
     notebookSummaryQuery.data,
     notebookSummaryQuery.refetch,
