@@ -4,7 +4,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { documentEventsTable, documentStageMetricsTable, documentsTable } from '@repo/db';
-import { and, desc, eq, gte } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, lt, or, sql } from 'drizzle-orm';
 import { Logger } from 'nestjs-pino';
 
 import { Drizzle } from '@/common/decorators';
@@ -21,6 +21,8 @@ import type { Env } from '@/config/env';
 
 type DocumentMetricStage = 'UPLOAD_CONFIRM' | 'EXTRACTION' | 'TOTAL_PIPELINE';
 type DocumentMetricStatus = 'SUCCESS' | 'ERROR';
+
+const DEFAULT_EXTRACTION_LEASE_MINUTES = 15;
 
 @Injectable()
 export class DocumentsService {
@@ -221,6 +223,10 @@ export class DocumentsService {
       .set({
         extractionStatus: 'PENDING',
         extractionError: null,
+        extractionQueuedAt: new Date(),
+        extractionStartedAt: null,
+        extractionLeaseExpiresAt: null,
+        extractionLastTraceId: traceId ?? null,
       })
       .where(eq(documentsTable.id, document.id))
       .returning();
@@ -329,12 +335,27 @@ export class DocumentsService {
   }
 
   private async processQueuedExtraction(documentId: string, userId: string, traceId?: string) {
-    const document = await this.db
-      .select()
-      .from(documentsTable)
-      .where(and(eq(documentsTable.id, documentId), eq(documentsTable.userId, userId)))
-      .limit(1)
-      .then(([result]) => result);
+    const leaseMinutes =
+      this.configService.get('DOCUMENT_EXTRACTION_LEASE_MINUTES', { infer: true }) ?? DEFAULT_EXTRACTION_LEASE_MINUTES;
+    const now = new Date();
+    const leaseExpiresAt = new Date(now.getTime() + leaseMinutes * 60 * 1000);
+    const [document] = await this.db
+      .update(documentsTable)
+      .set({
+        extractionStartedAt: now,
+        extractionLeaseExpiresAt: leaseExpiresAt,
+        extractionAttemptCount: sql<number>`coalesce(${documentsTable.extractionAttemptCount}, 0) + 1`,
+        extractionLastTraceId: traceId ?? null,
+      })
+      .where(
+        and(
+          eq(documentsTable.id, documentId),
+          eq(documentsTable.userId, userId),
+          eq(documentsTable.extractionStatus, 'PENDING'),
+          or(isNull(documentsTable.extractionLeaseExpiresAt), lt(documentsTable.extractionLeaseExpiresAt, now)),
+        ),
+      )
+      .returning();
 
     if (!document || !document.uploadedAt || document.extractionStatus !== 'PENDING') {
       return;
@@ -398,6 +419,7 @@ export class DocumentsService {
         extractedAt: new Date(),
         extractionStatus: 'READY',
         extractionError: null,
+        extractionLeaseExpiresAt: null,
       })
       .where(eq(documentsTable.id, document.id));
 
@@ -422,7 +444,7 @@ export class DocumentsService {
   ) {
     await this.db
       .update(documentsTable)
-      .set({ extractionStatus: 'FAILED', extractionError: message })
+      .set({ extractionStatus: 'FAILED', extractionError: message, extractionLeaseExpiresAt: null })
       .where(eq(documentsTable.id, documentId));
     await this.recordEvent({
       documentId,

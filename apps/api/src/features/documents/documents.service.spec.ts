@@ -12,6 +12,9 @@ describe('DocumentsService', () => {
         if (key === 'DOCUMENT_DIAGNOSTICS_WINDOW_HOURS') {
           return 168;
         }
+        if (key === 'DOCUMENT_EXTRACTION_LEASE_MINUTES') {
+          return 15;
+        }
         return undefined;
       },
     }) as any;
@@ -239,5 +242,56 @@ describe('DocumentsService', () => {
     );
     expect(queueSpy).toHaveBeenCalledWith('doc-queued-1', 'user-1', 'trace-queued-1');
     queueSpy.mockRestore();
+  });
+
+  it('claims pending extraction with a durable lease before processing', async () => {
+    const updateSet = jest.fn();
+    const updateWhere = jest.fn();
+    const updateReturning = jest.fn();
+    updateSet
+      .mockReturnValueOnce({
+        where: updateWhere.mockReturnValueOnce({
+          returning: updateReturning.mockResolvedValueOnce([
+            {
+              id: 'doc-lease-1',
+              userId: 'user-1',
+              uploadedAt: new Date('2026-04-06T10:00:00.000Z'),
+              extractionStatus: 'PENDING',
+              mimeType: 'text/plain',
+            },
+          ]),
+        }),
+      })
+      .mockReturnValueOnce({
+        where: jest.fn().mockResolvedValue(undefined),
+      });
+    const db = {
+      update: jest.fn().mockReturnValue({
+        set: updateSet,
+      }),
+      insert: jest.fn().mockReturnValue({
+        values: jest.fn().mockResolvedValue(undefined),
+      }),
+    } as any;
+
+    const service = new DocumentsService(db, {} as any, createConfigService(), createLogger());
+    await (service as any).processQueuedExtraction('doc-lease-1', 'user-1', 'trace-lease-1');
+
+    expect(updateSet).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        extractionStartedAt: expect.any(Date),
+        extractionLeaseExpiresAt: expect.any(Date),
+        extractionLastTraceId: 'trace-lease-1',
+      }),
+    );
+    expect(updateSet).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        extractionStatus: 'FAILED',
+        extractionError: 'Only PDF documents are supported',
+        extractionLeaseExpiresAt: null,
+      }),
+    );
   });
 });
