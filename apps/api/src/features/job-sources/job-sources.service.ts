@@ -1960,6 +1960,7 @@ export class JobSourcesService {
         status: jobSourceRunsTable.status,
         totalFound: jobSourceRunsTable.totalFound,
         scrapedCount: jobSourceRunsTable.scrapedCount,
+        error: jobSourceRunsTable.error,
         listingUrl: jobSourceRunsTable.listingUrl,
         filters: jobSourceRunsTable.filters,
         startedAt: jobSourceRunsTable.startedAt,
@@ -2053,6 +2054,34 @@ export class JobSourcesService {
       };
     }
     if (isTerminal && run.status !== status) {
+      const lateCompletionAfterStaleRecovery =
+        run.status === 'FAILED' && status === 'COMPLETED' && isStaleRunError(run.error);
+      if (lateCompletionAfterStaleRecovery) {
+        await this.appendRunEvent({
+          sourceRunId: run.id,
+          traceId: run.traceId,
+          eventType: 'late_callback_after_stale_recovery',
+          requestId,
+          attemptNo: callbackAttemptNo,
+          severity: 'warning',
+          code: 'LATE_CALLBACK_AFTER_STALE_RECOVERY',
+          message: 'Late worker callback ignored because stale-run recovery already finalized the scrape.',
+          meta: {
+            eventId: callbackEventId,
+            statusFrom,
+            statusTo: status,
+            payloadHash: callbackPayloadHash,
+          },
+        });
+        return {
+          ok: true,
+          status: run.status,
+          inserted: 0,
+          idempotent: true,
+          reasonCode: 'LATE_CALLBACK_AFTER_STALE_RECOVERY',
+          warning: 'Run already finalized by stale-run recovery',
+        };
+      }
       this.logger.warn(
         { requestId, sourceRunId: run.id, statusFrom, statusTo: status, idempotent: true },
         'Scrape callback attempted conflicting terminal status',
