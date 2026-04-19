@@ -14,8 +14,11 @@ import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
 import { EmptyState } from '@/shared/ui/empty-state';
+import { formatDateTime } from '@/shared/lib/utils/date-format';
 
 import { OfferStructuredDetailsPanel } from './offer-structured-details-panel';
+import { OfferReliabilityNotice } from './offer-reliability-notice';
+import { OfferCompactSourceLinks } from './offer-source-links';
 
 import type { getJobOfferHistory } from '@/features/job-offers/api/job-offers-api';
 import type { JobOfferListItemDto, JobOfferPrepPacketDto, JobOfferStatus } from '@/shared/types/api';
@@ -151,10 +154,12 @@ export const NotebookOfferDetailsCard = ({
           </p>
           {offer.expiresAt ? (
             <p className="text-text-soft text-xs">
-              {offer.isExpired ? 'Offer expired' : 'Offer valid until'} {new Date(offer.expiresAt).toLocaleString()}
+              {offer.isExpired ? 'Offer expired' : 'Offer valid until'} {formatDateTime(offer.expiresAt)}
             </p>
           ) : null}
         </div>
+
+        <OfferReliabilityNotice reliabilityContext={offer.reliabilityContext} />
 
         <div className="grid gap-3 md:grid-cols-2">
           <div className="app-inset-stack space-y-2">
@@ -166,11 +171,9 @@ export const NotebookOfferDetailsCard = ({
               <p className="text-text-soft text-sm">{offer.recommendedAction.reason}</p>
             ) : null}
             {nextStep ? <p className="text-text-soft text-sm">Next step: {nextStep}</p> : null}
-            {followUpAt ? (
-              <p className="text-text-soft text-sm">Scheduled for: {new Date(followUpAt).toLocaleString()}</p>
-            ) : null}
+            {followUpAt ? <p className="text-text-soft text-sm">Scheduled for: {formatDateTime(followUpAt)}</p> : null}
             {decisionDueAt ? (
-              <p className="text-text-soft text-sm">Decision checkpoint: {new Date(decisionDueAt).toLocaleString()}</p>
+              <p className="text-text-soft text-sm">Decision checkpoint: {formatDateTime(decisionDueAt)}</p>
             ) : null}
           </div>
           <div className="app-inset-stack space-y-2">
@@ -205,33 +208,7 @@ export const NotebookOfferDetailsCard = ({
           <Button type="button" variant="secondary" size="sm" disabled={isBusy} onClick={onRescore}>
             Re-score
           </Button>
-          {offer.url ? (
-            <Link
-              href={offer.url}
-              target="_blank"
-              rel="noreferrer"
-              className="border-border bg-surface-muted/50 text-text-soft hover:bg-surface-muted inline-flex items-center rounded-xl border px-3 py-1.5 text-[11px] transition-colors"
-            >
-              Open source listing
-              <ExternalLink className="ml-1 h-3.5 w-3.5" />
-            </Link>
-          ) : null}
-          {offer.structuredDetails?.companySummary?.id ? (
-            <Link
-              href={`/companies/${offer.structuredDetails.companySummary.id}`}
-              className="border-border bg-surface-muted/50 text-text-soft hover:bg-surface-muted inline-flex items-center rounded-xl border px-3 py-1.5 text-[11px] transition-colors"
-            >
-              Company profile
-            </Link>
-          ) : null}
-          {offer.sourceRunId ? (
-            <Link
-              href="/tester"
-              className="border-border bg-surface-muted/50 text-text-soft hover:bg-surface-muted inline-flex items-center rounded-xl border px-3 py-1.5 text-[11px] transition-colors"
-            >
-              Run: {offer.sourceRunId.slice(0, 8)}
-            </Link>
-          ) : null}
+          <OfferCompactSourceLinks offer={offer} />
         </div>
 
         <div className="bg-surface-muted/66 flex flex-wrap gap-1.5 rounded-[1.2rem] p-2">
@@ -561,7 +538,7 @@ export const NotebookOfferDetailsCard = ({
                   >
                     <div>
                       <p className="text-text-strong text-sm font-semibold">Moved to {entry.status}</p>
-                      <p className="text-text-soft mt-1 text-xs">{new Date(entry.changedAt).toLocaleString()}</p>
+                      <p className="text-text-soft mt-1 text-xs">{formatDateTime(entry.changedAt)}</p>
                     </div>
                     <span className="app-badge">{entry.status}</span>
                   </div>
