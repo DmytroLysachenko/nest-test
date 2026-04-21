@@ -16,7 +16,7 @@ const reminderBucketLabel: Record<JobOfferReminderDeliveryDto['bucket'], string>
 
 const stateBadgeClass: Record<JobOfferReminderDeliveryDto['state'], string> = {
   pending: 'border-primary/20 bg-primary/5 text-primary',
-  delivered: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  delivered: 'border-app-success/20 bg-app-success/10 text-app-success',
   failed: 'border-app-danger-border bg-app-danger-soft text-app-danger',
 };
 
