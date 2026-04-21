@@ -156,6 +156,58 @@ class SupportRecentAuthorizationEventResponse {
   createdAt!: string;
 }
 
+class SupportRecentCareerProfileFailureResponse {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  userId!: string;
+
+  @ApiProperty()
+  status!: string;
+
+  @ApiProperty()
+  generationState!: 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED';
+
+  @ApiProperty()
+  generationAttemptCount!: number;
+
+  @ApiProperty({ nullable: true })
+  generationLastTraceId!: string | null;
+
+  @ApiProperty({ nullable: true })
+  error!: string | null;
+
+  @ApiProperty()
+  createdAt!: string;
+}
+
+class SupportRecentReminderDeliveryFailureResponse {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  userId!: string;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty({ nullable: true })
+  company!: string | null;
+
+  @ApiProperty({ nullable: true })
+  reminderLastBucket!: string | null;
+
+  @ApiProperty({ nullable: true })
+  reminderLastWindowKey!: string | null;
+
+  @ApiProperty({ nullable: true })
+  reminderLastError!: string | null;
+
+  @ApiProperty({ nullable: true })
+  reminderLastAttemptedAt!: string | null;
+}
+
 class SupportRecentFailuresResponse {
   @ApiProperty({ type: [SupportRecentScrapeFailureResponse] })
   scrapeRuns!: SupportRecentScrapeFailureResponse[];
@@ -171,6 +223,12 @@ class SupportRecentFailuresResponse {
 
   @ApiProperty({ type: [SupportRecentAuthorizationEventResponse] })
   authorizationEvents!: SupportRecentAuthorizationEventResponse[];
+
+  @ApiProperty({ type: [SupportRecentCareerProfileFailureResponse] })
+  careerProfileGenerations!: SupportRecentCareerProfileFailureResponse[];
+
+  @ApiProperty({ type: [SupportRecentReminderDeliveryFailureResponse] })
+  reminderDeliveries!: SupportRecentReminderDeliveryFailureResponse[];
 }
 
 class SupportStageFailureResponse {

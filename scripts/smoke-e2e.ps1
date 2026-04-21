@@ -522,6 +522,9 @@ $authHeaders = @{
 
 $me = Invoke-WebRequest -Uri "$apiBaseUrl/api/user" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $me.StatusCode -Allowed @(200) -Context 'Current user with refreshed access token'
+$mePayload = $me.Content | ConvertFrom-Json
+$currentUserId = $mePayload.data.id
+Require-Value -Value $currentUserId -Message 'Current user response is missing id.'
 
 $invalidRefreshFailed = $false
 try {
@@ -600,6 +603,9 @@ Require-Value -Value $careerLatestData.id -Message 'Latest career profile is mis
 if ($careerLatestData.status -ne 'READY') {
   throw "Latest career profile should be READY. got=$($careerLatestData.status)"
 }
+if ($careerLatestData.generationState -ne 'READY') {
+  throw "Latest career profile should expose generationState=READY. got=$($careerLatestData.generationState)"
+}
 if ($careerLatestData.contentJson.schemaVersion -ne '1.0.0') {
   throw "Latest career profile schemaVersion should be 1.0.0. got=$($careerLatestData.contentJson.schemaVersion)"
 }
@@ -645,6 +651,15 @@ if ($null -eq $opsMetricsPayload.data.queue.runningWithoutHeartbeat) {
 if ($null -eq $opsMetricsPayload.data.callback.totalEvents) {
   throw 'Ops metrics missing callback.totalEvents.'
 }
+if ($null -eq $opsMetricsPayload.data.offers.reminderDeliveryFailures24h) {
+  throw 'Ops metrics missing offers.reminderDeliveryFailures24h.'
+}
+if ($null -eq $opsMetricsPayload.data.careerProfiles.failedProfiles) {
+  throw 'Ops metrics missing careerProfiles.failedProfiles.'
+}
+if ($null -eq $opsMetricsPayload.data.alerts.reminderDeliveryFailures) {
+  throw 'Ops metrics missing alerts.reminderDeliveryFailures.'
+}
 
 $careerList = Invoke-WebRequest -Uri "$apiBaseUrl/api/career-profiles?limit=10" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $careerList.StatusCode -Allowed @(200) -Context 'List career profile versions'
@@ -656,6 +671,9 @@ $activeCareerProfile = @($careerListPayload.data.items | Where-Object { $_.isAct
 if (-not $activeCareerProfile) {
   throw 'No active career profile found in list response.'
 }
+if ($activeCareerProfile.generationState -ne 'READY') {
+  throw "Active career profile list item should expose generationState=READY. got=$($activeCareerProfile.generationState)"
+}
 $careerProfileId = $activeCareerProfile.id
 Require-Value -Value $careerProfileId -Message 'Active career profile id is missing.'
 
@@ -664,6 +682,9 @@ Assert-StatusCode -Actual $careerById.StatusCode -Allowed @(200) -Context 'Get c
 $careerByIdPayload = $careerById.Content | ConvertFrom-Json
 if ($careerByIdPayload.data.id -ne $careerProfileId) {
   throw "Career profile by id mismatch. expected=$careerProfileId got=$($careerByIdPayload.data.id)"
+}
+if ($null -eq $careerByIdPayload.data.generationAttemptCount) {
+  throw 'Career profile by id missing generationAttemptCount.'
 }
 
 $careerDocs = Invoke-WebRequest -Uri "$apiBaseUrl/api/career-profiles/$careerProfileId/documents" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
@@ -702,6 +723,9 @@ if (-not ($searchItem.searchableKeywords -contains 'react')) {
 }
 if (-not ($searchItem.searchableTechnologies -contains 'typescript')) {
   throw 'Career profile search-view missing searchable technology typescript.'
+}
+if ($searchItem.generationState -ne 'READY') {
+  throw "Career profile search-view item should expose generationState=READY. got=$($searchItem.generationState)"
 }
 
 Write-Host '8) Verifying deterministic job-matching endpoints...'
@@ -1140,6 +1164,17 @@ if ($bulkFollowUpPayload.data.updated -lt 1) {
   throw 'Bulk follow-up update did not update any offers.'
 }
 
+$offersAfterFollowUp = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers?mode=strict&limit=100&followUp=upcoming" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $offersAfterFollowUp.StatusCode -Allowed @(200) -Context 'List upcoming follow-up offers'
+$offersAfterFollowUpPayload = $offersAfterFollowUp.Content | ConvertFrom-Json
+$updatedOffer = @($offersAfterFollowUpPayload.data.items | Where-Object { $_.id -eq $offerId } | Select-Object -First 1)
+if (-not $updatedOffer) {
+  throw "Updated offer is missing from upcoming follow-up list. offerId=$offerId"
+}
+if ($null -eq $updatedOffer.reminderDelivery) {
+  throw 'Updated offer should expose reminderDelivery summary once follow-up is scheduled.'
+}
+
 $history = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers/$offerId/history" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $history.StatusCode -Allowed @(200) -Context 'Get job offer history'
 $historyPayload = $history.Content | ConvertFrom-Json
@@ -1160,6 +1195,37 @@ if ($scorePayload.data.matchMeta.profileSchemaVersion -ne '1.0.0') {
 }
 if ($null -eq $scorePayload.data.matchMeta.breakdown -or $null -eq $scorePayload.data.matchMeta.hardConstraintViolations) {
   throw 'Job offer score matchMeta missing breakdown or hardConstraintViolations.'
+}
+
+Write-Host '13.05) Verifying support overview and user incident endpoints...'
+$stage = 'support-endpoints'
+$supportOverview = Invoke-WebRequest -Uri "$apiBaseUrl/api/ops/support/overview" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $supportOverview.StatusCode -Allowed @(200) -Context 'Get support overview'
+$supportOverviewPayload = $supportOverview.Content | ConvertFrom-Json
+if ($null -eq $supportOverviewPayload.data.metrics.offers.reminderDeliveryFailures24h) {
+  throw 'Support overview missing metrics.offers.reminderDeliveryFailures24h.'
+}
+if ($null -eq $supportOverviewPayload.data.metrics.careerProfiles.failedProfiles) {
+  throw 'Support overview missing metrics.careerProfiles.failedProfiles.'
+}
+if ($null -eq $supportOverviewPayload.data.recentFailures.careerProfileGenerations) {
+  throw 'Support overview missing recentFailures.careerProfileGenerations.'
+}
+if ($null -eq $supportOverviewPayload.data.recentFailures.reminderDeliveries) {
+  throw 'Support overview missing recentFailures.reminderDeliveries.'
+}
+
+$supportUser = Invoke-WebRequest -Uri "$apiBaseUrl/api/ops/support/users/$currentUserId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $supportUser.StatusCode -Allowed @(200) -Context 'Get support user incident'
+$supportUserPayload = $supportUser.Content | ConvertFrom-Json
+if ($null -eq $supportUserPayload.data.offerStats.reminderDeliveryFailures24h) {
+  throw 'Support user incident missing offerStats.reminderDeliveryFailures24h.'
+}
+if ($null -eq $supportUserPayload.data.careerProfileStats.failed) {
+  throw 'Support user incident missing careerProfileStats.failed.'
+}
+if ($null -eq $supportUserPayload.data.recentReminderDeliveryFailures) {
+  throw 'Support user incident missing recentReminderDeliveryFailures.'
 }
 
 Write-Host '13.1) Verifying schedule trigger-now path...'
