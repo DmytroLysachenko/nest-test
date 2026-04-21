@@ -139,8 +139,9 @@ Make the notebook clearly more useful than using the source platforms directly.
   - workflow-aware prep packet context and requirement highlights
   - explicit API-driven collection-state guidance for hidden/degraded/empty queues
   - visible bulk workflow editing for active pipeline roles
+  - email reminder delivery with persisted per-offer delivery state
+  - notebook reminder delivery badges plus action-plan driven follow-up shortcuts in the selected-offer workflow
 - Remaining:
-  - external reminder delivery or notification automation
   - deeper active-offer mobile polish and richer long-tail prep assistance
 
 ## Sprint 3: Scraper Quality and Source Reliability
@@ -213,10 +214,11 @@ Current branch status for this tranche:
   - source-health responses now include explicit `wait` / `retry` / `inspect` / `rematch` guidance
   - stale scrape recovery now preserves incrementally persisted offers and returns a stable late-callback idempotency reason
   - document extraction now has DB-visible queue, lease, and attempt metadata for restart-safe pickup
+  - career-profile generation now has DB-visible queue, lease, attempt, and generation-state metadata with product/web visibility
   - notebook and discovery details now render scrape reliability context for degraded, partial, and recovered offers
+  - email reminder delivery now persists per-offer delivery outcome and is reflected back into notebook read models
 - Remaining in tranche:
-  - durable async execution for career-profile generation
-  - external reminder delivery or notification automation
+  - deeper notebook pipeline automation on top of the new reminder and async state
 
 ## Sprint 4: Durable Async Execution and Background Workflow Safety
 
@@ -282,6 +284,8 @@ Make local setup, CI smoke, and production promotion reliable enough that operat
   - auth/bootstrap and ops-path local smoke failures were hardened away
   - release candidate / deploy / promote workflows now emit release metadata artifacts
   - rollback summary now captures from/to revisions and images
+  - smoke now verifies career-profile async lifecycle fields, notebook reminder-delivery state, support overview, and support user incident payloads
+  - ops metrics/support bundles now expose alerting-friendly reminder-delivery and career-profile-generation failure signals
 - Remaining:
   - broader alerting-friendly operational metrics and production rollback rehearsal
 

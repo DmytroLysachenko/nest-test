@@ -104,7 +104,9 @@ That framing should guide future implementation more than raw source count.
   - workflow attention signals now classify active roles as overdue, due-today, prep-recommended, awaiting-decision, missing-next-step, or stale-pipeline directly in the notebook read model
   - notebook list/focus read models now expose deterministic recommended actions so the web can show next moves without duplicating workflow business logic
   - notebook and discovery details now expose scrape reliability context for degraded, partial, and stale-run-recovered offers
-  - notebook reminder preview now exposes overdue, due-today, upcoming, and stale-pipeline work as an in-app read model; external reminder delivery remains out of scope
+  - notebook reminder preview now exposes overdue, due-today, upcoming, and stale-pipeline work as an in-app read model
+  - external email reminder delivery now persists per-offer daily-window state (`pending` / `delivered` / `failed`) and is surfaced back into notebook list/detail read models
+  - notebook action-plan and selected-offer workspace now expose one-click follow-up shortcuts for done/snooze/prep flows without duplicating queue logic in web
   - dashboard focus and action-plan lanes now include due-today, prep-next, and awaiting-decision workflow slices with explicit rationale and CTA metadata
   - pipeline bulk editing now supports decision checkpoints and prep-needed flags in addition to follow-up planning
   - bulk status flows, metadata, scoring, prep generation
@@ -384,9 +386,9 @@ That framing should guide future implementation more than raw source count.
 - Worker queue remains in-memory, so crash resilience is below production-grade background-job expectations.
 - Scraper quality is still heavily tied to one source and its DOM behavior.
 - Pracuj parser reliability is stronger for rendered detail pages and source heading drift, but source HTML drift is still the dominant scraper risk.
-- Notebook productivity is better, but there is not yet a full follow-up/reminder or pipeline automation layer.
-- Reminder reliability is now stronger at the product-read-model layer, but external reminder delivery and automation are still not implemented.
-- Document recovery exists, but extraction/profile-generation background execution is not yet moved to a durable async pipeline.
+- Notebook productivity is better, but deeper long-tail pipeline automation is still incomplete.
+- Reminder delivery now exists for email and is visible in product/ops surfaces, but user controls and broader notification channels are still missing.
+- Document recovery exists, and extraction/profile-generation now expose DB-visible async lifecycle state, but worker queue durability is still below production-grade background-job expectations.
 - Support surfaces are present, but alerting and long-horizon observability are still limited.
 - Frontend has improved workflow structure, but visual/design consistency is still mixed across older and newer surfaces.
 
