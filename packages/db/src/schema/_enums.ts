@@ -36,3 +36,5 @@ export type JobSourceRunStatus = (typeof jobSourceRunStatusEnum.enumValues)[numb
 export type JobOfferStatus = (typeof jobOfferStatusEnum.enumValues)[number];
 export type JobOfferQualityState = (typeof jobOfferQualityStateEnum.enumValues)[number];
 export type UserJobOfferOrigin = (typeof userJobOfferOriginEnum.enumValues)[number];
+
+export type CareerProfileGenerationState = 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED';

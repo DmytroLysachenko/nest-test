@@ -1,7 +1,11 @@
+import { randomUUID } from 'crypto';
+
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { and, desc, eq, inArray, isNull, not, sql } from 'drizzle-orm';
-import { careerProfilesTable, documentsTable, profileInputsTable } from '@repo/db';
+import { and, desc, eq, inArray, isNull, lt, not, or, sql } from 'drizzle-orm';
+import { careerProfilesTable, documentsTable, profileInputsTable, type CareerProfileGenerationState } from '@repo/db';
+import { Logger } from 'nestjs-pino';
 
 import { Drizzle } from '@/common/decorators';
 import { GeminiService } from '@/common/modules/gemini/gemini.service';
@@ -19,8 +23,10 @@ import {
 import { canonicalizeCandidateProfile } from './profile-canonicalization';
 
 import type { NormalizationMeta, NormalizedProfileInput } from '../profile-inputs/normalization/schema';
+import type { Env } from '@/config/env';
 
 const MIN_EXTRACTED_TEXT_CHARS = 700;
+const DEFAULT_GENERATION_LEASE_MINUTES = 15;
 
 @Injectable()
 export class CareerProfilesService {
@@ -30,9 +36,11 @@ export class CareerProfilesService {
     @Drizzle() private readonly db: NodePgDatabase,
     private readonly geminiService: GeminiService,
     private readonly jobSourcesService: JobSourcesService,
+    private readonly configService: ConfigService<Env, true>,
+    private readonly logger: Logger,
   ) {}
 
-  async create(userId: string, dto: CreateCareerProfileDto) {
+  async create(userId: string, dto: CreateCareerProfileDto, traceId = randomUUID()) {
     const profileInput = await this.db
       .select()
       .from(profileInputsTable)
@@ -56,6 +64,25 @@ export class CareerProfilesService {
     }
     this.assertSufficientInputData(documents);
 
+    const existingPending = await this.db
+      .select()
+      .from(careerProfilesTable)
+      .where(
+        and(
+          eq(careerProfilesTable.userId, userId),
+          eq(careerProfilesTable.isActive, true),
+          eq(careerProfilesTable.status, 'PENDING'),
+        ),
+      )
+      .orderBy(desc(careerProfilesTable.createdAt))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (existingPending) {
+      this.ensureGenerationQueued(existingPending.id, userId, dto.instructions, traceId);
+      return this.enrichCareerProfile(existingPending);
+    }
+
     const nextVersion = await this.getNextVersion(userId);
 
     const [careerProfile] = await this.db
@@ -67,12 +94,16 @@ export class CareerProfilesService {
         version: nextVersion,
         isActive: true,
         status: 'PENDING',
+        generationQueuedAt: new Date(),
+        generationStartedAt: null,
+        generationLeaseExpiresAt: null,
+        generationLastTraceId: traceId,
       })
       .returning();
 
-    this.ensureGenerationQueued(careerProfile.id, userId, dto.instructions);
+    this.ensureGenerationQueued(careerProfile.id, userId, dto.instructions, traceId);
 
-    return careerProfile;
+    return this.enrichCareerProfile(careerProfile);
   }
 
   async getLatest(userId: string) {
@@ -86,7 +117,7 @@ export class CareerProfilesService {
     if (latest?.status === 'PENDING') {
       this.ensureGenerationQueued(latest.id, userId);
     }
-    return latest ?? null;
+    return latest ? this.enrichCareerProfile(latest) : null;
   }
 
   async getQuality(userId: string) {
@@ -159,7 +190,7 @@ export class CareerProfilesService {
       .limit(1);
 
     return {
-      items,
+      items: items.map((item) => this.enrichCareerProfile(item)),
       total: Number(total ?? 0),
       activeId: active?.id ?? null,
       activeVersion: active?.version ?? null,
@@ -209,6 +240,8 @@ export class CareerProfilesService {
         version: careerProfilesTable.version,
         isActive: careerProfilesTable.isActive,
         status: careerProfilesTable.status,
+        generationStartedAt: careerProfilesTable.generationStartedAt,
+        generationLeaseExpiresAt: careerProfilesTable.generationLeaseExpiresAt,
         primarySeniority: careerProfilesTable.primarySeniority,
         targetRoles: careerProfilesTable.targetRoles,
         searchableKeywords: careerProfilesTable.searchableKeywords,
@@ -230,14 +263,22 @@ export class CareerProfilesService {
       .where(and(...conditions));
 
     return {
-      items: items.map((item) => ({
-        ...item,
-        targetRoles: item.targetRoles ?? [],
-        searchableKeywords: item.searchableKeywords ?? [],
-        searchableTechnologies: item.searchableTechnologies ?? [],
-        preferredWorkModes: item.preferredWorkModes ?? [],
-        preferredEmploymentTypes: item.preferredEmploymentTypes ?? [],
-      })),
+      items: items.map((item) => {
+        const { generationStartedAt, generationLeaseExpiresAt, ...rest } = item;
+        return {
+          ...rest,
+          generationState: this.getGenerationState({
+            status: item.status,
+            generationStartedAt,
+            generationLeaseExpiresAt,
+          }),
+          targetRoles: item.targetRoles ?? [],
+          searchableKeywords: item.searchableKeywords ?? [],
+          searchableTechnologies: item.searchableTechnologies ?? [],
+          preferredWorkModes: item.preferredWorkModes ?? [],
+          preferredEmploymentTypes: item.preferredEmploymentTypes ?? [],
+        };
+      }),
       total: Number(total ?? 0),
     };
   }
@@ -258,7 +299,7 @@ export class CareerProfilesService {
       this.ensureGenerationQueued(profile.id, userId);
     }
 
-    return profile;
+    return this.enrichCareerProfile(profile);
   }
 
   async restoreVersion(userId: string, profileId: string) {
@@ -282,7 +323,7 @@ export class CareerProfilesService {
 
       const restored = updated ?? profile;
       void this.jobSourcesService.rematchCatalogForUser(userId, restored.id, 20);
-      return restored;
+      return this.enrichCareerProfile(restored);
     });
   }
 
@@ -304,24 +345,43 @@ export class CareerProfilesService {
       .orderBy(desc(documentsTable.createdAt));
   }
 
-  private ensureGenerationQueued(profileId: string, userId: string, instructions?: string) {
+  private ensureGenerationQueued(profileId: string, userId: string, instructions?: string, traceId?: string) {
     if (this.generationQueue.has(profileId)) {
       return;
     }
 
-    const task = this.processQueuedGeneration(profileId, userId, instructions).finally(() => {
+    const task = this.processQueuedGeneration(profileId, userId, instructions, traceId).finally(() => {
       this.generationQueue.delete(profileId);
     });
     this.generationQueue.set(profileId, task);
   }
 
-  private async processQueuedGeneration(profileId: string, userId: string, instructions?: string) {
-    const careerProfile = await this.db
-      .select()
-      .from(careerProfilesTable)
-      .where(and(eq(careerProfilesTable.id, profileId), eq(careerProfilesTable.userId, userId)))
-      .limit(1)
-      .then(([result]) => result);
+  private async processQueuedGeneration(profileId: string, userId: string, instructions?: string, traceId?: string) {
+    const leaseMinutes =
+      this.configService.get('CAREER_PROFILE_GENERATION_LEASE_MINUTES', { infer: true }) ??
+      DEFAULT_GENERATION_LEASE_MINUTES;
+    const now = new Date();
+    const leaseExpiresAt = new Date(now.getTime() + leaseMinutes * 60 * 1000);
+    const [careerProfile] = await this.db
+      .update(careerProfilesTable)
+      .set({
+        generationStartedAt: now,
+        generationLeaseExpiresAt: leaseExpiresAt,
+        generationAttemptCount: sql<number>`coalesce(${careerProfilesTable.generationAttemptCount}, 0) + 1`,
+        generationLastTraceId: traceId ?? null,
+      })
+      .where(
+        and(
+          eq(careerProfilesTable.id, profileId),
+          eq(careerProfilesTable.userId, userId),
+          eq(careerProfilesTable.status, 'PENDING'),
+          or(
+            isNull(careerProfilesTable.generationLeaseExpiresAt),
+            lt(careerProfilesTable.generationLeaseExpiresAt, now),
+          ),
+        ),
+      )
+      .returning();
 
     if (!careerProfile || careerProfile.status !== 'PENDING') {
       return;
@@ -394,12 +454,22 @@ export class CareerProfilesService {
           preferredEmploymentTypes: projection.preferredEmploymentTypes,
           model: 'gemini',
           error: null,
+          generationLeaseExpiresAt: null,
           updatedAt: new Date(),
         })
         .where(eq(careerProfilesTable.id, careerProfile.id));
 
       void this.jobSourcesService.rematchCatalogForUser(userId, careerProfile.id, 20);
     } catch (error) {
+      this.logger.warn(
+        {
+          profileId,
+          userId,
+          traceId,
+          reason: error instanceof Error ? error.message : 'Unknown generation error',
+        },
+        'Career profile generation failed',
+      );
       await this.markProfileFailed(profileId, error instanceof Error ? error.message : 'Generation failed');
     }
   }
@@ -410,6 +480,7 @@ export class CareerProfilesService {
       .set({
         status: 'FAILED',
         error,
+        generationLeaseExpiresAt: null,
         updatedAt: new Date(),
       })
       .where(eq(careerProfilesTable.id, profileId));
@@ -601,6 +672,41 @@ export class CareerProfilesService {
         `Insufficient extracted document data to build a reliable career profile (need at least ${MIN_EXTRACTED_TEXT_CHARS} chars, got ${totalExtractedChars}). Upload richer CV/LinkedIn content and run extraction first.`,
       );
     }
+  }
+
+  private getGenerationState(profile: {
+    status: 'PENDING' | 'READY' | 'FAILED';
+    generationStartedAt?: Date | null;
+    generationLeaseExpiresAt?: Date | null;
+  }): CareerProfileGenerationState {
+    if (profile.status === 'READY') {
+      return 'READY';
+    }
+    if (profile.status === 'FAILED') {
+      return 'FAILED';
+    }
+
+    const hasActiveLease =
+      profile.generationLeaseExpiresAt instanceof Date && profile.generationLeaseExpiresAt.getTime() > Date.now();
+
+    if (profile.generationStartedAt && hasActiveLease) {
+      return 'RUNNING';
+    }
+
+    return 'QUEUED';
+  }
+
+  private enrichCareerProfile<
+    T extends {
+      status: 'PENDING' | 'READY' | 'FAILED';
+      generationStartedAt?: Date | null;
+      generationLeaseExpiresAt?: Date | null;
+    },
+  >(profile: T) {
+    return {
+      ...profile,
+      generationState: this.getGenerationState(profile),
+    };
   }
 
   private buildSearchProjection(profile: CandidateProfile) {

@@ -255,10 +255,16 @@ export type CareerProfileDto = {
   profileInputId: string;
   documentIds: string;
   status: 'PENDING' | 'READY' | 'FAILED';
+  generationState: 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED';
   content: string | null;
   contentJson: Record<string, unknown> | null;
   model: string | null;
   error: string | null;
+  generationQueuedAt: string | null;
+  generationStartedAt: string | null;
+  generationLeaseExpiresAt: string | null;
+  generationAttemptCount: number;
+  generationLastTraceId: string | null;
   version: number;
   isActive: boolean;
   createdAt: string;
@@ -278,6 +284,7 @@ export type CareerProfileSearchViewItemDto = {
   version: number;
   isActive: boolean;
   status: 'PENDING' | 'READY' | 'FAILED';
+  generationState: 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED';
   primarySeniority: string | null;
   targetRoles: string[];
   searchableKeywords: string[];

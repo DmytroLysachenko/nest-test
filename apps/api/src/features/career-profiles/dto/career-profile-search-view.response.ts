@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { CareerProfileStatus } from '@repo/db';
+import { CareerProfileGenerationState, CareerProfileStatus } from '@repo/db';
 
 export class CareerProfileSearchViewItemResponse {
   @ApiProperty({ format: 'uuid' })
@@ -13,6 +13,9 @@ export class CareerProfileSearchViewItemResponse {
 
   @ApiProperty({ enum: ['PENDING', 'READY', 'FAILED'] })
   status!: CareerProfileStatus;
+
+  @ApiProperty({ enum: ['QUEUED', 'RUNNING', 'READY', 'FAILED'] })
+  generationState!: CareerProfileGenerationState;
 
   @ApiProperty({ nullable: true })
   primarySeniority!: string | null;

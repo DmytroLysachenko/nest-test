@@ -93,10 +93,15 @@ export const ProfileManagementPage = () => {
   const documents = documentsQuery.data ?? [];
   const readyDocumentsCount = documents.filter((document) => document.extractionStatus === 'READY').length;
   const canGenerate = readyDocumentsCount > 0;
+  const generationState = latestCareerProfileQuery.data?.generationState ?? null;
   const primaryBlocker = summary?.blockerDetails?.[0] ?? null;
   const profileQualityEmptyDescription = primaryBlocker
     ? primaryBlocker.description
-    : 'Generate a READY career profile to unlock quality diagnostics.';
+    : generationState === 'RUNNING'
+      ? 'Career profile generation is running. Quality diagnostics will unlock after the profile finishes.'
+      : generationState === 'QUEUED'
+        ? 'Career profile generation is queued. Quality diagnostics will unlock after the profile starts and finishes.'
+        : 'Generate a READY career profile to unlock quality diagnostics.';
 
   return (
     <main className="app-page">
@@ -107,7 +112,16 @@ export const ProfileManagementPage = () => {
         meta={
           <>
             <span className="app-badge">Ready documents: {readyDocumentsCount}</span>
-            <span className="app-badge">Generation: {canGenerate ? 'Available' : 'Blocked'}</span>
+            <span className="app-badge">
+              Generation:{' '}
+              {generationState === 'RUNNING'
+                ? 'Running'
+                : generationState === 'QUEUED'
+                  ? 'Queued'
+                  : canGenerate
+                    ? 'Available'
+                    : 'Blocked'}
+            </span>
           </>
         }
         action={
@@ -147,7 +161,12 @@ export const ProfileManagementPage = () => {
             key: 'generate',
             title: 'Generate only when needed',
             description: 'Create a new profile version after meaningful changes instead of regenerating unnecessarily.',
-            status: latestCareerProfileQuery.data?.status === 'READY' ? 'done' : 'upcoming',
+            status:
+              generationState === 'READY'
+                ? 'done'
+                : generationState === 'RUNNING' || generationState === 'QUEUED'
+                  ? 'active'
+                  : 'upcoming',
           },
         ]}
       />
