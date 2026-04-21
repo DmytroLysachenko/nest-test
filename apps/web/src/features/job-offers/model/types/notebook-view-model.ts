@@ -28,3 +28,14 @@ export type NotebookActiveFilter = {
   label: string;
   onClear: () => void;
 };
+
+export type NotebookActionPlanBucketKey =
+  | 'due-now'
+  | 'due-today'
+  | 'scheduled-soon'
+  | 'missing-next-step'
+  | 'stale-active'
+  | 'strict-top-unreviewed'
+  | 'prep-recommended'
+  | 'awaiting-decision'
+  | 'degraded-results';

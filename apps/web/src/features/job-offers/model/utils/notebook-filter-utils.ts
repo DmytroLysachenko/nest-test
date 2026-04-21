@@ -2,6 +2,7 @@ import type { ListJobOffersParams } from '@/features/job-offers/api/job-offers-a
 import type {
   DiscoveryQuickActionKey,
   NotebookActiveFilter,
+  NotebookActionPlanBucketKey,
   NotebookFilterSetter,
   NotebookQuickActionKey,
 } from '@/features/job-offers/model/types/notebook-view-model';
@@ -43,6 +44,18 @@ export const notebookQuickActionFilters: Record<
   prepRecommended: { ...baseQuickActionFilters, attention: 'prepRecommended' },
   awaitingDecision: { ...baseQuickActionFilters, attention: 'awaitingDecision' },
   degradedResults: { ...baseQuickActionFilters, attention: 'degradedResults' },
+};
+
+export const notebookActionPlanQuickActions: Partial<Record<NotebookActionPlanBucketKey, NotebookQuickActionKey>> = {
+  'due-now': 'followUpDue',
+  'due-today': 'followUpDueToday',
+  'scheduled-soon': 'followUpUpcoming',
+  'missing-next-step': 'missingNextStep',
+  'stale-active': 'stalePipeline',
+  'strict-top-unreviewed': 'strictTop',
+  'prep-recommended': 'prepRecommended',
+  'awaiting-decision': 'awaitingDecision',
+  'degraded-results': 'degradedResults',
 };
 
 const notebookQuickActionKeys = Object.keys(notebookQuickActionFilters) as NotebookQuickActionKey[];

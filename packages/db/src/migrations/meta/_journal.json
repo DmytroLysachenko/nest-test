@@ -288,6 +288,20 @@
       "when": 1776614400000,
       "tag": "0040_document_extraction_queue_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1776787200000,
+      "tag": "0041_career_profile_generation_queue_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1776873600000,
+      "tag": "0042_user_job_offer_reminder_delivery_state",
+      "breakpoints": true
     }
   ]
 }

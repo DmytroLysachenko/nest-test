@@ -17,6 +17,7 @@ import { EmptyState } from '@/shared/ui/empty-state';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
 
 import { OfferStructuredDetailsPanel } from './offer-structured-details-panel';
+import { OfferReminderDeliveryState } from './offer-reminder-delivery-state';
 import { OfferReliabilityNotice } from './offer-reliability-notice';
 import { OfferCompactSourceLinks } from './offer-source-links';
 
@@ -160,6 +161,7 @@ export const NotebookOfferDetailsCard = ({
         </div>
 
         <OfferReliabilityNotice reliabilityContext={offer.reliabilityContext} />
+        <OfferReminderDeliveryState reminderDelivery={offer.reminderDelivery} />
 
         <div className="grid gap-3 md:grid-cols-2">
           <div className="app-inset-stack space-y-2">
@@ -348,6 +350,18 @@ export const NotebookOfferDetailsCard = ({
             </Button>
             <Button type="button" size="sm" variant="secondary" disabled={isBusy} onClick={() => onCompleteFollowUp()}>
               Mark follow-up done
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={isBusy}
+              onClick={() => onCompleteFollowUp('tomorrow')}
+            >
+              Done, remind tomorrow
+            </Button>
+            <Button type="button" size="sm" variant="secondary" disabled={isBusy} onClick={() => onSnoozeFollowUp(24)}>
+              Snooze 1 day
             </Button>
             <Button type="button" size="sm" variant="secondary" disabled={isBusy} onClick={() => onSnoozeFollowUp(72)}>
               Snooze 3 days

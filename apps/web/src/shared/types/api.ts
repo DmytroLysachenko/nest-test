@@ -782,6 +782,15 @@ export type JobOfferReliabilityContextDto = {
   reasons: string[];
 };
 
+export type JobOfferReminderDeliveryDto = {
+  state: 'pending' | 'delivered' | 'failed';
+  bucket: 'overdue' | 'today' | 'upcoming' | 'stale';
+  windowKey: string;
+  lastSentAt: string | null;
+  lastAttemptedAt: string | null;
+  lastError: string | null;
+};
+
 export type JobOfferRecommendedActionDto = {
   key:
     | 'complete-overdue-follow-up'
@@ -817,6 +826,7 @@ export type JobOfferListItemDto = {
   attentionSignals?: JobOfferAttentionSignalDto[];
   recommendedAction?: JobOfferRecommendedActionDto;
   reliabilityContext?: JobOfferReliabilityContextDto;
+  reminderDelivery?: JobOfferReminderDeliveryDto | null;
   followUpAt?: string | null;
   nextStep?: string | null;
   followUpNote?: string | null;
