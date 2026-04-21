@@ -1,6 +1,7 @@
 'use client';
 
 import { useProfileGenerationInstructionsForm } from '@/features/profile-management/model/hooks/use-profile-generation-instructions-form';
+import { formatDateTime } from '@/shared/lib/utils/date-format';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { InspectorRow } from '@/shared/ui/inspector-row';
@@ -36,6 +37,8 @@ export const CareerProfileVersionsCard = ({
   restoreErrorMessage,
 }: CareerProfileVersionsCardProps) => {
   const generationForm = useProfileGenerationInstructionsForm();
+  const activeGenerationState = latestProfile?.generationState ?? null;
+  const isGenerationActive = activeGenerationState === 'QUEUED' || activeGenerationState === 'RUNNING';
 
   return (
     <Card
@@ -71,11 +74,21 @@ export const CareerProfileVersionsCard = ({
             <p className="text-app-warning text-sm">
               At least one extracted document is required before generating a profile.
             </p>
+          ) : isGenerationActive ? (
+            <p className="text-text-soft text-sm">
+              {activeGenerationState === 'RUNNING'
+                ? 'A generation job is running. Wait for it to finish before starting another version.'
+                : 'A generation job is queued. Wait for it to start or finish before creating another version.'}
+            </p>
           ) : (
             <span />
           )}
-          <Button type="submit" disabled={!canGenerate || isGenerating}>
-            {isGenerating ? 'Generating...' : 'Generate new profile version'}
+          <Button type="submit" disabled={!canGenerate || isGenerating || isGenerationActive}>
+            {isGenerating || isGenerationActive
+              ? activeGenerationState === 'RUNNING'
+                ? 'Generation running...'
+                : 'Generation queued...'
+              : 'Generate new profile version'}
           </Button>
         </div>
       </form>
@@ -86,6 +99,10 @@ export const CareerProfileVersionsCard = ({
           <div className="space-y-2">
             <InspectorRow label="Version" value={`v${latestProfile.version}`} />
             <InspectorRow label="Status" value={latestProfile.status} />
+            <InspectorRow label="Generation state" value={latestProfile.generationState} />
+            <InspectorRow label="Queued" value={formatDateTime(latestProfile.generationQueuedAt)} />
+            <InspectorRow label="Started" value={formatDateTime(latestProfile.generationStartedAt)} />
+            <InspectorRow label="Attempts" value={String(latestProfile.generationAttemptCount)} />
             <InspectorRow label="Linked documents" value={String(latestProfileDocuments.length)} />
           </div>
         ) : (
@@ -105,6 +122,10 @@ export const CareerProfileVersionsCard = ({
                 <div className="w-full space-y-2">
                   <InspectorRow label="Version" value={`v${item.version}${item.isActive ? ' (active)' : ''}`} />
                   <InspectorRow label="Status" value={item.status} />
+                  <InspectorRow label="Generation state" value={item.generationState} />
+                  <InspectorRow label="Queued" value={formatDateTime(item.generationQueuedAt)} />
+                  <InspectorRow label="Started" value={formatDateTime(item.generationStartedAt)} />
+                  <InspectorRow label="Attempts" value={String(item.generationAttemptCount)} />
                   <InspectorRow label="Created" value={new Date(item.createdAt).toLocaleString()} />
                 </div>
                 {!item.isActive ? (

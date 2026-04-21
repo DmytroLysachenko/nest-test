@@ -10,9 +10,11 @@ import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options
 import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
+import type { DiscoveryQuickActionKey } from '@/features/job-offers/model/types/notebook-view-model';
+
 type UseOpportunitiesPageArgs = {
   token: string;
-  initialQuickAction?: 'unscored' | 'strictTop' | 'staleUntriaged' | null;
+  initialQuickAction?: DiscoveryQuickActionKey | null;
   initialOfferId?: string | null;
 };
 

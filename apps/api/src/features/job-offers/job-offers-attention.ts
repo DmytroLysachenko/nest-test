@@ -11,9 +11,18 @@ export type AttentionSignal = {
     | 'missing_next_step'
     | 'stale_pipeline'
     | 'prep_recommended'
-    | 'awaiting_decision';
+    | 'awaiting_decision'
+    | 'degraded_source';
   label: string;
   reason: string;
+};
+
+export type OfferReliabilityContext = {
+  key: 'healthy' | 'degraded_source' | 'partial_source' | 'recovered_stale_run';
+  label: string;
+  description: string;
+  severity: 'info' | 'warning';
+  reasons: string[];
 };
 
 const addAttentionSignal = (signals: AttentionSignal[], signal: AttentionSignal) => {
@@ -53,6 +62,7 @@ export const buildAttentionSignals = ({
     followUpNote?: string | null;
     createdAt?: Date | string | null;
     lastStatusAt?: Date | string | null;
+    reliabilityContext?: OfferReliabilityContext | null;
   };
   now?: Date;
 }): AttentionSignal[] => {
@@ -150,7 +160,71 @@ export const buildAttentionSignals = ({
     });
   }
 
+  if (source.reliabilityContext && source.reliabilityContext.key !== 'healthy') {
+    addAttentionSignal(signals, {
+      key: 'degraded_source',
+      label: source.reliabilityContext.label,
+      reason: source.reliabilityContext.description,
+    });
+  }
+
   return signals;
+};
+
+export const buildOfferReliabilityContext = (source: {
+  qualityReason?: string | null;
+  sourceQuality?: string | null;
+  classifiedOutcome?: string | null;
+  runError?: string | null;
+  progress?: unknown;
+}): OfferReliabilityContext => {
+  const progress = getPipelineMetaRecord(source.progress);
+  const reasons = [
+    source.qualityReason ? `quality:${source.qualityReason}` : null,
+    source.sourceQuality ? `source:${source.sourceQuality}` : null,
+    source.classifiedOutcome ? `outcome:${source.classifiedOutcome}` : null,
+  ].filter((item): item is string => Boolean(item));
+
+  if (typeof progress.recoveredFromStaleAt === 'string' || source.runError?.includes('run stale watchdog')) {
+    return {
+      key: 'recovered_stale_run',
+      label: 'Recovered scrape output',
+      description:
+        'The worker missed terminal completion, but already persisted offers were recovered into the notebook.',
+      severity: 'warning',
+      reasons: ['recovered-from-stale-run', ...reasons],
+    };
+  }
+
+  if (source.qualityReason === 'listing_salvage' || source.qualityReason === 'low_context') {
+    return {
+      key: 'degraded_source',
+      label: 'Lower-confidence source data',
+      description:
+        'This offer came from sparse or salvaged source data, so verify requirements and apply details before acting.',
+      severity: 'warning',
+      reasons,
+    };
+  }
+
+  if (source.sourceQuality === 'degraded' || source.classifiedOutcome === 'partial_success') {
+    return {
+      key: 'partial_source',
+      label: 'Partial scrape context',
+      description:
+        'The source run completed with partial quality signals; review the offer details before relying on it.',
+      severity: 'warning',
+      reasons,
+    };
+  }
+
+  return {
+    key: 'healthy',
+    label: 'Source data looks usable',
+    description: 'No scrape reliability warning is attached to this offer.',
+    severity: 'info',
+    reasons,
+  };
 };
 
 export const buildCollectionState = ({

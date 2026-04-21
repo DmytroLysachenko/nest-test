@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   MethodNotAllowedException,
   Param,
   ParseUUIDPipe,
@@ -13,9 +14,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 
-import { JwtAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '@/common/guards';
+import { Public } from '@/common/decorators';
 import { SensitiveRateLimit } from '@/common/rate-limits/rate-limit-groups';
 import { JwtValidateUser } from '@/types/interface/jwt';
 
@@ -30,6 +33,7 @@ import {
   JobOfferFocusResponse,
   JobOfferListResponse,
   JobOfferPrepPacketResponse,
+  JobOfferReminderDeliveryResponse,
   JobOfferReminderPreviewResponse,
   JobOfferSummaryResponse,
 } from './dto/job-offer.response';
@@ -99,6 +103,18 @@ export class JobOffersController {
   @ApiOkResponse({ type: JobOfferReminderPreviewResponse })
   async getReminderPreview(@CurrentUser() user: JwtValidateUser) {
     return this.jobOffersService.getReminderPreview(user.userId);
+  }
+
+  @Post('reminders/deliver')
+  @Public()
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Internal scheduler trigger for notebook reminder delivery' })
+  @ApiOkResponse({ type: JobOfferReminderDeliveryResponse })
+  async deliverReminders(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-request-id') requestId: string | undefined,
+  ) {
+    return this.jobOffersService.deliverReminderDigests(authorization, requestId);
   }
 
   @Get('preferences')

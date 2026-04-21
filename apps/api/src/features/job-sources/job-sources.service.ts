@@ -240,12 +240,72 @@ const deriveCatalogQualityReason = (job: CallbackJobPayload) => {
       Array.isArray(value) ? value.length > 0 : Boolean(value),
     );
 
+  if (!job.title || !job.company || !job.location || !job.url || !job.description) {
+    return 'missing_required_fields';
+  }
+
   if (isLowContextDescription(job.description) && !hasRequirements && !hasStructuredDetails) {
     return 'low_context';
   }
 
-  return null;
+  return hasStructuredDetails || hasRequirements || job.applyUrl || job.sourceCompanyProfileUrl
+    ? 'detail_full'
+    : 'detail_partial';
 };
+
+const toStringArray = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : [];
+
+const readDetailsRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+
+const readNestedRecord = (value: unknown, key: string): Record<string, unknown> =>
+  readDetailsRecord(readDetailsRecord(value)[key]);
+
+const readNestedStringArray = (value: unknown, key: string): string[] => toStringArray(readDetailsRecord(value)[key]);
+
+const collectCatalogText = (offer: CatalogOfferRow) => {
+  const details = readDetailsRecord(offer.details);
+  const sections = readNestedRecord(details, 'sections');
+  const requirements = Array.isArray(offer.requirements) ? offer.requirements : [];
+  return [
+    offer.description,
+    ...requirements.filter((item): item is string => typeof item === 'string'),
+    ...readNestedStringArray(details, 'benefits'),
+    ...readNestedStringArray(sections, 'aboutProject'),
+    ...readNestedStringArray(sections, 'responsibilities'),
+    ...readNestedStringArray(sections, 'offered'),
+    ...readNestedStringArray(sections, 'additionalInformation'),
+  ]
+    .filter(Boolean)
+    .join(' ');
+};
+
+const collectCatalogTechnologies = (details: unknown) => {
+  const technologies = readNestedRecord(details, 'technologies');
+  return Array.from(
+    new Set([
+      ...readNestedStringArray(technologies, 'all'),
+      ...readNestedStringArray(technologies, 'required'),
+      ...readNestedStringArray(technologies, 'niceToHave'),
+    ]),
+  );
+};
+
+const collectCatalogContractTypes = (offer: CatalogOfferRow) =>
+  Array.from(
+    new Set([offer.contractType, ...readNestedStringArray(offer.details, 'contractTypes')].filter(Boolean)),
+  ) as string[];
+
+const collectCatalogWorkModes = (offer: CatalogOfferRow) =>
+  Array.from(
+    new Set([offer.workMode, ...readNestedStringArray(offer.details, 'workModes')].filter(Boolean)),
+  ) as string[];
+
+const collectCatalogSeniorityLevels = (offer: CatalogOfferRow) =>
+  readNestedStringArray(offer.details, 'positionLevels');
 
 const createReuseDecisionDiagnostics = (
   overrides: Partial<ReuseDecisionDiagnostics> & Pick<ReuseDecisionDiagnostics, 'attempted' | 'accepted' | 'reason'>,
@@ -289,6 +349,7 @@ const sanitizeCallbackJobs = (jobs: ScrapeCompleteDto['jobs']) => {
       employmentType: normalizeString(job.employmentType) ?? undefined,
       isExpired: job.isExpired,
       requirements: sanitizeStringArray(job.requirements),
+      details: job.details ?? undefined,
       tags: sanitizeStringArray(job.tags),
       rawPayload: job.rawPayload ?? undefined,
     });
@@ -1899,6 +1960,7 @@ export class JobSourcesService {
         status: jobSourceRunsTable.status,
         totalFound: jobSourceRunsTable.totalFound,
         scrapedCount: jobSourceRunsTable.scrapedCount,
+        error: jobSourceRunsTable.error,
         listingUrl: jobSourceRunsTable.listingUrl,
         filters: jobSourceRunsTable.filters,
         startedAt: jobSourceRunsTable.startedAt,
@@ -1992,6 +2054,34 @@ export class JobSourcesService {
       };
     }
     if (isTerminal && run.status !== status) {
+      const lateCompletionAfterStaleRecovery =
+        run.status === 'FAILED' && status === 'COMPLETED' && isStaleRunError(run.error);
+      if (lateCompletionAfterStaleRecovery) {
+        await this.appendRunEvent({
+          sourceRunId: run.id,
+          traceId: run.traceId,
+          eventType: 'late_callback_after_stale_recovery',
+          requestId,
+          attemptNo: callbackAttemptNo,
+          severity: 'warning',
+          code: 'LATE_CALLBACK_AFTER_STALE_RECOVERY',
+          message: 'Late worker callback ignored because stale-run recovery already finalized the scrape.',
+          meta: {
+            eventId: callbackEventId,
+            statusFrom,
+            statusTo: status,
+            payloadHash: callbackPayloadHash,
+          },
+        });
+        return {
+          ok: true,
+          status: run.status,
+          inserted: 0,
+          idempotent: true,
+          reasonCode: 'LATE_CALLBACK_AFTER_STALE_RECOVERY',
+          warning: 'Run already finalized by stale-run recovery',
+        };
+      }
       this.logger.warn(
         { requestId, sourceRunId: run.id, statusFrom, statusTo: status, idempotent: true },
         'Scrape callback attempted conflicting terminal status',
@@ -2980,6 +3070,9 @@ export class JobSourcesService {
         acceptedOfferCount: Number(parse?.acceptedOfferCount ?? 0),
         rejectedOfferCount: Number(parse?.rejectedOfferCount ?? 0),
         dedupedInRunCount: Number(parse?.dedupedInRunCount ?? 0),
+        uniqueDiscoveredOfferCount: Number(parse?.uniqueDiscoveredOfferCount ?? fetch?.jobLinksDiscovered ?? 0),
+        fullDetailOfferCount: Number(parse?.fullDetailOfferCount ?? 0),
+        partialDetailOfferCount: Number(parse?.partialDetailOfferCount ?? 0),
         salvagedOfferCount: Number(parse?.salvagedOfferCount ?? 0),
       },
       finalize: {
@@ -3397,10 +3490,12 @@ export class JobSourcesService {
             ELSE ${excludedColumn(cols.qualityState)}
           END`,
           qualityReason: sql`CASE
-            WHEN ${jobOffersTable.qualityReason} IS NULL THEN ${jobOffersTable.qualityReason}
-            WHEN ${excludedColumn(cols.qualityReason)} IS NULL THEN ${excludedColumn(cols.qualityReason)}
+            WHEN ${jobOffersTable.qualityReason} IS NULL THEN ${excludedColumn(cols.qualityReason)}
+            WHEN ${excludedColumn(cols.qualityReason)} IS NULL THEN ${jobOffersTable.qualityReason}
+            WHEN ${excludedColumn(cols.qualityReason)} = 'detail_full'
+            THEN ${excludedColumn(cols.qualityReason)}
             WHEN ${jobOffersTable.qualityReason} = 'listing_salvage'
-             AND ${excludedColumn(cols.qualityReason)} = 'low_context'
+             AND ${excludedColumn(cols.qualityReason)} IN ('detail_full', 'detail_partial', 'low_context')
             THEN ${excludedColumn(cols.qualityReason)}
             ELSE ${jobOffersTable.qualityReason}
           END`,
@@ -5087,14 +5182,18 @@ export class JobSourcesService {
       .map((offer) => ({
         offer,
         deterministic: scoreCandidateAgainstJob(input.profile, {
-          text: offer.description,
+          text: collectCatalogText(offer),
           title: offer.title,
           location: offer.location,
           employmentType: offer.employmentType,
           contractType: offer.contractType,
+          contractTypes: collectCatalogContractTypes(offer),
           employmentSchedule: offer.employmentSchedule,
-          workModes: offer.workMode ? [offer.workMode] : [],
+          employmentSchedules: offer.employmentSchedule ? [offer.employmentSchedule] : [],
+          workModes: collectCatalogWorkModes(offer),
           jobCategory: offer.jobCategory,
+          seniorityLevels: collectCatalogSeniorityLevels(offer),
+          technologies: collectCatalogTechnologies(offer.details),
           salaryText: offer.salary,
           salaryMin: offer.salaryMin,
           salaryMax: offer.salaryMax,

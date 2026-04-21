@@ -72,6 +72,12 @@ const createListQuery = (items: Array<Record<string, unknown>>) => {
   };
 };
 
+const createSimpleWhereQuery = (items: Array<Record<string, unknown>>) => ({
+  from: jest.fn().mockReturnValue({
+    where: jest.fn().mockResolvedValue(items),
+  }),
+});
+
 const createBulkFollowUpTransaction = (rows: Array<Record<string, unknown>>, setMock: jest.Mock) => ({
   select: jest.fn().mockReturnValue({
     from: jest.fn().mockReturnValue({
@@ -650,6 +656,236 @@ describe('JobOffersService', () => {
         }),
       ]),
     );
+  });
+
+  it('delivers deduped reminder digests once per bucket window', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-03-09T10:00:00.000Z'));
+
+    const updateWhere = jest.fn().mockResolvedValue(undefined);
+    const select = jest
+      .fn()
+      .mockReturnValueOnce(createSimpleWhereQuery([{ id: 'user-1', email: 'user@example.com' }]))
+      .mockReturnValueOnce(
+        createSimpleWhereQuery([
+          {
+            id: 'ujo-overdue',
+            reminderLastWindowKey: 'today:2026-03-09',
+            reminderLastDeliveryStatus: 'SENT',
+          },
+        ]),
+      );
+    const db = {
+      select,
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: updateWhere,
+        }),
+      }),
+    } as any;
+    const mailService = {
+      sendNotebookReminderDigest: jest.fn().mockResolvedValue(undefined),
+    } as any;
+    const service = new JobOffersService(
+      db,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          if (key === 'SCHEDULER_AUTH_TOKEN') return 'scheduler-token';
+          return undefined;
+        }),
+      } as any,
+      mailService,
+    );
+
+    jest.spyOn(service, 'getReminderPreview').mockResolvedValue({
+      generatedAt: '2026-03-09T10:00:00.000Z',
+      counts: { overdue: 1, today: 1, upcoming: 0, stale: 0 },
+      buckets: [
+        {
+          key: 'overdue',
+          label: 'Overdue',
+          count: 1,
+          items: [
+            {
+              id: 'ujo-overdue',
+              title: 'Frontend Engineer',
+              company: 'Acme',
+              location: 'Remote',
+              status: 'SAVED',
+              followUpAt: '2026-03-08T10:00:00.000Z',
+              nextStep: 'Email recruiter',
+              followUpNote: null,
+              attentionSignals: [],
+              recommendedAction: null,
+            },
+          ],
+        },
+        {
+          key: 'today',
+          label: 'Due today',
+          count: 1,
+          items: [
+            {
+              id: 'ujo-overdue',
+              title: 'Frontend Engineer',
+              company: 'Acme',
+              location: 'Remote',
+              status: 'SAVED',
+              followUpAt: '2026-03-08T10:00:00.000Z',
+              nextStep: 'Email recruiter',
+              followUpNote: null,
+              attentionSignals: [],
+              recommendedAction: null,
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await service.deliverReminderDigests('Bearer scheduler-token');
+
+    expect(mailService.sendNotebookReminderDigest).toHaveBeenCalledWith(
+      'user@example.com',
+      expect.objectContaining({
+        buckets: [
+          expect.objectContaining({
+            key: 'overdue',
+            count: 1,
+          }),
+        ],
+      }),
+    );
+    expect(updateWhere).toHaveBeenCalledTimes(1);
+    expect(result).toEqual(
+      expect.objectContaining({
+        usersScanned: 1,
+        usersDelivered: 1,
+        usersFailed: 0,
+        offersDelivered: 1,
+        offersFailed: 0,
+      }),
+    );
+  });
+
+  it('derives reminder delivery state for current notebook windows', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-03-09T10:00:00.000Z'));
+
+    const select = jest.fn().mockReturnValue(
+      createListQuery([
+        {
+          id: 'ujo-overdue-delivered',
+          jobOfferId: 'job-overdue-delivered',
+          sourceRunId: 'run-overdue-delivered',
+          status: 'APPLIED',
+          matchScore: 82,
+          matchMeta: { hardConstraintViolations: [] },
+          pipelineMeta: null,
+          followUpAt: new Date('2026-03-08T08:00:00.000Z'),
+          nextStep: 'Send follow-up email',
+          followUpNote: null,
+          applicationUrl: null,
+          contactName: null,
+          lastFollowUpCompletedAt: null,
+          lastFollowUpSnoozedAt: null,
+          reminderLastWindowKey: 'overdue:2026-03-09',
+          reminderLastBucket: 'overdue',
+          reminderLastDeliveryStatus: 'SENT',
+          reminderLastSentAt: new Date('2026-03-09T07:00:00.000Z'),
+          reminderLastAttemptedAt: new Date('2026-03-09T07:00:00.000Z'),
+          reminderLastError: null,
+          notes: null,
+          tags: null,
+          statusHistory: [],
+          lastStatusAt: new Date('2026-03-08T08:00:00.000Z'),
+          source: 'PRACUJ_PL',
+          url: 'https://www.pracuj.pl/oferta/13',
+          title: 'Frontend Engineer',
+          company: 'Acme',
+          location: 'Remote',
+          salary: null,
+          employmentType: 'B2B',
+          description: 'Frontend role',
+          requirements: [],
+          details: null,
+          createdAt: new Date('2026-03-08T08:00:00.000Z'),
+        },
+        {
+          id: 'ujo-upcoming-pending',
+          jobOfferId: 'job-upcoming-pending',
+          sourceRunId: 'run-upcoming-pending',
+          status: 'INTERVIEWING',
+          matchScore: 78,
+          matchMeta: { hardConstraintViolations: [] },
+          pipelineMeta: null,
+          followUpAt: new Date('2026-03-11T09:00:00.000Z'),
+          nextStep: 'Confirm interview slot',
+          followUpNote: null,
+          applicationUrl: null,
+          contactName: null,
+          lastFollowUpCompletedAt: null,
+          lastFollowUpSnoozedAt: null,
+          reminderLastWindowKey: 'today:2026-03-09',
+          reminderLastBucket: 'today',
+          reminderLastDeliveryStatus: 'SENT',
+          reminderLastSentAt: new Date('2026-03-09T06:30:00.000Z'),
+          reminderLastAttemptedAt: new Date('2026-03-09T06:30:00.000Z'),
+          reminderLastError: null,
+          notes: null,
+          tags: null,
+          statusHistory: [],
+          lastStatusAt: new Date('2026-03-09T08:00:00.000Z'),
+          source: 'PRACUJ_PL',
+          url: 'https://www.pracuj.pl/oferta/14',
+          title: 'Platform Engineer',
+          company: 'Globex',
+          location: 'Warsaw',
+          salary: null,
+          employmentType: 'B2B',
+          description: 'Platform role',
+          requirements: [],
+          details: null,
+          createdAt: new Date('2026-03-09T08:00:00.000Z'),
+        },
+      ]),
+    );
+    const service = new JobOffersService(
+      { select } as any,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'NOTEBOOK_APPROX_VIOLATION_PENALTY') return 15;
+          if (key === 'NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY') return 45;
+          if (key === 'NOTEBOOK_APPROX_SCORED_BONUS') return 5;
+          if (key === 'NOTEBOOK_EXPLORE_UNSCORED_BASE') return 55;
+          if (key === 'NOTEBOOK_EXPLORE_RECENCY_WEIGHT') return 12;
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          return undefined;
+        }),
+      } as any,
+    );
+
+    const result = await service.list('user-1', { mode: 'strict', limit: 20, offset: 0 });
+
+    const delivered = result.items.find((item) => item.id === 'ujo-overdue-delivered');
+    const pending = result.items.find((item) => item.id === 'ujo-upcoming-pending');
+
+    expect(delivered?.reminderDelivery).toEqual({
+      state: 'delivered',
+      bucket: 'overdue',
+      windowKey: 'overdue:2026-03-09',
+      lastSentAt: '2026-03-09T07:00:00.000Z',
+      lastAttemptedAt: '2026-03-09T07:00:00.000Z',
+      lastError: null,
+    });
+    expect(pending?.reminderDelivery).toEqual({
+      state: 'pending',
+      bucket: 'upcoming',
+      windowKey: 'upcoming:2026-03-09',
+      lastSentAt: '2026-03-09T06:30:00.000Z',
+      lastAttemptedAt: '2026-03-09T06:30:00.000Z',
+      lastError: null,
+    });
   });
 
   it('filters notebook list by degraded scrape results attention bucket', async () => {

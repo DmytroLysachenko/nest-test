@@ -168,6 +168,12 @@ class ScrapeRunDiagnosticsDto {
   @IsOptional()
   @IsInt()
   @Min(0)
+  uniqueDiscoveredOfferCount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   skippedFreshUrls?: number;
 
   @ApiPropertyOptional()
@@ -215,6 +221,24 @@ class ScrapeRunDiagnosticsDto {
   @IsObject()
   rejectedOfferReasons?: Record<string, number>;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  fullDetailOfferCount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  partialDetailOfferCount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  salvagedOfferCount?: number;
+
   @ApiPropertyOptional({ type: Object })
   @IsOptional()
   @IsObject()
@@ -247,6 +271,9 @@ class ScrapeRunDiagnosticsDto {
       acceptedOfferCount: number;
       rejectedOfferCount: number;
       dedupedInRunCount: number;
+      uniqueDiscoveredOfferCount?: number;
+      fullDetailOfferCount?: number;
+      partialDetailOfferCount?: number;
       salvagedOfferCount: number;
     };
     finalize: {

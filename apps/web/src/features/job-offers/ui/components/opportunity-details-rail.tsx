@@ -1,13 +1,15 @@
 'use client';
 
-import Link from 'next/link';
-import { ExternalLink, Pointer } from 'lucide-react';
+import { Pointer } from 'lucide-react';
 
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
+import { formatDateTime } from '@/shared/lib/utils/date-format';
 
 import { OfferStructuredDetailsPanel } from './offer-structured-details-panel';
+import { OfferReliabilityNotice } from './offer-reliability-notice';
+import { OfferSourceLinks } from './offer-source-links';
 
 import type { DiscoveryJobOfferListItemDto } from '@/shared/types/api';
 
@@ -63,10 +65,12 @@ export const OpportunityDetailsRail = ({
           <p className="text-text-strong text-sm font-semibold">{offer.fitSummary ?? 'Review this role manually.'}</p>
           {offer.expiresAt ? (
             <p className="text-text-soft text-xs">
-              {offer.isExpired ? 'Offer expired' : 'Offer valid until'} {new Date(offer.expiresAt).toLocaleString()}
+              {offer.isExpired ? 'Offer expired' : 'Offer valid until'} {formatDateTime(offer.expiresAt)}
             </p>
           ) : null}
         </div>
+
+        <OfferReliabilityNotice reliabilityContext={offer.reliabilityContext} />
 
         {offer.fitHighlights.length ? (
           <div className="app-inset-stack space-y-2">
@@ -86,35 +90,7 @@ export const OpportunityDetailsRail = ({
           <p className="text-text-soft line-clamp-6 text-sm leading-6">
             {offer.description?.trim() || 'Open the source listing if you need the full job description.'}
           </p>
-          <div className="flex flex-wrap gap-3">
-            {offer.url ? (
-              <Link
-                href={offer.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary inline-flex text-sm underline-offset-4 hover:underline"
-              >
-                Open source listing
-                <ExternalLink className="ml-1 h-3.5 w-3.5" />
-              </Link>
-            ) : null}
-            {offer.structuredDetails?.companySummary?.id ? (
-              <Link
-                href={`/companies/${offer.structuredDetails.companySummary.id}`}
-                className="text-primary inline-flex text-sm underline-offset-4 hover:underline"
-              >
-                Open company profile
-              </Link>
-            ) : null}
-            {offer.location ? (
-              <Link
-                href={`/companies?location=${encodeURIComponent(offer.location)}`}
-                className="text-primary inline-flex text-sm underline-offset-4 hover:underline"
-              >
-                More companies in {offer.location}
-              </Link>
-            ) : null}
-          </div>
+          <OfferSourceLinks offer={offer} includeLocationSearch />
         </div>
 
         <div className="flex flex-wrap gap-2">

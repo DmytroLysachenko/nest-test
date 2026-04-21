@@ -6,6 +6,7 @@ import { Logger } from 'nestjs-pino';
 import {
   apiRequestEventsTable,
   authorizationEventsTable,
+  careerProfilesTable,
   companyAliasesTable,
   companiesTable,
   contractTypesTable,
@@ -133,6 +134,24 @@ export class OpsService {
         .select({ value: count() })
         .from(userJobOffersTable)
         .where(isNull(userJobOffersTable.matchScore));
+      const [reminderDeliveryFailuresRow] = await this.db
+        .select({ value: count() })
+        .from(userJobOffersTable)
+        .where(
+          and(
+            eq(userJobOffersTable.reminderLastDeliveryStatus, 'FAILED'),
+            gte(userJobOffersTable.reminderLastAttemptedAt, cutoff),
+          ),
+        );
+      const [totalCareerProfilesRow] = await this.db.select({ value: count() }).from(careerProfilesTable);
+      const [pendingCareerProfilesRow] = await this.db
+        .select({ value: count() })
+        .from(careerProfilesTable)
+        .where(eq(careerProfilesTable.status, 'PENDING'));
+      const [failedCareerProfilesRow] = await this.db
+        .select({ value: count() })
+        .from(careerProfilesTable)
+        .where(eq(careerProfilesTable.status, 'FAILED'));
       const [freshCatalogOffersRow] = await this.db
         .select({ value: count() })
         .from(jobOffersTable)
@@ -292,6 +311,12 @@ export class OpsService {
         offers: {
           totalUserOffers: Number(totalUserOffersRow?.value ?? 0),
           unscoredUserOffers: Number(unscoredUserOffersRow?.value ?? 0),
+          reminderDeliveryFailures24h: Number(reminderDeliveryFailuresRow?.value ?? 0),
+        },
+        careerProfiles: {
+          totalProfiles: Number(totalCareerProfilesRow?.value ?? 0),
+          pendingProfiles: Number(pendingCareerProfilesRow?.value ?? 0),
+          failedProfiles: Number(failedCareerProfilesRow?.value ?? 0),
         },
         catalog: {
           freshAcceptedOffers: Number(freshCatalogOffersRow?.value ?? 0),
@@ -331,6 +356,8 @@ export class OpsService {
           incrementalIngestDeadLetters: incrementalIngestDeadLetters > 0,
           sourceDegradation: sourceDegradedRuns > 0,
           scheduleEnqueueFailures: enqueueFailures24h > 0,
+          reminderDeliveryFailures: Number(reminderDeliveryFailuresRow?.value ?? 0) > 0,
+          careerProfileGenerationFailures: Number(failedCareerProfilesRow?.value ?? 0) > 0,
         },
       };
     } catch (error) {
@@ -360,6 +387,8 @@ export class OpsService {
       failedApiRequestEvents,
       failedScheduleExecutions,
       recentAuthorizationEvents,
+      failedCareerProfileGenerations,
+      failedReminderDeliveries,
       stageFailures,
     ] = await Promise.all([
       this.safeLoad(
@@ -481,6 +510,53 @@ export class OpsService {
         [],
       ),
       this.safeLoad(
+        'support-overview.career-profile-failures',
+        () =>
+          this.db
+            .select({
+              id: careerProfilesTable.id,
+              userId: careerProfilesTable.userId,
+              status: careerProfilesTable.status,
+              generationStartedAt: careerProfilesTable.generationStartedAt,
+              generationLeaseExpiresAt: careerProfilesTable.generationLeaseExpiresAt,
+              generationAttemptCount: careerProfilesTable.generationAttemptCount,
+              generationLastTraceId: careerProfilesTable.generationLastTraceId,
+              error: careerProfilesTable.error,
+              createdAt: careerProfilesTable.createdAt,
+            })
+            .from(careerProfilesTable)
+            .where(and(eq(careerProfilesTable.status, 'FAILED'), gte(careerProfilesTable.updatedAt, cutoff)))
+            .orderBy(desc(careerProfilesTable.updatedAt))
+            .limit(10),
+        [],
+      ),
+      this.safeLoad(
+        'support-overview.reminder-delivery-failures',
+        () =>
+          this.db
+            .select({
+              id: userJobOffersTable.id,
+              userId: userJobOffersTable.userId,
+              title: jobOffersTable.title,
+              company: jobOffersTable.company,
+              reminderLastBucket: userJobOffersTable.reminderLastBucket,
+              reminderLastWindowKey: userJobOffersTable.reminderLastWindowKey,
+              reminderLastError: userJobOffersTable.reminderLastError,
+              reminderLastAttemptedAt: userJobOffersTable.reminderLastAttemptedAt,
+            })
+            .from(userJobOffersTable)
+            .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+            .where(
+              and(
+                eq(userJobOffersTable.reminderLastDeliveryStatus, 'FAILED'),
+                gte(userJobOffersTable.reminderLastAttemptedAt, cutoff),
+              ),
+            )
+            .orderBy(desc(userJobOffersTable.reminderLastAttemptedAt))
+            .limit(10),
+        [],
+      ),
+      this.safeLoad(
         'support-overview.stage-failures',
         () =>
           this.db
@@ -532,6 +608,25 @@ export class OpsService {
           ...event,
           meta: this.asRecordOrNull(event.meta),
           createdAt: this.toIsoString(event.createdAt),
+        })),
+        careerProfileGenerations: failedCareerProfileGenerations.map((profile) => ({
+          id: profile.id,
+          userId: profile.userId,
+          status: profile.status,
+          generationState:
+            profile.status === 'FAILED'
+              ? 'FAILED'
+              : profile.generationStartedAt && profile.generationLeaseExpiresAt > now
+                ? 'RUNNING'
+                : 'QUEUED',
+          generationAttemptCount: profile.generationAttemptCount,
+          generationLastTraceId: profile.generationLastTraceId,
+          error: profile.error,
+          createdAt: this.toIsoString(profile.createdAt),
+        })),
+        reminderDeliveries: failedReminderDeliveries.map((item) => ({
+          ...item,
+          reminderLastAttemptedAt: this.toIsoString(item.reminderLastAttemptedAt),
         })),
       },
       stageFailures,
@@ -895,6 +990,9 @@ export class OpsService {
       statusCounts,
       totalOffersRow,
       unscoredOffersRow,
+      reminderDeliveryFailuresRow,
+      careerProfileCounts,
+      recentReminderDeliveryFailures,
     ] = await Promise.all([
       this.db
         .select({
@@ -981,9 +1079,53 @@ export class OpsService {
         .from(userJobOffersTable)
         .where(and(eq(userJobOffersTable.userId, userId), isNull(userJobOffersTable.matchScore)))
         .then(([row]) => row ?? { value: 0 }),
+      this.db
+        .select({ value: count() })
+        .from(userJobOffersTable)
+        .where(
+          and(
+            eq(userJobOffersTable.userId, userId),
+            eq(userJobOffersTable.reminderLastDeliveryStatus, 'FAILED'),
+            gte(userJobOffersTable.reminderLastAttemptedAt, cutoff),
+          ),
+        )
+        .then(([row]) => row ?? { value: 0 }),
+      this.db
+        .select({
+          status: careerProfilesTable.status,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(careerProfilesTable)
+        .where(eq(careerProfilesTable.userId, userId))
+        .groupBy(careerProfilesTable.status),
+      this.db
+        .select({
+          id: userJobOffersTable.id,
+          title: jobOffersTable.title,
+          company: jobOffersTable.company,
+          reminderLastBucket: userJobOffersTable.reminderLastBucket,
+          reminderLastWindowKey: userJobOffersTable.reminderLastWindowKey,
+          reminderLastError: userJobOffersTable.reminderLastError,
+          reminderLastAttemptedAt: userJobOffersTable.reminderLastAttemptedAt,
+        })
+        .from(userJobOffersTable)
+        .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+        .where(
+          and(
+            eq(userJobOffersTable.userId, userId),
+            eq(userJobOffersTable.reminderLastDeliveryStatus, 'FAILED'),
+            gte(userJobOffersTable.reminderLastAttemptedAt, cutoff),
+          ),
+        )
+        .orderBy(desc(userJobOffersTable.reminderLastAttemptedAt))
+        .limit(20),
     ]);
 
     const statusCountsRecord = statusCounts.reduce<Record<string, number>>((accumulator, item) => {
+      accumulator[item.status] = Number(item.count);
+      return accumulator;
+    }, {});
+    const careerProfileCountsRecord = careerProfileCounts.reduce<Record<string, number>>((accumulator, item) => {
       accumulator[item.status] = Number(item.count);
       return accumulator;
     }, {});
@@ -1013,6 +1155,16 @@ export class OpsService {
         totalOffers: Number(totalOffersRow.value ?? 0),
         unscoredOffers: Number(unscoredOffersRow.value ?? 0),
         statusCounts: statusCountsRecord,
+        reminderDeliveryFailures24h: Number(reminderDeliveryFailuresRow.value ?? 0),
+      },
+      careerProfileStats: {
+        total:
+          Number(careerProfileCountsRecord.READY ?? 0) +
+          Number(careerProfileCountsRecord.PENDING ?? 0) +
+          Number(careerProfileCountsRecord.FAILED ?? 0),
+        ready: Number(careerProfileCountsRecord.READY ?? 0),
+        pending: Number(careerProfileCountsRecord.PENDING ?? 0),
+        failed: Number(careerProfileCountsRecord.FAILED ?? 0),
       },
       recentScrapeRuns: recentScrapeRuns.map((run) => ({
         ...run,
@@ -1026,6 +1178,10 @@ export class OpsService {
         createdAt: this.toIsoString(event.createdAt),
       })),
       recentApiRequestEvents: recentApiRequestEvents.map((event) => this.mapApiRequestEvent(event)),
+      recentReminderDeliveryFailures: recentReminderDeliveryFailures.map((item) => ({
+        ...item,
+        reminderLastAttemptedAt: this.toIsoString(item.reminderLastAttemptedAt),
+      })),
     };
   }
 
@@ -1833,6 +1989,12 @@ export class OpsService {
       offers: {
         totalUserOffers: 0,
         unscoredUserOffers: 0,
+        reminderDeliveryFailures24h: 0,
+      },
+      careerProfiles: {
+        totalProfiles: 0,
+        pendingProfiles: 0,
+        failedProfiles: 0,
       },
       catalog: {
         freshAcceptedOffers: 0,
@@ -1872,6 +2034,8 @@ export class OpsService {
         incrementalIngestDeadLetters: false,
         sourceDegradation: false,
         scheduleEnqueueFailures: false,
+        reminderDeliveryFailures: false,
+        careerProfileGenerationFailures: false,
       },
     };
   }

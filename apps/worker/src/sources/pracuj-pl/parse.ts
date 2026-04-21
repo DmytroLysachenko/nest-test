@@ -39,6 +39,11 @@ const extractJsonLdBlocks = (html: string) => {
 
 const toText = (value?: string) => (value ? value.replace(/<[^>]+>/g, '').trim() : '');
 const cleanText = (value?: string) => (value ? value.replace(/\s+/g, ' ').trim() : '');
+const normalizeAscii = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 const pickString = (value: unknown) => (typeof value === 'string' && value.trim().length ? value.trim() : undefined);
 const pickStringArray = (value: unknown) =>
   Array.isArray(value) ? value.map((item) => pickString(item)).filter((item): item is string => Boolean(item)) : [];
@@ -79,7 +84,14 @@ const findJobOfferData = (html: string) => {
       return query.state?.data ?? null;
     }
   }
-  return null;
+  const candidates = queries
+    .map((query) => query.state?.data)
+    .filter((value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object');
+  return (
+    candidates.find((candidate) =>
+      ['jobTitle', 'title', 'employerName', 'companyName', 'textSections'].some((key) => key in candidate),
+    ) ?? null
+  );
 };
 
 const splitList = (value?: string) => {
@@ -186,11 +198,16 @@ const extractChips = (html: string, selectors: string[]) => {
   return [];
 };
 
+const headingMatches = (value: string, patterns: RegExp[]) => {
+  const normalized = normalizeAscii(value);
+  return patterns.some((pattern) => pattern.test(value) || pattern.test(normalized));
+};
+
 const findSectionByHeading = ($: ReturnType<typeof load>, patterns: RegExp[]) => {
   const headings = $('h1, h2, h3, h4');
   for (const heading of headings.toArray()) {
     const text = cleanText($(heading).text());
-    if (patterns.some((pattern) => pattern.test(text))) {
+    if (headingMatches(text, patterns)) {
       return $(heading).closest('section, div');
     }
   }
@@ -215,7 +232,7 @@ const extractChipsByHeading = (html: string, headingPatterns: RegExp[], subheadi
   const subheadings = section.find('h3, h4, h5, strong');
   for (const subheading of subheadings.toArray()) {
     const text = cleanText($(subheading).text());
-    if (!subheadingPatterns.some((pattern) => pattern.test(text))) {
+    if (!headingMatches(text, subheadingPatterns)) {
       continue;
     }
     const container = $(subheading).closest('div, section');
@@ -262,6 +279,13 @@ const extractInlineValueByHeading = (html: string, headingPatterns: RegExp[]) =>
     .find(Boolean);
 
   return sanitizeNarrativeText(firstValue);
+};
+
+const extractRequiredRequirementBullets = (html: string) => {
+  const exactPracujRequirements = extractBulletListByHeading(html, [/Nasze wymagania/i, /Our requirements/i]);
+  return exactPracujRequirements.length
+    ? exactPracujRequirements
+    : extractBulletListByHeading(html, [/Requirements/i, /Wymagania/i]);
 };
 
 const extractJobOfferSections = (jobOffer: Record<string, unknown> | null) => {
@@ -364,9 +388,19 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
       ? offerSections.offered
       : extractBulletListByHeading(html, [/What we offer/i, /To oferujemy/i, /Offered/i]);
   const additionalInformation = extractBulletListByHeading(html, [/Additional information/i, /Dodatkowe informacje/i]);
+  const resolvedResponsibilities = responsibilities.length
+    ? responsibilities
+    : extractBulletListByHeading(html, [/Zakres obow/i, /Twoj zakres/i, /Twój zakres/i]);
   const requiredReq = offerSections.requirementsExpected;
   const optionalReq = offerSections.requirementsOptional;
-  const allReq = requiredReq.length || optionalReq.length ? Array.from(new Set([...requiredReq, ...optionalReq])) : [];
+  const resolvedRequiredReq = requiredReq.length ? requiredReq : extractRequiredRequirementBullets(html);
+  const resolvedOptionalReq = optionalReq.length
+    ? optionalReq
+    : extractBulletListByHeading(html, [/Mile widziane/i, /Nice to have/i, /Optional/i]);
+  const allReq =
+    resolvedRequiredReq.length || resolvedOptionalReq.length
+      ? Array.from(new Set([...resolvedRequiredReq, ...resolvedOptionalReq]))
+      : [];
   const companyDescription =
     offerSections.companyDescription.length > 0
       ? sanitizeNarrativeText(buildDescription(offerSections.companyDescription))
@@ -393,7 +427,7 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
     !workplace &&
     !companyLocation &&
     !aboutProject.length &&
-    !responsibilities.length &&
+    !resolvedResponsibilities.length &&
     !offered.length &&
     !additionalInformation.length
   ) {
@@ -412,8 +446,8 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
     requirements: allReq.length
       ? {
           all: allReq,
-          required: requiredReq.length ? requiredReq : undefined,
-          niceToHave: optionalReq.length ? optionalReq : undefined,
+          required: resolvedRequiredReq.length ? resolvedRequiredReq : undefined,
+          niceToHave: resolvedOptionalReq.length ? resolvedOptionalReq : undefined,
         }
       : undefined,
     workModes: workModes.length ? workModes : fallbackWorkModes.length ? fallbackWorkModes : undefined,
@@ -436,7 +470,7 @@ const collectDetails = (html: string, jsonLd?: JsonLdJob | null): JobDetails | u
       aboutProject.length || responsibilities.length || offered.length || additionalInformation.length
         ? {
             aboutProject: aboutProject.length ? aboutProject : undefined,
-            responsibilities: responsibilities.length ? responsibilities : undefined,
+            responsibilities: resolvedResponsibilities.length ? resolvedResponsibilities : undefined,
             offered: offered.length ? offered : undefined,
             additionalInformation: additionalInformation.length ? additionalInformation : undefined,
           }
@@ -463,6 +497,17 @@ const normalizeSalary = (job: JsonLdJob | null) => {
     return `${min} ${currency} ${unit}`.trim();
   }
   return null;
+};
+
+const extractSalaryFromHtml = (html: string) => {
+  const $ = load(html);
+  const text = cleanText($('body').text());
+  const salaryMatches = Array.from(
+    text.matchAll(/\d[\d\s]{1,8}(?:[–-]\s*\d[\d\s]{1,8})?\s*(?:zł|zl|PLN|EUR|USD)[^*•\n]{0,60}/gi),
+  )
+    .map((match) => cleanText(match[0]))
+    .filter((value) => /\b(brutto|netto|mies|godz|hour|month|rok|year|umowa|kontrakt|b2b)\b/i.test(value));
+  return salaryMatches.length ? Array.from(new Set(salaryMatches)).join(' | ') : null;
 };
 
 const findJobPosting = (blocks: string[]) => {
@@ -537,7 +582,7 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
         '[data-test="text-job-description"]',
       ]) ||
       'No description found';
-    const salary = normalizeSalary(jsonLd) || undefined;
+    const salary = normalizeSalary(jsonLd) || extractSalaryFromHtml(page.html) || undefined;
     const applyUrl =
       resolveJobOfferScalar(jobOffer, ['applyUrl', 'externalApplyUrl']) ||
       extractHrefBySelectors(page.html, [
@@ -552,12 +597,16 @@ export const parsePracujPl = (pages: RawPage[]): ParsedJob[] => {
       undefined;
     const postedAt = jsonLd?.datePosted?.trim() || resolveJobOfferScalar(jobOffer, ['publishedAt', 'datePosted']);
     const expiresAt = jsonLd?.validThrough?.trim() || resolveJobOfferScalar(jobOffer, ['validThrough', 'expiresAt']);
+    const jobOfferRequirements = resolveJobOfferList(jobOffer, ['requirements', 'expectedRequirements']);
+    const renderedRequirements = extractRequiredRequirementBullets(page.html);
     const requirements =
       offerSections.requirementsExpected.length || offerSections.requirementsOptional.length
         ? [...offerSections.requirementsExpected, ...offerSections.requirementsOptional]
-        : resolveJobOfferList(jobOffer, ['requirements', 'expectedRequirements']).length
-          ? resolveJobOfferList(jobOffer, ['requirements', 'expectedRequirements'])
-          : splitList(jsonLd?.experienceRequirements);
+        : jobOfferRequirements.length
+          ? jobOfferRequirements
+          : renderedRequirements.length
+            ? renderedRequirements
+            : splitList(jsonLd?.experienceRequirements);
     const details = collectDetails(page.html, jsonLd);
 
     return {

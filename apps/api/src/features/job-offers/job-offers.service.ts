@@ -1,4 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  Optional,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, desc, eq, inArray, isNull, lt, not, sql } from 'drizzle-orm';
@@ -14,10 +21,12 @@ import {
   jobOfferWorkSchedulesTable,
   jobOffersTable,
   jobCategoriesTable,
+  jobSourceRunsTable,
   notebookPreferencesTable,
   seniorityLevelsTable,
   technologiesTable,
   userJobOffersTable,
+  usersTable,
   workSchedulesTable,
   workModesTable,
 } from '@repo/db';
@@ -25,6 +34,7 @@ import {
 import { Drizzle } from '@/common/decorators';
 import { GeminiService } from '@/common/modules/gemini/gemini.service';
 import { DEFAULT_GEMINI_MODEL } from '@/common/modules/gemini/gemini-config';
+import { MailService } from '@/features/auth/mail.service';
 import { parseCandidateProfile } from '@/features/career-profiles/schema/candidate-profile.schema';
 import { scoreCandidateAgainstJob } from '@/features/job-matching/candidate-matcher';
 import {
@@ -34,7 +44,7 @@ import {
 } from '@/features/job-offers/notebook-ranking';
 
 import { ListJobOffersQuery } from './dto/list-job-offers.query';
-import { buildAttentionSignals, buildCollectionState } from './job-offers-attention';
+import { buildAttentionSignals, buildCollectionState, buildOfferReliabilityContext } from './job-offers-attention';
 import { defaultNotebookFilters, normalizeNotebookFilters } from './job-offers-preferences';
 import {
   buildPrepTalkingPoints,
@@ -63,6 +73,8 @@ import type { Env } from '@/config/env';
 import type { JobOfferStatus, JobSource } from '@repo/db';
 
 const toIsoString = (value: Date | null) => (value ? value.toISOString() : null);
+type ReminderBucketKey = 'overdue' | 'today' | 'upcoming' | 'stale';
+type ReminderDeliveryStatus = 'SENT' | 'FAILED';
 
 @Injectable()
 export class JobOffersService {
@@ -73,6 +85,7 @@ export class JobOffersService {
     @Drizzle() private readonly db: NodePgDatabase,
     private readonly geminiService: GeminiService,
     private readonly configService: ConfigService<Env, true>,
+    @Optional() private readonly mailService?: MailService,
   ) {
     this.scoringModel = this.configService.get('GEMINI_MODEL', { infer: true }) ?? DEFAULT_GEMINI_MODEL;
     this.rankingTuning = {
@@ -278,6 +291,12 @@ export class JobOffersService {
         contactName: userJobOffersTable.contactName,
         lastFollowUpCompletedAt: userJobOffersTable.lastFollowUpCompletedAt,
         lastFollowUpSnoozedAt: userJobOffersTable.lastFollowUpSnoozedAt,
+        reminderLastWindowKey: userJobOffersTable.reminderLastWindowKey,
+        reminderLastBucket: userJobOffersTable.reminderLastBucket,
+        reminderLastDeliveryStatus: userJobOffersTable.reminderLastDeliveryStatus,
+        reminderLastSentAt: userJobOffersTable.reminderLastSentAt,
+        reminderLastAttemptedAt: userJobOffersTable.reminderLastAttemptedAt,
+        reminderLastError: userJobOffersTable.reminderLastError,
         prepMaterials: userJobOffersTable.prepMaterials,
         notes: userJobOffersTable.notes,
         tags: userJobOffersTable.tags,
@@ -307,10 +326,15 @@ export class JobOffersService {
         requirements: jobOffersTable.requirements,
         details: jobOffersTable.details,
         qualityReason: jobOffersTable.qualityReason,
+        sourceQuality: jobSourceRunsTable.sourceQuality,
+        classifiedOutcome: jobSourceRunsTable.classifiedOutcome,
+        runError: jobSourceRunsTable.error,
+        runProgress: jobSourceRunsTable.progress,
         createdAt: jobOffersTable.fetchedAt,
       })
       .from(userJobOffersTable)
       .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .leftJoin(jobSourceRunsTable, eq(jobSourceRunsTable.id, userJobOffersTable.sourceRunId))
       .leftJoin(companiesTable, eq(jobOffersTable.companyId, companiesTable.id))
       .leftJoin(jobCategoriesTable, eq(jobOffersTable.jobCategoryId, jobCategoriesTable.id))
       .leftJoin(employmentTypesTable, eq(jobOffersTable.employmentTypeId, employmentTypesTable.id))
@@ -335,6 +359,13 @@ export class JobOffersService {
           this.rankingTuning,
         );
         const structuredDetails = buildStructuredOfferDetails(item, structuredRelationMap.get(item.jobOfferId) ?? null);
+        const reliabilityContext = buildOfferReliabilityContext({
+          qualityReason: item.qualityReason,
+          sourceQuality: item.sourceQuality,
+          classifiedOutcome: item.classifiedOutcome,
+          runError: item.runError,
+          progress: item.runProgress,
+        });
         const {
           companySummaryId,
           companyCanonicalName,
@@ -347,17 +378,47 @@ export class JobOffersService {
           employmentTypeLabel,
           contractTypeLabel,
           workModeLabel,
+          sourceQuality,
+          classifiedOutcome,
+          runError,
+          runProgress,
+          reminderLastWindowKey,
+          reminderLastBucket,
+          reminderLastDeliveryStatus,
+          reminderLastSentAt,
+          reminderLastAttemptedAt,
+          reminderLastError,
           ...responseItem
         } = item;
+        const followUpState = resolveFollowUpState(item.status, item, followUpNow);
+        const attentionSignals = buildAttentionSignals({
+          status: item.status,
+          source: { ...item, reliabilityContext },
+          now: followUpNow,
+        });
 
         return {
           ...responseItem,
           structuredDetails,
           rankingScore: ranking.rankingScore,
           explanationTags: ranking.explanationTags,
-          attentionSignals: buildAttentionSignals({ status: item.status, source: item, now: followUpNow }),
+          reliabilityContext,
+          attentionSignals,
           recommendedAction: buildRecommendedAction(item, followUpNow),
-          followUpState: resolveFollowUpState(item.status, item, followUpNow),
+          followUpState,
+          reminderDelivery: this.buildReminderDeliverySummary(
+            {
+              followUpState,
+              attentionSignals,
+              reminderLastWindowKey,
+              reminderLastBucket,
+              reminderLastDeliveryStatus,
+              reminderLastSentAt,
+              reminderLastAttemptedAt,
+              reminderLastError,
+            },
+            followUpNow,
+          ),
           pipelineMeta: buildPipelineMetaWithFollowUp(item.pipelineMeta, followUpFields),
           followUpAt: toIsoString(followUpFields.followUpAt),
           expiresAt: toIsoString(item.expiresAt),
@@ -369,7 +430,7 @@ export class JobOffersService {
           lastFollowUpSnoozedAt: toIsoString(followUpFields.lastFollowUpSnoozedAt),
           __createdAtMs: new Date(item.createdAt).getTime(),
           __include: ranking.include,
-          __isDegradedSource: item.qualityReason === 'listing_salvage' || item.qualityReason === 'low_context',
+          __isDegradedSource: reliabilityContext.key !== 'healthy',
         };
       })
       .filter((item) => {
@@ -533,6 +594,12 @@ export class JobOffersService {
         contactName: userJobOffersTable.contactName,
         lastFollowUpCompletedAt: userJobOffersTable.lastFollowUpCompletedAt,
         lastFollowUpSnoozedAt: userJobOffersTable.lastFollowUpSnoozedAt,
+        reminderLastWindowKey: userJobOffersTable.reminderLastWindowKey,
+        reminderLastBucket: userJobOffersTable.reminderLastBucket,
+        reminderLastDeliveryStatus: userJobOffersTable.reminderLastDeliveryStatus,
+        reminderLastSentAt: userJobOffersTable.reminderLastSentAt,
+        reminderLastAttemptedAt: userJobOffersTable.reminderLastAttemptedAt,
+        reminderLastError: userJobOffersTable.reminderLastError,
         prepMaterials: userJobOffersTable.prepMaterials,
         notes: userJobOffersTable.notes,
         tags: userJobOffersTable.tags,
@@ -562,10 +629,15 @@ export class JobOffersService {
         requirements: jobOffersTable.requirements,
         details: jobOffersTable.details,
         qualityReason: jobOffersTable.qualityReason,
+        sourceQuality: jobSourceRunsTable.sourceQuality,
+        classifiedOutcome: jobSourceRunsTable.classifiedOutcome,
+        runError: jobSourceRunsTable.error,
+        runProgress: jobSourceRunsTable.progress,
         createdAt: jobOffersTable.fetchedAt,
       })
       .from(userJobOffersTable)
       .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .leftJoin(jobSourceRunsTable, eq(jobSourceRunsTable.id, userJobOffersTable.sourceRunId))
       .leftJoin(companiesTable, eq(jobOffersTable.companyId, companiesTable.id))
       .leftJoin(jobCategoriesTable, eq(jobOffersTable.jobCategoryId, jobCategoriesTable.id))
       .leftJoin(employmentTypesTable, eq(jobOffersTable.employmentTypeId, employmentTypesTable.id))
@@ -593,6 +665,13 @@ export class JobOffersService {
         const matchMeta = (item.matchMeta as Record<string, unknown> | null) ?? null;
         const fitHighlights = getHumanFitHighlights(matchMeta, ranking.explanationTags, item.matchScore);
         const structuredDetails = buildStructuredOfferDetails(item, structuredRelationMap.get(item.jobOfferId) ?? null);
+        const reliabilityContext = buildOfferReliabilityContext({
+          qualityReason: item.qualityReason,
+          sourceQuality: item.sourceQuality,
+          classifiedOutcome: item.classifiedOutcome,
+          runError: item.runError,
+          progress: item.runProgress,
+        });
         const {
           companySummaryId,
           companyCanonicalName,
@@ -605,17 +684,47 @@ export class JobOffersService {
           employmentTypeLabel,
           contractTypeLabel,
           workModeLabel,
+          sourceQuality,
+          classifiedOutcome,
+          runError,
+          runProgress,
+          reminderLastWindowKey,
+          reminderLastBucket,
+          reminderLastDeliveryStatus,
+          reminderLastSentAt,
+          reminderLastAttemptedAt,
+          reminderLastError,
           ...responseItem
         } = item;
+        const followUpState = resolveFollowUpState(item.status, item, followUpNow);
+        const attentionSignals = buildAttentionSignals({
+          status: item.status,
+          source: { ...item, reliabilityContext },
+          now: followUpNow,
+        });
 
         return {
           ...responseItem,
           structuredDetails,
           rankingScore: ranking.rankingScore,
           explanationTags: ranking.explanationTags,
-          attentionSignals: buildAttentionSignals({ status: item.status, source: item, now: followUpNow }),
+          reliabilityContext,
+          attentionSignals,
           recommendedAction: buildRecommendedAction(item, followUpNow),
-          followUpState: resolveFollowUpState(item.status, item, followUpNow),
+          followUpState,
+          reminderDelivery: this.buildReminderDeliverySummary(
+            {
+              followUpState,
+              attentionSignals,
+              reminderLastWindowKey,
+              reminderLastBucket,
+              reminderLastDeliveryStatus,
+              reminderLastSentAt,
+              reminderLastAttemptedAt,
+              reminderLastError,
+            },
+            followUpNow,
+          ),
           pipelineMeta: buildPipelineMetaWithFollowUp(item.pipelineMeta, followUpFields),
           followUpAt: toIsoString(followUpFields.followUpAt),
           expiresAt: toIsoString(item.expiresAt),
@@ -654,9 +763,7 @@ export class JobOffersService {
       collectionState: buildCollectionState({
         mode,
         hiddenByModeCount: 0,
-        degradedResultCount: prioritized.filter(
-          (item) => item.qualityReason === 'listing_salvage' || item.qualityReason === 'low_context',
-        ).length,
+        degradedResultCount: prioritized.filter((item) => item.reliabilityContext?.key !== 'healthy').length,
         lastScrapeStatus: null,
       }),
     };
@@ -1422,6 +1529,251 @@ export class JobOffersService {
         { key: 'stale' as const, label: 'Stale pipeline', count: stale.length, items: stale.slice(0, 10) },
       ],
     };
+  }
+
+  async deliverReminderDigests(authorization: string | undefined, _requestId?: string) {
+    if (!this.mailService) {
+      throw new ServiceUnavailableException('Reminder delivery mailer is not available');
+    }
+
+    this.assertSchedulerAuthorization(authorization);
+
+    const users = await this.db
+      .select({
+        id: usersTable.id,
+        email: usersTable.email,
+      })
+      .from(usersTable)
+      .where(
+        and(
+          eq(usersTable.isActive, true),
+          eq(usersTable.isEmailVerified, true),
+          not(isNull(usersTable.email)),
+          isNull(usersTable.deletedAt),
+        ),
+      );
+
+    const now = new Date();
+    let usersDelivered = 0;
+    let usersFailed = 0;
+    let offersDelivered = 0;
+    let offersFailed = 0;
+
+    for (const user of users) {
+      if (!user.email) {
+        continue;
+      }
+
+      const preview = await this.getReminderPreview(user.id);
+      const deliverableBuckets = this.buildDeliverableReminderBuckets(preview.buckets);
+      const reminderIds = deliverableBuckets.flatMap((bucket) => bucket.items.map((item) => item.id));
+
+      if (!reminderIds.length) {
+        continue;
+      }
+
+      const reminderStateRows = await this.db
+        .select({
+          id: userJobOffersTable.id,
+          reminderLastWindowKey: userJobOffersTable.reminderLastWindowKey,
+          reminderLastDeliveryStatus: userJobOffersTable.reminderLastDeliveryStatus,
+        })
+        .from(userJobOffersTable)
+        .where(and(eq(userJobOffersTable.userId, user.id), inArray(userJobOffersTable.id, reminderIds)));
+
+      const reminderStateMap = new Map(reminderStateRows.map((row) => [row.id, row]));
+      const unsentBuckets = deliverableBuckets
+        .map((bucket) => ({
+          ...bucket,
+          items: bucket.items.filter((item) => {
+            const state = reminderStateMap.get(item.id);
+            const windowKey = this.getReminderWindowKey(bucket.key, now);
+            return !state || state.reminderLastWindowKey !== windowKey || state.reminderLastDeliveryStatus !== 'SENT';
+          }),
+        }))
+        .filter((bucket) => bucket.items.length > 0);
+
+      if (!unsentBuckets.length) {
+        continue;
+      }
+
+      try {
+        await this.mailService.sendNotebookReminderDigest(user.email, {
+          generatedAt: preview.generatedAt,
+          buckets: unsentBuckets.map((bucket) => ({
+            ...bucket,
+            count: bucket.items.length,
+          })),
+        });
+
+        for (const bucket of unsentBuckets) {
+          for (const item of bucket.items) {
+            await this.persistReminderDeliveryState(item.id, now, bucket.key, 'SENT');
+            offersDelivered += 1;
+          }
+        }
+        usersDelivered += 1;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown reminder delivery error';
+        for (const bucket of unsentBuckets) {
+          for (const item of bucket.items) {
+            await this.persistReminderDeliveryState(item.id, now, bucket.key, 'FAILED', message);
+            offersFailed += 1;
+          }
+        }
+        usersFailed += 1;
+      }
+    }
+
+    return {
+      generatedAt: now.toISOString(),
+      usersScanned: users.length,
+      usersDelivered,
+      usersFailed,
+      offersDelivered,
+      offersFailed,
+    };
+  }
+
+  private buildDeliverableReminderBuckets(
+    buckets: Array<{
+      key: ReminderBucketKey;
+      label: string;
+      count: number;
+      items: Array<{
+        id: string;
+        title: string;
+        company: string | null;
+        location: string | null;
+        followUpAt: string | null;
+        nextStep: string | null;
+      }>;
+    }>,
+  ) {
+    const assigned = new Set<string>();
+
+    return buckets
+      .map((bucket) => ({
+        ...bucket,
+        items: bucket.items.filter((item) => {
+          if (assigned.has(item.id)) {
+            return false;
+          }
+
+          assigned.add(item.id);
+          return true;
+        }),
+      }))
+      .filter((bucket) => bucket.items.length > 0);
+  }
+
+  private buildReminderDeliverySummary(
+    input: {
+      followUpState: 'due' | 'upcoming' | 'none';
+      attentionSignals: Array<{ key: string }>;
+      reminderLastWindowKey?: string | null;
+      reminderLastBucket?: string | null;
+      reminderLastDeliveryStatus?: string | null;
+      reminderLastSentAt?: Date | null;
+      reminderLastAttemptedAt?: Date | null;
+      reminderLastError?: string | null;
+    },
+    now: Date,
+  ) {
+    const bucket = this.getReminderDeliveryBucket(input.followUpState, input.attentionSignals);
+    if (!bucket) {
+      return null;
+    }
+
+    const windowKey = this.getReminderWindowKey(bucket, now);
+    const isCurrentWindow =
+      input.reminderLastWindowKey === windowKey && (!input.reminderLastBucket || input.reminderLastBucket === bucket);
+
+    if (isCurrentWindow && input.reminderLastDeliveryStatus === 'SENT') {
+      return {
+        state: 'delivered' as const,
+        bucket,
+        windowKey,
+        lastSentAt: toIsoString(input.reminderLastSentAt ?? null),
+        lastAttemptedAt: toIsoString(input.reminderLastAttemptedAt ?? null),
+        lastError: input.reminderLastError ?? null,
+      };
+    }
+
+    if (isCurrentWindow && input.reminderLastDeliveryStatus === 'FAILED') {
+      return {
+        state: 'failed' as const,
+        bucket,
+        windowKey,
+        lastSentAt: toIsoString(input.reminderLastSentAt ?? null),
+        lastAttemptedAt: toIsoString(input.reminderLastAttemptedAt ?? null),
+        lastError: input.reminderLastError ?? null,
+      };
+    }
+
+    return {
+      state: 'pending' as const,
+      bucket,
+      windowKey,
+      lastSentAt: toIsoString(input.reminderLastSentAt ?? null),
+      lastAttemptedAt: toIsoString(input.reminderLastAttemptedAt ?? null),
+      lastError: input.reminderLastError ?? null,
+    };
+  }
+
+  private getReminderDeliveryBucket(
+    followUpState: 'due' | 'upcoming' | 'none',
+    attentionSignals: Array<{ key: string }>,
+  ): ReminderBucketKey | null {
+    if (attentionSignals.some((signal) => signal.key === 'follow_up_due_today')) {
+      return 'today';
+    }
+    if (followUpState === 'due' || attentionSignals.some((signal) => signal.key === 'follow_up_overdue')) {
+      return 'overdue';
+    }
+    if (followUpState === 'upcoming') {
+      return 'upcoming';
+    }
+    if (attentionSignals.some((signal) => signal.key === 'stale_pipeline')) {
+      return 'stale';
+    }
+    return null;
+  }
+
+  private getReminderWindowKey(bucket: ReminderBucketKey, now: Date) {
+    return `${bucket}:${now.toISOString().slice(0, 10)}`;
+  }
+
+  private async persistReminderDeliveryState(
+    id: string,
+    now: Date,
+    bucket: ReminderBucketKey,
+    status: ReminderDeliveryStatus,
+    error?: string,
+  ) {
+    await this.db
+      .update(userJobOffersTable)
+      .set({
+        reminderLastWindowKey: this.getReminderWindowKey(bucket, now),
+        reminderLastBucket: bucket,
+        reminderLastDeliveryStatus: status,
+        reminderLastSentAt: status === 'SENT' ? now : null,
+        reminderLastAttemptedAt: now,
+        reminderLastError: error ?? null,
+      })
+      .where(eq(userJobOffersTable.id, id));
+  }
+
+  private assertSchedulerAuthorization(authorization: string | undefined) {
+    const schedulerToken = this.configService.get('SCHEDULER_AUTH_TOKEN', { infer: true });
+    if (!schedulerToken) {
+      throw new ServiceUnavailableException('Scheduler auth token is not configured');
+    }
+
+    const normalized = authorization?.replace(/^Bearer\s+/i, '').trim();
+    if (!normalized || normalized !== schedulerToken) {
+      throw new UnauthorizedException('Invalid scheduler token');
+    }
   }
 
   async getPreferences(userId: string) {

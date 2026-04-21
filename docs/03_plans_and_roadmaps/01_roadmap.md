@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-04-01
+Last updated: 2026-04-21
 
 ## Purpose
 
@@ -44,15 +44,15 @@ The project should not drift into:
 ## Now (Execution Priority)
 
 1. Workflow differentiation in dashboard + notebook.
-   - Status: in progress (normalized follow-up fields, action-plan read model, prep packet read model, discovery/opportunities split, grouped discovery queues, and notebook Kanban-first pipeline workflow shipped; remaining work is deeper reminder reliability and richer prep support).
+   - Status: in progress (normalized follow-up fields, action-plan read model, prep packet read model, discovery/opportunities split, grouped discovery queues, notebook Kanban-first pipeline workflow, email reminder delivery state, and selected-offer follow-up shortcuts shipped; remaining work is user-facing reminder controls and richer prep support).
 2. Matching quality tuning (score calibration, stricter seniority/constraints behavior).
-   - Status: in progress (capped approx penalties + explore recency weighting shipped; threshold tuning ongoing).
+   - Status: in progress (capped approx penalties + explore recency weighting shipped; secondary seniority and structured catalog fields now feed deterministic scoring; threshold tuning ongoing).
 3. Scraper quality hardening and source-specific reliability.
-   - Status: in progress (callback attempt ordering + payload hash validation + deterministic offer identity key + ops replay/reconcile endpoints added; worker alias normalization and blocked/degraded/partial classification tightened; source-health rollups expanded; source observations/raw payload ledgers and normalized multi-value offer relations are now in place).
+   - Status: in progress (callback attempt ordering + payload hash validation + deterministic offer identity key + ops replay/reconcile endpoints added; worker alias normalization and blocked/degraded/partial classification tightened; Pracuj rendered-detail parser fallbacks and salvage filtering improved; source-health rollups expanded; source observations/raw payload ledgers and normalized multi-value offer relations are now in place).
 4. CI quality gates (API/worker/web tests + smoke on protected branches).
-   - Status: in progress (split verify/smoke workflows implemented; protected-branch policy enforcement pending repo settings).
+   - Status: in progress (split verify/smoke workflows implemented; smoke now covers career-profile async fields, reminder-delivery state, support overview, and user incident payloads; protected-branch policy enforcement pending repo settings).
 5. Reliability guardrails for scrape intake + admin ops visibility.
-   - Status: in progress (per-user scrape backpressure + admin metrics endpoint + explicit run-state transition guards + enqueue idempotency + retry-depth cap + catalog-first rematch + source-health automation backoff implemented; user preflight + schedule trigger-now now exposed in product UI/API).
+   - Status: in progress (per-user scrape backpressure + admin metrics endpoint + explicit run-state transition guards + enqueue idempotency + retry-depth cap + catalog-first rematch + source-health automation backoff implemented; user preflight + schedule trigger-now now exposed in product UI/API; ops overview and user incident now also surface career-profile generation and reminder-delivery failure signals).
 6. Staging/production deployment pipeline with rollback automation.
    - Status: in progress (release-candidate image build/push + manual Cloud Run promotion + post-deploy verification implemented; release/rollback artifacts now include revision/image metadata; traffic rollback automation exists and needs production proving).
 7. Request-budget guardrails (API throttling + FE query traffic controls).
@@ -72,7 +72,7 @@ The project should not drift into:
      - structured company and taxonomy context in offer review surfaces
      - explicit hidden/degraded result messaging
      - continued quality improvements for Kanban throughput and active-offer workspace ergonomics
-   - Status: in progress (structured catalog context is now visible in notebook and discovery detail surfaces; attention-state read models, richer focus/action-plan queues, workflow-aware prep context, and explicit collection-state messaging are shipped; external reminder delivery and deeper pipeline automation still remain).
+   - Status: in progress (structured catalog context and scrape reliability context are now visible in notebook and discovery detail surfaces; attention-state read models, richer focus/action-plan queues, workflow-aware prep context, explicit collection-state messaging, and email reminder delivery/state are shipped; deeper pipeline automation and user-facing delivery controls still remain).
 2. Tighten scrape output usefulness, not just scrape completion.
    - Scope:
      - adaptive broad-acquisition query planning with target listing windows
@@ -87,13 +87,13 @@ The project should not drift into:
      - explicit reuse diagnostics when catalog/db reuse is rejected before worker dispatch
      - structured observation coverage metrics for missing employment type, empty requirements, apply links, and source profile capture
      - migration of legacy `job_offers.details` usage toward normalized relation tables and observation history
-   - Status: in progress (fresh-candidate gating is now exposed through enqueue reuse diagnostics; canonical offer rows now persist observation history, raw payloads, structured salary, and multi-value relations; broader productivity tuning remains).
+   - Status: in progress (fresh-candidate gating is now exposed through enqueue reuse diagnostics; canonical offer rows now persist observation history, raw payloads, structured salary, and multi-value relations; callbacks now preserve parsed details; diagnostics now split discovered/full-detail/partial/salvaged output; stale-run recovery preserves incrementally persisted offers; broader productivity tuning remains).
 3. Improve deterministic ranking calibration and cross-source trust handling.
    - Scope:
      - mode thresholds + penalty tuning
      - explanation quality
      - stronger handling of incomplete source metadata
-   - Status: in progress.
+   - Status: in progress (matching now uses structured catalog fields from scraper details, accepts secondary seniority as candidate-compatible, and avoids hard-blocking ambiguous body-text seniority signals).
 4. Expand diagnostics and source-health aggregation for long-running scrape history.
    - Status: in progress (timeline buckets, lifecycle counters, run/export surfaces, transport/browser diagnostics shipped).
 5. Extend document diagnostics with percentile timing metrics per stage (upload/confirm/extract).
@@ -111,7 +111,8 @@ The project should not drift into:
    - Suggested order:
      - relatively structured local boards first
      - high-friction sources like LinkedIn only after stronger proof that the product value is already real
-2. Async extraction/profile generation queue (cloud tasks in production).
+2. Durable async execution beyond in-memory pickup.
+   - Status: in progress (document extraction and career-profile generation now expose DB-visible queue, lease, attempt, and generation-state metadata; production-grade queue durability and wider background-task migration still remain).
 3. Observability stack:
    - metrics
    - alerting
@@ -150,6 +151,7 @@ Before implementing a new adapter, require:
    - follow-up queues, stale-offer actions, better bulk triage, stronger summary views
 3. Sprint C: scraper/source quality hardening
    - source normalization, parser resilience, adapter reuse for new sources, adaptive acquisition filters, listing-probe planning, detail-budget tuning, better degraded/blocked classification, catalog quality-state persistence, replay/debug improvements
+   - recently completed slice: rendered Pracuj detail extraction, discovered-link-limited listing salvage, structured callback detail preservation, catalog quality reason upgrades, and structured-field matching inputs
 4. Sprint D: durable async and automation
    - move extraction/profile generation and later scrape orchestration toward durable queue execution while keeping catalog-rematch paths off the worker when possible
 5. Sprint E: release and observability hardening

@@ -34,6 +34,20 @@ class OpsOffersMetricsResponse {
 
   @ApiProperty()
   unscoredUserOffers!: number;
+
+  @ApiProperty()
+  reminderDeliveryFailures24h!: number;
+}
+
+class OpsCareerProfileMetricsResponse {
+  @ApiProperty()
+  totalProfiles!: number;
+
+  @ApiProperty()
+  pendingProfiles!: number;
+
+  @ApiProperty()
+  failedProfiles!: number;
 }
 
 class OpsCatalogMetricsResponse {
@@ -127,6 +141,12 @@ class OpsAlertMetricsResponse {
 
   @ApiProperty()
   scheduleEnqueueFailures!: boolean;
+
+  @ApiProperty()
+  reminderDeliveryFailures!: boolean;
+
+  @ApiProperty()
+  careerProfileGenerationFailures!: boolean;
 }
 
 export class OpsMetricsResponse {
@@ -141,6 +161,9 @@ export class OpsMetricsResponse {
 
   @ApiProperty({ type: OpsOffersMetricsResponse })
   offers!: OpsOffersMetricsResponse;
+
+  @ApiProperty({ type: OpsCareerProfileMetricsResponse })
+  careerProfiles!: OpsCareerProfileMetricsResponse;
 
   @ApiProperty({ type: OpsCatalogMetricsResponse })
   catalog!: OpsCatalogMetricsResponse;

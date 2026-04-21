@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-04-11
+Last updated: 2026-04-18
 
 ## Purpose
 
@@ -103,7 +103,10 @@ That framing should guide future implementation more than raw source count.
   - prep packet read model for reply/interview preparation
   - workflow attention signals now classify active roles as overdue, due-today, prep-recommended, awaiting-decision, missing-next-step, or stale-pipeline directly in the notebook read model
   - notebook list/focus read models now expose deterministic recommended actions so the web can show next moves without duplicating workflow business logic
-  - notebook reminder preview now exposes overdue, due-today, upcoming, and stale-pipeline work as an in-app read model; external reminder delivery remains out of scope
+  - notebook and discovery details now expose scrape reliability context for degraded, partial, and stale-run-recovered offers
+  - notebook reminder preview now exposes overdue, due-today, upcoming, and stale-pipeline work as an in-app read model
+  - external email reminder delivery now persists per-offer daily-window state (`pending` / `delivered` / `failed`) and is surfaced back into notebook list/detail read models
+  - notebook action-plan and selected-offer workspace now expose one-click follow-up shortcuts for done/snooze/prep flows without duplicating queue logic in web
   - dashboard focus and action-plan lanes now include due-today, prep-next, and awaiting-decision workflow slices with explicit rationale and CTA metadata
   - pipeline bulk editing now supports decision checkpoints and prep-needed flags in addition to follow-up planning
   - bulk status flows, metadata, scoring, prep generation
@@ -115,6 +118,8 @@ That framing should guide future implementation more than raw source count.
   - trigger-now for enabled schedule
   - enqueue responses and notebook-adjacent job-source UX now expose explicit reuse diagnostics when catalog rematch or DB reuse is skipped because fresh-candidate minimums were not met
   - scrape ingestion now persists per-run source observations and raw payload ledgers alongside the canonical offer row
+  - scrape callbacks now preserve structured offer details end-to-end so catalog rematch and matching can use parsed technologies, requirements, position levels, work modes, contract types, apply links, and company profile URLs
+  - scrape diagnostics now expose discovered/detail/salvage quality counters so healthy completion can be separated from useful output
   - notebook/discovery/prep offer details now expose normalized structured arrays for contract types, work modes, schedules, seniority, and technologies
 - Admin/support operations
   - metrics dashboard
@@ -143,11 +148,14 @@ That framing should guide future implementation more than raw source count.
   - scrape lifecycle visibility is materially stronger
   - diagnostics now distinguish degraded/empty/blocked/partial outcomes
   - diagnostics now also expose artifact manifests, stage metrics, and silent-failure classification so completed-but-useless runs are not treated as healthy success
+  - stage metrics now distinguish unique discovered offers, full-detail offers, partial-detail offers, and listing-salvaged offers
   - run diagnostics now expose a dedicated usefulness read model for listing, candidate, match, notebook-linking, strict-hidden, and degraded-output impact
   - source-specific alias normalization is now deterministic for contract type, work mode, and seniority fields
   - multi-value contract/work-mode/work-schedule source strings are now split before canonicalization so combined labels stop creating low-value taxonomy rows
   - Pracuj parsing now carries source profile URL, apply URL, posted-at hints, source-derived expiry dates, structured section snapshots, raw payload subsets, and sparse-field diagnostics into callback normalization
+  - Pracuj parsing now also has rendered-HTML fallbacks for visible salary, requirements, responsibilities, technologies, and common Polish/ASCII heading drift
   - Pracuj parser drift tests now cover changed detail-section headings and semicolon-delimited requirement strings
+  - Pracuj parser tests now include a richer rendered-offer fixture that verifies salary, apply URL, source-company profile URL, technologies, work mode, contracts, requirements, and responsibilities
   - callback envelope is replay-safe and increasingly support-friendly
 - Web
   - major move from panel-heavy internal tooling toward guided product workflow
@@ -204,6 +212,8 @@ That framing should guide future implementation more than raw source count.
 - Shared `job_offers` catalog now persists `content_hash`, `quality_state`, `first_seen_at`, `last_seen_at`, and `last_matched_at` so scrape ingestion and reuse share one canonical store.
 - `job_offers` remains the canonical current offer row, while `job_offer_source_observations` and `job_offer_raw_payloads` preserve what each scrape run actually saw.
 - Multi-value offer dimensions now persist through relation tables (`job_offer_contract_types`, `job_offer_work_modes`, `job_offer_work_schedules`, `job_offer_seniority_levels`, `job_offer_technologies`) instead of staying trapped in `job_offers.details`.
+- Catalog offer quality reasons now distinguish `listing_salvage`, `low_context`, `detail_partial`, `detail_full`, and missing required fields; richer later scrapes can upgrade older salvage rows for the same canonical offer.
+- Catalog rematch now feeds deterministic matching with structured details from parsed offers instead of relying only on `job_offers.description`.
 - Source-health rollups now include observation-backed coverage signals for missing employment type, empty requirements, source profile coverage, and apply URL coverage.
 - `user_job_offers` now records `origin` (`SCRAPE`, `DB_REUSE`, `CATALOG_REMATCH`) and `match_version` for auditability of notebook links.
 - Scrape enqueue now prefers fresh catalog rematch before worker dispatch when the active profile already has enough eligible offers in the shared catalog.
@@ -240,6 +250,7 @@ That framing should guide future implementation more than raw source count.
 - Documents now persist upload/extraction stage events (`document_events`) for diagnostics.
 - Documents expose upload health and per-document diagnostics timeline endpoints.
 - Documents now persist stage duration metrics (`document_stage_metrics`) and expose percentile summary endpoint (`/documents/diagnostics/summary`).
+- Documents now persist extraction queue lease metadata on `documents` so queued work can be reclaimed deterministically instead of depending only on in-memory process state.
 - Profile management page now includes direct document upload/confirm/extract flow with diagnostics visibility.
 - New guided onboarding flow is available at `/onboarding` with persisted draft state and step-based UX.
 - Profile input now supports structured intake payload (`intake_payload`) used for deterministic normalization.
@@ -344,7 +355,7 @@ That framing should guide future implementation more than raw source count.
 - Some e2e scenarios still rely on live external scraping source behavior.
 - Frontend standards are now explicitly documented in `docs/06_engineering_standards/01_frontend_standards.md`; continue enforcing via ESLint and reviews.
 - Worker queue is still in-memory (acceptable for now, not crash-resilient across process restarts).
-- Matching remains trust-first and now applies stronger ambiguity/context penalties for low-quality offer metadata.
+- Matching remains trust-first, uses richer structured catalog inputs, treats secondary candidate seniority as allowed seniority, and avoids hard-blocking ambiguous text-only seniority signals.
 - CI now uses split quality gates (`CI Verify`, `Smoke Gate`) and release candidate + manual promote workflows.
 - CI Verify and Smoke Gate now use cancel-in-progress concurrency to avoid duplicate billable runs on rapid pushes.
 - Web Playwright e2e now runs in isolated `CI Verify / web-e2e` heavy validation on `dev`, `master`, and pull requests.
@@ -360,6 +371,7 @@ That framing should guide future implementation more than raw source count.
 - Multi-source expansion is still more of a plan than a proven capability; only selective source growth is justified right now.
 - Scrape completion is improving, but "completed" does not automatically mean "user got useful notebook value" unless linking, ranking, and visibility remain strong.
 - Running scrapes now persist accepted offers incrementally, so timeout/finalization issues no longer imply full result loss by default.
+- Late scrape callbacks after stale-run recovery now return a stable idempotency reason instead of reopening or duplicating recovered notebook links.
 - Weekday schedule cron expressions are now computed correctly with timezone-aware next-run calculation.
 - Worker source orchestration now has an explicit adapter boundary for future non-Pracuj sources, but only Pracuj is production-ready.
 - Web schedule planning now explains schedule trust states more explicitly (`off`, `enabled but not yet proven`, `recent failure`, `due but paused`, `waiting for next window`) using schedule events plus source-health state.
@@ -373,10 +385,10 @@ That framing should guide future implementation more than raw source count.
 - Local smoke is now self-starting for API/worker/web, but CI/local orchestration still depends on host Docker/Postgres availability.
 - Worker queue remains in-memory, so crash resilience is below production-grade background-job expectations.
 - Scraper quality is still heavily tied to one source and its DOM behavior.
-- Pracuj parser reliability is stronger for company narrative/workplace/location fields, but source HTML drift is still the dominant scraper risk.
-- Notebook productivity is better, but there is not yet a full follow-up/reminder or pipeline automation layer.
-- Reminder reliability is now stronger at the product-read-model layer, but external reminder delivery and automation are still not implemented.
-- Document recovery exists, but extraction/profile-generation background execution is not yet moved to a durable async pipeline.
+- Pracuj parser reliability is stronger for rendered detail pages and source heading drift, but source HTML drift is still the dominant scraper risk.
+- Notebook productivity is better, but deeper long-tail pipeline automation is still incomplete.
+- Reminder delivery now exists for email and is visible in product/ops surfaces, but user controls and broader notification channels are still missing.
+- Document recovery exists, and extraction/profile-generation now expose DB-visible async lifecycle state, but worker queue durability is still below production-grade background-job expectations.
 - Support surfaces are present, but alerting and long-horizon observability are still limited.
 - Frontend has improved workflow structure, but visual/design consistency is still mixed across older and newer surfaces.
 

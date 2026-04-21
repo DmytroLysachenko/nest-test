@@ -1,6 +1,6 @@
 # Decisions
 
-Last updated: 2026-04-02
+Last updated: 2026-04-18
 
 ## Purpose
 
@@ -702,3 +702,16 @@ ADR-lite log for major architectural and contract decisions.
   - Preserve stale watchdog/reconcile failures under the timeout taxonomy, but suffix the stored error with lifecycle reasons such as `worker-not-started` or `heartbeat-stopped-or-callback-missing`.
 - Why:
   - Support and ops need deterministic diagnosis without inferring the stage solely from timestamps.
+
+## 2026-04-18: Scrape Quality Depends On Stable Fixture-Backed Parser Evidence
+
+- Decision:
+  - Keep Pracuj parser and crawl tests backed by committed HTML fixtures or a local fixture server, not live Pracuj URLs.
+  - Preserve representative rendered detail examples in `apps/worker/src/sources/pracuj-pl/__fixtures__`.
+  - Treat listing salvage as a degraded fallback limited to discovered primary links, not as a substitute for detail extraction.
+  - Preserve parsed `details` through worker callbacks and API catalog persistence so deterministic matching can use structured source evidence.
+  - Use quality counters (`uniqueDiscoveredOfferCount`, `fullDetailOfferCount`, `partialDetailOfferCount`, `salvagedOfferCount`) to decide whether a run is useful, not only completed.
+- Why:
+  - Live job offers expire or disappear, which makes regression tests flaky and misleading.
+  - Source HTML drift should be reproduced through fixtures so parser behavior is reviewable and repeatable.
+  - Matching quality depends on structured offer fields; dropping details at the callback boundary makes good scraping invisible to the product.

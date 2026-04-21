@@ -1401,6 +1401,66 @@ describe('JobSourcesService', () => {
     expect(db.insert).not.toHaveBeenCalled();
   });
 
+  it('keeps stale-recovered runs finalized when the worker completes late', async () => {
+    const eventInsertValues = jest.fn().mockResolvedValue(undefined);
+    const db = {
+      select: jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-stale-recovered-1',
+                      traceId: 'trace-stale-recovered-1',
+                      userId: 'user-4',
+                      careerProfileId: 'profile-4',
+                      status: 'FAILED',
+                      error: '[timeout] run stale watchdog: heartbeat-stopped-or-callback-missing',
+                      totalFound: 3,
+                      scrapedCount: 2,
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      }),
+      insert: jest.fn().mockReturnValue({
+        values: eventInsertValues,
+      }),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const result = await service.completeScrape({
+      sourceRunId: 'run-stale-recovered-1',
+      status: 'COMPLETED',
+      scrapedCount: 2,
+      totalFound: 3,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'FAILED',
+      inserted: 0,
+      idempotent: true,
+      reasonCode: 'LATE_CALLBACK_AFTER_STALE_RECOVERY',
+    });
+    expect(db.update).not.toHaveBeenCalled();
+    expect(eventInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'late_callback_after_stale_recovery',
+        code: 'LATE_CALLBACK_AFTER_STALE_RECOVERY',
+      }),
+    );
+  });
+
   it('handles completed callback and inserts new user offers', async () => {
     const updateSet = jest.fn().mockReturnValue({
       where: jest.fn().mockResolvedValue(undefined),
@@ -2272,6 +2332,9 @@ describe('JobSourcesService', () => {
         acceptedOfferCount: 0,
         rejectedOfferCount: 0,
         dedupedInRunCount: 0,
+        uniqueDiscoveredOfferCount: 0,
+        fullDetailOfferCount: 0,
+        partialDetailOfferCount: 0,
         salvagedOfferCount: 0,
       },
       finalize: {

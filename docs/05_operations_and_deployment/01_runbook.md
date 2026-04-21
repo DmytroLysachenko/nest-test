@@ -272,6 +272,21 @@ Use this flow before changing scraper code randomly:
    - `productivity.insertionRatio`
    - `browserSummary.failureReason` when fallback was needed
 
+## Scrape Offer Quality Signals
+
+Use these counters after Pracuj.pl parser or matcher changes:
+
+1. `stageMetrics.parse.uniqueDiscoveredOfferCount`
+   - Count of distinct primary listing links discovered before detail parsing and salvage filtering.
+2. `stageMetrics.parse.fullDetailOfferCount`
+   - Accepted offers with structured detail signals such as apply link, company profile, technologies, requirements, sections, work mode, contract type, or position level.
+3. `stageMetrics.parse.partialDetailOfferCount`
+   - Accepted offers with required fields but limited structured detail extraction.
+4. `stageMetrics.parse.salvagedOfferCount`
+   - Listing-summary offers inserted only as degraded fallback. This should stay lower than full/partial detail counts for healthy runs.
+5. Catalog `quality_reason` should improve from `listing_salvage` or `low_context` to `detail_partial` or `detail_full` when a later scrape fetches richer details for the same canonical offer URL.
+6. If `uniqueDiscoveredOfferCount` is healthy but `fullDetailOfferCount` stays near zero, inspect Pracuj detail HTML fixtures and parser selectors before changing notebook matching thresholds.
+
 ## Hook Bypass Policy
 
 1. Do not use `--no-verify` for routine commits or pushes.
@@ -422,6 +437,9 @@ For exact variable-level mapping and secret sources, use:
 25. incremental offer ingest during running scrapes
 26. schedule trigger-now path
 27. transition guard for invalid run lifecycle state changes
+28. career-profile async lifecycle fields (`generationState`, attempt metadata)
+29. notebook reminder-delivery summary after follow-up scheduling
+30. admin support overview and user-incident coverage for reminder/career-profile failure surfaces
 
 ## Recovery Tips
 
@@ -439,6 +457,8 @@ For exact variable-level mapping and secret sources, use:
    - `GET /api/ops/support/overview`
    - `GET /api/ops/support/schedule-events?userId=<user-id>`
    - `GET /api/ops/support/users/:id`
+   - support overview now also includes recent career-profile generation failures and reminder-delivery failures
+   - user incident now includes `careerProfileStats`, `offerStats.reminderDeliveryFailures24h`, and `recentReminderDeliveryFailures`
 4. `pnpm smoke:e2e` now waits for `/health` endpoints and auto-starts dedicated local API/worker/web processes when needed.
 5. Admin ops endpoints are skip-throttled and the web ops page should use `GET /api/ops/support/overview` as its primary payload instead of parallel polling.
 6. Internal worker endpoints for scrape completion, heartbeat, and schedule trigger are also throttle-exempt. New `429` responses there usually mean stale deploy/runtime drift rather than expected protection.
@@ -470,6 +490,8 @@ For exact variable-level mapping and secret sources, use:
    - check API `/health` for `required_tables`
    - confirm `GEMINI_MODEL` is not a retired `gemini-1.5-*` value
    - confirm `GCP_LOCATION` and Vertex project access match the runtime environment
+   - inspect `GET /api/career-profiles/latest` and `GET /api/career-profiles/:id` for `generationState`, `generationAttemptCount`, and `generationLastTraceId`
+   - inspect `GET /api/ops/support/overview` and `GET /api/ops/support/users/:id` for recent generation failures
    - retry only after config/access is corrected; `AI_CONFIGURATION_ERROR` is not a transient scrape-style retry condition
 14. To isolate scraper regressions without the full app stack, run:
    - `pnpm --filter worker scrape:once -- --source pracuj-pl-it --listingUrl <url> --limit 20`
@@ -486,7 +508,12 @@ For exact variable-level mapping and secret sources, use:
    - compare `lastRunStatus`, `lastTriggeredAt`, and `nextRunAt`
    - inspect `GET /api/job-sources/schedule/events?limit=20`
    - distinguish `enabled but not yet proven`, `due but paused by source health`, and `recent scheduled attempt failed` before changing cron settings
-18. After the first production deploy that uses direct Cloud Run env injection, clean up the retired Secret Manager resources manually:
+18. If reminder emails appear missing or duplicated:
+   - inspect `GET /api/job-offers?followUp=due|upcoming` and verify `reminderDelivery.state`, `bucket`, and `windowKey`
+   - inspect `GET /api/ops/support/overview` for `recentFailures.reminderDeliveries`
+   - inspect `GET /api/ops/support/users/:id` for `recentReminderDeliveryFailures`
+   - use the persisted bucket/day window state before assuming scheduler duplication
+19. After the first production deploy that uses direct Cloud Run env injection, clean up the retired Secret Manager resources manually:
    - the first migration deploy removes legacy Secret Manager env bindings with `--remove-secrets` before setting the same names as direct Cloud Run env vars
    - confirm deployed API/worker revisions no longer use `--set-secrets`
    - verify production smoke passes against the new revisions

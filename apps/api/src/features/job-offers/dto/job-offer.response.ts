@@ -54,7 +54,8 @@ class JobOfferAttentionSignal {
     | 'missing_next_step'
     | 'stale_pipeline'
     | 'prep_recommended'
-    | 'awaiting_decision';
+    | 'awaiting_decision'
+    | 'degraded_source';
 
   @ApiProperty()
   label!: string;
@@ -83,6 +84,43 @@ class JobOfferRecommendedAction {
 
   @ApiProperty()
   href!: string;
+}
+
+class JobOfferReliabilityContext {
+  @ApiProperty({ enum: ['healthy', 'degraded_source', 'partial_source', 'recovered_stale_run'] })
+  key!: 'healthy' | 'degraded_source' | 'partial_source' | 'recovered_stale_run';
+
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  description!: string;
+
+  @ApiProperty({ enum: ['info', 'warning'] })
+  severity!: 'info' | 'warning';
+
+  @ApiProperty({ type: [String] })
+  reasons!: string[];
+}
+
+class JobOfferReminderDeliverySummary {
+  @ApiProperty({ enum: ['pending', 'delivered', 'failed'] })
+  state!: 'pending' | 'delivered' | 'failed';
+
+  @ApiProperty({ enum: ['overdue', 'today', 'upcoming', 'stale'] })
+  bucket!: 'overdue' | 'today' | 'upcoming' | 'stale';
+
+  @ApiProperty()
+  windowKey!: string;
+
+  @ApiProperty({ required: false })
+  lastSentAt!: string | null;
+
+  @ApiProperty({ required: false })
+  lastAttemptedAt!: string | null;
+
+  @ApiProperty({ required: false })
+  lastError!: string | null;
 }
 
 class JobOfferCollectionState {
@@ -164,6 +202,12 @@ export class JobOfferItem {
 
   @ApiProperty({ required: false, type: JobOfferRecommendedAction })
   recommendedAction?: JobOfferRecommendedAction;
+
+  @ApiProperty({ required: false, type: JobOfferReliabilityContext })
+  reliabilityContext?: JobOfferReliabilityContext;
+
+  @ApiProperty({ required: false, type: JobOfferReminderDeliverySummary })
+  reminderDelivery?: JobOfferReminderDeliverySummary | null;
 
   @ApiProperty({ required: false })
   followUpAt!: string | null;
@@ -652,4 +696,24 @@ export class JobOfferReminderPreviewResponse {
 
   @ApiProperty({ type: [JobOfferReminderBucket] })
   buckets!: JobOfferReminderBucket[];
+}
+
+export class JobOfferReminderDeliveryResponse {
+  @ApiProperty()
+  generatedAt!: string;
+
+  @ApiProperty()
+  usersScanned!: number;
+
+  @ApiProperty()
+  usersDelivered!: number;
+
+  @ApiProperty()
+  usersFailed!: number;
+
+  @ApiProperty()
+  offersDelivered!: number;
+
+  @ApiProperty()
+  offersFailed!: number;
 }

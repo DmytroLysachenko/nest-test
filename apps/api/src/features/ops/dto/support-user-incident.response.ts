@@ -58,6 +58,46 @@ class SupportIncidentOfferStatsResponse {
 
   @ApiProperty({ type: Object })
   statusCounts!: Record<string, number>;
+
+  @ApiProperty()
+  reminderDeliveryFailures24h!: number;
+}
+
+class SupportIncidentCareerProfileStatsResponse {
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  ready!: number;
+
+  @ApiProperty()
+  pending!: number;
+
+  @ApiProperty()
+  failed!: number;
+}
+
+class SupportIncidentReminderFailureResponse {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty({ nullable: true })
+  company!: string | null;
+
+  @ApiProperty({ nullable: true })
+  reminderLastBucket!: string | null;
+
+  @ApiProperty({ nullable: true })
+  reminderLastWindowKey!: string | null;
+
+  @ApiProperty({ nullable: true })
+  reminderLastError!: string | null;
+
+  @ApiProperty({ nullable: true })
+  reminderLastAttemptedAt!: string | null;
 }
 
 class SupportIncidentUserRunResponse {
@@ -163,6 +203,9 @@ export class SupportUserIncidentResponse {
   @ApiProperty({ type: SupportIncidentOfferStatsResponse })
   offerStats!: SupportIncidentOfferStatsResponse;
 
+  @ApiProperty({ type: SupportIncidentCareerProfileStatsResponse })
+  careerProfileStats!: SupportIncidentCareerProfileStatsResponse;
+
   @ApiProperty({ type: [SupportIncidentUserRunResponse] })
   recentScrapeRuns!: SupportIncidentUserRunResponse[];
 
@@ -171,4 +214,7 @@ export class SupportUserIncidentResponse {
 
   @ApiProperty({ type: [SupportIncidentUserApiRequestResponse] })
   recentApiRequestEvents!: SupportIncidentUserApiRequestResponse[];
+
+  @ApiProperty({ type: [SupportIncidentReminderFailureResponse] })
+  recentReminderDeliveryFailures!: SupportIncidentReminderFailureResponse[];
 }

@@ -255,10 +255,16 @@ export type CareerProfileDto = {
   profileInputId: string;
   documentIds: string;
   status: 'PENDING' | 'READY' | 'FAILED';
+  generationState: 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED';
   content: string | null;
   contentJson: Record<string, unknown> | null;
   model: string | null;
   error: string | null;
+  generationQueuedAt: string | null;
+  generationStartedAt: string | null;
+  generationLeaseExpiresAt: string | null;
+  generationAttemptCount: number;
+  generationLastTraceId: string | null;
   version: number;
   isActive: boolean;
   createdAt: string;
@@ -278,6 +284,7 @@ export type CareerProfileSearchViewItemDto = {
   version: number;
   isActive: boolean;
   status: 'PENDING' | 'READY' | 'FAILED';
+  generationState: 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED';
   primarySeniority: string | null;
   targetRoles: string[];
   searchableKeywords: string[];
@@ -761,9 +768,27 @@ export type JobOfferAttentionSignalDto = {
     | 'missing_next_step'
     | 'stale_pipeline'
     | 'prep_recommended'
-    | 'awaiting_decision';
+    | 'awaiting_decision'
+    | 'degraded_source';
   label: string;
   reason: string;
+};
+
+export type JobOfferReliabilityContextDto = {
+  key: 'healthy' | 'degraded_source' | 'partial_source' | 'recovered_stale_run';
+  label: string;
+  description: string;
+  severity: 'info' | 'warning';
+  reasons: string[];
+};
+
+export type JobOfferReminderDeliveryDto = {
+  state: 'pending' | 'delivered' | 'failed';
+  bucket: 'overdue' | 'today' | 'upcoming' | 'stale';
+  windowKey: string;
+  lastSentAt: string | null;
+  lastAttemptedAt: string | null;
+  lastError: string | null;
 };
 
 export type JobOfferRecommendedActionDto = {
@@ -800,6 +825,8 @@ export type JobOfferListItemDto = {
   followUpState?: 'due' | 'upcoming' | 'none';
   attentionSignals?: JobOfferAttentionSignalDto[];
   recommendedAction?: JobOfferRecommendedActionDto;
+  reliabilityContext?: JobOfferReliabilityContextDto;
+  reminderDelivery?: JobOfferReminderDeliveryDto | null;
   followUpAt?: string | null;
   nextStep?: string | null;
   followUpNote?: string | null;

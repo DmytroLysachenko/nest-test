@@ -83,6 +83,8 @@ export type CatalogOfferRow = {
   company: string | null;
   location: string | null;
   salary: string | null;
+  salaryMin: number | null;
+  salaryMax: number | null;
   employmentType: string | null;
   contractType: string | null;
   employmentSchedule: string | null;

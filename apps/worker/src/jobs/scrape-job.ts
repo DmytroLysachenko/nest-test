@@ -56,9 +56,13 @@ type CallbackPayload = {
     jobLinksDiscovered?: number;
     ignoredRecommendedLinks?: number;
     dedupedInRunCount?: number;
+    uniqueDiscoveredOfferCount?: number;
     acceptedOfferCount?: number;
     rejectedOfferCount?: number;
     rejectedOfferReasons?: Record<string, number>;
+    fullDetailOfferCount?: number;
+    partialDetailOfferCount?: number;
+    salvagedOfferCount?: number;
     skippedFreshUrls?: number;
     blockedPages?: number;
     hadZeroOffersStep?: boolean;
@@ -96,6 +100,9 @@ type CallbackPayload = {
         acceptedOfferCount: number;
         rejectedOfferCount: number;
         dedupedInRunCount: number;
+        uniqueDiscoveredOfferCount: number;
+        fullDetailOfferCount: number;
+        partialDetailOfferCount: number;
         salvagedOfferCount: number;
       };
       finalize: {
@@ -473,6 +480,7 @@ export const sanitizeCallbackJobs = (jobs: NormalizedJob[] | undefined) => {
       expiresAt: normalizeString(job.expiresAt),
       sourceCompanyProfileUrl: normalizeString(job.sourceCompanyProfileUrl),
       requirements: sanitizeStringArray(job.requirements),
+      details: job.details,
       isExpired: job.isExpired,
       rawPayload: job.rawPayload,
     });
@@ -522,6 +530,65 @@ export const assessNormalizedJobs = (jobs: NormalizedJob[] | undefined) => {
     rejectedOfferCount: Object.values(rejectedOfferReasons).reduce((acc, value) => acc + value, 0),
     rejectedOfferReasons,
   };
+};
+
+const hasStructuredDetail = (
+  job: Pick<NormalizedJob, 'details' | 'requirements' | 'applyUrl' | 'sourceCompanyProfileUrl'>,
+) =>
+  Boolean(
+    job.applyUrl ||
+    job.sourceCompanyProfileUrl ||
+    job.requirements?.length ||
+    job.details?.technologies?.all?.length ||
+    job.details?.technologies?.required?.length ||
+    job.details?.requirements?.all?.length ||
+    job.details?.positionLevels?.length ||
+    job.details?.workModes?.length ||
+    job.details?.contractTypes?.length ||
+    job.details?.sections?.responsibilities?.length ||
+    job.details?.sections?.aboutProject?.length,
+  );
+
+const isListingSalvage = (job: Pick<NormalizedJob, 'tags'>) => job.tags?.includes('listing-salvage') ?? false;
+
+export const resolveOfferQualityReason = (job: NormalizedJob) => {
+  if (job.isExpired) {
+    return 'detail_expired';
+  }
+  if (!job.title || !job.company || !job.location || !job.url || !job.description) {
+    return 'missing_required_fields';
+  }
+  if (isListingSalvage(job)) {
+    return 'listing_salvage';
+  }
+  return hasStructuredDetail(job) ? 'detail_full' : 'detail_partial';
+};
+
+const summarizeOfferQuality = (jobs: NormalizedJob[]) => {
+  const summary = {
+    fullDetailOfferCount: 0,
+    partialDetailOfferCount: 0,
+    salvagedOfferCount: 0,
+    expiredOfferCount: 0,
+    missingRequiredFieldCount: 0,
+  };
+
+  for (const job of jobs) {
+    const reason = resolveOfferQualityReason(job);
+    if (reason === 'detail_full') {
+      summary.fullDetailOfferCount += 1;
+    } else if (reason === 'detail_partial') {
+      summary.partialDetailOfferCount += 1;
+    } else if (reason === 'listing_salvage') {
+      summary.salvagedOfferCount += 1;
+    } else if (reason === 'detail_expired') {
+      summary.expiredOfferCount += 1;
+    } else if (reason === 'missing_required_fields') {
+      summary.missingRequiredFieldCount += 1;
+    }
+  }
+
+  return summary;
 };
 
 export const classifyScrapeError = (error: unknown): ScrapeFailureType => {
@@ -1655,6 +1722,7 @@ export const runScrapeJob = async (
 
     const assessedJobs = assessNormalizedJobs(aggregatedNormalized);
     const sanitizedJobs = assessedJobs.acceptedJobs;
+    const qualitySummary = summarizeOfferQuality(sanitizedJobs);
     const dedupedInRunCount = Math.max(
       0,
       aggregatedNormalized.length - sanitizeCallbackJobs(aggregatedNormalized).length,
@@ -1678,6 +1746,8 @@ export const runScrapeJob = async (
         rejectedOfferCount: assessedJobs.rejectedOfferCount,
         rejectedOfferReasons: assessedJobs.rejectedOfferReasons,
         dedupedInRunCount,
+        uniqueDiscoveredOfferCount: aggregatedJobLinks.size,
+        ...qualitySummary,
       },
     );
     const { blockedRate, silentFailure, resultKind, emptyReason, sourceQuality } = resolveScrapeCompletionDiagnostics({
@@ -1725,7 +1795,6 @@ export const runScrapeJob = async (
     );
     const outputPath = output.path;
     const browserFallbackCount = aggregatedDiagnostics.filter((item) => item.transport === 'browser').length;
-    const salvagedOfferCount = sanitizedJobs.filter((job) => job.tags?.includes('listing-salvage')).length;
     const stageMetrics = {
       fetch: {
         pagesVisited: aggregatedPages.length,
@@ -1738,7 +1807,10 @@ export const runScrapeJob = async (
         acceptedOfferCount: assessedJobs.acceptedOfferCount,
         rejectedOfferCount: assessedJobs.rejectedOfferCount,
         dedupedInRunCount,
-        salvagedOfferCount,
+        uniqueDiscoveredOfferCount: aggregatedJobLinks.size,
+        fullDetailOfferCount: qualitySummary.fullDetailOfferCount,
+        partialDetailOfferCount: qualitySummary.partialDetailOfferCount,
+        salvagedOfferCount: qualitySummary.salvagedOfferCount,
       },
       finalize: {
         blockedRate,
@@ -1777,9 +1849,13 @@ export const runScrapeJob = async (
           jobLinksDiscovered: aggregatedJobLinks.size,
           ignoredRecommendedLinks: aggregatedRecommendedLinks.size,
           dedupedInRunCount,
+          uniqueDiscoveredOfferCount: aggregatedJobLinks.size,
           acceptedOfferCount: assessedJobs.acceptedOfferCount,
           rejectedOfferCount: assessedJobs.rejectedOfferCount,
           rejectedOfferReasons: assessedJobs.rejectedOfferReasons,
+          fullDetailOfferCount: qualitySummary.fullDetailOfferCount,
+          partialDetailOfferCount: qualitySummary.partialDetailOfferCount,
+          salvagedOfferCount: qualitySummary.salvagedOfferCount,
           skippedFreshUrls: aggregatedSkippedUrls.size,
           blockedPages: aggregatedBlockedUrls.length,
           detailAttemptedCount: totalDetailAttemptedCount,
@@ -1967,9 +2043,13 @@ export const runScrapeJob = async (
           jobLinksDiscovered: 0,
           ignoredRecommendedLinks: 0,
           dedupedInRunCount: 0,
+          uniqueDiscoveredOfferCount: 0,
           acceptedOfferCount: 0,
           rejectedOfferCount: 0,
           rejectedOfferReasons: {},
+          fullDetailOfferCount: 0,
+          partialDetailOfferCount: 0,
+          salvagedOfferCount: 0,
           skippedFreshUrls: 0,
           blockedPages: 0,
           silentFailure: false,
@@ -1986,6 +2066,9 @@ export const runScrapeJob = async (
               acceptedOfferCount: 0,
               rejectedOfferCount: 0,
               dedupedInRunCount: 0,
+              uniqueDiscoveredOfferCount: 0,
+              fullDetailOfferCount: 0,
+              partialDetailOfferCount: 0,
               salvagedOfferCount: 0,
             },
             finalize: {

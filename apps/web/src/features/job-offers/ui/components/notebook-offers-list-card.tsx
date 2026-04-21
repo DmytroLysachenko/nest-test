@@ -10,6 +10,8 @@ import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { WorkflowFeedback, WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
+import { OfferReminderDeliveryState } from './offer-reminder-delivery-state';
+
 import type { JobOfferListItemDto, JobOfferStatus } from '@/shared/types/api';
 
 type NotebookOffersListCardProps = {
@@ -363,6 +365,7 @@ export const NotebookOffersListCard = ({
                     Follow-up {offer.followUpState}
                   </span>
                 ) : null}
+                <OfferReminderDeliveryState reminderDelivery={offer.reminderDelivery} compact />
                 {offer.isExpired ? <span className="app-badge">Expired</span> : null}
                 {(offer.explanationTags ?? []).slice(0, 3).map((tag) => (
                   <span key={tag} className="app-badge">

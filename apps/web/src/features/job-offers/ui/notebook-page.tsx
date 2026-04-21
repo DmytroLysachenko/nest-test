@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 
 import { useNotebookPage } from '@/features/job-offers/model/use-notebook-page';
+import { NotebookActionPlanCard } from '@/features/job-offers/ui/components/notebook-action-plan-card';
 import { NotebookFiltersCard } from '@/features/job-offers/ui/components/notebook-filters-card';
 import { NotebookOfferDetailsCard } from '@/features/job-offers/ui/components/notebook-offer-details-card';
 import { NotebookOffersListCard } from '@/features/job-offers/ui/components/notebook-offers-list-card';
@@ -11,23 +12,11 @@ import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
 import { GuidancePanel } from '@/shared/ui/guidance-panels';
 
+import type { NotebookQuickActionKey } from '@/features/job-offers/model/types/notebook-view-model';
+
 type NotebookPageProps = {
   token: string;
-  initialQuickAction?:
-    | 'unscored'
-    | 'strictTop'
-    | 'saved'
-    | 'applied'
-    | 'staleUntriaged'
-    | 'followUpDue'
-    | 'followUpUpcoming'
-    | 'missingNextStep'
-    | 'stalePipeline'
-    | 'followUpDueToday'
-    | 'prepRecommended'
-    | 'awaitingDecision'
-    | 'degradedResults'
-    | null;
+  initialQuickAction?: NotebookQuickActionKey | null;
   initialOfferId?: string | null;
 };
 
@@ -35,6 +24,21 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
   const notebook = useNotebookPage({ token, initialQuickAction, initialOfferId });
   const pipelineOffers = (notebook.listQuery.data?.items ?? []).filter((offer) =>
     ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'].includes(offer.status),
+  );
+  const reminderDeliveryStats = pipelineOffers.reduce(
+    (acc, offer) => {
+      if (!offer.reminderDelivery) {
+        return acc;
+      }
+
+      acc[offer.reminderDelivery.state] += 1;
+      return acc;
+    },
+    {
+      pending: 0,
+      delivered: 0,
+      failed: 0,
+    },
   );
   const mobileWorkspaceRef = useRef<HTMLElement | null>(null);
 
@@ -125,10 +129,31 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
         <GuidancePanel
           eyebrow="Reminder preview"
           title={`${notebook.reminderPreview.counts.overdue} overdue, ${notebook.reminderPreview.counts.today} due today, ${notebook.reminderPreview.counts.upcoming} upcoming, ${notebook.reminderPreview.counts.stale} stale`}
-          description="These are deterministic in-app reminders from your notebook fields. No external notification delivery is enabled yet."
-          tone={notebook.reminderPreview.counts.overdue > 0 ? 'warning' : 'info'}
+          description={`${reminderDeliveryStats.pending} pending, ${reminderDeliveryStats.delivered} delivered, ${reminderDeliveryStats.failed} failed in the active pipeline slice. Email digests use the same notebook reminder rules.`}
+          tone={notebook.reminderPreview.counts.overdue > 0 || reminderDeliveryStats.failed > 0 ? 'warning' : 'info'}
         />
       ) : null}
+
+      <NotebookActionPlanCard
+        actionPlan={notebook.actionPlan ?? null}
+        selectedOffer={notebook.selectedOffer}
+        prepPacket={notebook.prepPacket ?? null}
+        isBusy={notebook.isBusy}
+        onOpenQueue={notebook.applyQuickAction}
+        onCompleteFollowUp={(nextAction) => {
+          if (!notebook.selectedOffer) {
+            return;
+          }
+          notebook.completeFollowUp({ id: notebook.selectedOffer.id, nextAction });
+        }}
+        onSnoozeFollowUp={(durationHours) => {
+          if (!notebook.selectedOffer) {
+            return;
+          }
+          notebook.snoozeFollowUp({ id: notebook.selectedOffer.id, durationHours });
+        }}
+        onGeneratePrep={({ id, instructions }) => notebook.generatePrep({ id, instructions })}
+      />
 
       <NotebookFiltersCard
         status={notebook.filters.status}

@@ -18,5 +18,10 @@ export const documentsTable = pgTable('documents', {
   extractedAt: timestamp('extracted_at', { withTimezone: true }),
   extractionStatus: documentExtractionStatusEnum('extraction_status').default('PENDING').notNull(),
   extractionError: text('extraction_error'),
+  extractionQueuedAt: timestamp('extraction_queued_at', { withTimezone: true }),
+  extractionStartedAt: timestamp('extraction_started_at', { withTimezone: true }),
+  extractionLeaseExpiresAt: timestamp('extraction_lease_expires_at', { withTimezone: true }),
+  extractionAttemptCount: integer('extraction_attempt_count').default(0).notNull(),
+  extractionLastTraceId: text('extraction_last_trace_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });

@@ -44,6 +44,16 @@ describe('OpsService', () => {
         .mockReturnValueOnce({ from: jest.fn().mockResolvedValue([{ value: 40 }]) }) // total offers
         .mockReturnValueOnce({ from: jest.fn().mockReturnValue({ where: offerWhere }) }) // unscored
         .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 2 }]) }),
+        }) // reminder delivery failures
+        .mockReturnValueOnce({ from: jest.fn().mockResolvedValue([{ value: 9 }]) }) // total career profiles
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 3 }]) }),
+        }) // pending career profiles
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 1 }]) }),
+        }) // failed career profiles
+        .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 6 }]) }),
         }) // fresh catalog offers
         .mockReturnValueOnce({
@@ -130,6 +140,12 @@ describe('OpsService', () => {
     expect(result.scrape.totalRuns).toBe(10);
     expect(result.scrape.successRate).toBe(0.8);
     expect(result.offers.unscoredUserOffers).toBe(4);
+    expect(result.offers.reminderDeliveryFailures24h).toBe(2);
+    expect(result.careerProfiles).toMatchObject({
+      totalProfiles: 9,
+      pendingProfiles: 3,
+      failedProfiles: 1,
+    });
     expect(result.catalog.freshAcceptedOffers).toBe(6);
     expect(result.catalog.matchedRecently).toBe(5);
     expect(result.catalog.offersWithoutCategory).toBe(7);
@@ -157,6 +173,8 @@ describe('OpsService', () => {
       incrementalIngestDeadLetters: true,
       sourceDegradation: true,
       scheduleEnqueueFailures: true,
+      reminderDeliveryFailures: true,
+      careerProfileGenerationFailures: true,
     });
   });
 
@@ -541,17 +559,50 @@ describe('OpsService', () => {
               orderBy: jest.fn().mockReturnValue({
                 limit: jest.fn().mockResolvedValue([
                   {
-                    id: 'schedule-1',
+                    id: 'cp-1',
                     userId: 'user-1',
-                    sourceRunId: 'run-1',
-                    traceId: '11111111-1111-4111-8111-111111111111',
-                    requestId: 'req-1',
-                    eventType: 'schedule_enqueue_failed',
-                    severity: 'error',
-                    message: 'Scheduler failed',
+                    status: 'FAILED',
+                    generationStartedAt: new Date('2026-03-13T09:20:00.000Z'),
+                    generationLeaseExpiresAt: null,
+                    generationAttemptCount: 2,
+                    generationLastTraceId: 'trace-cp-1',
+                    error: 'LLM timeout',
                     createdAt: new Date('2026-03-13T09:04:00.000Z'),
                   },
                 ]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            innerJoin: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                orderBy: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([
+                    {
+                      id: 'ujo-1',
+                      userId: 'user-1',
+                      title: 'Frontend Engineer',
+                      company: 'Acme',
+                      reminderLastBucket: 'overdue',
+                      reminderLastWindowKey: 'overdue:2026-03-13',
+                      reminderLastError: 'SMTP failed',
+                      reminderLastAttemptedAt: new Date('2026-03-13T10:10:00.000Z'),
+                    },
+                  ]),
+                }),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              groupBy: jest.fn().mockReturnValue({
+                orderBy: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([]),
+                }),
               }),
             }),
           }),
@@ -567,7 +618,8 @@ describe('OpsService', () => {
       windowHours: 24,
       queue: { activeRuns: 0, pendingRuns: 0, runningRuns: 0, runningWithoutHeartbeat: 0 },
       scrape: { totalRuns: 0, completedRuns: 0, failedRuns: 0, successRate: 0 },
-      offers: { totalUserOffers: 0, unscoredUserOffers: 0 },
+      offers: { totalUserOffers: 0, unscoredUserOffers: 0, reminderDeliveryFailures24h: 0 },
+      careerProfiles: { totalProfiles: 0, pendingProfiles: 0, failedProfiles: 0 },
       catalog: {
         freshAcceptedOffers: 0,
         matchedRecently: 0,
@@ -596,6 +648,8 @@ describe('OpsService', () => {
         incrementalIngestDeadLetters: false,
         sourceDegradation: false,
         scheduleEnqueueFailures: false,
+        reminderDeliveryFailures: false,
+        careerProfileGenerationFailures: false,
       },
     });
     const result = await service.getSupportOverview();
@@ -604,6 +658,148 @@ describe('OpsService', () => {
     expect(result.recentFailures.callbackEvents[0]?.id).toBe('callback-1');
     expect(result.recentFailures.apiRequests[0]?.id).toBe('api-1');
     expect(result.recentFailures.scheduleExecutions[0]?.id).toBe('schedule-event-1');
+    expect(result.recentFailures.careerProfileGenerations[0]?.id).toBe('cp-1');
+    expect(result.recentFailures.reminderDeliveries[0]?.id).toBe('ujo-1');
+  });
+
+  it('builds support user incident with career profile and reminder failure stats', async () => {
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) =>
+                  Promise.resolve(
+                    cb([
+                      {
+                        id: 'user-1',
+                        email: 'user@example.com',
+                        role: 'admin',
+                        isActive: true,
+                        lastLoginAt: new Date('2026-03-13T08:00:00.000Z'),
+                        deletedAt: null,
+                      },
+                    ]),
+                  ),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) => Promise.resolve(cb([])),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              groupBy: jest.fn().mockResolvedValue([{ status: 'SAVED', count: 2 }]),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) => Promise.resolve(cb([{ value: 5 }])),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) => Promise.resolve(cb([{ value: 1 }])),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) => Promise.resolve(cb([{ value: 2 }])),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              groupBy: jest.fn().mockResolvedValue([
+                { status: 'READY', count: 3 },
+                { status: 'PENDING', count: 1 },
+                { status: 'FAILED', count: 1 },
+              ]),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            innerJoin: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                orderBy: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([
+                    {
+                      id: 'ujo-1',
+                      title: 'Frontend Engineer',
+                      company: 'Acme',
+                      reminderLastBucket: 'overdue',
+                      reminderLastWindowKey: 'overdue:2026-03-13',
+                      reminderLastError: 'SMTP failed',
+                      reminderLastAttemptedAt: new Date('2026-03-13T10:10:00.000Z'),
+                    },
+                  ]),
+                }),
+              }),
+            }),
+          }),
+        }),
+    } as any;
+
+    const service = new OpsService(
+      db,
+      createConfigService({ JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS: 24 }),
+      createLogger(),
+    );
+    const result = await service.getSupportUserIncident('user-1');
+
+    expect(result.offerStats.reminderDeliveryFailures24h).toBe(2);
+    expect(result.careerProfileStats).toEqual({
+      total: 5,
+      ready: 3,
+      pending: 1,
+      failed: 1,
+    });
+    expect(result.recentReminderDeliveryFailures[0]?.id).toBe('ujo-1');
   });
 
   it('builds scrape incident bundle with timeline and correlated request events', async () => {

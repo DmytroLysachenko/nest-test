@@ -51,4 +51,57 @@ export class MailService {
       `,
     });
   }
+
+  async sendNotebookReminderDigest(
+    email: string,
+    input: {
+      generatedAt: string;
+      buckets: Array<{
+        key: 'overdue' | 'today' | 'upcoming' | 'stale';
+        label: string;
+        count: number;
+        items: Array<{
+          title: string;
+          company: string | null;
+          location: string | null;
+          nextStep: string | null;
+          followUpAt: string | null;
+        }>;
+      }>;
+    },
+  ) {
+    const visibleBuckets = input.buckets.filter((bucket) => bucket.count > 0 && bucket.items.length > 0);
+    const bucketHtml = visibleBuckets
+      .map((bucket) => {
+        const itemHtml = bucket.items
+          .map(
+            (item) => `
+              <li>
+                <strong>${item.title}</strong>${item.company ? ` at ${item.company}` : ''}
+                ${item.location ? ` (${item.location})` : ''}
+                ${item.followUpAt ? `<br />Follow-up: ${item.followUpAt}` : ''}
+                ${item.nextStep ? `<br />Next step: ${item.nextStep}` : ''}
+              </li>
+            `,
+          )
+          .join('');
+
+        return `
+          <h3>${bucket.label} (${bucket.count})</h3>
+          <ul>${itemHtml}</ul>
+        `;
+      })
+      .join('');
+
+    await this.sendEmail({
+      to: [email],
+      subject: 'Notebook follow-up reminder',
+      html: `
+        <p>Your notebook has follow-up work that needs attention.</p>
+        <p>Generated at: ${input.generatedAt}</p>
+        ${bucketHtml}
+        <p>Open the notebook to review and update your next steps.</p>
+      `,
+    });
+  }
 }
