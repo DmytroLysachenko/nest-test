@@ -20,7 +20,7 @@
   --border: oklch(0.9 0.006 240);
   --input: oklch(0.985 0.002 235);
   --ring: oklch(0.57 0.19 40.17);
-  --radius: 1rem;
+  --radius: 0.75rem;
   --sidebar: oklch(0.93 0.006 235);
   --sidebar-foreground: oklch(0.28 0.015 252);
   --sidebar-primary: oklch(0.57 0.19 40.17);
@@ -82,10 +82,9 @@
 
 body {
   background:
-    radial-gradient(1200px 460px at 110% -16%, color-mix(in oklab, var(--accent) 20%, transparent), transparent 58%),
-    radial-gradient(960px 360px at -8% 0%, color-mix(in oklab, var(--primary) 13%, transparent), transparent 56%),
-    radial-gradient(780px 300px at 50% 0%, color-mix(in oklab, var(--app-info) 6%, transparent), transparent 72%),
-    linear-gradient(180deg, color-mix(in oklab, var(--surface-elevated) 68%, transparent), transparent 28%),
+    radial-gradient(900px 320px at 100% -12%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 58%),
+    radial-gradient(720px 260px at -4% 0%, color-mix(in oklab, var(--primary) 8%, transparent), transparent 54%),
+    linear-gradient(180deg, color-mix(in oklab, var(--surface-elevated) 46%, transparent), transparent 24%),
     var(--background);
   color: var(--foreground);
   font-family: var(--font-body), 'Segoe UI', sans-serif;
@@ -119,7 +118,7 @@ body {
   }
 
   .app-shell-sidebar-link {
-    @apply text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-3 rounded-[1.2rem] px-3.5 py-3 text-sm font-medium transition-colors;
+    @apply text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium transition-colors;
   }
 
   .app-shell-sidebar-link-active {
@@ -131,7 +130,7 @@ body {
   }
 
   .app-page-header {
-    @apply bg-surface-ghost rounded-[2rem] p-5 shadow-[0_18px_48px_-32px_color-mix(in_oklab,var(--text-strong)_12%,transparent)] backdrop-blur-xl md:p-6;
+    @apply bg-surface-ghost border-border/60 rounded-2xl border p-5 shadow-[0_14px_36px_-30px_color-mix(in_oklab,var(--text-strong)_8%,transparent)] backdrop-blur-md md:p-6;
   }
 
   .app-title {
@@ -147,7 +146,7 @@ body {
   }
 
   .app-muted-panel {
-    @apply bg-surface-muted/78 rounded-[1.35rem] p-4;
+    @apply bg-surface-muted/78 rounded-xl p-4;
   }
 
   .app-badge {
@@ -175,24 +174,24 @@ body {
   }
 
   .app-hero {
-    @apply relative overflow-hidden bg-surface-ghost rounded-[2.2rem] p-6 shadow-[0_26px_70px_-42px_color-mix(in_oklab,var(--text-strong)_20%,transparent)] backdrop-blur-xl md:p-8;
+    @apply border-border/60 bg-surface-ghost relative overflow-hidden rounded-2xl border p-5 shadow-[0_18px_44px_-34px_color-mix(in_oklab,var(--text-strong)_12%,transparent)] backdrop-blur-md md:p-6;
   }
 
   .app-hero::before {
     content: '';
-    @apply pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(ellipse_at_top,color-mix(in_oklab,var(--primary)_12%,transparent),transparent_70%)];
+    @apply pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(ellipse_at_top,color-mix(in_oklab,var(--primary)_8%,transparent),transparent_72%)];
   }
 
   .app-surface {
-    @apply bg-surface-ghost rounded-[1.7rem] shadow-[0_16px_40px_-30px_color-mix(in_oklab,var(--text-strong)_10%,transparent)] backdrop-blur-md;
+    @apply border-border/70 bg-surface-ghost rounded-2xl border shadow-[0_12px_28px_-24px_color-mix(in_oklab,var(--text-strong)_8%,transparent)] backdrop-blur-sm;
   }
 
   .app-surface-elevated {
-    @apply bg-surface-elevated/98 rounded-[1.7rem] shadow-[0_18px_46px_-30px_color-mix(in_oklab,var(--text-strong)_12%,transparent)];
+    @apply border-border/70 bg-surface-elevated/98 rounded-2xl border shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--text-strong)_9%,transparent)];
   }
 
   .app-kpi {
-    @apply bg-surface-elevated/98 rounded-[1.7rem] relative overflow-hidden p-5 shadow-[0_18px_46px_-30px_color-mix(in_oklab,var(--text-strong)_12%,transparent)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_60px_-30px_color-mix(in_oklab,var(--text-strong)_18%,transparent)];
+    @apply border-border/70 bg-surface-elevated/98 relative overflow-hidden rounded-xl border p-5 shadow-[0_12px_28px_-24px_color-mix(in_oklab,var(--text-strong)_8%,transparent)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_34px_-24px_color-mix(in_oklab,var(--text-strong)_12%,transparent)];
   }
 
   .app-kpi::after {
@@ -205,7 +204,7 @@ body {
   }
 
   .app-toolbar {
-    @apply bg-surface-elevated/92 rounded-[1.45rem] px-3 py-3 shadow-[0_8px_30px_-20px_color-mix(in_oklab,var(--text-strong)_12%,transparent)] backdrop-blur-md;
+    @apply border-border/60 bg-surface-elevated/92 rounded-xl border px-3 py-3 shadow-[0_8px_18px_-16px_color-mix(in_oklab,var(--text-strong)_10%,transparent)] backdrop-blur-sm;
   }
 
   .app-grid-cards {
@@ -213,7 +212,7 @@ body {
   }
 
   .app-glass-panel {
-    @apply bg-white/78 rounded-[1.6rem] shadow-[0_18px_46px_-30px_color-mix(in_oklab,var(--text-strong)_16%,transparent)] backdrop-blur-lg;
+    @apply border-border/60 bg-white/82 rounded-xl border shadow-[0_10px_24px_-20px_color-mix(in_oklab,var(--text-strong)_12%,transparent)] backdrop-blur-sm;
   }
 
   .app-orbit {
@@ -234,11 +233,11 @@ body {
   }
 
   .app-utility-rail {
-    @apply bg-surface-muted/74 rounded-[1.6rem] p-4;
+    @apply border-border/55 bg-surface-muted/58 rounded-xl border p-4;
   }
 
   .app-inset-stack {
-    @apply bg-surface-muted/78 rounded-[1.45rem] p-3 md:p-4;
+    @apply border-border/45 bg-surface-muted/62 rounded-xl border p-3 md:p-4;
   }
 }
 

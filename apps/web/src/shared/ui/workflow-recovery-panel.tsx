@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { StatusPill } from '@/shared/ui/dashboard-primitives';
@@ -19,8 +21,8 @@ type WorkflowRecoveryPanelProps = {
 
 export const WorkflowRecoveryPanel = ({
   blockers,
-  title = 'Recovery Center',
-  description = 'Targeted fixes for current workflow blockers.',
+  title = 'Fix these first',
+  description = 'Clear the blockers that are getting in the way of the normal workflow.',
 }: WorkflowRecoveryPanelProps) => {
   if (!blockers.length) {
     return null;
@@ -37,9 +39,9 @@ export const WorkflowRecoveryPanel = ({
             />
             <p className="text-text-strong font-semibold">{blocker.title}</p>
             <p className="text-text-soft text-sm">{blocker.description}</p>
-            <Button size="sm" onClick={() => (window.location.href = blocker.href)}>
-              {blocker.ctaLabel}
-            </Button>
+            <Link href={blocker.href}>
+              <Button size="sm">{blocker.ctaLabel}</Button>
+            </Link>
           </div>
         ))}
       </div>

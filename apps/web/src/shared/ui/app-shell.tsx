@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import {
+  ArrowLeft,
   BriefcaseBusiness,
   Building2,
   CalendarCheck2,
@@ -17,6 +18,7 @@ import {
 
 import { env } from '@/shared/config/env';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
+import { formatDate } from '@/shared/lib/utils/date-format';
 import { Button } from '@/shared/ui/button';
 
 type AppShellProps = {
@@ -89,9 +91,7 @@ const AppShellSidebar = ({
           </div>
           <div className="rounded-[1rem] bg-white/60 px-3 py-2">
             <p className="text-sidebar-foreground/55">Next run</p>
-            <p className="text-sidebar-foreground mt-1 font-medium">
-              {nextRunAt ? new Date(nextRunAt).toLocaleDateString() : 'manual'}
-            </p>
+            <p className="text-sidebar-foreground mt-1 font-medium">{nextRunAt ? formatDate(nextRunAt) : 'manual'}</p>
           </div>
         </div>
         <div className="mt-3 rounded-[1.2rem] bg-white/70 p-3">
@@ -238,7 +238,7 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
                       aria-label="Go back"
                       onClick={() => router.back()}
                     >
-                      <span className="text-base leading-none">{'<'}</span>
+                      <ArrowLeft className="h-4 w-4" />
                     </Button>
                   )}
                   <div>

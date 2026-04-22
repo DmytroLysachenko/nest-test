@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 
 import { getJobOfferActionPlan } from '@/features/job-offers/api/job-offers-api';
@@ -16,6 +17,7 @@ type UseWorkspaceDashboardDataArgs = {
 };
 
 export const useWorkspaceDashboardData = ({ token }: UseWorkspaceDashboardDataArgs) => {
+  const router = useRouter();
   const { summary, scrapeSchedule, refreshSummary, refreshSchedule, isBootstrapping, summaryError } =
     usePrivateDashboardData();
   const { offersQuery, focusQuery } = useWorkspaceDashboardQueries(token);
@@ -33,9 +35,9 @@ export const useWorkspaceDashboardData = ({ token }: UseWorkspaceDashboardDataAr
       return;
     }
     if (summary.workflow.needsOnboarding) {
-      window.location.replace('/onboarding');
+      router.replace('/onboarding');
     }
-  }, [isBootstrapping, summary, token]);
+  }, [isBootstrapping, router, summary, token]);
 
   const isInitialLoading =
     !token || isBootstrapping || (!summary && !summaryError) || summary?.workflow.needsOnboarding;
