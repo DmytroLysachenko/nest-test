@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Inbox, Layers3 } from 'lucide-react';
 
 import { getNotebookCollectionState } from '@/features/job-offers/model/notebook-state-copy';
+import { formatDateTime } from '@/shared/lib/utils/date-format';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
@@ -399,7 +400,7 @@ export const NotebookOffersListCard = ({
               {(offer.followUpAt || getPipelineValue(offer, 'nextStep') || getPipelineValue(offer, 'followUpNote')) && (
                 <div className="bg-surface-muted/72 mt-3 rounded-[1.1rem] px-3 py-2.5 text-xs">
                   {offer.followUpAt ? (
-                    <p className="text-text-soft">Follow-up at: {new Date(offer.followUpAt).toLocaleString()}</p>
+                    <p className="text-text-soft">Follow-up at: {formatDateTime(offer.followUpAt)}</p>
                   ) : null}
                   {getPipelineValue(offer, 'nextStep') ? (
                     <p className="text-text-strong font-medium">Next step: {getPipelineValue(offer, 'nextStep')}</p>
@@ -437,7 +438,7 @@ export const NotebookOffersListCard = ({
         <Button type="button" variant="secondary" disabled={!canPrev} onClick={onPrev}>
           Previous
         </Button>
-        <p className="text-muted-foreground text-xs">Offset: {offset}</p>
+        <p className="text-muted-foreground text-xs">Starting from item {offset + 1}</p>
         <Button type="button" variant="secondary" disabled={!canNext} onClick={onNext}>
           Next
         </Button>

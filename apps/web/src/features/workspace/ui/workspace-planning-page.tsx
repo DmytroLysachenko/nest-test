@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { JobSourcesPanel } from '@/features/job-sources';
@@ -18,6 +19,7 @@ import { WorkflowBlockedState } from '@/shared/ui/workflow-blocked-state';
 
 export const WorkspacePlanningPage = () => {
   const auth = useRequireAuth();
+  const router = useRouter();
   const { summary, scrapeSchedule, isBootstrapping, summaryError, refreshSummary } = usePrivateDashboardData();
 
   if (!auth.token || isBootstrapping) {
@@ -50,9 +52,9 @@ export const WorkspacePlanningPage = () => {
       <WorkflowBlockedState
         title="Automation unlocks after setup"
         description={primaryBlocker?.description ?? 'Complete onboarding before turning on automatic updates.'}
-        actionLabel={primaryBlocker?.ctaLabel ?? 'Open dashboard'}
+        actionLabel={primaryBlocker?.ctaLabel ?? 'Go to home'}
         onAction={() => {
-          window.location.href = primaryBlocker?.href ?? '/';
+          router.push(primaryBlocker?.href ?? '/');
         }}
         breakdown={summary.readinessBreakdown}
       />

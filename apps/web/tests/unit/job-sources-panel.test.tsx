@@ -5,6 +5,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { JobSourcesPanel } from '@/features/job-sources/ui/job-sources-panel';
 import { useJobSourcesPanel } from '@/features/job-sources/model/hooks/use-job-sources-panel';
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+}));
+
 vi.mock('@/features/job-sources/model/hooks/use-job-sources-panel', () => ({
   useJobSourcesPanel: vi.fn(),
 }));

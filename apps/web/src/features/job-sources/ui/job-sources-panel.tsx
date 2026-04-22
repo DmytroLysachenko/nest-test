@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { CalendarClock, PlayCircle, Radar } from 'lucide-react';
 
 import { useJobSourcesPanel } from '@/features/job-sources/model/hooks/use-job-sources-panel';
@@ -23,6 +24,7 @@ type JobSourcesPanelProps = {
 };
 
 export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: JobSourcesPanelProps) => {
+  const router = useRouter();
   const jobSourcesPanel = useJobSourcesPanel(token);
   const {
     register,
@@ -224,7 +226,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
                 description={blocker.description}
                 tone="warning"
                 actionLabel={blocker.ctaLabel}
-                onAction={() => (window.location.href = blocker.href)}
+                onAction={() => router.push(blocker.href)}
               />
             ))}
           </div>
