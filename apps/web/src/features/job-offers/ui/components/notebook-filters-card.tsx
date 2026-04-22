@@ -6,6 +6,7 @@ import { Label } from '@/shared/ui/label';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/button';
+import { getUserFacingOfferStatus } from '@/shared/lib/presentation/job-search-ui';
 import { DataFreshnessBadge } from '@/shared/ui/data-freshness-badge';
 import { FilterChipBar } from '@/shared/ui/filter-chip-bar';
 
@@ -163,7 +164,7 @@ export const NotebookFiltersCard = ({
               <option value="ALL">All statuses</option>
               {visibleStatuses.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {getUserFacingOfferStatus(item)}
                 </option>
               ))}
             </select>
@@ -389,7 +390,7 @@ export const NotebookFiltersCard = ({
           className="border-primary/20 hover:bg-primary/5 hover:text-primary h-8 transition-colors"
         >
           <Sparkles className="text-app-warning mr-2 h-3.5 w-3.5" />
-          {enqueueStatus === 'pending' ? 'Enqueueing...' : 'Sync via Profile'}
+          {enqueueStatus === 'pending' ? 'Starting...' : 'Refresh from profile'}
         </Button>
 
         {onDismissAllSeen && !isPipeline ? (
@@ -402,7 +403,7 @@ export const NotebookFiltersCard = ({
             className="hover:bg-destructive/5 hover:text-destructive hover:border-destructive/30 h-8"
           >
             <Trash2 className="mr-2 h-3.5 w-3.5" />
-            Dismiss all SEEN
+            Dismiss reviewed
           </Button>
         ) : null}
 
@@ -416,7 +417,7 @@ export const NotebookFiltersCard = ({
             className="hover:bg-primary/5 hover:border-primary/20 h-8"
           >
             <Archive className="mr-2 h-3.5 w-3.5" />
-            Auto-Archive Old
+            Archive old items
           </Button>
         ) : null}
 

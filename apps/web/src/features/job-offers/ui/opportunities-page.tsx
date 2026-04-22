@@ -6,7 +6,7 @@ import { useOpportunitiesPage } from '@/features/job-offers/model/use-opportunit
 import { OpportunitiesListCard } from '@/features/job-offers/ui/components/opportunities-list-card';
 import { OpportunityDetailsRail } from '@/features/job-offers/ui/components/opportunity-details-rail';
 import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
-import { HeroHeader, UtilityRail } from '@/shared/ui/dashboard-primitives';
+import { HeroHeader } from '@/shared/ui/dashboard-primitives';
 
 import type { DiscoveryQuickActionKey } from '@/features/job-offers/model/types/notebook-view-model';
 
@@ -46,9 +46,9 @@ export const OpportunitiesPage = ({
   return (
     <main className="app-page space-y-6">
       <HeroHeader
-        eyebrow="Discovery & Review"
-        title="Opportunities"
-        subtitle="Review matched roles, keep only the ones worth active effort, and send those into the pipeline."
+        eyebrow="Opportunities"
+        title="Review new roles quickly"
+        subtitle="Keep or dismiss new matches fast, then move only the worthwhile roles into your active pipeline."
         meta={
           opportunities.summaryQuery.data ? (
             <>
@@ -82,6 +82,8 @@ export const OpportunitiesPage = ({
               search={opportunities.search}
               tag={opportunities.tag}
               selectedId={opportunities.selectedId}
+              offset={opportunities.offset}
+              limit={20}
               canPrev={opportunities.canPrev}
               canNext={opportunities.canNext}
               isBusy={opportunities.isBusy}
@@ -102,19 +104,13 @@ export const OpportunitiesPage = ({
 
         {showRail ? (
           <div className="hidden min-w-0 xl:sticky xl:top-24 xl:block xl:self-start">
-            <UtilityRail
-              title="Decision rail"
-              description="Keep discovery lightweight here: fit, essentials, and the keep-or-dismiss decision."
-              className="min-w-0 bg-transparent p-0"
-            >
-              <OpportunityDetailsRail
-                offer={opportunities.selectedOffer}
-                isBusy={opportunities.isBusy}
-                onSave={opportunities.saveOpportunity}
-                onMarkSeen={opportunities.markSeen}
-                onDismiss={opportunities.dismiss}
-              />
-            </UtilityRail>
+            <OpportunityDetailsRail
+              offer={opportunities.selectedOffer}
+              isBusy={opportunities.isBusy}
+              onSave={opportunities.saveOpportunity}
+              onMarkSeen={opportunities.markSeen}
+              onDismiss={opportunities.dismiss}
+            />
           </div>
         ) : null}
       </div>

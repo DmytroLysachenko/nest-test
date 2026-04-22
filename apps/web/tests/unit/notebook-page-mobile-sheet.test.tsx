@@ -174,7 +174,7 @@ describe('NotebookPage pipeline workspace', () => {
     render(<NotebookPage token="token" />);
 
     expect(screen.getAllByText('Senior Backend Engineer').length).toBeGreaterThan(0);
-    expect(screen.getByText('Notebook Pipeline')).toBeInTheDocument();
+    expect(screen.getByText('Keep active roles moving')).toBeInTheDocument();
     expect(screen.getByText('Selected offer workspace')).toBeInTheDocument();
     expect(screen.getByText('Keep one clear next move attached to this role')).toBeInTheDocument();
   });
