@@ -5,17 +5,16 @@ import { useRouter } from 'next/navigation';
 
 import { DocumentsPanel } from '@/features/documents';
 import { useOnboardingPage } from '@/features/onboarding/model/hooks/use-onboarding-page';
+import { WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
-import { ChoiceChipGroup } from '@/shared/ui/choice-chip-group';
 import { Card } from '@/shared/ui/card';
+import { ChoiceChipGroup } from '@/shared/ui/choice-chip-group';
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
-import { GuidancePanel } from '@/shared/ui/guidance-panels';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { StepProgress } from '@/shared/ui/step-progress';
 import { TagInput } from '@/shared/ui/tag-input';
 import { Textarea } from '@/shared/ui/textarea';
-import { WorkspaceSplashState } from '@/shared/ui/async-states';
 import { WorkflowFeedback, WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
 
 const seniorityValues = ['intern', 'junior', 'mid', 'senior', 'lead', 'manager'] as const;
@@ -41,8 +40,8 @@ export const OnboardingPage = () => {
   if (!onboarding.auth.token) {
     return (
       <WorkspaceSplashState
-        title="Starting guided setup"
-        subtitle="Restoring your first-run setup state and the documents that ground your profile..."
+        title="Starting setup"
+        subtitle="Restoring your first-run state and the documents used to build your profile."
       />
     );
   }
@@ -57,56 +56,42 @@ export const OnboardingPage = () => {
   };
 
   return (
-    <main className="app-page max-w-5xl">
+    <main className="app-page max-w-5xl space-y-6">
       <HeroHeader
-        eyebrow="Guided Setup"
-        title="Build your job-search profile"
-        subtitle="Set up the minimum high-quality context once, then the dashboard and scrape controls can stay fast and predictable instead of repeatedly re-asking the API for the same state."
+        eyebrow="Setup"
+        title="Set your direction once"
+        subtitle="Add the basics here, then do the daily work in opportunities and notebook."
         meta={
           <>
             <span className="app-badge">Step {onboarding.step} of 3</span>
-            <span className="app-badge">Ready docs: {onboarding.hasReadyDocument ? 'yes' : 'no'}</span>
+            <span className="app-badge">{onboarding.hasReadyDocument ? 'Documents ready' : 'Documents needed'}</span>
           </>
         }
       />
 
-      <GuidancePanel
-        eyebrow="Setup tip"
-        title="You only need a clean baseline once"
-        description="Complete onboarding carefully, then most of your day-to-day work moves to the dashboard and notebook. Return here only when your search direction changes materially."
-        tone="success"
-      />
-
-      <Card
-        title="Onboarding Flow"
-        description="Follow the guided flow: define preferences, upload documents, review data, then generate profile."
-      >
+      <Card title="Setup progress" description="Complete the three steps in order.">
         <StepProgress
           currentStep={onboarding.step}
           steps={[
-            { id: 1, label: '1. Preferences' },
-            { id: 2, label: '2. Documents' },
-            { id: 3, label: '3. Review & generate' },
+            { id: 1, label: 'Preferences' },
+            { id: 2, label: 'Documents' },
+            { id: 3, label: 'Review' },
           ]}
         />
       </Card>
 
       {onboarding.step === 1 ? (
-        <Card
-          title="Step 1: Job preferences"
-          description="Tell us about your ideal next role. We use this to filter and score job offers."
-        >
+        <Card title="Job preferences" description="Describe the role, conditions, and skills you want to target.">
           <form className="space-y-8" onSubmit={onboarding.saveStepOne}>
-            {/* Group 1: Role & Expertise */}
             <div className="space-y-5">
               <div>
-                <h3 className="text-text-strong text-lg font-medium">Role & Expertise</h3>
-                <p className="text-text-soft text-sm">Define the positions and skills you want to target.</p>
+                <h3 className="text-text-strong text-lg font-medium">Role and skills</h3>
+                <p className="text-text-soft text-sm">Keep this focused on the jobs you would genuinely pursue next.</p>
               </div>
 
               <TagInput
-                label="Target Positions"
-                placeholder="e.g. Frontend Developer, Software Engineer"
+                label="Target positions"
+                placeholder="Frontend Developer, Software Engineer"
                 values={current.desiredPositions}
                 onChange={(next) => setValue('desiredPositions', next, { shouldValidate: true })}
               />
@@ -119,15 +104,15 @@ export const OnboardingPage = () => {
               ) : null}
 
               <TagInput
-                label="Job Domains / Industries"
-                placeholder="e.g. FinTech, E-commerce, HealthTech"
+                label="Domains"
+                placeholder="FinTech, E-commerce, HealthTech"
                 values={current.jobDomains}
                 onChange={(next) => setValue('jobDomains', next, { shouldValidate: true })}
               />
 
               <TagInput
-                label="Core Skills & Technologies"
-                placeholder="e.g. React, TypeScript, Node.js"
+                label="Core skills"
+                placeholder="React, TypeScript, Node.js"
                 values={current.coreSkills}
                 onChange={(next) => setValue('coreSkills', next, { shouldValidate: true })}
               />
@@ -149,7 +134,7 @@ export const OnboardingPage = () => {
                     type="number"
                     min={0}
                     max={60}
-                    placeholder="e.g. 3"
+                    placeholder="3"
                     value={current.experienceYearsInRole ?? ''}
                     onChange={(event) =>
                       setValue('experienceYearsInRole', event.target.value ? Number(event.target.value) : null, {
@@ -160,7 +145,7 @@ export const OnboardingPage = () => {
                 </div>
 
                 <div className="app-field-group">
-                  <p className="app-inline-label">Target Seniority</p>
+                  <p className="app-inline-label">Target seniority</p>
                   <ChoiceChipGroup
                     values={seniorityValues}
                     selected={current.targetSeniority}
@@ -174,16 +159,15 @@ export const OnboardingPage = () => {
               </div>
             </div>
 
-            {/* Group 2: Work Conditions */}
             <div className="border-border/60 space-y-5 border-t pt-6">
               <div>
-                <h3 className="text-text-strong text-lg font-medium">Work Conditions</h3>
-                <p className="text-text-soft text-sm">Specify your non-negotiables (hard) and nice-to-haves (soft).</p>
+                <h3 className="text-text-strong text-lg font-medium">Work conditions</h3>
+                <p className="text-text-soft text-sm">Separate hard requirements from preferences.</p>
               </div>
 
               <div className="grid gap-5 md:grid-cols-2">
                 <div className="app-field-group">
-                  <p className="app-inline-label">Required Work Modes</p>
+                  <p className="app-inline-label">Required work modes</p>
                   <ChoiceChipGroup
                     values={workModes}
                     selected={current.hardWorkModes}
@@ -195,7 +179,7 @@ export const OnboardingPage = () => {
                   />
                 </div>
                 <div className="app-field-group">
-                  <p className="app-inline-label">Preferred Work Modes</p>
+                  <p className="app-inline-label">Preferred work modes</p>
                   <ChoiceChipGroup
                     values={workModes}
                     selected={current.softWorkModes}
@@ -208,7 +192,7 @@ export const OnboardingPage = () => {
                 </div>
 
                 <div className="app-field-group">
-                  <p className="app-inline-label">Required Contract Types</p>
+                  <p className="app-inline-label">Required contract types</p>
                   <ChoiceChipGroup
                     values={contractTypes}
                     selected={current.hardContractTypes}
@@ -220,7 +204,7 @@ export const OnboardingPage = () => {
                   />
                 </div>
                 <div className="app-field-group">
-                  <p className="app-inline-label">Preferred Contract Types</p>
+                  <p className="app-inline-label">Preferred contract types</p>
                   <ChoiceChipGroup
                     values={contractTypes}
                     selected={current.softContractTypes}
@@ -234,51 +218,50 @@ export const OnboardingPage = () => {
               </div>
             </div>
 
-            {/* Group 3: Additional Notes */}
             <div className="border-border/60 space-y-5 border-t pt-6">
               <div>
-                <h3 className="text-text-strong text-lg font-medium">Additional Context</h3>
-                <p className="text-text-soft text-sm">Any extra details that the AI should consider during matching.</p>
+                <h3 className="text-text-strong text-lg font-medium">Extra context</h3>
+                <p className="text-text-soft text-sm">
+                  Only include information that changes how roles should be judged.
+                </p>
               </div>
 
               <div className="app-field-group">
                 <Label htmlFor="general-notes" className="app-inline-label">
-                  General Notes
+                  Notes
                 </Label>
                 <Textarea
                   id="general-notes"
                   className="min-h-24"
-                  placeholder="e.g. I am looking for a product-led company. No crypto or gambling domains."
+                  placeholder="Product-led company, no crypto or gambling domains."
                   {...register('generalNotes')}
                 />
               </div>
 
               <details className="group">
-                <summary className="text-text-strong cursor-pointer text-sm font-medium">
-                  Advanced section notes
-                </summary>
+                <summary className="text-text-strong cursor-pointer text-sm font-medium">Advanced notes</summary>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div className="app-field-group">
                     <Label htmlFor="section-notes-positions" className="app-inline-label">
-                      Position Notes
+                      Position notes
                     </Label>
                     <Textarea id="section-notes-positions" {...register('sectionNotes.positions')} />
                   </div>
                   <div className="app-field-group">
                     <Label htmlFor="section-notes-skills" className="app-inline-label">
-                      Skill Notes
+                      Skill notes
                     </Label>
                     <Textarea id="section-notes-skills" {...register('sectionNotes.skills')} />
                   </div>
                   <div className="app-field-group">
                     <Label htmlFor="section-notes-domains" className="app-inline-label">
-                      Domain Notes
+                      Domain notes
                     </Label>
                     <Textarea id="section-notes-domains" {...register('sectionNotes.domains')} />
                   </div>
                   <div className="app-field-group">
                     <Label htmlFor="section-notes-preferences" className="app-inline-label">
-                      Preference Notes
+                      Preference notes
                     </Label>
                     <Textarea id="section-notes-preferences" {...register('sectionNotes.preferences')} />
                   </div>
@@ -288,10 +271,10 @@ export const OnboardingPage = () => {
 
             <div className="app-toolbar flex items-center justify-between gap-3">
               <p className="text-text-soft text-xs">
-                {onboarding.stepOneForm.formState.isDirty ? 'Unsaved changes' : 'All changes saved locally'}
+                {onboarding.stepOneForm.formState.isDirty ? 'Unsaved changes' : 'Saved locally'}
               </p>
               <Button type="submit" size="lg">
-                Continue to documents
+                Continue
               </Button>
             </div>
           </form>
@@ -299,36 +282,30 @@ export const OnboardingPage = () => {
       ) : null}
 
       {onboarding.step === 2 ? (
-        <Card
-          title="Step 2: Source Documents"
-          description="Upload your resume or LinkedIn profile export to ground the AI generation."
-        >
+        <Card title="Documents" description="Upload the files that ground your profile.">
           <div className="space-y-6">
-            <div className="border-border bg-surface-muted rounded-xl border p-4 text-sm">
-              <h4 className="text-text-strong mb-1 font-semibold">How this works</h4>
-              <p className="text-text-soft">
-                We use these documents to extract your work history, education, and skills. Don&apos;t worry about
-                perfect formatting—the system is designed to read raw text and structure it automatically.
-              </p>
+            <div className="app-inset-stack text-sm">
+              Add at least one document that clearly reflects your recent experience. Once extraction finishes, you can
+              move to review.
             </div>
 
             <DocumentsPanel token={onboarding.auth.token} />
 
             <div className="app-toolbar flex items-center justify-between gap-2">
               <Button variant="secondary" type="button" onClick={() => onboarding.setStep(1)}>
-                Back to preferences
+                Back
               </Button>
               <div className="flex items-center gap-3">
-                {!onboarding.hasReadyDocument && (
+                {!onboarding.hasReadyDocument ? (
                   <WorkflowInlineNotice
-                    title="At least one document must finish extraction first"
-                    description="Upload and wait for one READY document before moving to the final review step."
+                    title="A ready document is still needed"
+                    description="Wait for one document to finish extraction before continuing."
                     tone="warning"
                     className="max-w-sm"
                   />
-                )}
+                ) : null}
                 <Button type="button" onClick={() => onboarding.setStep(3)} disabled={!onboarding.hasReadyDocument}>
-                  Continue to review
+                  Continue
                 </Button>
               </div>
             </div>
@@ -337,55 +314,49 @@ export const OnboardingPage = () => {
       ) : null}
 
       {onboarding.step === 3 ? (
-        <Card
-          title="Step 3: Review & Generate"
-          description="Verify your inputs before the AI builds your comprehensive career profile."
-        >
+        <Card title="Review and generate" description="Check the essentials once, then create the first profile.">
           <div className="space-y-6">
-            <div className="space-y-3">
-              <h3 className="text-text-strong text-lg font-medium">Input Summary</h3>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="app-muted-panel text-sm">
-                  <p className="text-text-soft text-xs uppercase tracking-wider">Target Roles</p>
-                  <p className="text-text-strong mt-1 font-medium">
-                    {onboarding.draft.desiredPositions.join(', ') || 'None specified'}
-                  </p>
-                </div>
-                <div className="app-muted-panel text-sm">
-                  <p className="text-text-soft text-xs uppercase tracking-wider">Target Domains</p>
-                  <p className="text-text-strong mt-1 font-medium">
-                    {onboarding.draft.jobDomains.join(', ') || 'None specified'}
-                  </p>
-                </div>
-                <div className="app-muted-panel text-sm">
-                  <p className="text-text-soft text-xs uppercase tracking-wider">Core Skills</p>
-                  <p className="text-text-strong mt-1 font-medium">
-                    {onboarding.draft.coreSkills.join(', ') || 'None specified'}
-                  </p>
-                </div>
-                <div className="app-muted-panel text-sm">
-                  <p className="text-text-soft text-xs uppercase tracking-wider">Role Experience</p>
-                  <p className="text-text-strong mt-1 font-medium">
-                    {onboarding.draft.experienceYearsInRole != null
-                      ? `${onboarding.draft.experienceYearsInRole} years`
-                      : 'Not specified'}
-                  </p>
-                </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="app-muted-panel text-sm">
+                <p className="text-text-soft text-xs uppercase tracking-wider">Target roles</p>
+                <p className="text-text-strong mt-1 font-medium">
+                  {onboarding.draft.desiredPositions.join(', ') || 'None specified'}
+                </p>
+              </div>
+              <div className="app-muted-panel text-sm">
+                <p className="text-text-soft text-xs uppercase tracking-wider">Domains</p>
+                <p className="text-text-strong mt-1 font-medium">
+                  {onboarding.draft.jobDomains.join(', ') || 'None specified'}
+                </p>
+              </div>
+              <div className="app-muted-panel text-sm">
+                <p className="text-text-soft text-xs uppercase tracking-wider">Core skills</p>
+                <p className="text-text-strong mt-1 font-medium">
+                  {onboarding.draft.coreSkills.join(', ') || 'None specified'}
+                </p>
+              </div>
+              <div className="app-muted-panel text-sm">
+                <p className="text-text-soft text-xs uppercase tracking-wider">Role experience</p>
+                <p className="text-text-strong mt-1 font-medium">
+                  {onboarding.draft.experienceYearsInRole != null
+                    ? `${onboarding.draft.experienceYearsInRole} years`
+                    : 'Not specified'}
+                </p>
               </div>
             </div>
 
             <div className="border-border/60 space-y-3 border-t pt-5">
               <div>
-                <h3 className="text-text-strong text-lg font-medium">Custom Instructions</h3>
+                <h3 className="text-text-strong text-lg font-medium">Optional instructions</h3>
                 <p className="text-text-soft text-sm">
-                  Guide the AI on how to interpret your documents or emphasize specific traits.
+                  Use this only if the profile should emphasize something specific.
                 </p>
               </div>
               <div className="app-field-group">
                 <Textarea
                   id="generation-instructions"
                   className="min-h-24"
-                  placeholder="e.g. Focus heavily on my leadership experience. Ignore my early roles as a junior developer."
+                  placeholder="Focus on leadership experience and recent frontend work."
                   value={onboarding.draft.generationInstructions}
                   onChange={(event) => onboarding.patchDraft({ generationInstructions: event.target.value })}
                 />
@@ -394,12 +365,12 @@ export const OnboardingPage = () => {
 
             <div className="app-toolbar flex items-center justify-between gap-2">
               <Button variant="secondary" type="button" onClick={() => onboarding.setStep(2)}>
-                Back to documents
+                Back
               </Button>
               <div className="flex items-center gap-3">
                 {onboarding.generationError ? (
                   <WorkflowFeedback
-                    title="Unable to generate your first profile"
+                    title="Unable to generate the first profile"
                     description={onboarding.generationError}
                     tone="danger"
                     className="p-4 sm:p-5"
@@ -411,7 +382,7 @@ export const OnboardingPage = () => {
                   onClick={() => onboarding.submitProfileMutation.mutate()}
                   disabled={onboarding.submitProfileMutation.isPending || !onboarding.hasReadyDocument}
                 >
-                  {onboarding.submitProfileMutation.isPending ? 'Generating profile...' : 'Generate Profile'}
+                  {onboarding.submitProfileMutation.isPending ? 'Generating...' : 'Generate profile'}
                 </Button>
               </div>
             </div>
