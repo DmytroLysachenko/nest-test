@@ -1,9 +1,8 @@
-export const formatWorkspaceDateTime = (value: string | null) => {
-  if (!value) {
-    return 'n/a';
-  }
+import { getUserFacingRunStatus } from '@/shared/lib/presentation/job-search-ui';
+import { formatDateTime } from '@/shared/lib/utils/date-format';
 
-  return new Date(value).toLocaleString();
+export const formatWorkspaceDateTime = (value: string | null) => {
+  return formatDateTime(value);
 };
 
 export const getWorkspaceRunStatusTone = (
@@ -32,7 +31,7 @@ export const getWorkspaceRunStatusTrendTone = (status: string | null): 'success'
 export const getWorkspaceReliabilityLabel = (successRate: number | undefined) => {
   if (successRate == null) {
     return {
-      label: 'Unknown reliability',
+      label: 'Unknown',
       tone: 'neutral' as const,
     };
   }
@@ -53,3 +52,5 @@ export const getWorkspaceReliabilityLabel = (successRate: number | undefined) =>
     tone: 'danger' as const,
   };
 };
+
+export const getWorkspaceRunStatusLabel = (status: string | null | undefined) => getUserFacingRunStatus(status);
