@@ -3,16 +3,18 @@
 import { CalendarClock, PlayCircle, Radar } from 'lucide-react';
 
 import { useJobSourcesPanel } from '@/features/job-sources/model/hooks/use-job-sources-panel';
+import {
+  getScheduleEventPresentation,
+  getSchedulePresetLabel,
+  getUserFacingRunStatus,
+} from '@/shared/lib/presentation/job-search-ui';
+import { formatDateTime } from '@/shared/lib/utils/date-format';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { GuidancePanel, JourneySteps } from '@/shared/ui/guidance-panels';
-import { Input } from '@/shared/ui/input';
-import { InspectorRow } from '@/shared/ui/inspector-row';
-import { Label } from '@/shared/ui/label';
 import { EmptyState } from '@/shared/ui/empty-state';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
 import { WorkflowFeedback, WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
-
-const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
 
 type JobSourcesPanelProps = {
   token: string;
@@ -33,73 +35,63 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
   const preflight = jobSourcesPanel.preflightQuery.data;
   const sourceHealth = jobSourcesPanel.sourceHealthQuery.data?.items?.[0] ?? null;
   const scheduleEvents = jobSourcesPanel.scheduleEventsQuery.data?.items ?? [];
+  const recentRuns = jobSourcesPanel.runsQuery.data?.items ?? [];
+  const usableRunRate = typeof sourceHealth?.usableRunRate === 'number' ? sourceHealth.usableRunRate : null;
   const now = Date.now();
-  const formatTimestamp = (value: string | null | undefined) => (value ? new Date(value).toLocaleString() : 'n/a');
+  const nextRunAtValue = jobSourcesPanel.scheduleResult?.nextRunAt
+    ? new Date(jobSourcesPanel.scheduleResult.nextRunAt).getTime()
+    : null;
+  const lastTriggeredAtValue = jobSourcesPanel.scheduleResult?.lastTriggeredAt
+    ? new Date(jobSourcesPanel.scheduleResult.lastTriggeredAt).getTime()
+    : null;
+  const scheduleIsDue = typeof nextRunAtValue === 'number' && nextRunAtValue <= now;
   const latestScheduleSuccess =
     scheduleEvents.find((event) => event.eventType === 'schedule_enqueue_succeeded') ?? null;
   const latestScheduleFailure =
     scheduleEvents.find((event) => event.severity === 'error' || event.eventType === 'schedule_enqueue_failed') ?? null;
-  const lastTriggeredAtValue = jobSourcesPanel.scheduleResult?.lastTriggeredAt
-    ? new Date(jobSourcesPanel.scheduleResult.lastTriggeredAt).getTime()
-    : null;
-  const nextRunAtValue = jobSourcesPanel.scheduleResult?.nextRunAt
-    ? new Date(jobSourcesPanel.scheduleResult.nextRunAt).getTime()
-    : null;
-  const scheduleIsDue = typeof nextRunAtValue === 'number' && nextRunAtValue <= now;
-  const scheduleHasTriggered = typeof lastTriggeredAtValue === 'number' && Number.isFinite(lastTriggeredAtValue);
+
   const scheduleStory = !jobSourcesPanel.scheduleResult?.enabled
     ? {
         tone: 'neutral' as const,
-        title: 'Schedule is currently off',
-        description: 'Turn it on once your targeting is stable. Manual runs are still available above.',
+        title: 'Automatic updates are off',
+        description: 'Use manual updates until your targeting feels stable.',
       }
     : sourceHealth?.activePause
       ? {
           tone: 'warning' as const,
-          title: scheduleIsDue
-            ? 'Schedule is due but paused by source health'
-            : 'Automation is paused by source health',
+          title: scheduleIsDue ? 'An update is due but paused' : 'Automatic updates are paused',
           description: sourceHealth.guidance,
         }
-      : jobSourcesPanel.scheduleResult?.lastRunStatus === 'FAILED'
+      : jobSourcesPanel.scheduleResult?.lastRunStatus === 'FAILED' || latestScheduleFailure
         ? {
             tone: 'danger' as const,
-            title: 'Last scheduled run failed',
-            description:
-              latestScheduleFailure?.message ??
-              'Check the recent schedule events below to confirm whether the failure was in scheduling or worker execution.',
+            title: 'Recent automatic update failed',
+            description: latestScheduleFailure?.message ?? 'The last automatic update did not finish cleanly.',
           }
-        : latestScheduleFailure
+        : latestScheduleSuccess
           ? {
-              tone: 'danger' as const,
-              title: 'Recent scheduled attempt failed',
-              description: latestScheduleFailure.message,
+              tone: 'positive' as const,
+              title: 'Automatic updates are working',
+              description: latestScheduleSuccess.message,
             }
-          : latestScheduleSuccess
+          : typeof lastTriggeredAtValue !== 'number'
             ? {
-                tone: 'positive' as const,
-                title: 'Recent scheduled trigger succeeded',
-                description: latestScheduleSuccess.message,
+                tone: 'warning' as const,
+                title: 'Automatic updates are on but not proven yet',
+                description: 'The schedule is saved. Wait for the first successful update or run one manually now.',
               }
-            : !scheduleHasTriggered
+            : scheduleIsDue
               ? {
                   tone: 'warning' as const,
-                  title: 'Schedule is enabled but not yet proven',
-                  description:
-                    'Watch the recent schedule events below to confirm automatic triggering is actually happening.',
+                  title: 'Automatic update window passed',
+                  description: 'Check the recent activity below and confirm the next update succeeds.',
                 }
-              : scheduleIsDue
-                ? {
-                    tone: 'warning' as const,
-                    title: 'Schedule looks overdue',
-                    description:
-                      'The next scheduled run time has passed without a newer success event. Check the recent schedule events below.',
-                  }
-                : {
-                    tone: 'warning' as const,
-                    title: 'Schedule is enabled and waiting for the next window',
-                    description: 'The schedule is configured and the next run window is still ahead.',
-                  };
+              : {
+                  tone: 'neutral' as const,
+                  title: 'Waiting for the next automatic update',
+                  description: 'The schedule is active and the next update window is still ahead.',
+                };
+
   const getStoryTone = (value?: 'positive' | 'warning' | 'danger' | 'neutral') => {
     if (value === 'positive') {
       return 'border-app-success-border bg-app-success-soft';
@@ -115,97 +107,43 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
 
   return (
     <Card
-      title="Scrape Control Center"
-      description="Run a one-off sourcing pass, confirm whether the system is ready, and manage the schedule that keeps your notebook fresh."
+      title="Update jobs automatically"
+      description="Choose whether to refresh manually or let the app bring in new roles on a simple schedule."
       className="overflow-hidden"
     >
-      <GuidancePanel
-        eyebrow="How to use this"
-        title="Two reliable ways to start scraping"
-        description="Use Run now when you changed profile targets or want fresh results immediately. Use Schedule when you want the system to keep your notebook topped up automatically."
-        tone="info"
-      >
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="border-primary/20 rounded-[1.35rem] border bg-white/55 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <PlayCircle className="text-primary h-4 w-4" />
-              <p className="text-text-strong text-sm font-semibold">Run now</p>
-            </div>
-            <p className="text-text-soft text-sm leading-6">
-              Best when you updated profile inputs, uploaded a new CV, or want a fresh sourcing pass before triaging.
-            </p>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="app-inset-stack">
+          <div className="mb-3 flex items-center gap-2">
+            <PlayCircle className="text-primary h-4 w-4" />
+            <p className="text-text-strong text-sm font-semibold">Run now</p>
           </div>
-          <div className="border-border/70 rounded-[1.35rem] border bg-white/55 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <CalendarClock className="text-text-strong h-4 w-4" />
-              <p className="text-text-strong text-sm font-semibold">Schedule</p>
-            </div>
-            <p className="text-text-soft text-sm leading-6">
-              Best when the profile is stable and you want new leads to arrive on a consistent cadence without manual
-              action.
-            </p>
-          </div>
+          <p className="text-text-soft text-sm leading-6">
+            Use this after changing your profile, documents, or search direction.
+          </p>
         </div>
-      </GuidancePanel>
-
-      <JourneySteps
-        title="Recommended sourcing loop"
-        description="This keeps quality high and avoids confusion about what the scrape is using."
-        className="mt-5"
-        steps={[
-          {
-            key: 'profile',
-            title: 'Confirm profile context',
-            description:
-              'Keep profile input and ready documents up to date so profile-derived filtering stays relevant.',
-            status: preflight?.resolvedFromProfile ? 'done' : 'active',
-          },
-          {
-            key: 'run',
-            title: 'Run or schedule scrape',
-            description: 'Use a manual run for immediate refresh or turn on a schedule once your targeting is stable.',
-            status: preflight?.ready ? 'active' : 'upcoming',
-          },
-          {
-            key: 'triage',
-            title: 'Review notebook',
-            description: 'Wait for completion, then triage fresh offers in strict mode before exploring wider matches.',
-            status: jobSourcesPanel.runsQuery.data?.items?.[0]?.status === 'COMPLETED' ? 'done' : 'upcoming',
-          },
-        ]}
-      />
+        <div className="app-inset-stack">
+          <div className="mb-3 flex items-center gap-2">
+            <CalendarClock className="text-text-strong h-4 w-4" />
+            <p className="text-text-strong text-sm font-semibold">Keep it automatic</p>
+          </div>
+          <p className="text-text-soft text-sm leading-6">
+            Turn the schedule on once the search target is stable and you want regular refreshes.
+          </p>
+        </div>
+      </div>
 
       {sourceHealth ? (
-        <div className="app-muted-panel mt-4 space-y-3 text-sm">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-text-strong font-semibold">Source health (72h)</p>
-            <span className="app-badge">usable run rate: {(sourceHealth.usableRunRate * 100).toFixed(1)}%</span>
+        <div className="border-border/60 bg-surface/70 mt-4 rounded-2xl border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-text-strong text-sm font-semibold">Update quality</p>
+              <p className="text-text-soft mt-1 text-sm">
+                Recent usable update rate {usableRunRate == null ? 'n/a' : `${(usableRunRate * 100).toFixed(0)}%`}
+              </p>
+            </div>
+            {sourceHealth.activePause ? <span className="app-badge">Paused for quality</span> : null}
           </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <InspectorRow label="Success rate" value={`${(sourceHealth.successRate * 100).toFixed(1)}%`} />
-            <InspectorRow label="Avg useful offers" value={String(sourceHealth.avgUsefulOfferCount)} />
-            <InspectorRow label="Silent failures" value={String(sourceHealth.silentFailureRuns)} />
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <InspectorRow
-              label="Missing employment"
-              value={`${(sourceHealth.missingEmploymentTypeRate * 100).toFixed(1)}%`}
-            />
-            <InspectorRow
-              label="Empty requirements"
-              value={`${(sourceHealth.emptyRequirementsRate * 100).toFixed(1)}%`}
-            />
-            <InspectorRow
-              label="Source profile coverage"
-              value={`${(sourceHealth.sourceCompanyProfileCoverageRate * 100).toFixed(1)}%`}
-            />
-            <InspectorRow
-              label="Apply URL coverage"
-              value={`${(sourceHealth.applyUrlCoverageRate * 100).toFixed(1)}%`}
-            />
-            <InspectorRow label="Expiry coverage" value={`${(sourceHealth.expiryCoverageRate * 100).toFixed(1)}%`} />
-          </div>
-          <p className="text-text-soft text-xs leading-6">{sourceHealth.guidance}</p>
+          <p className="text-text-soft mt-3 text-sm leading-6">{sourceHealth.guidance}</p>
         </div>
       ) : null}
 
@@ -220,16 +158,16 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         }}
       >
         <div className="flex flex-wrap items-center gap-2">
-          <span className="app-badge">One-off run</span>
-          <span className="text-text-soft text-xs">This creates a single scrape request immediately.</span>
+          <span className="app-badge">One-time update</span>
+          <span className="text-text-soft text-xs">Starts a single search refresh immediately.</span>
         </div>
         <div className="app-field-group">
           <Label htmlFor="scrape-mode" className="app-inline-label">
-            Source mode
+            Update source
           </Label>
           <select id="scrape-mode" className="app-select" {...register('mode')}>
-            <option value="profile">Use my active profile and saved filters</option>
-            <option value="custom">Use a custom listing URL for a one-off run</option>
+            <option value="profile">Use my saved profile and filters</option>
+            <option value="custom">Use a custom listing URL once</option>
           </select>
         </div>
 
@@ -244,8 +182,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             {...register('listingUrl')}
           />
           <p className="text-text-soft text-xs">
-            Leave this disabled for the recommended profile-driven mode. Use it only when you want to test a specific
-            listing source manually.
+            Leave this off for the normal profile-driven flow. Use it only for a one-time custom check.
           </p>
           {errors.listingUrl?.message ? (
             <WorkflowInlineNotice
@@ -258,31 +195,50 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
 
         <div className="app-field-group">
           <Label htmlFor="listing-limit" className="app-inline-label">
-            Limit
+            How many roles to pull
           </Label>
           <Input id="listing-limit" type="number" min={1} max={100} {...register('limit')} />
-          <p className="text-text-soft text-xs">
-            Keep this lower for quick validation, higher for a wider sourcing pass.
-          </p>
           {errors.limit?.message ? (
-            <WorkflowInlineNotice title="Run limit needs correction" description={errors.limit.message} tone="danger" />
+            <WorkflowInlineNotice
+              title="Update size needs correction"
+              description={errors.limit.message}
+              tone="danger"
+            />
           ) : null}
         </div>
 
-        {errors.root?.message ? (
-          <WorkflowFeedback title="Unable to start the scrape run" description={errors.root.message} tone="danger" />
+        {preflight && !preflight.ready ? (
+          <WorkflowInlineNotice
+            title="Finish setup before running an update"
+            description={preflight.guidance}
+            tone="warning"
+          />
         ) : null}
+
+        {preflight?.blockerDetails.length ? (
+          <div className="space-y-2">
+            {preflight.blockerDetails.map((blocker) => (
+              <WorkflowFeedback
+                key={blocker.code}
+                title={blocker.title}
+                description={blocker.description}
+                tone="warning"
+                actionLabel={blocker.ctaLabel}
+                onAction={() => (window.location.href = blocker.href)}
+              />
+            ))}
+          </div>
+        ) : null}
+
+        {errors.root?.message ? (
+          <WorkflowFeedback title="Unable to start the update" description={errors.root.message} tone="danger" />
+        ) : null}
+
         <div className="app-toolbar flex items-center justify-between gap-3">
           {disabled && disabledReason ? (
             <WorkflowInlineNotice
-              title="Run actions are temporarily locked"
+              title="Updates are temporarily unavailable"
               description={disabledReason}
-              tone="warning"
-            />
-          ) : preflight && !preflight.ready ? (
-            <WorkflowInlineNotice
-              title="Resolve blockers before you run"
-              description="The current sourcing context is not ready yet. Clear the blockers below before enqueueing a new run."
               tone="warning"
             />
           ) : (
@@ -292,160 +248,17 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             type="submit"
             disabled={disabled || jobSourcesPanel.isSubmitting || Boolean(preflight && !preflight.ready)}
           >
-            {jobSourcesPanel.isSubmitting ? 'Starting run...' : 'Run scrape now'}
+            {jobSourcesPanel.isSubmitting ? 'Starting update...' : 'Run update now'}
           </Button>
         </div>
       </form>
 
-      {preflight ? (
-        <div className="app-muted-panel mt-4 space-y-3 text-sm">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-text-strong font-semibold">Preflight</p>
-            <span className={preflight.ready ? 'text-app-success' : 'text-app-warning'}>
-              {preflight.ready ? 'Ready to run' : 'Action required'}
-            </span>
-          </div>
-          <WorkflowInlineNotice
-            title={preflight.ready ? 'Sourcing context looks ready' : 'Preflight found blockers or warnings'}
-            description={preflight.guidance}
-            tone={preflight.ready ? 'success' : 'warning'}
-          />
-          <InspectorRow label="Source" value={preflight.source ?? 'n/a'} />
-          <InspectorRow label="Listing URL" value={preflight.listingUrl ?? 'n/a'} />
-          <InspectorRow label="Active runs" value={String(preflight.activeRunCount)} />
-          <InspectorRow
-            label="Daily remaining"
-            value={preflight.dailyRemaining == null ? 'n/a' : String(preflight.dailyRemaining)}
-          />
-          <InspectorRow
-            label="Schedule"
-            value={
-              preflight.schedule.enabled
-                ? `${preflight.schedule.cron ?? 'n/a'} | next ${formatTimestamp(preflight.schedule.nextRunAt)}`
-                : 'No schedule configured yet'
-            }
-          />
-          {preflight.blockerDetails.length ? (
-            <div>
-              <p className="text-text-strong font-medium">Blockers</p>
-              <div className="mt-2 space-y-2">
-                {preflight.blockerDetails.map((blocker) => (
-                  <WorkflowFeedback
-                    key={blocker.code}
-                    title={blocker.title}
-                    description={blocker.description}
-                    tone="warning"
-                    actionLabel={blocker.ctaLabel}
-                    onAction={() => (window.location.href = blocker.href)}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : null}
-          {preflight.warningDetails.length ? (
-            <div>
-              <p className="text-text-strong font-medium">Warnings</p>
-              <div className="mt-2 space-y-2">
-                {preflight.warningDetails.map((warning) => (
-                  <WorkflowInlineNotice
-                    key={warning.code}
-                    title={warning.title}
-                    description={warning.description}
-                    tone="info"
-                  />
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
       {jobSourcesPanel.enqueueResult ? (
-        <div className="app-muted-panel mt-4 space-y-3 text-sm">
-          <p className="text-text-strong font-semibold">Latest run request</p>
-          <WorkflowInlineNotice
-            title="A new sourcing request was accepted"
-            description="The run is now queued. Use the recent runs and schedule sections below to confirm whether sourcing starts and finishes cleanly."
-            tone="success"
-          />
-          <InspectorRow label="Status" value={jobSourcesPanel.enqueueResult.status} />
-          {jobSourcesPanel.enqueueResult.resolvedFromProfile ? (
-            <InspectorRow label="Targeting source" value="Active profile and saved filters" />
-          ) : null}
-          {diagnosticsEnabled &&
-          (jobSourcesPanel.enqueueResult.intentFingerprint ||
-            jobSourcesPanel.enqueueResult.acceptedFilters ||
-            jobSourcesPanel.enqueueResult.reuseDiagnostics) ? (
-            <details className="mt-2">
-              <summary className="text-text-strong cursor-pointer font-medium">Operator details</summary>
-              <div className="mt-3 space-y-3">
-                {jobSourcesPanel.enqueueResult.intentFingerprint ? (
-                  <InspectorRow label="Intent fingerprint" value={jobSourcesPanel.enqueueResult.intentFingerprint} />
-                ) : null}
-                {jobSourcesPanel.enqueueResult.acceptedFilters ? (
-                  <details>
-                    <summary className="text-text-strong cursor-pointer font-medium">Accepted filters</summary>
-                    <pre className="app-code mt-2 whitespace-pre-wrap">
-                      {JSON.stringify(jobSourcesPanel.enqueueResult.acceptedFilters, null, 2)}
-                    </pre>
-                  </details>
-                ) : null}
-                {jobSourcesPanel.enqueueResult.reuseDiagnostics ? (
-                  <div className="space-y-2">
-                    <p className="text-text-strong font-medium">Reuse diagnostics</p>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
-                        <InspectorRow
-                          label="Catalog rematch"
-                          value={
-                            jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.accepted
-                              ? 'accepted'
-                              : (jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.reason ?? 'skipped')
-                          }
-                        />
-                        <InspectorRow
-                          label="Fresh matches"
-                          value={String(
-                            jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.matchedFreshCandidates ?? 0,
-                          )}
-                        />
-                        <InspectorRow
-                          label="Minimum target"
-                          value={String(
-                            jobSourcesPanel.enqueueResult.reuseDiagnostics.catalogRematch.minimumFreshCandidateTarget ??
-                              0,
-                          )}
-                        />
-                      </div>
-                      <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
-                        <InspectorRow
-                          label="DB reuse"
-                          value={
-                            jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.accepted
-                              ? 'accepted'
-                              : (jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.reason ?? 'skipped')
-                          }
-                        />
-                        <InspectorRow
-                          label="Fresh matches"
-                          value={String(
-                            jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.matchedFreshCandidates ?? 0,
-                          )}
-                        />
-                        <InspectorRow
-                          label="Minimum target"
-                          value={String(
-                            jobSourcesPanel.enqueueResult.reuseDiagnostics.databaseReuse.minimumFreshCandidateTarget ??
-                              0,
-                          )}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </details>
-          ) : null}
+        <div className="border-app-success-border bg-app-success-soft mt-4 rounded-2xl border p-4">
+          <p className="text-text-strong font-semibold">Update request accepted</p>
+          <p className="text-text-soft mt-1 text-sm">
+            A new refresh is queued. You can keep working while the new results arrive.
+          </p>
         </div>
       ) : null}
 
@@ -454,11 +267,9 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           <div>
             <div className="mb-1 flex items-center gap-2">
               <Radar className="text-primary h-4 w-4" />
-              <p className="text-text-strong text-sm font-semibold">Automation schedule</p>
+              <p className="text-text-strong text-sm font-semibold">Automatic updates</p>
             </div>
-            <p className="text-text-soft text-xs">
-              Turn this on once your targeting is stable. The schedule uses your saved profile-driven sourcing context.
-            </p>
+            <p className="text-text-soft text-xs">Keep this simple unless you need a custom schedule.</p>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" {...registerSchedule('enabled')} />
@@ -496,15 +307,15 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         <div className="grid gap-4 md:grid-cols-2">
           <div className="app-field-group">
             <Label htmlFor="schedule-cron" className="app-inline-label">
-              Cron
+              Custom schedule
             </Label>
             <Input id="schedule-cron" placeholder="0 9 * * *" {...registerSchedule('cron')} />
             <p className="text-text-soft text-xs">
-              Examples: `0 8 * * 1-5` for weekdays at 08:00, `0 18 * * *` for every day at 18:00.
+              Leave the preset if that is enough. Use a custom rule only if needed.
             </p>
             {scheduleErrors.cron?.message ? (
               <WorkflowInlineNotice
-                title="Cron needs correction"
+                title="Schedule rule needs correction"
                 description={scheduleErrors.cron.message}
                 tone="danger"
               />
@@ -516,34 +327,27 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               Timezone
             </Label>
             <Input id="schedule-timezone" placeholder="Europe/Warsaw" {...registerSchedule('timezone')} />
-            <p className="text-text-soft text-xs">
-              Used for operator clarity in the UI. The backend still evaluates cron in UTC.
-            </p>
           </div>
 
           <div className="app-field-group">
             <Label htmlFor="schedule-source" className="app-inline-label">
-              Source
+              Default source
             </Label>
             <select id="schedule-source" className="app-select" {...registerSchedule('source')}>
               <option value="pracuj-pl-it">Pracuj IT</option>
               <option value="pracuj-pl">Pracuj generic</option>
               <option value="pracuj-pl-general">Pracuj general</option>
             </select>
-            <p className="text-text-soft text-xs">Choose the feed you want the schedule to target by default.</p>
           </div>
 
           <div className="app-field-group">
             <Label htmlFor="schedule-limit" className="app-inline-label">
-              Limit
+              Roles per update
             </Label>
             <Input id="schedule-limit" type="number" min={1} max={100} {...registerSchedule('limit')} />
-            <p className="text-text-soft text-xs">
-              Use smaller batches for tighter review cycles and larger batches for wider discovery.
-            </p>
             {scheduleErrors.limit?.message ? (
               <WorkflowInlineNotice
-                title="Schedule limit needs correction"
+                title="Roles per update needs correction"
                 description={scheduleErrors.limit.message}
                 tone="danger"
               />
@@ -552,12 +356,29 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
-          <InspectorRow label="Last result" value={jobSourcesPanel.scheduleResult?.lastRunStatus ?? 'n/a'} />
-          <InspectorRow
-            label="Last triggered"
-            value={formatTimestamp(jobSourcesPanel.scheduleResult?.lastTriggeredAt)}
-          />
-          <InspectorRow label="Next run" value={formatTimestamp(jobSourcesPanel.scheduleResult?.nextRunAt)} />
+          <div className="app-inset-stack">
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Current schedule</p>
+            <p className="text-text-strong mt-2 text-sm font-semibold">
+              {jobSourcesPanel.scheduleResult?.enabled
+                ? getSchedulePresetLabel(jobSourcesPanel.scheduleResult.cron)
+                : 'Manual only'}
+            </p>
+          </div>
+          <div className="app-inset-stack">
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Last update</p>
+            <p className="text-text-strong mt-2 text-sm font-semibold">
+              {getUserFacingRunStatus(jobSourcesPanel.scheduleResult?.lastRunStatus)}
+            </p>
+            <p className="text-text-soft mt-1 text-xs">
+              {formatDateTime(jobSourcesPanel.scheduleResult?.lastTriggeredAt)}
+            </p>
+          </div>
+          <div className="app-inset-stack">
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Next update</p>
+            <p className="text-text-strong mt-2 text-sm font-semibold">
+              {formatDateTime(jobSourcesPanel.scheduleResult?.nextRunAt)}
+            </p>
+          </div>
         </div>
 
         <div className={`rounded-2xl border p-3 ${getStoryTone(scheduleStory.tone)}`}>
@@ -567,8 +388,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-text-soft text-xs">
-            Saving the schedule does not start a run immediately. Use Trigger now if you want the schedule config
-            applied right away.
+            Saving updates the schedule only. Use the second button if you want to start it right away.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" variant="secondary" disabled={jobSourcesPanel.isSavingSchedule}>
@@ -579,34 +399,36 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               disabled={!jobSourcesPanel.scheduleResult?.enabled || jobSourcesPanel.isTriggeringSchedule}
               onClick={() => jobSourcesPanel.triggerScheduleNow()}
             >
-              {jobSourcesPanel.isTriggeringSchedule ? 'Triggering...' : 'Trigger scheduled run now'}
+              {jobSourcesPanel.isTriggeringSchedule ? 'Starting...' : 'Run scheduled update now'}
             </Button>
           </div>
         </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-text-strong text-sm font-semibold">Recent schedule events</p>
-            <span className="app-badge">{jobSourcesPanel.scheduleEventsQuery.data?.total ?? 0} total</span>
+            <p className="text-text-strong text-sm font-semibold">Recent automatic activity</p>
+            <span className="app-badge">{jobSourcesPanel.scheduleEventsQuery.data?.total ?? 0} items</span>
           </div>
           {scheduleEvents.length ? (
             <div className="space-y-2">
-              {scheduleEvents.slice(0, 6).map((event) => (
-                <div key={event.id} className="border-border/60 bg-surface/70 rounded-2xl border p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="app-badge">{event.eventType}</span>
-                    <span className="app-badge">{event.severity}</span>
-                    {event.code ? <span className="app-badge">{event.code}</span> : null}
+              {scheduleEvents.slice(0, 5).map((event) => {
+                const presentation = getScheduleEventPresentation(event);
+                return (
+                  <div key={event.id} className="border-border/60 bg-surface/70 rounded-2xl border p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="app-badge">{presentation.label}</span>
+                      <span className="app-badge">{event.severity}</span>
+                    </div>
+                    <p className="text-text-strong mt-2 text-sm font-medium">{presentation.summary}</p>
+                    <p className="text-text-soft mt-1 text-xs">{formatDateTime(event.createdAt)}</p>
                   </div>
-                  <p className="text-text-strong mt-2 text-sm font-medium">{event.message}</p>
-                  <p className="text-text-soft mt-1 text-xs">{formatTimestamp(event.createdAt)}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <WorkflowInlineNotice
-              title="No schedule events recorded yet"
-              description="Once the scheduler or manual trigger touches this schedule, the event history will appear here."
+              title="No automatic activity yet"
+              description="Activity will appear here once the schedule starts running."
               tone="info"
             />
           )}
@@ -614,189 +436,43 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
       </form>
 
       <div className="mt-5 space-y-2">
-        <p className="text-text-strong text-sm font-semibold">Recent runs</p>
+        <p className="text-text-strong text-sm font-semibold">Recent updates</p>
         <p className="text-text-soft text-xs">
-          This should explain whether the run was useful before you need to inspect raw counters.
+          Use this to confirm whether recent refreshes were useful and worth reviewing.
         </p>
-        {jobSourcesPanel.runsQuery.data?.items?.length ? (
-          jobSourcesPanel.runsQuery.data.items.map((run) => (
+        {recentRuns.length ? (
+          recentRuns.map((run) => (
             <article key={run.id} className="app-muted-panel space-y-3 text-sm">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="app-badge">status: {run.status}</span>
-                <span className="app-badge">useful offers: {run.usefulOfferCount ?? run.scrapedCount ?? 0}</span>
-                <span className="app-badge">found: {run.totalFound ?? 0}</span>
-                {run.silentFailure ? <span className="app-badge">silent failure</span> : null}
+                <span className="app-badge">{getUserFacingRunStatus(run.status)}</span>
+                <span className="app-badge">
+                  {(run.usefulOfferCount ?? run.scrapedCount ?? 0).toString()} usable roles
+                </span>
+                <span className="app-badge">{(run.totalFound ?? 0).toString()} found</span>
               </div>
               <div className={`rounded-2xl border p-3 ${getStoryTone(run.story?.userVisibility)}`}>
                 <p className="text-text-strong font-semibold">
-                  {run.story?.summary ?? 'Run finished without a readable summary.'}
+                  {run.story?.summary ?? 'The latest update finished without a readable summary.'}
                 </p>
-                <p className="text-text-soft mt-1">{run.story?.recommendedAction ?? 'Open diagnostics for detail.'}</p>
+                <p className="text-text-soft mt-1">
+                  {run.story?.recommendedAction ?? 'Open opportunities or notebook to continue.'}
+                </p>
               </div>
-              <InspectorRow
-                label="Finished"
-                value={formatTimestamp(run.finalizedAt ?? run.completedAt ?? run.createdAt)}
-              />
-              <InspectorRow label="Run id" value={run.id} />
-              {diagnosticsEnabled ? (
-                <Button type="button" variant="secondary" onClick={() => jobSourcesPanel.setSelectedRunId(run.id)}>
-                  {jobSourcesPanel.selectedRunId === run.id ? 'Showing diagnostics' : 'Show diagnostics'}
-                </Button>
+              {run.error ? (
+                <WorkflowInlineNotice title="This update failed" description={run.error} tone="danger" />
               ) : null}
-              {run.error ? <WorkflowInlineNotice title="Run error" description={run.error} tone="danger" /> : null}
+              <p className="text-text-soft text-xs">
+                Finished {formatDateTime(run.finalizedAt ?? run.completedAt ?? run.createdAt)}
+              </p>
             </article>
           ))
         ) : (
           <EmptyState
-            title="No runs yet"
-            description="Use a manual run once your profile context is ready, or save a schedule first if you want sourcing to stay automatic."
+            title="No updates yet"
+            description="Run a one-time update or save a schedule once your profile is ready."
           />
         )}
       </div>
-
-      {diagnosticsEnabled && jobSourcesPanel.diagnosticsQuery.data ? (
-        <div className="app-muted-panel mt-4 space-y-3 text-sm">
-          <p className="text-text-strong font-semibold">Run diagnostics</p>
-          <div
-            className={`rounded-2xl border p-3 ${getStoryTone(jobSourcesPanel.diagnosticsQuery.data.story?.userVisibility)}`}
-          >
-            <p className="text-text-strong font-semibold">{jobSourcesPanel.diagnosticsQuery.data.story?.summary}</p>
-            <p className="text-text-soft mt-1">{jobSourcesPanel.diagnosticsQuery.data.story?.recommendedAction}</p>
-          </div>
-          <InspectorRow label="Run id" value={jobSourcesPanel.diagnosticsQuery.data.runId} />
-          <InspectorRow label="Status" value={jobSourcesPanel.diagnosticsQuery.data.status} />
-          <InspectorRow
-            label="Outcome"
-            value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.classifiedOutcome ?? 'n/a'}
-          />
-          <InspectorRow
-            label="Silent failure"
-            value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.silentFailure ? 'yes' : 'no'}
-          />
-          {jobSourcesPanel.diagnosticsQuery.data.usefulness ? (
-            <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
-              <p className="text-text-strong font-medium">Usefulness</p>
-              <div className="mt-2 space-y-1">
-                <InspectorRow label="Status" value={jobSourcesPanel.diagnosticsQuery.data.usefulness.status} />
-                <InspectorRow
-                  label="Linked notebook offers"
-                  value={String(jobSourcesPanel.diagnosticsQuery.data.usefulness.linkedNotebookOffers)}
-                />
-                <InspectorRow
-                  label="Recommended action"
-                  value={jobSourcesPanel.diagnosticsQuery.data.usefulness.recommendedAction}
-                />
-              </div>
-            </div>
-          ) : null}
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
-              <p className="text-text-strong font-medium">Acquisition</p>
-              <div className="mt-2 space-y-1">
-                <InspectorRow
-                  label="Pages visited"
-                  value={String(
-                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.stageMetrics?.fetch.pagesVisited ??
-                      jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.pagesVisited,
-                  )}
-                />
-                <InspectorRow
-                  label="Listings found"
-                  value={String(
-                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.stageMetrics?.fetch.jobLinksDiscovered ??
-                      jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.jobLinksDiscovered,
-                  )}
-                />
-                <InspectorRow
-                  label="Blocked pages"
-                  value={String(
-                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.stageMetrics?.fetch.blockedPages ??
-                      jobSourcesPanel.diagnosticsQuery.data.diagnostics.stats.blockedPages,
-                  )}
-                />
-                <InspectorRow
-                  label="Browser fallbacks"
-                  value={String(
-                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.stageMetrics?.fetch.browserFallbacks ?? 0,
-                  )}
-                />
-                <InspectorRow
-                  label="Detail attempts"
-                  value={String(
-                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.stageMetrics?.fetch.detailAttemptedCount ??
-                      jobSourcesPanel.diagnosticsQuery.data.diagnostics.productivity?.detailAttemptedCount ??
-                      0,
-                  )}
-                />
-              </div>
-            </div>
-            <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
-              <p className="text-text-strong font-medium">Notebook visibility</p>
-              <div className="mt-2 space-y-1">
-                <InspectorRow
-                  label="Useful offers"
-                  value={String(
-                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.notebookVisibility?.usefulOfferCount ?? 0,
-                  )}
-                />
-                <InspectorRow
-                  label="Candidate offers"
-                  value={String(
-                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.notebookVisibility?.candidateOffers ?? 0,
-                  )}
-                />
-                <InspectorRow
-                  label="Matched offers"
-                  value={String(
-                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.notebookVisibility?.matchedOffers ?? 0,
-                  )}
-                />
-                <InspectorRow
-                  label="Notebook inserted"
-                  value={String(
-                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.notebookVisibility?.userInsertedOffers ?? 0,
-                  )}
-                />
-                <InspectorRow
-                  label="Hidden by strict"
-                  value={String(
-                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.notebookVisibility?.hiddenByStrict ?? 0,
-                  )}
-                />
-              </div>
-            </div>
-          </div>
-          {jobSourcesPanel.diagnosticsQuery.data.diagnostics.artifacts ? (
-            <div className="border-border/60 bg-surface/70 rounded-2xl border p-3">
-              <p className="text-text-strong font-medium">Artifacts</p>
-              <div className="mt-2 space-y-1">
-                <InspectorRow
-                  label="Output JSON"
-                  value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.artifacts.outputPath ?? 'n/a'}
-                />
-                <InspectorRow
-                  label="Listing HTML"
-                  value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.artifacts.listing.htmlPath ?? 'n/a'}
-                />
-                <InspectorRow
-                  label="Listing data"
-                  value={jobSourcesPanel.diagnosticsQuery.data.diagnostics.artifacts.listing.dataPath ?? 'n/a'}
-                />
-                <InspectorRow
-                  label="Raw detail pages"
-                  value={String(jobSourcesPanel.diagnosticsQuery.data.diagnostics.artifacts.rawPages.count)}
-                />
-                <InspectorRow
-                  label="Retention expires"
-                  value={formatTimestamp(
-                    jobSourcesPanel.diagnosticsQuery.data.diagnostics.artifacts.retentionExpiresAt,
-                  )}
-                />
-              </div>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
     </Card>
   );
 };

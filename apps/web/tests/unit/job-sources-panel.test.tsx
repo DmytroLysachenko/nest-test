@@ -76,7 +76,7 @@ describe('JobSourcesPanel', () => {
 
     render(<JobSourcesPanel token="token" />);
 
-    expect(screen.getByText('Automation is paused by source health')).toBeInTheDocument();
+    expect(screen.getByText('Automatic updates are paused')).toBeInTheDocument();
     expect(screen.getAllByText('Pause remains active until source health recovers.').length).toBeGreaterThan(0);
   });
 
@@ -106,7 +106,7 @@ describe('JobSourcesPanel', () => {
 
     render(<JobSourcesPanel token="token" />);
 
-    expect(screen.getByText('Recent scheduled attempt failed')).toBeInTheDocument();
+    expect(screen.getByText('Recent automatic update failed')).toBeInTheDocument();
     expect(screen.getAllByText('Scheduled enqueue failed because source automation is paused.').length).toBeGreaterThan(
       0,
     );
@@ -145,7 +145,7 @@ describe('JobSourcesPanel', () => {
 
     render(<JobSourcesPanel token="token" />);
 
-    expect(screen.getByText('Schedule is due but paused by source health')).toBeInTheDocument();
+    expect(screen.getByText('An update is due but paused')).toBeInTheDocument();
   });
 
   it('shows waiting-for-next-window messaging after a proven schedule success', () => {
@@ -177,6 +177,6 @@ describe('JobSourcesPanel', () => {
 
     render(<JobSourcesPanel token="token" />);
 
-    expect(screen.getByText('Schedule is enabled and waiting for the next window')).toBeInTheDocument();
+    expect(screen.getByText('Waiting for the next automatic update')).toBeInTheDocument();
   });
 });
