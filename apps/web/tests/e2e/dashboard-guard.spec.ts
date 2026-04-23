@@ -229,10 +229,10 @@ test('dashboard redirects to onboarding when summary requires it', async ({ page
     .poll(async () => page.locator('body').innerText(), {
       timeout: 20_000,
     })
-    .toContain('Guided Setup');
+    .toContain('Set your direction once');
   await expect
     .poll(async () => page.locator('body').innerText(), {
       timeout: 20_000,
     })
-    .toContain('Step 1 of 3');
+    .toContain('Setup progress');
 });

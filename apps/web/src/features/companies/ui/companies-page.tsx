@@ -7,6 +7,7 @@ import { Building2, ExternalLink, MapPin } from 'lucide-react';
 
 import { listCompanies } from '@/features/companies/api/companies-api';
 import { queryKeys } from '@/shared/lib/query/query-keys';
+import { formatRelativeTime, formatStatusTimestamp } from '@/shared/lib/utils/date-format';
 import { PageErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -62,24 +63,17 @@ export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPagePr
   return (
     <main className="app-page space-y-6">
       <HeroHeader
-        eyebrow="Company Discovery"
-        title="Companies"
-        subtitle="Browse employers already present in your catalog, filter by location, and jump straight into active offers."
-        meta={
-          <span className="app-badge">
-            {total} compan{total === 1 ? 'y' : 'ies'}
-          </span>
-        }
+        eyebrow="Companies"
+        title="Browse employers already in your workspace"
+        subtitle="Use this view when you want to inspect employers, not just individual roles."
+        meta={<span className="app-badge">{total} companies</span>}
       />
 
-      <Card
-        title="Browse companies"
-        description="Use a company name or location to narrow the catalog without leaving the workspace."
-      >
+      <Card title="Find companies" description="Search by name, description, or location.">
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
           <Input
             value={search}
-            placeholder="Search company name or description"
+            placeholder="Company name or description"
             onChange={(event) => {
               setSearch(event.target.value);
               setOffset(0);
@@ -87,7 +81,7 @@ export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPagePr
           />
           <Input
             value={location}
-            placeholder="Filter by location"
+            placeholder="Location"
             onChange={(event) => {
               setLocation(event.target.value);
               setOffset(0);
@@ -102,13 +96,13 @@ export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPagePr
               setOffset(0);
             }}
           >
-            Reset
+            Clear
           </Button>
         </div>
       </Card>
 
       {companiesQuery.isLoading ? (
-        <SectionLoadingState title="Companies" description="Loading company catalog..." rows={6} />
+        <SectionLoadingState title="Companies" description="Loading company list..." rows={6} />
       ) : companies.length ? (
         <div className="grid gap-4 xl:grid-cols-2">
           {companies.map((company) => (
@@ -120,8 +114,8 @@ export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPagePr
             >
               <div className="space-y-4 text-sm">
                 <div className="flex flex-wrap gap-2">
-                  <span className="app-badge">Active offers: {company.activeOfferCount}</span>
-                  <span className="app-badge">Total offers: {company.totalOfferCount}</span>
+                  <span className="app-badge">{company.activeOfferCount} active roles</span>
+                  <span className="app-badge">{company.totalOfferCount} roles total</span>
                   {company.hqLocation ? (
                     <span className="app-badge">
                       <MapPin className="mr-1 h-3.5 w-3.5" />
@@ -129,11 +123,17 @@ export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPagePr
                     </span>
                   ) : null}
                 </div>
-                <p className="text-text-soft text-xs">Last seen {new Date(company.lastSeenAt).toLocaleString()}</p>
+
+                <div className="app-inset-stack space-y-1">
+                  <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Last seen</p>
+                  <p className="text-text-strong text-sm font-semibold">{formatStatusTimestamp(company.lastSeenAt)}</p>
+                  <p className="text-text-soft text-xs">{formatRelativeTime(company.lastSeenAt)}</p>
+                </div>
+
                 <div className="flex flex-wrap gap-2">
                   <Link href={`/companies/${company.id}`}>
                     <Button type="button" size="sm">
-                      Open company
+                      Open details
                     </Button>
                   </Link>
                   {company.websiteUrl ? (
@@ -162,7 +162,7 @@ export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPagePr
           <EmptyState
             icon={<Building2 className="h-8 w-8" />}
             title="No companies found"
-            description="Try a broader company name or clear the location filter."
+            description="Try a broader name or clear the location filter."
           />
         </Card>
       )}

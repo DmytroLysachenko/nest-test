@@ -4,6 +4,7 @@ import { ArrowRight, Compass, Eye, FolderPlus, X } from 'lucide-react';
 
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
+import { formatCountLabel, getUserFacingOfferStatus } from '@/shared/lib/presentation/job-search-ui';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
@@ -26,6 +27,8 @@ type OpportunitiesListCardProps = {
   search: string;
   tag: string;
   selectedId: string | null;
+  offset: number;
+  limit: number;
   canPrev: boolean;
   canNext: boolean;
   isBusy: boolean;
@@ -51,6 +54,8 @@ export const OpportunitiesListCard = ({
   search,
   tag,
   selectedId,
+  offset,
+  limit,
   canPrev,
   canNext,
   isBusy,
@@ -106,7 +111,7 @@ export const OpportunitiesListCard = ({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className="app-badge">{offer.status}</span>
+            <span className="app-badge">{getUserFacingOfferStatus(offer.status)}</span>
             {typeof offer.matchScore === 'number' ? <span className="app-badge">Match {offer.matchScore}</span> : null}
             {offer.isExpired ? <span className="app-badge">Expired</span> : null}
           </div>
@@ -221,8 +226,10 @@ export const OpportunitiesListCard = ({
           <div className="app-inset-stack">
             <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Current queue</p>
             <p className="text-text-strong mt-2 text-2xl font-semibold tracking-[-0.03em]">{total}</p>
-            <p className="text-text-soft mt-1 text-sm">matched opportunities available for review</p>
-            <p className="text-text-soft mt-2 text-xs">Current slice: {REVIEW_MODE_LABELS[mode]}</p>
+            <p className="text-text-soft mt-1 text-sm">
+              {formatCountLabel(total, 'matched opportunity')} available for review
+            </p>
+            <p className="text-text-soft mt-2 text-xs">View: {REVIEW_MODE_LABELS[mode]}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="secondary" onClick={onResetFilters} className="h-9 px-4">
@@ -275,7 +282,9 @@ export const OpportunitiesListCard = ({
         <Button type="button" variant="secondary" disabled={!canPrev} onClick={onPrev}>
           Previous
         </Button>
-        <p className="text-muted-foreground text-xs">Offset-based paging</p>
+        <p className="text-muted-foreground text-xs">
+          Showing {total === 0 ? 0 : offset + 1}-{Math.min(offset + limit, total)} of {total}
+        </p>
         <Button type="button" variant="secondary" disabled={!canNext} onClick={onNext}>
           Next
         </Button>

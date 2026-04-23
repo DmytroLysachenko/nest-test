@@ -10,7 +10,6 @@ import { NotebookOffersListCard } from '@/features/job-offers/ui/components/note
 import { NotebookPipelineCard } from '@/features/job-offers/ui/components/notebook-pipeline-card';
 import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
-import { GuidancePanel } from '@/shared/ui/guidance-panels';
 
 import type { NotebookQuickActionKey } from '@/features/job-offers/model/types/notebook-view-model';
 
@@ -108,16 +107,9 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
   return (
     <main className="app-page space-y-6">
       <HeroHeader
-        eyebrow="Active Workflow"
-        title="Notebook Pipeline"
-        subtitle="Keep chosen roles moving forward, recover stale applications, and manage follow-up and prep work in one pipeline-first workspace."
-      />
-
-      <GuidancePanel
-        eyebrow="Pipeline tip"
-        title="Use opportunities for review, notebook for active work"
-        description="This page is for roles you kept. Review fresh matches in Opportunities, then use this workspace to move saved and applied roles forward or backward as the real process changes."
-        tone="info"
+        eyebrow="Notebook"
+        title="Keep active roles moving"
+        subtitle="Track follow-ups, notes, prep work, and status changes for the jobs you decided to pursue."
       />
 
       {notebook.reminderPreview &&
@@ -126,12 +118,27 @@ export const NotebookPage = ({ token, initialQuickAction = null, initialOfferId 
         notebook.reminderPreview.counts.upcoming +
         notebook.reminderPreview.counts.stale >
         0 ? (
-        <GuidancePanel
-          eyebrow="Reminder preview"
-          title={`${notebook.reminderPreview.counts.overdue} overdue, ${notebook.reminderPreview.counts.today} due today, ${notebook.reminderPreview.counts.upcoming} upcoming, ${notebook.reminderPreview.counts.stale} stale`}
-          description={`${reminderDeliveryStats.pending} pending, ${reminderDeliveryStats.delivered} delivered, ${reminderDeliveryStats.failed} failed in the active pipeline slice. Email digests use the same notebook reminder rules.`}
-          tone={notebook.reminderPreview.counts.overdue > 0 || reminderDeliveryStats.failed > 0 ? 'warning' : 'info'}
-        />
+        <div className="app-surface-elevated grid gap-3 p-4 md:grid-cols-4 md:p-5">
+          <div>
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Overdue</p>
+            <p className="text-text-strong mt-2 text-2xl font-semibold">{notebook.reminderPreview.counts.overdue}</p>
+          </div>
+          <div>
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Due today</p>
+            <p className="text-text-strong mt-2 text-2xl font-semibold">{notebook.reminderPreview.counts.today}</p>
+          </div>
+          <div>
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Upcoming</p>
+            <p className="text-text-strong mt-2 text-2xl font-semibold">{notebook.reminderPreview.counts.upcoming}</p>
+          </div>
+          <div>
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Reminder emails</p>
+            <p className="text-text-strong mt-2 text-2xl font-semibold">{reminderDeliveryStats.delivered}</p>
+            <p className="text-text-soft mt-1 text-xs">
+              {reminderDeliveryStats.pending} pending, {reminderDeliveryStats.failed} failed
+            </p>
+          </div>
+        </div>
       ) : null}
 
       <NotebookActionPlanCard

@@ -29,11 +29,11 @@ export const LoginForm = () => {
 
   return (
     <form
-      className="border-border/80 bg-surface/95 flex w-full flex-col gap-4 rounded-[1.75rem] border p-7 shadow-[0_12px_40px_-24px_color-mix(in_oklab,var(--text-strong)_14%,transparent)] backdrop-blur-md"
+      className="border-border/80 bg-surface/95 flex w-full flex-col gap-4 rounded-2xl border p-6 shadow-[0_12px_28px_-24px_color-mix(in_oklab,var(--text-strong)_12%,transparent)] backdrop-blur-sm"
       onSubmit={loginForm.submit}
     >
       <h1 className="text-foreground text-2xl font-semibold">Sign in</h1>
-      <p className="text-muted-foreground text-sm">Use your account to access the JobSeeker dashboard.</p>
+      <p className="text-muted-foreground text-sm">Use your account to continue in the workspace.</p>
 
       <div className="app-field-group">
         <Label htmlFor="login-email" className="app-inline-label">
@@ -47,7 +47,7 @@ export const LoginForm = () => {
         <Label htmlFor="login-password" className="app-inline-label">
           Password
         </Label>
-        <Input id="login-password" type="password" placeholder="********" {...register('password')} />
+        <Input id="login-password" type="password" placeholder="Password" {...register('password')} />
         {errors.password?.message ? <p className="text-app-danger text-sm">{errors.password.message}</p> : null}
       </div>
 

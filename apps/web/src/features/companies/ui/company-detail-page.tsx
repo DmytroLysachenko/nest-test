@@ -6,6 +6,7 @@ import { Building2, ExternalLink, MapPin } from 'lucide-react';
 
 import { getCompanyDetail } from '@/features/companies/api/companies-api';
 import { queryKeys } from '@/shared/lib/query/query-keys';
+import { formatDate, formatDateTime, formatRelativeTime } from '@/shared/lib/utils/date-format';
 import { PageErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -56,7 +57,7 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
   return (
     <main className="app-page space-y-6">
       <HeroHeader
-        eyebrow="Company Detail"
+        eyebrow="Company"
         title={company.canonicalName}
         subtitle={company.description ?? 'This employer is linked to offers already present in your workspace catalog.'}
         meta={
@@ -75,7 +76,7 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
           <div className="flex flex-wrap gap-2">
             <Link href="/companies">
               <Button type="button" variant="secondary">
-                Back to companies
+                Back to list
               </Button>
             </Link>
             {company.websiteUrl ? (
@@ -109,7 +110,8 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
           </div>
           <div className="app-inset-stack space-y-2">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Last seen</p>
-            <p className="text-text-strong text-sm font-semibold">{new Date(company.lastSeenAt).toLocaleString()}</p>
+            <p className="text-text-strong text-sm font-semibold">{formatDateTime(company.lastSeenAt)}</p>
+            <p className="text-text-soft text-xs">{formatRelativeTime(company.lastSeenAt)}</p>
           </div>
         </div>
       </Card>
@@ -138,7 +140,7 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
                     )}
                     {offer.expiresAt ? (
                       <span className="app-badge">
-                        {offer.isExpired ? 'Expired' : 'Valid until'} {new Date(offer.expiresAt).toLocaleDateString()}
+                        {offer.isExpired ? 'Expired' : 'Valid until'} {formatDate(offer.expiresAt)}
                       </span>
                     ) : null}
                   </div>

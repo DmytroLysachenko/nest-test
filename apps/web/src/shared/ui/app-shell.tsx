@@ -3,11 +3,23 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  BriefcaseBusiness,
+  Building2,
+  CalendarCheck2,
+  ClipboardList,
+  Home,
+  KanbanSquare,
+  Shield,
+  TestTube2,
+  UserRound,
+} from 'lucide-react';
 
 import { env } from '@/shared/config/env';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
+import { formatDate } from '@/shared/lib/utils/date-format';
 import { Button } from '@/shared/ui/button';
-import { Input } from '@/shared/ui/input';
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -20,20 +32,20 @@ type AppShellProps = {
 type AppNavItem = {
   href: string;
   label: string;
-  shortLabel: string;
+  icon: React.ReactNode;
   hidden?: boolean;
 };
 
 const testerEnabled = process.env.NODE_ENV !== 'production' && env.NEXT_PUBLIC_ENABLE_TESTER;
 
 const baseNavItems: AppNavItem[] = [
-  { href: '/', label: 'Dashboard', shortLabel: 'DB' },
-  { href: '/planning', label: 'Planning', shortLabel: 'PL' },
-  { href: '/opportunities', label: 'Opportunities', shortLabel: 'OC' },
-  { href: '/notebook', label: 'Notebook', shortLabel: 'NB' },
-  { href: '/companies', label: 'Companies', shortLabel: 'CO' },
-  { href: '/activity', label: 'Activity Board', shortLabel: 'AC' },
-  { href: '/profile', label: 'Profile Studio', shortLabel: 'PS' },
+  { href: '/', label: 'Home', icon: <Home className="h-4 w-4" /> },
+  { href: '/planning', label: 'Automation', icon: <CalendarCheck2 className="h-4 w-4" /> },
+  { href: '/opportunities', label: 'Opportunities', icon: <BriefcaseBusiness className="h-4 w-4" /> },
+  { href: '/notebook', label: 'Notebook', icon: <KanbanSquare className="h-4 w-4" /> },
+  { href: '/companies', label: 'Companies', icon: <Building2 className="h-4 w-4" /> },
+  { href: '/activity', label: 'Progress', icon: <ClipboardList className="h-4 w-4" /> },
+  { href: '/profile', label: 'Profile', icon: <UserRound className="h-4 w-4" /> },
 ];
 
 const getIsActive = (pathname: string, href: string) => {
@@ -79,9 +91,7 @@ const AppShellSidebar = ({
           </div>
           <div className="rounded-[1rem] bg-white/60 px-3 py-2">
             <p className="text-sidebar-foreground/55">Next run</p>
-            <p className="text-sidebar-foreground mt-1 font-medium">
-              {nextRunAt ? new Date(nextRunAt).toLocaleDateString() : 'manual'}
-            </p>
+            <p className="text-sidebar-foreground mt-1 font-medium">{nextRunAt ? formatDate(nextRunAt) : 'manual'}</p>
           </div>
         </div>
         <div className="mt-3 rounded-[1.2rem] bg-white/70 p-3">
@@ -104,11 +114,11 @@ const AppShellSidebar = ({
             onClick={onNavigate}
           >
             <span
-              className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[10px] font-semibold ${
+              className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
                 active ? 'text-sidebar-primary-foreground bg-white/15' : 'text-sidebar-foreground/70 bg-white/70'
               }`}
             >
-              {item.shortLabel}
+              {item.icon}
             </span>
             <span className="flex-1">{item.label}</span>
             {active ? (
@@ -145,10 +155,10 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
     ];
 
     if (testerEnabled) {
-      items.push({ href: '/tester', label: 'Tester', shortLabel: 'TS' });
+      items.push({ href: '/tester', label: 'Tester', icon: <TestTube2 className="h-4 w-4" /> });
     }
     if (userRole === 'admin') {
-      items.push({ href: '/ops', label: 'Ops', shortLabel: 'OP' });
+      items.push({ href: '/ops', label: 'Admin', icon: <Shield className="h-4 w-4" /> });
     }
 
     return items.filter((item) => !item.hidden);
@@ -228,26 +238,19 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
                       aria-label="Go back"
                       onClick={() => router.back()}
                     >
-                      <span className="text-base leading-none">{'<'}</span>
+                      <ArrowLeft className="h-4 w-4" />
                     </Button>
                   )}
                   <div>
                     <p className="text-text-strong text-lg font-semibold leading-tight tracking-[-0.02em]">
                       {activePage}
                     </p>
-                    <p className="text-text-soft text-xs">{summary?.nextAction?.title ?? 'JobSeeker command center'}</p>
+                    <p className="text-text-soft text-xs">
+                      {summary?.nextAction?.title ?? 'Stay focused on the next step'}
+                    </p>
                   </div>
                 </div>
               </div>
-
-              {!hideSidebar && (
-                <div className="relative ml-auto hidden min-w-[320px] max-w-[520px] flex-1 xl:block">
-                  <Input
-                    placeholder="Search jobs, notes, companies..."
-                    className="bg-surface-elevated/92 h-11 rounded-2xl pl-4"
-                  />
-                </div>
-              )}
 
               <div className="ml-auto flex items-center gap-2">
                 <div className="bg-surface-elevated/92 hidden rounded-[1.1rem] px-3.5 py-2 md:block">

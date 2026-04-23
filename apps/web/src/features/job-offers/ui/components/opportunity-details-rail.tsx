@@ -4,6 +4,7 @@ import { Pointer } from 'lucide-react';
 
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
+import { getUserFacingOfferStatus } from '@/shared/lib/presentation/job-search-ui';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
 
@@ -33,7 +34,8 @@ export const OpportunityDetailsRail = ({
       <Card
         title="Opportunity details"
         description="Select a role from the discovery queue to inspect it."
-        className="xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto"
+        className="xl:max-h-[calc(100vh-7rem)]"
+        contentClassName="xl:max-h-[calc(100vh-12rem)] xl:overflow-y-auto"
       >
         <EmptyState
           icon={<Pointer className="h-8 w-8" />}
@@ -48,12 +50,13 @@ export const OpportunityDetailsRail = ({
     <Card
       title="Opportunity details"
       description={offer.title}
-      className="xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto"
+      className="xl:max-h-[calc(100vh-7rem)]"
+      contentClassName="flex flex-col gap-4 xl:max-h-[calc(100vh-12rem)] xl:overflow-y-auto"
     >
       <div className="space-y-4 text-sm">
         <div className="app-inset-stack space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="app-badge">{offer.status}</span>
+            <span className="app-badge">{getUserFacingOfferStatus(offer.status)}</span>
             {typeof offer.matchScore === 'number' ? <span className="app-badge">Match {offer.matchScore}</span> : null}
             {offer.isInPipeline ? <span className="app-badge">In pipeline</span> : null}
             {offer.isExpired ? <span className="app-badge">Expired</span> : null}

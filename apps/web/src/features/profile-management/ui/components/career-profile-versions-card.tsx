@@ -126,7 +126,7 @@ export const CareerProfileVersionsCard = ({
                   <InspectorRow label="Queued" value={formatDateTime(item.generationQueuedAt)} />
                   <InspectorRow label="Started" value={formatDateTime(item.generationStartedAt)} />
                   <InspectorRow label="Attempts" value={String(item.generationAttemptCount)} />
-                  <InspectorRow label="Created" value={new Date(item.createdAt).toLocaleString()} />
+                  <InspectorRow label="Created" value={formatDateTime(item.createdAt)} />
                 </div>
                 {!item.isActive ? (
                   <Button type="button" variant="secondary" disabled={isRestoring} onClick={() => onRestore(item.id)}>

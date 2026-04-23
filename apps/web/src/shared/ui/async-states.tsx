@@ -26,18 +26,17 @@ type AsyncErrorStateProps = {
 };
 
 const loadingLabels = [
-  'Negotiating with the hiring universe',
-  'Calibrating the serious-job-search machine',
-  'Warming up your command center',
-  'Asking the dashboard to behave professionally',
+  'Loading your workspace',
+  'Syncing recent changes',
+  'Checking new roles',
+  'Preparing the next view',
 ];
 
 const loadingTips = [
-  'Tip: track only the jobs you would genuinely interview for. High-volume saves usually create noise, not momentum.',
-  'Tip: if a scrape starts failing, tighten the profile intent first before widening source filters.',
-  'Tip: strict-mode triage should happen before explore-mode browsing, otherwise you bury the best leads.',
-  'Tip: follow-up reminders matter more than new discoveries once your pipeline is active.',
-  'Tip: update your profile only when your target actually changes. Constant re-generation usually lowers signal quality.',
+  'Tip: keep only the roles you would seriously pursue. Saving everything creates noise.',
+  'Tip: review strict matches first, then widen the search only if needed.',
+  'Tip: reminders matter more than new discoveries once applications are already active.',
+  'Tip: update your profile only when your actual target changes.',
 ];
 
 export const WorkspaceSplashState = ({

@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { exportCallbackEventsCsv, getSupportOverview, getSupportScrapeForensics } from '@/features/ops/api/ops-api';
+import { formatDateTime } from '@/shared/lib/utils/date-format';
 import { PageErrorState, PageLoadingState } from '@/shared/ui/async-states';
 import { Card } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
@@ -184,7 +185,7 @@ export const OpsPage = () => {
               <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Last trigger</p>
               <p className="text-text-strong mt-2 text-sm">
                 {overview.metrics.scheduler.lastTriggerAt
-                  ? new Date(overview.metrics.scheduler.lastTriggerAt).toLocaleString()
+                  ? formatDateTime(overview.metrics.scheduler.lastTriggerAt)
                   : 'No trigger recorded'}
               </p>
             </div>
@@ -303,7 +304,7 @@ export const OpsPage = () => {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-text-strong font-medium">{run.id.slice(0, 8)}</p>
-                      <p className="text-text-soft text-xs">{new Date(run.createdAt).toLocaleString()}</p>
+                      <p className="text-text-soft text-xs">{formatDateTime(run.createdAt)}</p>
                     </div>
                     <StatusPill value={run.failureType ?? 'unknown'} tone="danger" />
                   </div>
@@ -327,7 +328,7 @@ export const OpsPage = () => {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-text-strong font-medium">{event.eventType}</p>
-                      <p className="text-text-soft text-xs">{new Date(event.createdAt).toLocaleString()}</p>
+                      <p className="text-text-soft text-xs">{formatDateTime(event.createdAt)}</p>
                     </div>
                     <StatusPill value={event.severity} tone={event.severity === 'error' ? 'danger' : 'warning'} />
                   </div>
@@ -354,7 +355,7 @@ export const OpsPage = () => {
                       <p className="text-text-strong font-medium">
                         {event.method} {event.path}
                       </p>
-                      <p className="text-text-soft text-xs">{new Date(event.createdAt).toLocaleString()}</p>
+                      <p className="text-text-soft text-xs">{formatDateTime(event.createdAt)}</p>
                     </div>
                     <span className="app-badge">{event.statusCode}</span>
                   </div>
@@ -389,7 +390,7 @@ export const OpsPage = () => {
                 </div>
                 <p className="text-text-soft mt-2 text-sm">
                   Attempt {event.attemptNo ?? 1}
-                  {event.receivedAt ? ` | ${new Date(event.receivedAt).toLocaleString()}` : ''}
+                  {event.receivedAt ? ` | ${formatDateTime(event.receivedAt)}` : ''}
                 </p>
               </div>
             ))
@@ -411,7 +412,7 @@ export const OpsPage = () => {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-text-strong font-medium">{event.permission ?? 'unknown-permission'}</p>
-                      <p className="text-text-soft text-xs">{new Date(event.createdAt).toLocaleString()}</p>
+                      <p className="text-text-soft text-xs">{formatDateTime(event.createdAt)}</p>
                     </div>
                     <StatusPill value={event.outcome} tone="danger" />
                   </div>
