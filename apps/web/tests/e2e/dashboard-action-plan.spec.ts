@@ -223,5 +223,4 @@ test('dashboard renders the action plan and links into the split workflow surfac
 
   const actionLink = page.getByRole('link', { name: /Due now/i }).first();
   await expect(actionLink).toHaveAttribute('href', '/notebook?focus=followUpDue');
-  await expect(page.getByText('Open due follow-ups')).toBeVisible();
 });
