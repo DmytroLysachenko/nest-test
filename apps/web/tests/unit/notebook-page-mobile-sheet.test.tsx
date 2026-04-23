@@ -17,7 +17,7 @@ const offer: JobOfferListItemDto = {
   id: 'offer-1',
   jobOfferId: 'job-1',
   sourceRunId: 'run-12345678',
-  status: 'NEW',
+  status: 'SAVED',
   matchScore: 0.91,
   rankingScore: 0.88,
   explanationTags: ['backend'],
@@ -104,7 +104,7 @@ describe('NotebookPage pipeline workspace', () => {
     });
   });
 
-  it('renders the selected offer workspace below the board', () => {
+  it('renders the selected offer workspace below the board', async () => {
     mockedUseNotebookPage.mockReturnValue({
       listQuery: {
         isLoading: false,
@@ -176,6 +176,6 @@ describe('NotebookPage pipeline workspace', () => {
     expect(screen.getAllByText('Senior Backend Engineer').length).toBeGreaterThan(0);
     expect(screen.getByText('Keep active roles moving')).toBeInTheDocument();
     expect(screen.getByText('Selected offer workspace')).toBeInTheDocument();
-    expect(screen.getByText('Keep one clear next move attached to this role')).toBeInTheDocument();
+    expect(await screen.findByText('Keep one clear next move attached to this role')).toBeInTheDocument();
   });
 });
