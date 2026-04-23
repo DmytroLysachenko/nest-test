@@ -1087,6 +1087,7 @@ export const runScrapeJob = async (
     listingDelayMs?: number;
     listingCooldownMs?: number;
     detailDelayMs?: number;
+    detailConcurrency?: number;
     browserFallbackCooldownMs?: number;
     detailCacheHours?: number;
     listingOnly?: boolean;
@@ -1517,6 +1518,7 @@ export const runScrapeJob = async (
           listingDelayMs: options.listingDelayMs,
           listingCooldownMs: options.listingCooldownMs,
           detailDelayMs: adaptiveDetailDelayMs,
+          detailConcurrency: options.detailConcurrency,
           browserFallbackCooldownMs: effectiveTiming.browserFallbackCooldownMs,
           listingOnly: options.listingOnly,
           detailHost: options.detailHost,

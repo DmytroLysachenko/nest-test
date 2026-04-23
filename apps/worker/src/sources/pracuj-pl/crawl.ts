@@ -1147,6 +1147,7 @@ export const crawlPracujPl = async (
     listingDelayMs?: number;
     listingCooldownMs?: number;
     detailDelayMs?: number;
+    detailConcurrency?: number;
     browserFallbackCooldownMs?: number;
     listingOnly?: boolean;
     detailHost?: string;
@@ -1177,6 +1178,7 @@ export const crawlPracujPl = async (
   const listingDelayMs = options?.listingDelayMs ?? 1500;
   const listingCooldownMs = options?.listingCooldownMs ?? 0;
   const detailDelayMs = options?.detailDelayMs ?? 2000;
+  const detailConcurrency = Math.max(1, options?.detailConcurrency ?? 1);
   const browserFallbackCooldownMs = options?.browserFallbackCooldownMs ?? Math.max(2000, detailDelayMs + 1000);
   const detailHumanize = options?.detailHumanize ?? false;
   const listingOnly = options?.listingOnly ?? false;
@@ -1197,6 +1199,21 @@ export const crawlPracujPl = async (
       );
     }
     return browserSession;
+  };
+
+  let browserFallbackQueue = Promise.resolve();
+  const runBrowserFallback = async <T>(task: () => Promise<T>) => {
+    const previous = browserFallbackQueue;
+    let nextRelease!: () => void;
+    browserFallbackQueue = new Promise<void>((resolve) => {
+      nextRelease = resolve;
+    });
+    await previous;
+    try {
+      return await task();
+    } finally {
+      nextRelease();
+    }
   };
 
   try {
@@ -1368,10 +1385,14 @@ export const crawlPracujPl = async (
 
     let detailStopReason: 'completed' | 'budget_reached' | 'source_degraded' =
       detailBudget !== null && detailTargetsAll.length > detailTargets.length ? 'budget_reached' : 'completed';
+    let detailSourceDegraded = false;
     let detailBrowserTimeouts = 0;
     let detailBrowserFailures = 0;
-    for (const url of detailTargets) {
+    const processDetailTarget = async (url: string) => {
       throwIfAborted(abortSignal);
+      if (detailSourceDegraded) {
+        return;
+      }
       let fallbackReason: string | null = null;
       try {
         const extraHeaders: Record<string, string> = {};
@@ -1431,18 +1452,21 @@ export const crawlPracujPl = async (
               blocked: result.blocked,
             },
           });
-          await sleepWithAbort(detailDelayMs + randomBetween(500, 1500), abortSignal);
-          result = await loadDetailPageBrowser(
-            await ensureBrowserSession(),
-            url,
-            detailDelayMs,
-            detailHumanize,
-            logger,
-            options?.onProgress,
-            2,
-            abortSignal,
-          );
-          await sleepWithAbort(browserFallbackCooldownMs + randomBetween(500, 1500), abortSignal);
+          result = await runBrowserFallback(async () => {
+            await sleepWithAbort(detailDelayMs + randomBetween(500, 1500), abortSignal);
+            const fallbackResult = await loadDetailPageBrowser(
+              await ensureBrowserSession(),
+              url,
+              detailDelayMs,
+              detailHumanize,
+              logger,
+              options?.onProgress,
+              2,
+              abortSignal,
+            );
+            await sleepWithAbort(browserFallbackCooldownMs + randomBetween(500, 1500), abortSignal);
+            return fallbackResult;
+          });
           blocked = result.blocked;
           expired = result.expired;
           transport = 'browser';
@@ -1504,16 +1528,20 @@ export const crawlPracujPl = async (
             },
           });
           try {
-            const fallbackResult = await loadDetailPageBrowser(
-              await ensureBrowserSession(),
-              url,
-              detailDelayMs,
-              detailHumanize,
-              logger,
-              options?.onProgress,
-              2,
-              abortSignal,
-            );
+            const fallbackResult = await runBrowserFallback(async () => {
+              const result = await loadDetailPageBrowser(
+                await ensureBrowserSession(),
+                url,
+                detailDelayMs,
+                detailHumanize,
+                logger,
+                options?.onProgress,
+                2,
+                abortSignal,
+              );
+              await sleepWithAbort(browserFallbackCooldownMs, abortSignal);
+              return result;
+            });
             detailDiagnostics.push({
               url,
               finalUrl: fallbackResult.finalUrl,
@@ -1530,8 +1558,7 @@ export const crawlPracujPl = async (
               pages.push({ url, html: fallbackResult.html, isExpired: fallbackResult.expired });
             }
             detailBrowserTimeouts = 0;
-            await sleepWithAbort(browserFallbackCooldownMs, abortSignal);
-            continue;
+            return;
           } catch (fallbackError) {
             if (isAbortError(fallbackError)) {
               throw fallbackError;
@@ -1558,6 +1585,7 @@ export const crawlPracujPl = async (
               detailBrowserFailures >= MAX_DETAIL_BROWSER_FAILURES
             ) {
               detailStopReason = 'source_degraded';
+              detailSourceDegraded = true;
               logger?.warn(
                 {
                   detailBrowserTimeouts,
@@ -1566,10 +1594,9 @@ export const crawlPracujPl = async (
                 },
                 'Stopping detail crawl early because browser fallback is degraded',
               );
-              break;
             }
             await sleepWithAbort(Math.max(250, Math.floor(detailDelayMs / 2)), abortSignal);
-            continue;
+            return;
           }
         }
 
@@ -1587,6 +1614,7 @@ export const crawlPracujPl = async (
             detailBrowserFailures >= MAX_DETAIL_BROWSER_FAILURES
           ) {
             detailStopReason = 'source_degraded';
+            detailSourceDegraded = true;
             logger?.warn(
               {
                 detailBrowserTimeouts,
@@ -1595,11 +1623,18 @@ export const crawlPracujPl = async (
               },
               'Stopping detail crawl early because browser navigation failures accumulated',
             );
-            break;
           }
         }
       }
       await sleepWithAbort(Math.max(250, Math.floor(detailDelayMs / 2)), abortSignal);
+    };
+
+    for (let index = 0; index < detailTargets.length; index += detailConcurrency) {
+      if (detailSourceDegraded) {
+        break;
+      }
+      const batch = detailTargets.slice(index, index + detailConcurrency);
+      await Promise.all(batch.map((url) => processDetailTarget(url)));
     }
 
     if (blockedUrls.length) {

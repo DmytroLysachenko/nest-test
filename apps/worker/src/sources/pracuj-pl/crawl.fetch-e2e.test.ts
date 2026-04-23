@@ -361,3 +361,54 @@ test('crawlPracujPl aborts in-flight detail fetches when the scrape signal is ca
     await server.close();
   }
 });
+
+test('crawlPracujPl honors bounded detail concurrency for HTTP fetches', async () => {
+  let inFlight = 0;
+  let maxInFlight = 0;
+  const server = createServer((request, response) => {
+    const pathname = request.url ? new URL(request.url, 'http://localhost').pathname : '/';
+    if (pathname === '/praca') {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(`
+        <html>
+          <body>
+            <section data-test="section-offers">
+              <a href="https://www.pracuj.pl/praca/offer-a,oferta,1001">A</a>
+              <a href="https://www.pracuj.pl/praca/offer-b,oferta,1002">B</a>
+              <a href="https://www.pracuj.pl/praca/offer-c,oferta,1003">C</a>
+            </section>
+          </body>
+        </html>
+      `);
+      return;
+    }
+
+    inFlight += 1;
+    maxInFlight = Math.max(maxInFlight, inFlight);
+    setTimeout(() => {
+      inFlight -= 1;
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(`<html><body><h1>${pathname}</h1></body></html>`);
+    }, 75);
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('Failed to resolve concurrency test server address');
+  }
+
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const result = await crawlPracujPl(true, `${baseUrl}/praca`, 10, undefined, {
+      detailHost: baseUrl,
+      detailConcurrency: 2,
+    });
+
+    assert.equal(result.pages.length, 3);
+    assert.equal(maxInFlight, 2);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  }
+});
