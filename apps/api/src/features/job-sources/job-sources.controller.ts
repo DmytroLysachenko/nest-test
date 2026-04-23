@@ -14,6 +14,9 @@ import { ScrapeCompleteDto } from './dto/scrape-complete.dto';
 import { ScrapeOfferBatchIngestDto, ScrapeOfferIngestDto } from './dto/scrape-offer-ingest.dto';
 import { ListJobSourceRunsQuery } from './dto/list-job-source-runs.query';
 import { JobSourcesService } from './job-sources.service';
+import { JobSourcesCoreService } from './job-sources-core.service';
+import { JobSourcesLifecycleService } from './job-sources-lifecycle.service';
+import { JobSourcesDiagnosticsService } from './job-sources-diagnostics.service';
 import { ScrapeRunDiagnosticsResponse } from './dto/run-diagnostics.response';
 import { ListRunDiagnosticsSummaryQuery } from './dto/list-run-diagnostics-summary.query';
 import { ScrapeRunDiagnosticsSummaryResponse } from './dto/run-diagnostics-summary.response';
@@ -32,7 +35,12 @@ import { ScrapeScheduleEventsResponseDto } from './dto/schedule-events.response'
 @UseGuards(JwtAuthGuard)
 @Controller('job-sources')
 export class JobSourcesController {
-  constructor(private readonly jobSourcesService: JobSourcesService) {}
+  constructor(
+    private readonly jobSourcesService: JobSourcesService,
+    private readonly jobSourcesCoreService: JobSourcesCoreService,
+    private readonly jobSourcesLifecycleService: JobSourcesLifecycleService,
+    private readonly jobSourcesDiagnosticsService: JobSourcesDiagnosticsService,
+  ) {}
 
   @Post('scrape')
   @ApiOperation({ summary: 'Enqueue a scrape job for job listings' })
@@ -43,13 +51,13 @@ export class JobSourcesController {
     @Headers('x-request-id') requestId: string | undefined,
     @Body() dto: EnqueueScrapeDto,
   ) {
-    return this.jobSourcesService.enqueueScrape(user.userId, dto, requestId);
+    return this.jobSourcesCoreService.enqueueScrape(user.userId, dto, requestId);
   }
 
   @Get('runs')
   @ApiOperation({ summary: 'List scrape runs for current user' })
   async listRuns(@CurrentUser() user: JwtValidateUser, @Query() query: ListJobSourceRunsQuery) {
-    return this.jobSourcesService.listRuns(user.userId, query);
+    return this.jobSourcesDiagnosticsService.listRuns(user.userId, query);
   }
 
   @Get('runs/export.csv')
@@ -88,7 +96,7 @@ export class JobSourcesController {
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ) {
-    return this.jobSourcesService.getRunDiagnostics(user.userId, id);
+    return this.jobSourcesDiagnosticsService.getRunDiagnostics(user.userId, id);
   }
 
   @Get('runs/:id/events')
@@ -107,7 +115,7 @@ export class JobSourcesController {
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ) {
-    return this.jobSourcesService.getRunForensics(user.userId, id);
+    return this.jobSourcesDiagnosticsService.getRunForensics(user.userId, id);
   }
 
   @Get('runs/diagnostics/summary')
@@ -140,7 +148,13 @@ export class JobSourcesController {
     @Headers('x-request-id') requestId: string | undefined,
     @Body() dto: ScrapeCompleteDto,
   ) {
-    return this.jobSourcesService.completeScrape(dto, authorization, requestId, workerSignature, workerTimestamp);
+    return this.jobSourcesLifecycleService.completeScrape(
+      dto,
+      authorization,
+      requestId,
+      workerSignature,
+      workerTimestamp,
+    );
   }
 
   @Get('schedule')
@@ -192,7 +206,14 @@ export class JobSourcesController {
     @Headers('x-request-id') requestId: string | undefined,
     @Body() dto: ScrapeHeartbeatDto,
   ) {
-    return this.jobSourcesService.heartbeatRun(id, dto, authorization, requestId, workerSignature, workerTimestamp);
+    return this.jobSourcesLifecycleService.heartbeatRun(
+      id,
+      dto,
+      authorization,
+      requestId,
+      workerSignature,
+      workerTimestamp,
+    );
   }
 
   @Post('runs/:id/offers')
