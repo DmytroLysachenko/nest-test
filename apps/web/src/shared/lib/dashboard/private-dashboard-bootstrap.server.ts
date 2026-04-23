@@ -34,20 +34,24 @@ const readTokenCookie = async () => {
 };
 
 const fetchAuthedJson = async <T>(path: string, token: string) => {
-  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    cache: 'no-store',
-  });
+  try {
+    const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
 
-  if (!response.ok) {
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as BootstrapPayload<T>;
+    return payload.data;
+  } catch {
     return null;
   }
-
-  const payload = (await response.json()) as BootstrapPayload<T>;
-  return payload.data;
 };
 
 export const getPrivateDashboardBootstrap = async (): Promise<PrivateDashboardBootstrap> => {

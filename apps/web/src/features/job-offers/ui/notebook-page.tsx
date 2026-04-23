@@ -1,17 +1,27 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import React, { useEffect, useRef } from 'react';
 
 import { useNotebookPage } from '@/features/job-offers/model/use-notebook-page';
 import { NotebookActionPlanCard } from '@/features/job-offers/ui/components/notebook-action-plan-card';
 import { NotebookFiltersCard } from '@/features/job-offers/ui/components/notebook-filters-card';
-import { NotebookOfferDetailsCard } from '@/features/job-offers/ui/components/notebook-offer-details-card';
 import { NotebookOffersListCard } from '@/features/job-offers/ui/components/notebook-offers-list-card';
 import { NotebookPipelineCard } from '@/features/job-offers/ui/components/notebook-pipeline-card';
 import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
 
 import type { NotebookQuickActionKey } from '@/features/job-offers/model/types/notebook-view-model';
+
+const NotebookOfferDetailsCard = dynamic(
+  () =>
+    import('@/features/job-offers/ui/components/notebook-offer-details-card').then((module) => ({
+      default: module.NotebookOfferDetailsCard,
+    })),
+  {
+    loading: () => <div className="bg-surface-muted h-[32rem] animate-pulse rounded-lg" />,
+  },
+);
 
 type NotebookPageProps = {
   token: string;
