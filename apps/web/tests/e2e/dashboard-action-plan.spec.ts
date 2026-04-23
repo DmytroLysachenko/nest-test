@@ -176,7 +176,7 @@ test('dashboard renders the action plan and links into the split workflow surfac
     });
   });
 
-  await page.route('**/api/job-offers?**', async (route) => {
+  await page.route('**/api/job-offers/preview?**', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -184,10 +184,6 @@ test('dashboard renders the action plan and links into the split workflow surfac
         success: true,
         data: {
           items: [],
-          total: 0,
-          mode: 'strict',
-          hiddenByModeCount: 0,
-          degradedResultCount: 0,
         },
       }),
     });

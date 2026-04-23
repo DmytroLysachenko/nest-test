@@ -887,6 +887,16 @@ export type DiscoveryJobOfferListItemDto = JobOfferListItemDto & {
   isInPipeline: boolean;
 };
 
+export type JobOfferPreviewDto = {
+  items: Array<{
+    id: string;
+    title: string;
+    company: string | null;
+    location: string | null;
+    matchScore: number | null;
+  }>;
+};
+
 export type JobOffersListDto = {
   items: JobOfferListItemDto[];
   total: number;

@@ -539,6 +539,46 @@ export class JobOffersService {
     };
   }
 
+  async listPreview(userId: string, query: ListJobOffersQuery) {
+    const limit = Math.min(query.limit ?? 8, 20);
+    const offset = query.offset ?? 0;
+    const conditions = [eq(userJobOffersTable.userId, userId)];
+
+    if (query.includeExpired !== 'true') {
+      conditions.push(eq(jobOffersTable.isExpired, false));
+    }
+    if (query.status) {
+      conditions.push(eq(userJobOffersTable.status, query.status));
+    }
+    if (query.source) {
+      conditions.push(eq(jobOffersTable.source, query.source as JobSource));
+    }
+    if (query.minScore !== undefined) {
+      conditions.push(sql`${userJobOffersTable.matchScore} >= ${query.minScore}`);
+    }
+    if (query.hasScore !== undefined) {
+      const wantsScore = query.hasScore === 'true';
+      conditions.push(wantsScore ? not(isNull(userJobOffersTable.matchScore)) : isNull(userJobOffersTable.matchScore));
+    }
+
+    const items = await this.db
+      .select({
+        id: userJobOffersTable.id,
+        title: jobOffersTable.title,
+        company: jobOffersTable.company,
+        location: jobOffersTable.location,
+        matchScore: userJobOffersTable.matchScore,
+      })
+      .from(userJobOffersTable)
+      .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .where(and(...conditions))
+      .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return { items };
+  }
+
   async getDiscovery(userId: string, query: ListJobOffersQuery) {
     const limit = query.limit ? Number(query.limit) : 20;
     const offset = query.offset ? Number(query.offset) : 0;

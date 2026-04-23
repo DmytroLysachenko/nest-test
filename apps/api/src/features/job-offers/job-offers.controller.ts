@@ -32,6 +32,7 @@ import {
   JobOfferActionPlanResponse,
   JobOfferFocusResponse,
   JobOfferListResponse,
+  JobOfferPreviewResponse,
   JobOfferPrepPacketResponse,
   JobOfferReminderDeliveryResponse,
   JobOfferReminderPreviewResponse,
@@ -61,6 +62,13 @@ export class JobOffersController {
   @ApiOkResponse({ type: JobOfferListResponse })
   async list(@CurrentUser() user: JwtValidateUser, @Query() query: ListJobOffersQuery) {
     return this.jobOffersService.list(user.userId, query);
+  }
+
+  @Get('preview')
+  @ApiOperation({ summary: 'List lightweight job offer preview rows for summary surfaces' })
+  @ApiOkResponse({ type: JobOfferPreviewResponse })
+  async listPreview(@CurrentUser() user: JwtValidateUser, @Query() query: ListJobOffersQuery) {
+    return this.jobOffersService.listPreview(user.userId, query);
   }
 
   @Get('discovery')
