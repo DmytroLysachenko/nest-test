@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, count, desc, eq, isNotNull } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNotNull, lte } from 'drizzle-orm';
 import {
   careerProfilesTable,
   documentsTable,
@@ -11,7 +11,6 @@ import {
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { Drizzle } from '@/common/decorators';
-import { resolveFollowUpState } from '@/features/job-offers/job-offer-follow-up';
 
 import { WorkspaceSummaryCache } from './workspace-summary-cache';
 
@@ -19,6 +18,7 @@ import type { Env } from '@/config/env';
 
 @Injectable()
 export class WorkspaceService {
+  private static readonly FOLLOW_UP_ELIGIBLE_STATUSES = ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'] as const;
   private readonly cache: WorkspaceSummaryCache<any>;
 
   constructor(
@@ -40,87 +40,94 @@ export class WorkspaceService {
   }
 
   private async computeSummary(userId: string) {
-    const [profileInput] = await this.db
-      .select({
-        id: profileInputsTable.id,
-        updatedAt: profileInputsTable.updatedAt,
-      })
-      .from(profileInputsTable)
-      .where(eq(profileInputsTable.userId, userId))
-      .orderBy(desc(profileInputsTable.updatedAt))
-      .limit(1);
-
-    const [profile] = await this.db
-      .select({
-        id: careerProfilesTable.id,
-        status: careerProfilesTable.status,
-        version: careerProfilesTable.version,
-        updatedAt: careerProfilesTable.updatedAt,
-      })
-      .from(careerProfilesTable)
-      .where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true)))
-      .orderBy(desc(careerProfilesTable.updatedAt))
-      .limit(1);
-
-    const offersStatusCounts = await this.db
-      .select({
-        status: userJobOffersTable.status,
-        count: count(),
-      })
-      .from(userJobOffersTable)
-      .where(eq(userJobOffersTable.userId, userId))
-      .groupBy(userJobOffersTable.status);
-
-    const [offersScored] = await this.db
-      .select({ value: count() })
-      .from(userJobOffersTable)
-      .where(and(eq(userJobOffersTable.userId, userId), isNotNull(userJobOffersTable.matchScore)));
-
-    const [lastOffer] = await this.db
-      .select({ updatedAt: userJobOffersTable.updatedAt })
-      .from(userJobOffersTable)
-      .where(eq(userJobOffersTable.userId, userId))
-      .orderBy(desc(userJobOffersTable.updatedAt))
-      .limit(1);
-
-    const followUpOffers = await this.db
-      .select({
-        status: userJobOffersTable.status,
-        pipelineMeta: userJobOffersTable.pipelineMeta,
-      })
-      .from(userJobOffersTable)
-      .where(eq(userJobOffersTable.userId, userId));
-
-    const documentStatusCounts = await this.db
-      .select({
-        status: documentsTable.extractionStatus,
-        count: count(),
-      })
-      .from(documentsTable)
-      .where(eq(documentsTable.userId, userId))
-      .groupBy(documentsTable.extractionStatus);
-
-    const [runTotal] = await this.db
-      .select({ value: count() })
-      .from(jobSourceRunsTable)
-      .where(eq(jobSourceRunsTable.userId, userId));
-
-    const [latestRun] = await this.db
-      .select({
-        status: jobSourceRunsTable.status,
-        createdAt: jobSourceRunsTable.createdAt,
-        progress: jobSourceRunsTable.progress,
-      })
-      .from(jobSourceRunsTable)
-      .where(eq(jobSourceRunsTable.userId, userId))
-      .orderBy(desc(jobSourceRunsTable.createdAt))
-      .limit(1);
+    const now = new Date();
+    const [
+      [profileInput],
+      [profile],
+      offersStatusCounts,
+      [offersScored],
+      [lastOffer],
+      [followUpDueCount],
+      documentStatusCounts,
+      [runTotal],
+      [latestRun],
+    ] = await Promise.all([
+      this.db
+        .select({
+          id: profileInputsTable.id,
+          updatedAt: profileInputsTable.updatedAt,
+        })
+        .from(profileInputsTable)
+        .where(eq(profileInputsTable.userId, userId))
+        .orderBy(desc(profileInputsTable.updatedAt))
+        .limit(1),
+      this.db
+        .select({
+          id: careerProfilesTable.id,
+          status: careerProfilesTable.status,
+          version: careerProfilesTable.version,
+          updatedAt: careerProfilesTable.updatedAt,
+        })
+        .from(careerProfilesTable)
+        .where(and(eq(careerProfilesTable.userId, userId), eq(careerProfilesTable.isActive, true)))
+        .orderBy(desc(careerProfilesTable.updatedAt))
+        .limit(1),
+      this.db
+        .select({
+          status: userJobOffersTable.status,
+          count: count(),
+        })
+        .from(userJobOffersTable)
+        .where(eq(userJobOffersTable.userId, userId))
+        .groupBy(userJobOffersTable.status),
+      this.db
+        .select({ value: count() })
+        .from(userJobOffersTable)
+        .where(and(eq(userJobOffersTable.userId, userId), isNotNull(userJobOffersTable.matchScore)))
+        .limit(1),
+      this.db
+        .select({ updatedAt: userJobOffersTable.updatedAt })
+        .from(userJobOffersTable)
+        .where(eq(userJobOffersTable.userId, userId))
+        .orderBy(desc(userJobOffersTable.updatedAt))
+        .limit(1),
+      this.db
+        .select({ value: count() })
+        .from(userJobOffersTable)
+        .where(
+          and(
+            eq(userJobOffersTable.userId, userId),
+            inArray(userJobOffersTable.status, [...WorkspaceService.FOLLOW_UP_ELIGIBLE_STATUSES]),
+            isNotNull(userJobOffersTable.followUpAt),
+            lte(userJobOffersTable.followUpAt, now),
+          ),
+        )
+        .limit(1),
+      this.db
+        .select({
+          status: documentsTable.extractionStatus,
+          count: count(),
+        })
+        .from(documentsTable)
+        .where(eq(documentsTable.userId, userId))
+        .groupBy(documentsTable.extractionStatus),
+      this.db.select({ value: count() }).from(jobSourceRunsTable).where(eq(jobSourceRunsTable.userId, userId)).limit(1),
+      this.db
+        .select({
+          status: jobSourceRunsTable.status,
+          createdAt: jobSourceRunsTable.createdAt,
+          progress: jobSourceRunsTable.progress,
+        })
+        .from(jobSourceRunsTable)
+        .where(eq(jobSourceRunsTable.userId, userId))
+        .orderBy(desc(jobSourceRunsTable.createdAt))
+        .limit(1),
+    ]);
 
     const needsOnboarding = !profileInput || !profile || profile.status !== 'READY';
-    const followUpDue = followUpOffers.filter(
-      (offer) => resolveFollowUpState(offer.status, offer.pipelineMeta) === 'due',
-    ).length;
+    const followUpDue = Number(followUpDueCount?.value ?? 0);
     const failedDocuments = Number(documentStatusCounts.find((item) => item.status === 'FAILED')?.count ?? 0);
+    const totalOffers = offersStatusCounts.reduce((acc, curr) => acc + Number(curr.count), 0);
 
     const getCount = (status: string) => {
       const found = offersStatusCounts.find((c) => c.status === status);
@@ -242,11 +249,8 @@ export class WorkspaceService {
       {
         key: 'notebook-offers',
         label: 'Notebook offers',
-        ready: offersStatusCounts.reduce((acc, curr) => acc + Number(curr.count), 0) > 0,
-        detail:
-          offersStatusCounts.reduce((acc, curr) => acc + Number(curr.count), 0) > 0
-            ? 'Offers are ready for triage.'
-            : 'No offers materialized yet.',
+        ready: totalOffers > 0,
+        detail: totalOffers > 0 ? 'Offers are ready for triage.' : 'No offers materialized yet.',
       },
     ];
 
@@ -331,7 +335,7 @@ export class WorkspaceService {
         updatedAt: profileInput?.updatedAt ?? null,
       },
       offers: {
-        total: offersStatusCounts.reduce((acc, curr) => acc + Number(curr.count), 0),
+        total: totalOffers,
         scored: Number(offersScored?.value ?? 0),
         saved: getCount('SAVED'),
         applied: getCount('APPLIED'),
