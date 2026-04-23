@@ -54,9 +54,18 @@ const ACTIVE_DASHBOARD_POLL_INTERVAL_MS = Math.max(env.NEXT_PUBLIC_QUERY_DIAGNOS
 
 export const PrivateDashboardDataProvider = ({
   token,
+  initialData,
   children,
 }: {
   token: string | null;
+  initialData?: {
+    summary?: WorkspaceSummaryDto | null;
+    latestProfileInput?: ProfileInputDto | null;
+    latestCareerProfile?: CareerProfileDto | null;
+    documents?: DocumentDto[] | null;
+    notebookSummary?: JobOfferSummaryDto | null;
+    scrapeSchedule?: ScrapeScheduleDto | null;
+  };
   children: React.ReactNode;
 }) => {
   const summaryQuery = useQuery(
@@ -64,6 +73,7 @@ export const PrivateDashboardDataProvider = ({
       token,
       queryKey: queryKeys.workflow.summary(token),
       queryFn: getWorkspaceSummary,
+      initialData: initialData?.summary ?? undefined,
       ...staticQueryPreset(),
       refetchInterval: (query) => {
         if (isRateLimitedError(query.state.error)) {
@@ -81,6 +91,7 @@ export const PrivateDashboardDataProvider = ({
       token,
       queryKey: queryKeys.profileInputs.latest(token),
       queryFn: getLatestProfileInput,
+      initialData: initialData?.latestProfileInput ?? undefined,
       ...staticQueryPreset(),
     }),
   );
@@ -90,6 +101,7 @@ export const PrivateDashboardDataProvider = ({
       token,
       queryKey: queryKeys.careerProfiles.latest(token),
       queryFn: getLatestCareerProfile,
+      initialData: initialData?.latestCareerProfile ?? undefined,
       ...staticQueryPreset(),
     }),
   );
@@ -99,6 +111,7 @@ export const PrivateDashboardDataProvider = ({
       token,
       queryKey: queryKeys.documents.list(token),
       queryFn: listDocuments,
+      initialData: initialData?.documents ?? undefined,
       ...mutableQueryPreset(),
       refetchInterval: (query) => {
         if (isRateLimitedError(query.state.error)) {
@@ -117,6 +130,7 @@ export const PrivateDashboardDataProvider = ({
       token,
       queryKey: queryKeys.jobOffers.summary(token),
       queryFn: getNotebookSummary,
+      initialData: initialData?.notebookSummary ?? undefined,
       ...mutableQueryPreset(),
     }),
   );
@@ -126,6 +140,7 @@ export const PrivateDashboardDataProvider = ({
       token,
       queryKey: queryKeys.jobSources.schedule(token),
       queryFn: getScrapeSchedule,
+      initialData: initialData?.scrapeSchedule ?? undefined,
       ...mutableQueryPreset(),
     }),
   );

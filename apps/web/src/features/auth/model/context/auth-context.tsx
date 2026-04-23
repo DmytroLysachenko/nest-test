@@ -24,12 +24,23 @@ type AuthContextValue = {
   clearSession: () => void;
 };
 
+type InitialAuthSession = {
+  token: string | null;
+  user: UserDto | null;
+};
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [token, setToken] = useState<string | null>(null);
-  const [sessionUser, setSessionUser] = useState<UserDto | null>(null);
-  const [isHydrated, setIsHydrated] = useState(false);
+export const AuthProvider = ({
+  children,
+  initialSession,
+}: {
+  children: ReactNode;
+  initialSession?: InitialAuthSession;
+}) => {
+  const [token, setToken] = useState<string | null>(initialSession?.token ?? null);
+  const [sessionUser, setSessionUser] = useState<UserDto | null>(initialSession?.user ?? null);
+  const [isHydrated, setIsHydrated] = useState(Boolean(initialSession));
 
   useEffect(() => {
     const syncTokens = () => {
@@ -44,7 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return onStoredTokensChanged(syncTokens);
   }, []);
 
-  const userQuery = useAuthMeQuery(token);
+  const userQuery = useAuthMeQuery(token, initialSession?.token === token ? (initialSession?.user ?? null) : null);
 
   useEffect(() => {
     if (userQuery.data) {
