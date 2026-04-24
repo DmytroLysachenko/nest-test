@@ -904,11 +904,14 @@ $finalStatus = $null
 $finalFailureType = $null
 while ((Get-Date) -lt $deadline) {
   Start-Sleep -Seconds 5
+  $run = $null
   try {
     $run = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$sourceRunId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
   } catch {
     if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 429) {
-      Write-Host 'Rate limited while polling run status, retrying...'
+      $delaySeconds = Get-RetryDelaySeconds -Response $_.Exception.Response -DefaultSeconds 15
+      Write-Host "Rate limited while polling run status, retrying in $delaySeconds seconds..."
+      Start-Sleep -Seconds $delaySeconds
       continue
     }
     throw
