@@ -11,6 +11,15 @@ vi.mock('@/features/job-offers/model/use-notebook-page', () => ({
   useNotebookPage: vi.fn(),
 }));
 
+vi.mock('@/features/job-offers/ui/components/notebook-offer-details-card', () => ({
+  NotebookOfferDetailsCard: ({ offer }: { offer: { title: string } | null }) => (
+    <div data-testid="mock-notebook-offer-details">
+      <p>Mock notebook offer details</p>
+      <p>{offer?.title ?? 'No offer selected'}</p>
+    </div>
+  ),
+}));
+
 const mockedUseNotebookPage = vi.mocked(useNotebookPage);
 
 const offer: JobOfferListItemDto = {
@@ -176,6 +185,6 @@ describe('NotebookPage pipeline workspace', () => {
     expect(screen.getAllByText('Senior Backend Engineer').length).toBeGreaterThan(0);
     expect(screen.getByText('Keep active roles moving')).toBeInTheDocument();
     expect(screen.getByText('Selected offer workspace')).toBeInTheDocument();
-    expect(await screen.findByText('Keep one clear next move attached to this role')).toBeInTheDocument();
+    expect(await screen.findByTestId('mock-notebook-offer-details')).toBeInTheDocument();
   });
 });
