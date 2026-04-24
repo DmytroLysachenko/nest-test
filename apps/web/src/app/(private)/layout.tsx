@@ -13,11 +13,6 @@ export default async function PrivateLayout({
     <PrivateLayoutShell
       initialData={{
         summary: bootstrap.summary,
-        latestProfileInput: bootstrap.latestProfileInput,
-        latestCareerProfile: bootstrap.latestCareerProfile,
-        documents: bootstrap.documents,
-        notebookSummary: bootstrap.notebookSummary,
-        scrapeSchedule: bootstrap.scrapeSchedule,
       }}
     >
       {children}

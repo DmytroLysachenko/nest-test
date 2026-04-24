@@ -27,13 +27,7 @@ export const ProfileManagementPage = () => {
   const router = useRouter();
   const auth = useRequireAuth();
   const { deleteAccountMutation } = useAccountDeletion();
-  const {
-    summary,
-    latestCareerProfile,
-    latestProfileInput,
-    documents: sharedDocuments,
-    isBootstrapping,
-  } = usePrivateDashboardData();
+  const { summary, isBootstrapping } = usePrivateDashboardData();
   const setLastVisitedSection = useAppUiStore((state) => state.setLastVisitedSection);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -54,9 +48,6 @@ export const ProfileManagementPage = () => {
     errors,
   } = useProfileManagementData({
     token: auth.token,
-    sharedLatestProfileInput: latestProfileInput,
-    sharedDocuments,
-    sharedLatestCareerProfile: latestCareerProfile,
   });
 
   if (!auth.token || isBootstrapping || !summary) {

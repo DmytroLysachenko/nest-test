@@ -18,6 +18,7 @@ import {
 
 import { env } from '@/shared/config/env';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
+import { usePrivateScrapeScheduleQuery } from '@/shared/lib/dashboard/private-dashboard-resource-queries';
 import { formatDate } from '@/shared/lib/utils/date-format';
 import { Button } from '@/shared/ui/button';
 
@@ -135,7 +136,9 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { summary, scrapeSchedule } = usePrivateDashboardData();
+  const { summary, token } = usePrivateDashboardData();
+  const scrapeScheduleQuery = usePrivateScrapeScheduleQuery(token);
+  const scrapeSchedule = scrapeScheduleQuery.data;
   const workspaceReady = summary?.workflow.needsOnboarding === undefined ? true : !summary.workflow.needsOnboarding;
 
   const navItems = useMemo(() => {

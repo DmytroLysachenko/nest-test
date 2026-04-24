@@ -10,6 +10,7 @@ import {
   getWorkspaceRunStatusTone,
 } from '@/features/workspace/model/workspace-page-helpers';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
+import { usePrivateNotebookSummaryQuery } from '@/shared/lib/dashboard/private-dashboard-resource-queries';
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -20,7 +21,8 @@ import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
 export const WorkspaceActivityBoardPage = () => {
   const auth = useRequireAuth();
   const router = useRouter();
-  const { summary, notebookSummary, isBootstrapping, summaryError, refreshSummary } = usePrivateDashboardData();
+  const { token, summary, isBootstrapping, summaryError, refreshSummary } = usePrivateDashboardData();
+  const notebookSummary = usePrivateNotebookSummaryQuery(token).data;
 
   if (!auth.token || isBootstrapping) {
     return (

@@ -10,6 +10,7 @@ import {
   toNotebookListParams,
 } from '@/features/job-offers/model/utils/notebook-filter-utils';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
+import { usePrivateNotebookSummaryQuery } from '@/shared/lib/dashboard/private-dashboard-resource-queries';
 import { useAppUiStore } from '@/shared/store/app-ui-store';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 
@@ -22,7 +23,9 @@ type UseNotebookPageArgs = {
 };
 
 export const useNotebookPage = ({ token, initialQuickAction = null, initialOfferId = null }: UseNotebookPageArgs) => {
-  const { notebookSummary, summary } = usePrivateDashboardData();
+  const { summary } = usePrivateDashboardData();
+  const notebookSummaryQuery = usePrivateNotebookSummaryQuery(token);
+  const notebookSummary = notebookSummaryQuery.data;
   const selectedId = useAppUiStore((state) => state.notebook.selectedOfferId);
   const selectedOfferIds = useAppUiStore((state) => state.notebook.selectedOfferIds);
   const filters = useAppUiStore((state) => state.notebook.filters);
@@ -185,6 +188,7 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     lastInteractionAt,
     preferencesQuery,
     summaryQuery,
+    sharedSummaryQuery: notebookSummaryQuery,
     workspaceSummary: summary,
     notebookSummary: summaryQuery.data,
     actionPlan: actionPlanQuery.data,

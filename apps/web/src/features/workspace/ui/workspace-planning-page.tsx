@@ -1,26 +1,35 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
-import { JobSourcesPanel } from '@/features/job-sources';
 import {
   formatWorkspaceDateTime,
   getWorkspaceRunStatusLabel,
   getWorkspaceRunStatusTone,
 } from '@/features/workspace/model/workspace-page-helpers';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
+import { usePrivateScrapeScheduleQuery } from '@/shared/lib/dashboard/private-dashboard-resource-queries';
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { HeroHeader, StatRow } from '@/shared/ui/dashboard-primitives';
 import { WorkflowBlockedState } from '@/shared/ui/workflow-blocked-state';
 
+const JobSourcesPanel = dynamic(
+  () => import('@/features/job-sources').then((module) => ({ default: module.JobSourcesPanel })),
+  {
+    loading: () => <div className="bg-surface-muted h-[28rem] animate-pulse rounded-lg" />,
+  },
+);
+
 export const WorkspacePlanningPage = () => {
   const auth = useRequireAuth();
   const router = useRouter();
-  const { summary, scrapeSchedule, isBootstrapping, summaryError, refreshSummary } = usePrivateDashboardData();
+  const { token, summary, isBootstrapping, summaryError, refreshSummary } = usePrivateDashboardData();
+  const scrapeSchedule = usePrivateScrapeScheduleQuery(token).data;
 
   if (!auth.token || isBootstrapping) {
     return (
