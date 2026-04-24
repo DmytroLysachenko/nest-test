@@ -97,16 +97,7 @@ export class DocumentsService {
   }
 
   async confirmUpload(userId: string, dto: ConfirmDocumentDto, traceId?: string) {
-    const document = await this.db
-      .select()
-      .from(documentsTable)
-      .where(and(eq(documentsTable.id, dto.documentId), eq(documentsTable.userId, userId)))
-      .limit(1)
-      .then(([result]) => result);
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
+    const document = await this.getOwnedDocument(userId, dto.documentId);
 
     const exists = await this.gcsService.fileExists(document.storagePath);
     if (!exists) {
@@ -142,6 +133,10 @@ export class DocumentsService {
       meta: { storagePath: document.storagePath },
     });
 
+    if (updated.uploadedAt && updated.extractionStatus === 'PENDING') {
+      this.ensureExtractionQueued(updated.id, userId, traceId);
+    }
+
     return updated;
   }
 
@@ -150,45 +145,15 @@ export class DocumentsService {
       ? and(eq(documentsTable.userId, userId), eq(documentsTable.type, query.type))
       : eq(documentsTable.userId, userId);
 
-    const documents = await this.db.select().from(documentsTable).where(where).orderBy(desc(documentsTable.createdAt));
-    for (const document of documents) {
-      if (document.extractionStatus === 'PENDING' && document.uploadedAt) {
-        this.ensureExtractionQueued(document.id, userId);
-      }
-    }
-    return documents;
+    return this.db.select().from(documentsTable).where(where).orderBy(desc(documentsTable.createdAt));
   }
 
   async getById(userId: string, documentId: string) {
-    const document = await this.db
-      .select()
-      .from(documentsTable)
-      .where(and(eq(documentsTable.id, documentId), eq(documentsTable.userId, userId)))
-      .limit(1)
-      .then(([result]) => result);
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
-
-    if (document.extractionStatus === 'PENDING' && document.uploadedAt) {
-      this.ensureExtractionQueued(document.id, userId);
-    }
-
-    return document;
+    return this.getOwnedDocument(userId, documentId);
   }
 
   async update(userId: string, documentId: string, dto: UpdateDocumentDto) {
-    const document = await this.db
-      .select()
-      .from(documentsTable)
-      .where(and(eq(documentsTable.id, documentId), eq(documentsTable.userId, userId)))
-      .limit(1)
-      .then(([result]) => result);
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
+    const document = await this.getOwnedDocument(userId, documentId);
 
     const [updated] = await this.db
       .update(documentsTable)
@@ -203,16 +168,7 @@ export class DocumentsService {
   }
 
   async extractText(userId: string, dto: ExtractDocumentDto, traceId?: string) {
-    const document = await this.db
-      .select()
-      .from(documentsTable)
-      .where(and(eq(documentsTable.id, dto.documentId), eq(documentsTable.userId, userId)))
-      .limit(1)
-      .then(([result]) => result);
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
+    const document = await this.getOwnedDocument(userId, dto.documentId);
 
     if (!document.uploadedAt) {
       throw new BadRequestException('Document is not uploaded yet');
@@ -247,7 +203,7 @@ export class DocumentsService {
   }
 
   async retryExtraction(userId: string, documentId: string, traceId?: string) {
-    const document = await this.getById(userId, documentId);
+    const document = await this.getOwnedDocument(userId, documentId);
     await this.recordEvent({
       documentId: document.id,
       userId,
@@ -315,7 +271,7 @@ export class DocumentsService {
   }
 
   async listEvents(userId: string, documentId: string) {
-    await this.getById(userId, documentId);
+    await this.getOwnedDocument(userId, documentId);
     return this.db
       .select()
       .from(documentEventsTable)
@@ -332,6 +288,21 @@ export class DocumentsService {
       this.extractionQueue.delete(documentId);
     });
     this.extractionQueue.set(documentId, task);
+  }
+
+  private async getOwnedDocument(userId: string, documentId: string) {
+    const document = await this.db
+      .select()
+      .from(documentsTable)
+      .where(and(eq(documentsTable.id, documentId), eq(documentsTable.userId, userId)))
+      .limit(1)
+      .then(([result]) => result);
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    return document;
   }
 
   private async processQueuedExtraction(documentId: string, userId: string, traceId?: string) {

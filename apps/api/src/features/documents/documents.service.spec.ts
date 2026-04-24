@@ -161,7 +161,7 @@ describe('DocumentsService', () => {
 
   it('returns explicit retry metadata for a single document recovery', async () => {
     const service = new DocumentsService({} as any, {} as any, createConfigService(), createLogger());
-    jest.spyOn(service, 'getById').mockResolvedValue({
+    const getOwnedDocumentSpy = jest.spyOn(DocumentsService.prototype as any, 'getOwnedDocument').mockResolvedValue({
       id: 'doc-1',
       extractionStatus: 'FAILED',
       extractionError: 'Failed to parse PDF',
@@ -186,6 +186,119 @@ describe('DocumentsService', () => {
         }),
       }),
     );
+    getOwnedDocumentSpy.mockRestore();
+  });
+
+  it('keeps list as a pure read without queue side effects', async () => {
+    const queueSpy = jest.spyOn(DocumentsService.prototype as any, 'ensureExtractionQueued');
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockResolvedValue([
+              {
+                id: 'doc-read-1',
+                userId: 'user-1',
+                extractionStatus: 'PENDING',
+                uploadedAt: new Date('2026-04-06T10:00:00.000Z'),
+              },
+            ]),
+          }),
+        }),
+      }),
+    } as any;
+
+    const service = new DocumentsService(db, {} as any, createConfigService(), createLogger());
+    const result = await service.list('user-1', {});
+
+    expect(result).toHaveLength(1);
+    expect(queueSpy).not.toHaveBeenCalled();
+    queueSpy.mockRestore();
+  });
+
+  it('keeps getById as a pure read without queue side effects', async () => {
+    const queueSpy = jest.spyOn(DocumentsService.prototype as any, 'ensureExtractionQueued');
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'doc-read-2',
+                      userId: 'user-1',
+                      extractionStatus: 'PENDING',
+                      uploadedAt: new Date('2026-04-06T10:00:00.000Z'),
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+    } as any;
+
+    const service = new DocumentsService(db, {} as any, createConfigService(), createLogger());
+    const result = await service.getById('user-1', 'doc-read-2');
+
+    expect(result).toEqual(expect.objectContaining({ id: 'doc-read-2' }));
+    expect(queueSpy).not.toHaveBeenCalled();
+    queueSpy.mockRestore();
+  });
+
+  it('queues extraction on confirmUpload instead of waiting for later reads', async () => {
+    const queueSpy = jest
+      .spyOn(DocumentsService.prototype as any, 'ensureExtractionQueued')
+      .mockImplementation(() => {});
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'doc-confirm-1',
+                      userId: 'user-1',
+                      extractionStatus: 'PENDING',
+                      storagePath: 'documents/user-1/doc-confirm-1/cv.pdf',
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            returning: jest.fn().mockResolvedValue([
+              {
+                id: 'doc-confirm-1',
+                extractionStatus: 'PENDING',
+                uploadedAt: new Date('2026-04-06T10:00:00.000Z'),
+              },
+            ]),
+          }),
+        }),
+      }),
+      insert: jest.fn().mockReturnValue({
+        values: jest.fn().mockResolvedValue(undefined),
+      }),
+    } as any;
+    const gcsService = {
+      fileExists: jest.fn().mockResolvedValue(true),
+    } as any;
+
+    const service = new DocumentsService(db, gcsService, createConfigService(), createLogger());
+    const result = await service.confirmUpload('user-1', { documentId: 'doc-confirm-1' }, 'trace-confirm-1');
+
+    expect(result).toEqual(expect.objectContaining({ id: 'doc-confirm-1', extractionStatus: 'PENDING' }));
+    expect(queueSpy).toHaveBeenCalledWith('doc-confirm-1', 'user-1', 'trace-confirm-1');
+    queueSpy.mockRestore();
   });
 
   it('queues extraction and returns pending document state immediately', async () => {
