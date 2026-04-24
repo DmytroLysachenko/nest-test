@@ -148,13 +148,7 @@ export class JobSourcesController {
     @Headers('x-request-id') requestId: string | undefined,
     @Body() dto: ScrapeCompleteDto,
   ) {
-    return this.jobSourcesLifecycleService.completeScrape(
-      dto,
-      authorization,
-      requestId,
-      workerSignature,
-      workerTimestamp,
-    );
+    return this.jobSourcesService.completeScrape(dto, authorization, requestId, workerSignature, workerTimestamp);
   }
 
   @Get('schedule')
