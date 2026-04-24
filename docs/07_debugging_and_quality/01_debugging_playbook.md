@@ -78,6 +78,7 @@ Common failure classes:
 
 - route wired to a lifecycle-only path instead of the full business-finalization path
 - smoke asserting old response shape after API evolution
+- smoke asserting narrative copy fields like `story.summary` instead of stable structural fields such as `story.phase`, `usefulness.status`, or diagnostics counters
 - reuse-backed scrape being treated like a fresh worker run
 - incremental-failure scenario accidentally hitting duplicate-intent or reuse protection
 - polling loops ignoring `429` backoff windows

@@ -1109,8 +1109,14 @@ if ($diagnosticsPayload.data.runId -ne $sourceRunId) {
   throw "Diagnostics run id mismatch. expected=$sourceRunId got=$($diagnosticsPayload.data.runId)"
 }
 if (-not $scrapeWasReused) {
-  if ($null -eq $diagnosticsPayload.data.story.summary) {
-    throw 'Scrape diagnostics missing story.summary.'
+  if ($null -eq $diagnosticsPayload.data.story.phase) {
+    throw 'Scrape diagnostics missing story.phase.'
+  }
+  if ($null -eq $diagnosticsPayload.data.usefulness.status) {
+    throw 'Scrape diagnostics missing usefulness.status.'
+  }
+  if ($null -eq $diagnosticsPayload.data.usefulness.recommendedAction) {
+    throw 'Scrape diagnostics missing usefulness.recommendedAction.'
   }
   if ($null -eq $diagnosticsPayload.data.diagnostics.silentFailure) {
     throw 'Scrape diagnostics missing silentFailure.'

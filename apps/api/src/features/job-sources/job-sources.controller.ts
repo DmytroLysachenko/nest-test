@@ -96,7 +96,7 @@ export class JobSourcesController {
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ) {
-    return this.jobSourcesDiagnosticsService.getRunDiagnostics(user.userId, id);
+    return this.jobSourcesService.getRunDiagnostics(user.userId, id);
   }
 
   @Get('runs/:id/events')
