@@ -237,7 +237,19 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
     }
 
     if (req.method === 'GET' && req.url === '/health') {
-      sendJson(res, 200, { ok: true, queue: runner.getStats() });
+      sendJson(res, 200, {
+        ok: true,
+        queue: runner.getStats(),
+        policy: {
+          queueProvider: env.QUEUE_PROVIDER,
+          maxConcurrentTasks: env.WORKER_MAX_CONCURRENT_TASKS,
+          maxQueueSize: env.WORKER_MAX_QUEUE_SIZE,
+          taskTimeoutMs: env.WORKER_TASK_TIMEOUT_MS,
+          detailConcurrency: env.PRACUJ_DETAIL_CONCURRENCY,
+          detailDelayMs: env.PRACUJ_DETAIL_DELAY_MS,
+          browserFallbackCooldownMs: env.PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS,
+        },
+      });
       return;
     }
 

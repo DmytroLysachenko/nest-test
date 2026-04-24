@@ -1,5 +1,25 @@
 # Performance, Scalability, and Structure Audit Plan
 
+## Status
+
+Implemented on `dev` as of 2026-04-24.
+
+Closed in implementation scope:
+
+- workspace summary query-shape reduction and SQL-based follow-up aggregation
+- reminder delivery batching/concurrency cleanup
+- lightweight job-offer preview/read-model usage for summary surfaces
+- stronger server-assisted private-session bootstrap on the web
+- reduced private-shell overfetch by moving non-shell data out of the global provider
+- development-only React Query devtools loading
+- lazy loading for heavier private panels
+- bounded worker detail-fetch concurrency
+- reduced worker persistence roundtrips
+- explicit worker concurrency/backpressure visibility in runtime health and startup logs
+- document read-path side-effect removal
+
+Remaining optimization from this point is iterative tuning, not unfinished audit debt.
+
 ## Goal
 
 Audit runtime performance and scalability risks across:
