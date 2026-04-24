@@ -83,12 +83,41 @@ Common failure classes:
 - incremental-failure scenario accidentally hitting duplicate-intent or reuse protection
 - polling loops ignoring `429` backoff windows
 - diagnostics assertions expecting fields that only exist on richer worker paths
+- local repo-owned dev processes holding ports or lockfiles used by smoke and Playwright boot
 
 Required mindset:
 
 - treat smoke as an orchestration test, not a single-surface test
 - debug the exact stage first
 - confirm whether the path was `reused`, `accepted`, or `catalog-rematched`
+- check process and lock interference before assuming an application regression
+
+### 1.1 Local Process and Lock Interference
+
+Frequent traps:
+
+- a repo-local `next dev` process keeps `apps/web/.next/dev/lock`
+- repo-local smoke services are already bound to `3100`, `3102`, or `4101`
+- Playwright pre-push boot fails because the web app never starts on `3002`
+- a previous smoke run leaves local worker or web processes alive
+
+Typical signatures:
+
+- `Unable to acquire lock at apps/web/.next/dev/lock`
+- Playwright `net::ERR_CONNECTION_REFUSED` against `http://localhost:3002`
+- smoke starting new local services but reusing stale repo-owned processes
+
+Fast checks:
+
+- inspect repo-local `node` processes and their command lines
+- check whether `apps/web/.next/dev/lock` exists
+- confirm whether `3100`, `3102`, `4101`, and `3002` are already occupied by repo-local processes
+
+Remediation:
+
+- stop the repo-owned `next dev`, worker, or test-server processes
+- remove the stale lockfile only after confirming the owning process is gone
+- rerun the blocked command after clearing the local process state
 
 ### 2. Scrape Enqueue and Run State
 
@@ -106,6 +135,30 @@ Check first:
 - `inserted`
 - `totalOffers`
 - `GET /api/job-sources/runs/:id`
+
+### 2.1 Reuse vs Fresh Run Checklist
+
+Before changing scrape, smoke, or diagnostics logic, identify which path actually happened:
+
+- fresh worker run
+- DB reuse
+- catalog rematch
+- force-refresh bypass
+
+Why this matters:
+
+- fresh runs can produce richer worker diagnostics and callback-side detail
+- reuse-backed runs may legitimately skip worker execution and callback generation
+- smoke assertions that require fresh-run-only fields will fail on valid reuse paths
+- duplicate-intent and rate-limit behavior often looks like scrape failure unless the reuse path is checked first
+
+Minimum fields to inspect:
+
+- enqueue response `accepted`
+- enqueue response `reusedFromRunId`
+- final run `status`
+- diagnostics/usefulness counts
+- whether a worker task was actually received
 
 ### 3. Worker Callback Finalization
 
@@ -165,6 +218,27 @@ In particular:
 - reuse-backed runs may have only lightweight summaries
 - smoke and tests should assert stable contract fields first, then richer fields only where the path guarantees them
 
+Endpoint ownership:
+
+- `/api/job-sources/runs/:id/diagnostics` is the rich business diagnostics contract used by smoke and product/support surfaces
+- `/api/job-sources/runs/:id/events` is the persisted event timeline
+- `/api/job-sources/runs/:id/forensics` is the lower-level investigation surface
+
+Do not swap these responsibilities casually. If controller wiring drifts, smoke may still get a `200` while returning the wrong payload shape.
+
+Prefer asserting:
+
+- ids
+- lifecycle state
+- enums
+- counters
+- usefulness and notebook visibility summaries
+
+Avoid relying on:
+
+- narrative copy fields such as `story.summary`
+- richer worker-only metrics unless the path guarantees a fresh worker run
+
 ## Recommended Debug Workflow By Surface
 
 ### Web Unit or E2E
@@ -191,13 +265,14 @@ In particular:
    - worker execution
    - DB reuse
    - failed incremental scenario
-3. If polling is involved, inspect throttling and retry timing.
-4. If incremental-failure flow is involved, verify:
+3. Check for local process, port, and lock interference before changing code.
+4. If polling is involved, inspect throttling and retry timing.
+5. If incremental-failure flow is involved, verify:
    - unique request id
    - `forceRefresh`
    - failed callback finalization
    - retained offer visibility
-5. If diagnostics assertions fail, compare against the current DTO and actual runtime payload before changing implementation.
+6. If diagnostics assertions fail, compare against the current DTO and actual runtime payload before changing implementation.
 
 ## Known Fragile Patterns To Check Before Coding
 

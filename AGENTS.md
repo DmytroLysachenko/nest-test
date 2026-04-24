@@ -107,6 +107,7 @@ Documentation expectation:
 - Follow the numbered docs system under `docs/`.
 - Update the owning feature/plan/ops doc instead of adding ad-hoc new docs.
 - Prefer references to code paths over copied implementation detail.
+- When fixing smoke, CI, local environment drift, or recurring debugging traps, update the relevant ops/debugging doc in the same slice if the lesson is reusable.
 - Keep docs current during implementation and debugging when durable knowledge changes; do not defer useful doc updates into separate “docs-only cleanup” work unless the user explicitly asks for that split.
 
 Do not:
