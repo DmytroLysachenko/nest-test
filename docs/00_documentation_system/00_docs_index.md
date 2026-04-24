@@ -1,6 +1,6 @@
 # Docs Index
 
-Last updated: 2026-04-16
+Last updated: 2026-04-24
 
 ## Purpose
 
@@ -83,6 +83,12 @@ Coding and architecture standards.
 - `01_frontend_standards.md`
 - `02_backend_and_repo_standards.md`
 
+### `07_debugging_and_quality`
+
+Durable debugging guidance, quality heuristics, and failure-pattern references.
+
+- `01_debugging_playbook.md`
+
 ### `99_archive_legacy`
 
 Superseded or low-priority docs kept only for historical reference.
@@ -108,6 +114,7 @@ Superseded or low-priority docs kept only for historical reference.
 7. `docs/03_plans_and_roadmaps/01_roadmap.md`
 8. `docs/04_architecture_and_data/01_decisions.md`
 9. `docs/05_operations_and_deployment/01_runbook.md`
+10. `docs/07_debugging_and_quality/01_debugging_playbook.md`
 
 ## Maintenance expectation
 
