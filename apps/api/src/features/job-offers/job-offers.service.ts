@@ -75,6 +75,7 @@ import type { JobOfferStatus, JobSource } from '@repo/db';
 const toIsoString = (value: Date | null) => (value ? value.toISOString() : null);
 type ReminderBucketKey = 'overdue' | 'today' | 'upcoming' | 'stale';
 type ReminderDeliveryStatus = 'SENT' | 'FAILED';
+const REMINDER_DELIVERY_CONCURRENCY = 4;
 
 @Injectable()
 export class JobOffersService {
@@ -536,6 +537,46 @@ export class JobOffersService {
         tuning: this.rankingTuning,
       },
     };
+  }
+
+  async listPreview(userId: string, query: ListJobOffersQuery) {
+    const limit = Math.min(query.limit ?? 8, 20);
+    const offset = query.offset ?? 0;
+    const conditions = [eq(userJobOffersTable.userId, userId)];
+
+    if (query.includeExpired !== 'true') {
+      conditions.push(eq(jobOffersTable.isExpired, false));
+    }
+    if (query.status) {
+      conditions.push(eq(userJobOffersTable.status, query.status));
+    }
+    if (query.source) {
+      conditions.push(eq(jobOffersTable.source, query.source as JobSource));
+    }
+    if (query.minScore !== undefined) {
+      conditions.push(sql`${userJobOffersTable.matchScore} >= ${query.minScore}`);
+    }
+    if (query.hasScore !== undefined) {
+      const wantsScore = query.hasScore === 'true';
+      conditions.push(wantsScore ? not(isNull(userJobOffersTable.matchScore)) : isNull(userJobOffersTable.matchScore));
+    }
+
+    const items = await this.db
+      .select({
+        id: userJobOffersTable.id,
+        title: jobOffersTable.title,
+        company: jobOffersTable.company,
+        location: jobOffersTable.location,
+        matchScore: userJobOffersTable.matchScore,
+      })
+      .from(userJobOffersTable)
+      .innerJoin(jobOffersTable, eq(jobOffersTable.id, userJobOffersTable.jobOfferId))
+      .where(and(...conditions))
+      .orderBy(desc(userJobOffersTable.lastStatusAt), desc(userJobOffersTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return { items };
   }
 
   async getDiscovery(userId: string, query: ListJobOffersQuery) {
@@ -1554,85 +1595,138 @@ export class JobOffersService {
       );
 
     const now = new Date();
-    let usersDelivered = 0;
-    let usersFailed = 0;
-    let offersDelivered = 0;
-    let offersFailed = 0;
+    const totals = {
+      usersDelivered: 0,
+      usersFailed: 0,
+      offersDelivered: 0,
+      offersFailed: 0,
+    };
 
-    for (const user of users) {
-      if (!user.email) {
-        continue;
-      }
+    for (let index = 0; index < users.length; index += REMINDER_DELIVERY_CONCURRENCY) {
+      const chunk = users.slice(index, index + REMINDER_DELIVERY_CONCURRENCY);
+      const results = await Promise.all(
+        chunk.map((user) => this.deliverReminderDigestForUser(user.id, user.email, now)),
+      );
 
-      const preview = await this.getReminderPreview(user.id);
-      const deliverableBuckets = this.buildDeliverableReminderBuckets(preview.buckets);
-      const reminderIds = deliverableBuckets.flatMap((bucket) => bucket.items.map((item) => item.id));
-
-      if (!reminderIds.length) {
-        continue;
-      }
-
-      const reminderStateRows = await this.db
-        .select({
-          id: userJobOffersTable.id,
-          reminderLastWindowKey: userJobOffersTable.reminderLastWindowKey,
-          reminderLastDeliveryStatus: userJobOffersTable.reminderLastDeliveryStatus,
-        })
-        .from(userJobOffersTable)
-        .where(and(eq(userJobOffersTable.userId, user.id), inArray(userJobOffersTable.id, reminderIds)));
-
-      const reminderStateMap = new Map(reminderStateRows.map((row) => [row.id, row]));
-      const unsentBuckets = deliverableBuckets
-        .map((bucket) => ({
-          ...bucket,
-          items: bucket.items.filter((item) => {
-            const state = reminderStateMap.get(item.id);
-            const windowKey = this.getReminderWindowKey(bucket.key, now);
-            return !state || state.reminderLastWindowKey !== windowKey || state.reminderLastDeliveryStatus !== 'SENT';
-          }),
-        }))
-        .filter((bucket) => bucket.items.length > 0);
-
-      if (!unsentBuckets.length) {
-        continue;
-      }
-
-      try {
-        await this.mailService.sendNotebookReminderDigest(user.email, {
-          generatedAt: preview.generatedAt,
-          buckets: unsentBuckets.map((bucket) => ({
-            ...bucket,
-            count: bucket.items.length,
-          })),
-        });
-
-        for (const bucket of unsentBuckets) {
-          for (const item of bucket.items) {
-            await this.persistReminderDeliveryState(item.id, now, bucket.key, 'SENT');
-            offersDelivered += 1;
-          }
-        }
-        usersDelivered += 1;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown reminder delivery error';
-        for (const bucket of unsentBuckets) {
-          for (const item of bucket.items) {
-            await this.persistReminderDeliveryState(item.id, now, bucket.key, 'FAILED', message);
-            offersFailed += 1;
-          }
-        }
-        usersFailed += 1;
+      for (const result of results) {
+        totals.usersDelivered += result.usersDelivered;
+        totals.usersFailed += result.usersFailed;
+        totals.offersDelivered += result.offersDelivered;
+        totals.offersFailed += result.offersFailed;
       }
     }
 
     return {
       generatedAt: now.toISOString(),
       usersScanned: users.length,
-      usersDelivered,
-      usersFailed,
-      offersDelivered,
-      offersFailed,
+      usersDelivered: totals.usersDelivered,
+      usersFailed: totals.usersFailed,
+      offersDelivered: totals.offersDelivered,
+      offersFailed: totals.offersFailed,
     };
+  }
+
+  private async deliverReminderDigestForUser(userId: string, email: string | null, now: Date) {
+    if (!email) {
+      return {
+        usersDelivered: 0,
+        usersFailed: 0,
+        offersDelivered: 0,
+        offersFailed: 0,
+      };
+    }
+
+    const preview = await this.getReminderPreview(userId);
+    const deliverableBuckets = this.buildDeliverableReminderBuckets(preview.buckets);
+    const reminderIds = deliverableBuckets.flatMap((bucket) => bucket.items.map((item) => item.id));
+
+    if (!reminderIds.length) {
+      return {
+        usersDelivered: 0,
+        usersFailed: 0,
+        offersDelivered: 0,
+        offersFailed: 0,
+      };
+    }
+
+    const reminderStateRows = await this.db
+      .select({
+        id: userJobOffersTable.id,
+        reminderLastWindowKey: userJobOffersTable.reminderLastWindowKey,
+        reminderLastDeliveryStatus: userJobOffersTable.reminderLastDeliveryStatus,
+      })
+      .from(userJobOffersTable)
+      .where(and(eq(userJobOffersTable.userId, userId), inArray(userJobOffersTable.id, reminderIds)));
+
+    const reminderStateMap = new Map(reminderStateRows.map((row) => [row.id, row]));
+    const unsentBuckets = deliverableBuckets
+      .map((bucket) => ({
+        ...bucket,
+        items: bucket.items.filter((item) => {
+          const state = reminderStateMap.get(item.id);
+          const windowKey = this.getReminderWindowKey(bucket.key, now);
+          return !state || state.reminderLastWindowKey !== windowKey || state.reminderLastDeliveryStatus !== 'SENT';
+        }),
+      }))
+      .filter((bucket) => bucket.items.length > 0);
+
+    if (!unsentBuckets.length) {
+      return {
+        usersDelivered: 0,
+        usersFailed: 0,
+        offersDelivered: 0,
+        offersFailed: 0,
+      };
+    }
+
+    try {
+      await this.mailService?.sendNotebookReminderDigest(email, {
+        generatedAt: preview.generatedAt,
+        buckets: unsentBuckets.map((bucket) => ({
+          ...bucket,
+          count: bucket.items.length,
+        })),
+      });
+
+      await Promise.all(
+        unsentBuckets.map((bucket) =>
+          this.persistReminderDeliveryStateBatch(
+            bucket.items.map((item) => item.id),
+            now,
+            bucket.key,
+            'SENT',
+          ),
+        ),
+      );
+
+      return {
+        usersDelivered: 1,
+        usersFailed: 0,
+        offersDelivered: unsentBuckets.reduce((acc, bucket) => acc + bucket.items.length, 0),
+        offersFailed: 0,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown reminder delivery error';
+
+      await Promise.all(
+        unsentBuckets.map((bucket) =>
+          this.persistReminderDeliveryStateBatch(
+            bucket.items.map((item) => item.id),
+            now,
+            bucket.key,
+            'FAILED',
+            message,
+          ),
+        ),
+      );
+
+      return {
+        usersDelivered: 0,
+        usersFailed: 1,
+        offersDelivered: 0,
+        offersFailed: unsentBuckets.reduce((acc, bucket) => acc + bucket.items.length, 0),
+      };
+    }
   }
 
   private buildDeliverableReminderBuckets(
@@ -1744,13 +1838,17 @@ export class JobOffersService {
     return `${bucket}:${now.toISOString().slice(0, 10)}`;
   }
 
-  private async persistReminderDeliveryState(
-    id: string,
+  private async persistReminderDeliveryStateBatch(
+    ids: string[],
     now: Date,
     bucket: ReminderBucketKey,
     status: ReminderDeliveryStatus,
     error?: string,
   ) {
+    if (!ids.length) {
+      return;
+    }
+
     await this.db
       .update(userJobOffersTable)
       .set({
@@ -1761,7 +1859,7 @@ export class JobOffersService {
         reminderLastAttemptedAt: now,
         reminderLastError: error ?? null,
       })
-      .where(eq(userJobOffersTable.id, id));
+      .where(inArray(userJobOffersTable.id, ids));
   }
 
   private assertSchedulerAuthorization(authorization: string | undefined) {

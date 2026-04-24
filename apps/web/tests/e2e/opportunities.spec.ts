@@ -5,6 +5,18 @@ test('opportunities page renders discovery queue and sends save action', async (
     window.localStorage.setItem('career_assistant_access_token', 'test-access-token');
     window.localStorage.setItem('career_assistant_refresh_token', 'test-refresh-token');
   });
+  await page.context().addCookies([
+    {
+      name: 'career_assistant_access_token',
+      value: 'test-access-token',
+      url: 'http://localhost:3002',
+    },
+    {
+      name: 'career_assistant_refresh_token',
+      value: 'test-refresh-token',
+      url: 'http://localhost:3002',
+    },
+  ]);
 
   await page.route('**/api/user', async (route) => {
     await route.fulfill({

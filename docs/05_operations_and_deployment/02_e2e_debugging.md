@@ -1,13 +1,16 @@
 # E2E Debugging Guide
 
-Practical debugging guide for production and cross-service scrape incidents.
+This document is now the operational companion to the main debugging chapter:
 
-Use this document when:
+- primary debugging reference: `docs/07_debugging_and_quality/01_debugging_playbook.md`
+- operational runtime and production recovery reference: this document
 
-- scrape runs are stuck in `PENDING` or `RUNNING`
-- worker callbacks are not landing
-- production deploys look healthy but real scrapes fail
-- frontend flow works partially but the end-to-end workflow breaks
+Use this file for:
+
+- production/runtime triage
+- support bundle and Cloud Run workflows
+- callback replay, reconciliation, and recovery actions
+- environment and deployment-aware debugging
 
 ## Current Production References
 
@@ -415,7 +418,7 @@ Interpretation:
 - the scheduler now pauses automated scrapes when recent runs show clustered `parse`, `network`, `callback`, or `timeout` failures
 - manual runs can still be triggered, but the pause is usually a source-health signal rather than a scheduler bug
 
-## Current Known Production Incident
+## Historical Example
 
 Observed on March 16, 2026:
 
@@ -424,7 +427,7 @@ Observed on March 16, 2026:
 - API never saw the worker request id
 - production API had no explicit `WORKER_CALLBACK_URL`, so callback payload generation could fall back to `http://0.0.0.0:8080/api/job-sources/complete`, which is invalid for Cloud Run outbound callbacks
 
-## Recommended Debug Workflow
+## Recommended Runtime Debug Workflow
 
 1. Start with `pnpm support:bundle --recipe scrape-incident --run-id <run-id>`.
 2. Read `job_source_runs`, `job_source_run_events`, and `job_source_callback_events`.

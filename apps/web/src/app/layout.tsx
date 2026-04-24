@@ -1,4 +1,5 @@
 import { Plus_Jakarta_Sans, Sora } from 'next/font/google';
+import { cookies } from 'next/headers';
 
 import { Providers } from '@/app/providers';
 
@@ -21,17 +22,23 @@ export const metadata: Metadata = {
   description: 'JobSeeker workspace for profile management, automated sourcing, and offer triage.',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const initialSession = {
+    token: cookieStore.get('career_assistant_access_token')?.value ?? null,
+    user: null,
+  };
+
   return (
     <html lang="en">
       <body
         className={`${bodyFont.variable} ${headingFont.variable} bg-background text-foreground min-h-screen antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Providers initialSession={initialSession}>{children}</Providers>
       </body>
     </html>
   );

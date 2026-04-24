@@ -1369,6 +1369,59 @@ describe('JobOffersService', () => {
     expect(whereQuery.sql).toContain('"job_offers"."is_expired" = $');
   });
 
+  it('returns lightweight preview rows for summary surfaces', async () => {
+    const select = jest.fn().mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        innerJoin: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                offset: jest.fn().mockResolvedValue([
+                  {
+                    id: 'ujo-preview-1',
+                    title: 'Frontend Engineer',
+                    company: 'Acme',
+                    location: 'Remote',
+                    matchScore: 81,
+                  },
+                ]),
+              }),
+            }),
+          }),
+        }),
+      }),
+    });
+    const service = new JobOffersService(
+      { select } as any,
+      { generateText: jest.fn() } as any,
+      {
+        get: jest.fn((key: string) => {
+          if (key === 'NOTEBOOK_APPROX_VIOLATION_PENALTY') return 15;
+          if (key === 'NOTEBOOK_APPROX_MAX_VIOLATION_PENALTY') return 45;
+          if (key === 'NOTEBOOK_APPROX_SCORED_BONUS') return 5;
+          if (key === 'NOTEBOOK_EXPLORE_UNSCORED_BASE') return 55;
+          if (key === 'NOTEBOOK_EXPLORE_RECENCY_WEIGHT') return 12;
+          if (key === 'GEMINI_MODEL') return 'gemini-1.5-flash-test';
+          return undefined;
+        }),
+      } as any,
+    );
+
+    const result = await service.listPreview('user-1', { limit: 8, offset: 0, mode: 'strict' });
+
+    expect(result).toEqual({
+      items: [
+        {
+          id: 'ujo-preview-1',
+          title: 'Frontend Engineer',
+          company: 'Acme',
+          location: 'Remote',
+          matchScore: 81,
+        },
+      ],
+    });
+  });
+
   it('returns discovery summary counts for unseen, reviewed, and pipeline buckets', async () => {
     const select = jest.fn().mockReturnValue({
       from: jest.fn().mockReturnValue({

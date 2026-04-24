@@ -8,12 +8,20 @@ import { AuthProvider } from '@/features/auth/model/context/auth-context';
 import { createQueryClient } from '@/shared/lib/query/query-client';
 import { AppToaster } from '@/shared/ui/toaster';
 
-export const Providers = ({ children }: { children: ReactNode }) => {
+import type { UserDto } from '@/shared/types/api';
+
+export const Providers = ({
+  children,
+  initialSession,
+}: {
+  children: ReactNode;
+  initialSession?: { token: string | null; user: UserDto | null };
+}) => {
   const [queryClient] = useState(() => createQueryClient());
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+      <AuthProvider initialSession={initialSession}>
         {children}
         <AppToaster />
         <ReactQueryDevtools initialIsOpen={false} />

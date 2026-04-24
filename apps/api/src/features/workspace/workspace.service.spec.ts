@@ -8,6 +8,7 @@ describe('WorkspaceService', () => {
           where: jest.fn().mockImplementation(() => {
             const data = results.shift() ?? [];
             const resultObj = {
+              limit: jest.fn().mockResolvedValue(data),
               orderBy: jest.fn().mockReturnValue({
                 limit: jest.fn().mockResolvedValue(data),
               }),
@@ -64,7 +65,7 @@ describe('WorkspaceService', () => {
       ], // offers status counts
       [{ value: 8 }], // offers scored
       [{ updatedAt: new Date('2026-01-03') }], // last offer
-      [{ status: 'APPLIED', pipelineMeta: { followUpAt: '2026-01-01T00:00:00.000Z' } }], // follow-up offers
+      [{ value: 1 }], // follow-up due count
       [{ status: 'READY', count: 2 }], // document status counts
       [{ value: 2 }], // run total
       [{ status: 'COMPLETED', createdAt: new Date('2026-01-04') }], // latest run

@@ -1,6 +1,6 @@
 # Code To Docs Map
 
-Last updated: 2026-04-16
+Last updated: 2026-04-24
 
 ## Purpose
 
@@ -18,6 +18,7 @@ Responsible docs:
 - `docs/06_engineering_standards/02_backend_and_repo_standards.md`
 - `docs/05_operations_and_deployment/01_runbook.md`
 - `docs/05_operations_and_deployment/02_e2e_debugging.md`
+- `docs/07_debugging_and_quality/01_debugging_playbook.md`
 - `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md` when catalog/company direction changes
 
@@ -53,6 +54,7 @@ Responsible docs:
 
 - `docs/05_operations_and_deployment/01_runbook.md`
 - `docs/05_operations_and_deployment/02_e2e_debugging.md`
+- `docs/07_debugging_and_quality/01_debugging_playbook.md`
 - `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
 - `docs/01_project_context/02_project_state.md`
 - `docs/06_engineering_standards/02_backend_and_repo_standards.md`
@@ -98,6 +100,7 @@ Responsible docs:
 - `docs/05_operations_and_deployment/03_prod_deploy_guide.md`
 - `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md`
 - `docs/05_operations_and_deployment/05_env_matrix.md`
+- `docs/07_debugging_and_quality/01_debugging_playbook.md` when CI/runtime debugging guidance changes
 - `docs/01_project_context/02_project_state.md` when capability status changes
 
 ## Update trigger

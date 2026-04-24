@@ -5,6 +5,18 @@ test('onboarding flow saves structured input and triggers generation', async ({ 
     window.localStorage.setItem('career_assistant_access_token', 'test-access-token');
     window.localStorage.setItem('career_assistant_refresh_token', 'test-refresh-token');
   });
+  await page.context().addCookies([
+    {
+      name: 'career_assistant_access_token',
+      value: 'test-access-token',
+      url: 'http://localhost:3002',
+    },
+    {
+      name: 'career_assistant_refresh_token',
+      value: 'test-refresh-token',
+      url: 'http://localhost:3002',
+    },
+  ]);
 
   await page.route('**/api/user', async (route) => {
     await route.fulfill({
@@ -195,6 +207,18 @@ test('onboarding loads server draft into form', async ({ page }) => {
     window.localStorage.setItem('career_assistant_access_token', 'test-access-token');
     window.localStorage.setItem('career_assistant_refresh_token', 'test-refresh-token');
   });
+  await page.context().addCookies([
+    {
+      name: 'career_assistant_access_token',
+      value: 'test-access-token',
+      url: 'http://localhost:3002',
+    },
+    {
+      name: 'career_assistant_refresh_token',
+      value: 'test-refresh-token',
+      url: 'http://localhost:3002',
+    },
+  ]);
 
   await page.route('**/api/user', async (route) => {
     await route.fulfill({
@@ -284,6 +308,18 @@ test('onboarding keeps step-one values after reload via local draft persistence'
     window.localStorage.setItem('career_assistant_access_token', 'test-access-token');
     window.localStorage.setItem('career_assistant_refresh_token', 'test-refresh-token');
   });
+  await page.context().addCookies([
+    {
+      name: 'career_assistant_access_token',
+      value: 'test-access-token',
+      url: 'http://localhost:3002',
+    },
+    {
+      name: 'career_assistant_refresh_token',
+      value: 'test-refresh-token',
+      url: 'http://localhost:3002',
+    },
+  ]);
 
   await page.route('**/api/user', async (route) => {
     await route.fulfill({

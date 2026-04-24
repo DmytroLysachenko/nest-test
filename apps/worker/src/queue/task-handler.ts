@@ -12,6 +12,7 @@ export const handleTask = async (
     listingDelayMs?: number;
     listingCooldownMs?: number;
     detailDelayMs?: number;
+    detailConcurrency?: number;
     browserFallbackCooldownMs?: number;
     detailCacheHours?: number;
     listingOnly?: boolean;
@@ -45,6 +46,7 @@ export const handleTask = async (
         listingDelayMs: options.listingDelayMs,
         listingCooldownMs: options.listingCooldownMs,
         detailDelayMs: options.detailDelayMs,
+        detailConcurrency: options.detailConcurrency,
         browserFallbackCooldownMs: options.browserFallbackCooldownMs,
         detailCacheHours: options.detailCacheHours,
         listingOnly: options.listingOnly,

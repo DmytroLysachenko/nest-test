@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Inbox } from 'lucide-react';
 
@@ -14,10 +15,20 @@ import { formatCountLabel } from '@/shared/lib/presentation/job-search-ui';
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { DataTableShell, HeroHeader, MetricCard, StatusPill } from '@/shared/ui/dashboard-primitives';
+import { HeroHeader, MetricCard, StatusPill } from '@/shared/ui/dashboard-primitives';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { WorkflowFeedback } from '@/shared/ui/workflow-feedback';
 import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
+
+const WorkspaceRecentOffersPanel = dynamic(
+  () =>
+    import('@/features/workspace/ui/components/workspace-recent-offers-panel').then((module) => ({
+      default: module.WorkspaceRecentOffersPanel,
+    })),
+  {
+    loading: () => <div className="bg-surface-muted h-48 animate-pulse rounded-lg" />,
+  },
+);
 
 export const WorkspaceDashboardPage = () => {
   const auth = useRequireAuth();
@@ -249,61 +260,14 @@ export const WorkspaceDashboardPage = () => {
         </Card>
       </section>
 
-      <DataTableShell title="Recent roles" description="A quick scan of the latest opportunities in your workspace.">
-        {dashboard.isOffersLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="bg-surface-muted h-10 animate-pulse rounded-lg" />
-            ))}
-          </div>
-        ) : dashboard.offersError ? (
-          <WorkflowFeedback
-            title="Recent roles are temporarily unavailable"
-            description={dashboard.offersError}
-            tone="danger"
-            actionLabel="Retry"
-            onAction={() => {
-              void dashboard.refetchOffers();
-            }}
-          />
-        ) : offers.length ? (
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-text-soft text-left">
-                <th className="pb-3 pr-3 text-xs font-semibold uppercase tracking-[0.12em]">Role</th>
-                <th className="pb-3 pr-3 text-xs font-semibold uppercase tracking-[0.12em]">Company</th>
-                <th className="pb-3 pr-3 text-xs font-semibold uppercase tracking-[0.12em]">Location</th>
-                <th className="pb-3 text-xs font-semibold uppercase tracking-[0.12em]">Match</th>
-              </tr>
-            </thead>
-            <tbody>
-              {offers.map((offer) => (
-                <tr key={offer.id} className="align-top">
-                  <td className="py-3 pr-3">
-                    <p className="text-text-strong font-medium">{offer.title}</p>
-                  </td>
-                  <td className="text-text-soft py-3 pr-3">{offer.company}</td>
-                  <td className="text-text-soft py-3 pr-3">{offer.location ?? 'n/a'}</td>
-                  <td className="py-3">
-                    <StatusPill
-                      value={offer.matchScore == null ? 'n/a' : offer.matchScore.toFixed(2)}
-                      tone={offer.matchScore == null ? 'neutral' : offer.matchScore >= 0.7 ? 'success' : 'info'}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="p-4">
-            <EmptyState
-              icon={<Inbox className="h-8 w-8" />}
-              title="No opportunities yet"
-              description="Open Automation to start the first update, then return here once new roles arrive."
-            />
-          </div>
-        )}
-      </DataTableShell>
+      <WorkspaceRecentOffersPanel
+        offers={offers}
+        isLoading={dashboard.isOffersLoading}
+        errorMessage={dashboard.offersError}
+        onRetry={() => {
+          void dashboard.refetchOffers();
+        }}
+      />
     </main>
   );
 };

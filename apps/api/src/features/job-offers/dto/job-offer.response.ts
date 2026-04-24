@@ -299,6 +299,23 @@ export class DiscoveryJobOfferItem extends JobOfferItem {
   isInPipeline!: boolean;
 }
 
+export class JobOfferPreviewItem {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty({ required: false })
+  company!: string | null;
+
+  @ApiProperty({ required: false })
+  location!: string | null;
+
+  @ApiProperty({ required: false })
+  matchScore!: number | null;
+}
+
 export class JobOfferListResponse {
   @ApiProperty({ type: [JobOfferItem] })
   items!: JobOfferItem[];
@@ -320,6 +337,11 @@ export class JobOfferListResponse {
 
   @ApiProperty({ required: false, type: JobOfferCollectionState })
   collectionState?: JobOfferCollectionState;
+}
+
+export class JobOfferPreviewResponse {
+  @ApiProperty({ type: [JobOfferPreviewItem] })
+  items!: JobOfferPreviewItem[];
 }
 
 export class DiscoveryJobOfferListResponse {

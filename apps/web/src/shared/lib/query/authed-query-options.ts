@@ -7,6 +7,7 @@ type BuildAuthedQueryOptionsInput<TQueryFnData, TData = TQueryFnData> = {
   queryKey: QueryKey;
   queryFn: (token: string) => Promise<TQueryFnData>;
   enabled?: boolean;
+  initialData?: TQueryFnData;
   refetchInterval?: UseQueryOptions<TQueryFnData, Error, TData>['refetchInterval'];
   refetchOnWindowFocus?: UseQueryOptions<TQueryFnData, Error, TData>['refetchOnWindowFocus'];
   refetchOnReconnect?: UseQueryOptions<TQueryFnData, Error, TData>['refetchOnReconnect'];
@@ -25,6 +26,7 @@ export const buildAuthedQueryOptions = <TQueryFnData, TData = TQueryFnData>({
   queryKey,
   queryFn,
   enabled = true,
+  initialData,
   refetchInterval,
   refetchOnWindowFocus,
   refetchOnReconnect,
@@ -35,6 +37,7 @@ export const buildAuthedQueryOptions = <TQueryFnData, TData = TQueryFnData>({
   queryKey,
   queryFn: () => queryFn(token as string),
   enabled: Boolean(token) && enabled,
+  ...(initialData !== undefined ? { initialData } : {}),
   ...(refetchInterval !== undefined ? { refetchInterval } : {}),
   ...(refetchOnWindowFocus !== undefined ? { refetchOnWindowFocus } : {}),
   ...(refetchOnReconnect !== undefined ? { refetchOnReconnect } : {}),

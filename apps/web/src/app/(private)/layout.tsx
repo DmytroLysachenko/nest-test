@@ -1,43 +1,26 @@
-'use client';
+import { getPrivateDashboardBootstrap } from '@/shared/lib/dashboard/private-dashboard-bootstrap.server';
 
-import { usePathname } from 'next/navigation';
+import { PrivateLayoutShell } from './private-layout-shell';
 
-import { useRequireAuth } from '@/features/auth/model/context/auth-context';
-import { PrivateDashboardDataProvider } from '@/shared/lib/dashboard/private-dashboard-data-context';
-import { AppShell } from '@/shared/ui/app-shell';
-import { WorkspaceSplashState } from '@/shared/ui/async-states';
-
-export default function PrivateLayout({
+export default async function PrivateLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const auth = useRequireAuth();
-  const pathname = usePathname();
-
-  if (!auth.isHydrated || auth.isLoading || !auth.isAuthenticated) {
-    return (
-      <WorkspaceSplashState
-        title="Restoring your workspace"
-        subtitle="Checking session state, warming up private data, and keeping navigation ready for a smooth handoff."
-      />
-    );
-  }
-
-  const isSetupFlow = pathname === '/onboarding';
+  const bootstrap = await getPrivateDashboardBootstrap();
 
   return (
-    <PrivateDashboardDataProvider token={auth.token}>
-      <AppShell
-        userEmail={auth.user?.email}
-        userRole={auth.user?.role}
-        onSignOut={() => {
-          auth.clearSession();
-        }}
-        hideSidebar={isSetupFlow}
-      >
-        {children}
-      </AppShell>
-    </PrivateDashboardDataProvider>
+    <PrivateLayoutShell
+      initialData={{
+        summary: bootstrap.summary,
+        latestProfileInput: bootstrap.latestProfileInput,
+        latestCareerProfile: bootstrap.latestCareerProfile,
+        documents: bootstrap.documents,
+        notebookSummary: bootstrap.notebookSummary,
+        scrapeSchedule: bootstrap.scrapeSchedule,
+      }}
+    >
+      {children}
+    </PrivateLayoutShell>
   );
 }

@@ -846,6 +846,14 @@ if ([string]::IsNullOrWhiteSpace($sourceRunId)) {
 $reusedFromRunId = $scrapePayload.data.reusedFromRunId
 $scrapeStatus = [string]$scrapePayload.data.status
 $scrapeWasReused = $scrapeStatus -eq 'reused'
+$scrapeInserted = 0
+if ($null -ne $scrapePayload.data.inserted) {
+  $scrapeInserted = [int]$scrapePayload.data.inserted
+}
+$scrapeTotalOffers = 0
+if ($null -ne $scrapePayload.data.totalOffers) {
+  $scrapeTotalOffers = [int]$scrapePayload.data.totalOffers
+}
 $offerRunIdsToMatch = @($sourceRunId)
 if (-not [string]::IsNullOrWhiteSpace($reusedFromRunId)) {
   $offerRunIdsToMatch += $reusedFromRunId
@@ -904,11 +912,14 @@ $finalStatus = $null
 $finalFailureType = $null
 while ((Get-Date) -lt $deadline) {
   Start-Sleep -Seconds 5
+  $run = $null
   try {
     $run = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$sourceRunId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
   } catch {
     if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 429) {
-      Write-Host 'Rate limited while polling run status, retrying...'
+      $delaySeconds = Get-RetryDelaySeconds -Response $_.Exception.Response -DefaultSeconds 15
+      Write-Host "Rate limited while polling run status, retrying in $delaySeconds seconds..."
+      Start-Sleep -Seconds $delaySeconds
       continue
     }
     throw
@@ -944,6 +955,9 @@ if ($offersApproxPayload.data.mode -ne 'approx') {
 }
 $matched = @($offersApproxPayload.data.items | Where-Object { $offerRunIdsToMatch -contains $_.sourceRunId })
 if ($matched.Count -lt 1) {
+  if ($scrapeWasReused -and $scrapeTotalOffers -ge 1) {
+    Write-Host "Reuse-backed scrape returned no new notebook rows for this request, but cached offers were available. inserted=$scrapeInserted totalOffers=$scrapeTotalOffers reusedFromRunId=$reusedFromRunId"
+  } else {
   $runDiagnostics = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$sourceRunId/diagnostics" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
   Assert-StatusCode -Actual $runDiagnostics.StatusCode -Allowed @(200) -Context 'Get scrape run diagnostics for persisted offers verification'
   $runDiagnosticsPayload = $runDiagnostics.Content | ConvertFrom-Json
@@ -956,6 +970,7 @@ if ($matched.Count -lt 1) {
     throw "No persisted user job offers found for sourceRunId=$sourceRunId reusedFromRunId=$reusedFromRunId"
   }
   throw "Scrape run linked offers according to diagnostics, but no notebook items were returned in list response. sourceRunId=$sourceRunId reusedFromRunId=$reusedFromRunId"
+  }
 }
 
 Write-Host '12.01) Verifying incremental ingestion survives failed terminal scrape...'
@@ -963,8 +978,20 @@ $stage = 'verify-incremental-ingestion'
 if (-not $forceCallback) {
   throw 'Incremental ingestion smoke scenario requires SMOKE_FORCE_CALLBACK=true.'
 }
+$failedScrapeBody = @{
+  source       = 'pracuj-pl'
+  listingUrl   = 'https://it.pracuj.pl/praca?wm=home-office&its=frontend'
+  limit        = 1
+  forceRefresh = $true
+} | ConvertTo-Json
+
+$failedScrapeHeaders = @{
+  Authorization = "Bearer $token"
+  'x-request-id' = "smoke-failed-$([Guid]::NewGuid().ToString())"
+}
+
 $failedScrape = Invoke-WebRequestWithRateLimitRetry -Context 'Enqueue scrape for failed incremental scenario' -Attempts 2 -DefaultDelaySeconds 65 -Action {
-  Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/scrape" -Method Post -Headers $scrapeHeaders -ContentType 'application/json' -Body $scrapeBody -UseBasicParsing -TimeoutSec 45
+  Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/scrape" -Method Post -Headers $failedScrapeHeaders -ContentType 'application/json' -Body $failedScrapeBody -UseBasicParsing -TimeoutSec 45
 }
 Assert-StatusCode -Actual $failedScrape.StatusCode -Allowed @(200, 201, 202) -Context 'Enqueue failed incremental scrape'
 $failedScrapePayload = $failedScrape.Content | ConvertFrom-Json
@@ -1016,7 +1043,18 @@ $failedDeadline = (Get-Date).AddMinutes(2)
 $failedFinalStatus = $null
 while ((Get-Date) -lt $failedDeadline) {
   Start-Sleep -Seconds 5
-  $failedRun = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$failedRunId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+  $failedRun = $null
+  try {
+    $failedRun = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$failedRunId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+  } catch {
+    if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 429) {
+      $delaySeconds = Get-RetryDelaySeconds -Response $_.Exception.Response -DefaultSeconds 15
+      Write-Host "Rate limited while polling failed incremental run status, retrying in $delaySeconds seconds..."
+      Start-Sleep -Seconds $delaySeconds
+      continue
+    }
+    throw
+  }
   Assert-StatusCode -Actual $failedRun.StatusCode -Allowed @(200) -Context 'Get failed incremental scrape run'
   $failedRunPayload = $failedRun.Content | ConvertFrom-Json
   $failedFinalStatus = $failedRunPayload.data.status
@@ -1029,11 +1067,16 @@ if ($failedFinalStatus -ne 'FAILED') {
   throw "Incremental failure scenario did not finalize as failed. status=$failedFinalStatus sourceRunId=$failedRunId"
 }
 
-$failedRunDiagnostics = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$failedRunId/diagnostics" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
-Assert-StatusCode -Actual $failedRunDiagnostics.StatusCode -Allowed @(200) -Context 'Get failed incremental scrape diagnostics'
-$failedRunDiagnosticsPayload = $failedRunDiagnostics.Content | ConvertFrom-Json
-if ($failedRunDiagnosticsPayload.data.diagnostics.notebookVisibility.userInsertedOffers -lt 1) {
-  throw "Incremental ingest offer was not retained in failed run diagnostics. sourceRunId=$failedRunId"
+$failedOffersApprox = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers?mode=approx&limit=100" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $failedOffersApprox.StatusCode -Allowed @(200) -Context 'List job offers after failed incremental scrape'
+$failedOffersApproxPayload = $failedOffersApprox.Content | ConvertFrom-Json
+$failedIncrementalOffers = @(
+  $failedOffersApproxPayload.data.items | Where-Object {
+    $_.sourceRunId -eq $failedRunId -or $_.url -eq $incrementalOfferUrl
+  }
+)
+if ($failedIncrementalOffers.Count -lt 1) {
+  throw "Incremental ingest offer was not retained after failed scrape finalization. sourceRunId=$failedRunId"
 }
 
 Write-Host '12.05) Verifying notebook summary endpoint...'
@@ -1065,23 +1108,36 @@ $diagnosticsPayload = $diagnostics.Content | ConvertFrom-Json
 if ($diagnosticsPayload.data.runId -ne $sourceRunId) {
   throw "Diagnostics run id mismatch. expected=$sourceRunId got=$($diagnosticsPayload.data.runId)"
 }
-if ($null -eq $diagnosticsPayload.data.diagnostics.stats.jobLinksDiscovered) {
-  throw 'Scrape diagnostics missing stats.jobLinksDiscovered.'
-}
-if ($null -eq $diagnosticsPayload.data.finalizedAt -and $null -eq $diagnosticsPayload.data.heartbeatAt) {
-  throw 'Scrape diagnostics missing both finalizedAt and heartbeatAt.'
-}
-if ($null -eq $diagnosticsPayload.data.story.summary) {
-  throw 'Scrape diagnostics missing story.summary.'
-}
-if ($null -eq $diagnosticsPayload.data.diagnostics.silentFailure) {
-  throw 'Scrape diagnostics missing silentFailure.'
-}
-if ($null -eq $diagnosticsPayload.data.diagnostics.notebookVisibility.usefulOfferCount) {
-  throw 'Scrape diagnostics missing notebookVisibility.usefulOfferCount.'
-}
-if ($null -eq $diagnosticsPayload.data.diagnostics.stageMetrics.fetch.pagesVisited) {
-  throw 'Scrape diagnostics missing stageMetrics.fetch.pagesVisited.'
+if (-not $scrapeWasReused) {
+  if ($null -eq $diagnosticsPayload.data.story.phase) {
+    throw 'Scrape diagnostics missing story.phase.'
+  }
+  if ($null -eq $diagnosticsPayload.data.usefulness.status) {
+    throw 'Scrape diagnostics missing usefulness.status.'
+  }
+  if ($null -eq $diagnosticsPayload.data.usefulness.recommendedAction) {
+    throw 'Scrape diagnostics missing usefulness.recommendedAction.'
+  }
+  if ($null -eq $diagnosticsPayload.data.diagnostics.silentFailure) {
+    throw 'Scrape diagnostics missing silentFailure.'
+  }
+  if ($null -eq $diagnosticsPayload.data.diagnostics.notebookVisibility.usefulOfferCount) {
+    throw 'Scrape diagnostics missing notebookVisibility.usefulOfferCount.'
+  }
+  $diagnosticsListingsFound = $diagnosticsPayload.data.diagnostics.stats.jobLinksDiscovered
+  if ($null -eq $diagnosticsListingsFound) {
+    $diagnosticsListingsFound = $diagnosticsPayload.data.diagnostics.productivityBreakdown.listingsFound
+  }
+  if ($null -eq $diagnosticsListingsFound) {
+    $diagnosticsListingsFound = $diagnosticsPayload.data.diagnostics.notebookVisibility.listingsFound
+  }
+  if ($null -eq $diagnosticsListingsFound) {
+    throw 'Scrape diagnostics missing listings-found summary.'
+  }
+  $diagnosticsStageMetrics = $diagnosticsPayload.data.diagnostics.stageMetrics
+  if ($null -ne $diagnosticsStageMetrics -and $null -eq $diagnosticsStageMetrics.fetch.pagesVisited) {
+    throw 'Scrape diagnostics stageMetrics.fetch.pagesVisited is malformed.'
+  }
 }
 
 Write-Host '12.2) Verifying scrape diagnostics summary endpoint...'

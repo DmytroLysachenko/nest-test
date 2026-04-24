@@ -7,6 +7,7 @@ import type {
   JobOfferFocusDto,
   JobOfferActionPlanDto,
   JobOfferSummaryDto,
+  JobOfferPreviewDto,
   JobOfferPrepPacketDto,
   JobOfferReminderPreviewDto,
   JobOffersListDto,
@@ -76,6 +77,12 @@ const toQuery = (params: ListJobOffersParams) => {
 
 export const listJobOffers = (token: string, params: ListJobOffersParams) =>
   apiRequest<JobOffersListDto>(`/job-offers${toQuery(params)}`, {
+    method: 'GET',
+    token,
+  });
+
+export const listJobOfferPreview = (token: string, params: ListJobOffersParams) =>
+  apiRequest<JobOfferPreviewDto>(`/job-offers/preview${toQuery(params)}`, {
     method: 'GET',
     token,
   });
@@ -285,12 +292,3 @@ export type JobOfferPreviewRow = {
   location: string | null;
   matchScore: number | null;
 };
-
-export const getJobOffersPreview = (data: JobOffersListDto): JobOfferPreviewRow[] =>
-  data.items.map((offer) => ({
-    id: offer.id,
-    title: offer.title,
-    company: offer.company,
-    location: offer.location,
-    matchScore: offer.matchScore,
-  }));

@@ -5,6 +5,9 @@ import { getDb } from './client';
 
 import type { NormalizedJob } from '../sources/types';
 
+const PERSIST_BATCH_SIZE = 250;
+const PERSIST_CONCURRENCY = 4;
+
 const mapSource = (source: string): 'PRACUJ_PL' => {
   if (source === 'pracuj-pl') {
     return 'PRACUJ_PL';
@@ -29,6 +32,26 @@ const chunk = <T>(items: T[], size: number) => {
     result.push(items.slice(i, i + size));
   }
   return result;
+};
+
+const runWithConcurrency = async <T>(items: T[], concurrency: number, worker: (item: T) => Promise<void>) => {
+  for (let index = 0; index < items.length; index += concurrency) {
+    const batch = items.slice(index, index + concurrency);
+    await Promise.all(batch.map((item) => worker(item)));
+  }
+};
+
+export const dedupeUrls = (urls: string[]) => Array.from(new Set(urls.filter(Boolean)));
+
+export const dedupeJobsByUrl = (jobs: NormalizedJob[]) => {
+  const jobsByUrl = new Map<string, NormalizedJob>();
+  for (const job of jobs) {
+    if (!job.url) {
+      continue;
+    }
+    jobsByUrl.set(job.url, job);
+  }
+  return Array.from(jobsByUrl.values());
 };
 
 type TextColumn =
@@ -150,6 +173,8 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
     return null;
   }
 
+  const jobs = dedupeJobsByUrl(input.jobs);
+  const jobLinks = dedupeUrls(input.jobLinks);
   const runId = await ensureRun(databaseUrl, input);
   if (!runId) {
     return null;
@@ -157,131 +182,134 @@ export const persistScrapeResult = async (databaseUrl: string | undefined, input
 
   const source = mapSource(input.source);
 
-  if (input.jobs.length) {
-    const catalogNormalizationRefs = await resolveCatalogNormalizationRefs(db, input.jobs, {
+  if (jobs.length) {
+    const catalogNormalizationRefs = await resolveCatalogNormalizationRefs(db, jobs, {
       source,
       listingUrl: input.listingUrl,
       filters: input.filters ?? null,
     });
 
-    await db
-      .insert(jobOffersTable)
-      .values(
-        input.jobs.map((job, index) => ({
-          source,
-          sourceId: job.sourceId,
-          runId,
-          url: job.url,
-          title: job.title,
-          companyId: catalogNormalizationRefs[index]?.companyId ?? null,
-          jobCategoryId: catalogNormalizationRefs[index]?.jobCategoryId ?? null,
-          employmentTypeId: catalogNormalizationRefs[index]?.employmentTypeId ?? null,
-          contractTypeId: catalogNormalizationRefs[index]?.contractTypeId ?? null,
-          workModeId: catalogNormalizationRefs[index]?.workModeId ?? null,
-          company: job.company,
-          location: job.location,
-          salary: job.salary,
-          employmentType: job.employmentType,
-          sourceCompanyProfileUrl: job.sourceCompanyProfileUrl,
-          applyUrl: job.applyUrl,
-          postedAt: job.postedAt ? new Date(job.postedAt) : null,
-          isExpired: job.isExpired ?? false,
-          expiresAt: job.expiresAt ? new Date(job.expiresAt) : null,
-          salaryMin: catalogNormalizationRefs[index]?.parsedSalary.salaryMin ?? null,
-          salaryMax: catalogNormalizationRefs[index]?.parsedSalary.salaryMax ?? null,
-          salaryCurrency: catalogNormalizationRefs[index]?.parsedSalary.salaryCurrency ?? null,
-          salaryPeriod: catalogNormalizationRefs[index]?.parsedSalary.salaryPeriod ?? null,
-          salaryKind: catalogNormalizationRefs[index]?.parsedSalary.salaryKind ?? null,
-          description: job.description,
-          requirements: job.requirements,
-          details: job.details,
-        })),
-      )
-      .onConflictDoUpdate({
-        target: [jobOffersTable.source, jobOffersTable.url],
-        set: {
-          sourceId: sql`CASE
+    const preparedRows = jobs.map((job, index) => ({
+      source,
+      sourceId: job.sourceId,
+      runId,
+      url: job.url,
+      title: job.title,
+      companyId: catalogNormalizationRefs[index]?.companyId ?? null,
+      jobCategoryId: catalogNormalizationRefs[index]?.jobCategoryId ?? null,
+      employmentTypeId: catalogNormalizationRefs[index]?.employmentTypeId ?? null,
+      contractTypeId: catalogNormalizationRefs[index]?.contractTypeId ?? null,
+      workModeId: catalogNormalizationRefs[index]?.workModeId ?? null,
+      company: job.company,
+      location: job.location,
+      salary: job.salary,
+      employmentType: job.employmentType,
+      sourceCompanyProfileUrl: job.sourceCompanyProfileUrl,
+      applyUrl: job.applyUrl,
+      postedAt: job.postedAt ? new Date(job.postedAt) : null,
+      isExpired: job.isExpired ?? false,
+      expiresAt: job.expiresAt ? new Date(job.expiresAt) : null,
+      salaryMin: catalogNormalizationRefs[index]?.parsedSalary.salaryMin ?? null,
+      salaryMax: catalogNormalizationRefs[index]?.parsedSalary.salaryMax ?? null,
+      salaryCurrency: catalogNormalizationRefs[index]?.parsedSalary.salaryCurrency ?? null,
+      salaryPeriod: catalogNormalizationRefs[index]?.parsedSalary.salaryPeriod ?? null,
+      salaryKind: catalogNormalizationRefs[index]?.parsedSalary.salaryKind ?? null,
+      description: job.description,
+      requirements: job.requirements,
+      details: job.details,
+    }));
+    const fetchedAt = new Date();
+
+    for (const batch of chunk(preparedRows, PERSIST_BATCH_SIZE)) {
+      await db
+        .insert(jobOffersTable)
+        .values(batch)
+        .onConflictDoUpdate({
+          target: [jobOffersTable.source, jobOffersTable.url],
+          set: {
+            sourceId: sql`CASE
             WHEN excluded."source_id" IS NOT NULL AND excluded."source_id" != ''
             THEN excluded."source_id"
             ELSE "job_offers"."source_id"
           END`,
-          runId: sql`excluded."run_id"`,
-          title: sql`CASE
+            runId: sql`excluded."run_id"`,
+            title: sql`CASE
             WHEN excluded."title" IS NOT NULL AND excluded."title" != '' AND excluded."title" != 'Unknown title'
             THEN excluded."title"
             ELSE "job_offers"."title"
           END`,
-          companyId: sql`coalesce("job_offers"."company_id", excluded."company_id")`,
-          jobCategoryId: sql`coalesce("job_offers"."job_category_id", excluded."job_category_id")`,
-          employmentTypeId: sql`coalesce("job_offers"."employment_type_id", excluded."employment_type_id")`,
-          contractTypeId: sql`coalesce("job_offers"."contract_type_id", excluded."contract_type_id")`,
-          workModeId: sql`coalesce("job_offers"."work_mode_id", excluded."work_mode_id")`,
-          company: sql`CASE
+            companyId: sql`coalesce("job_offers"."company_id", excluded."company_id")`,
+            jobCategoryId: sql`coalesce("job_offers"."job_category_id", excluded."job_category_id")`,
+            employmentTypeId: sql`coalesce("job_offers"."employment_type_id", excluded."employment_type_id")`,
+            contractTypeId: sql`coalesce("job_offers"."contract_type_id", excluded."contract_type_id")`,
+            workModeId: sql`coalesce("job_offers"."work_mode_id", excluded."work_mode_id")`,
+            company: sql`CASE
             WHEN excluded."company" IS NOT NULL AND excluded."company" != ''
             THEN excluded."company"
             ELSE "job_offers"."company"
           END`,
-          location: sql`CASE
+            location: sql`CASE
             WHEN excluded."location" IS NOT NULL AND excluded."location" != ''
             THEN excluded."location"
             ELSE "job_offers"."location"
           END`,
-          salary: sql`CASE
+            salary: sql`CASE
             WHEN excluded."salary" IS NOT NULL AND excluded."salary" != ''
             THEN excluded."salary"
             ELSE "job_offers"."salary"
           END`,
-          salaryMin: sql`coalesce(excluded."salary_min", "job_offers"."salary_min")`,
-          salaryMax: sql`coalesce(excluded."salary_max", "job_offers"."salary_max")`,
-          salaryCurrency: sql`coalesce(excluded."salary_currency", "job_offers"."salary_currency")`,
-          salaryPeriod: sql`coalesce(excluded."salary_period", "job_offers"."salary_period")`,
-          salaryKind: sql`coalesce(excluded."salary_kind", "job_offers"."salary_kind")`,
-          employmentType: sql`CASE
+            salaryMin: sql`coalesce(excluded."salary_min", "job_offers"."salary_min")`,
+            salaryMax: sql`coalesce(excluded."salary_max", "job_offers"."salary_max")`,
+            salaryCurrency: sql`coalesce(excluded."salary_currency", "job_offers"."salary_currency")`,
+            salaryPeriod: sql`coalesce(excluded."salary_period", "job_offers"."salary_period")`,
+            salaryKind: sql`coalesce(excluded."salary_kind", "job_offers"."salary_kind")`,
+            employmentType: sql`CASE
             WHEN excluded."employment_type" IS NOT NULL AND excluded."employment_type" != ''
             THEN excluded."employment_type"
             ELSE "job_offers"."employment_type"
           END`,
-          sourceCompanyProfileUrl: sql`coalesce(excluded."source_company_profile_url", "job_offers"."source_company_profile_url")`,
-          applyUrl: sql`coalesce(excluded."apply_url", "job_offers"."apply_url")`,
-          postedAt: sql`coalesce(excluded."posted_at", "job_offers"."posted_at")`,
-          isExpired: sql`excluded."is_expired"`,
-          expiresAt: sql`CASE
+            sourceCompanyProfileUrl: sql`coalesce(excluded."source_company_profile_url", "job_offers"."source_company_profile_url")`,
+            applyUrl: sql`coalesce(excluded."apply_url", "job_offers"."apply_url")`,
+            postedAt: sql`coalesce(excluded."posted_at", "job_offers"."posted_at")`,
+            isExpired: sql`excluded."is_expired"`,
+            expiresAt: sql`CASE
             WHEN excluded."expires_at" IS NOT NULL THEN excluded."expires_at"
             ELSE "job_offers"."expires_at"
           END`,
-          description: sql`CASE
+            description: sql`CASE
             WHEN excluded."description" IS NOT NULL AND excluded."description" != '' AND excluded."description" != 'No description found'
             THEN excluded."description"
             ELSE "job_offers"."description"
           END`,
-          requirements: sql`CASE
+            requirements: sql`CASE
             WHEN excluded."requirements" IS NOT NULL THEN excluded."requirements"
             ELSE "job_offers"."requirements"
           END`,
-          details: sql`CASE
+            details: sql`CASE
             WHEN excluded."details" IS NOT NULL THEN excluded."details"
             ELSE "job_offers"."details"
           END`,
-          fetchedAt: new Date(),
-        },
-      });
+            fetchedAt,
+          },
+        });
+    }
   }
 
-  if (input.jobLinks.length) {
-    for (const batch of chunk(input.jobLinks, 200)) {
+  if (jobLinks.length) {
+    await runWithConcurrency(chunk(jobLinks, PERSIST_BATCH_SIZE), PERSIST_CONCURRENCY, async (batch) => {
       await db
         .update(jobOffersTable)
         .set({ runId })
         .where(and(eq(jobOffersTable.source, source), inArray(jobOffersTable.url, batch)));
-    }
+    });
   }
 
   await db
     .update(jobSourceRunsTable)
     .set({
       status: 'COMPLETED',
-      totalFound: input.jobLinks.length,
-      scrapedCount: input.jobs.length,
+      totalFound: jobLinks.length,
+      scrapedCount: jobs.length,
       error: null,
       completedAt: new Date(),
     })

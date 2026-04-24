@@ -7,13 +7,18 @@ This file defines how agents should work in this monorepo to keep delivery consi
 Primary project context lives in:
 
 - `README.md`
+- `docs/00_documentation_system/00_docs_index.md`
+- `docs/00_documentation_system/03_code_to_docs_map.md`
 - `docs/01_project_context/01_codex_handoff.md`
 - `storypoints.md`
 - `docs/01_project_context/02_project_state.md`
 - `docs/03_plans_and_roadmaps/01_roadmap.md`
 - `docs/04_architecture_and_data/01_decisions.md`
 - `docs/06_engineering_standards/01_frontend_standards.md`
+- `docs/06_engineering_standards/02_backend_and_repo_standards.md`
 - `docs/05_operations_and_deployment/01_runbook.md`
+- `docs/05_operations_and_deployment/02_e2e_debugging.md`
+- `docs/07_debugging_and_quality/01_debugging_playbook.md`
 
 If instructions conflict, follow this order:
 
@@ -21,6 +26,38 @@ If instructions conflict, follow this order:
 2. `AGENTS.md`
 3. `README.md` and `docs/*`
 4. `storypoints.md`
+
+## Docs Address Book
+
+Use `AGENTS.md` as the index and routing layer. Use the docs for the detailed guidance.
+
+Read these before changing the corresponding area:
+
+- repo/doc structure and ownership:
+  - `docs/00_documentation_system/00_docs_index.md`
+  - `docs/00_documentation_system/03_code_to_docs_map.md`
+- current product/project state:
+  - `docs/01_project_context/01_codex_handoff.md`
+  - `docs/01_project_context/02_project_state.md`
+- product workflow intent:
+  - `docs/02_product_workflows/*`
+- roadmap and planning priorities:
+  - `docs/03_plans_and_roadmaps/01_roadmap.md`
+- architecture and data contracts:
+  - `docs/04_architecture_and_data/01_decisions.md`
+- runtime operations and deployment:
+  - `docs/05_operations_and_deployment/01_runbook.md`
+  - `docs/05_operations_and_deployment/02_e2e_debugging.md`
+  - `docs/05_operations_and_deployment/03_prod_deploy_guide.md`
+  - `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md`
+  - `docs/05_operations_and_deployment/05_env_matrix.md`
+- engineering conventions:
+  - `docs/06_engineering_standards/01_frontend_standards.md`
+  - `docs/06_engineering_standards/02_backend_and_repo_standards.md`
+- debugging heuristics and fragile areas:
+  - `docs/07_debugging_and_quality/01_debugging_playbook.md`
+
+When implementation changes, update the owning detailed doc instead of leaving important context only in code, tests, or session memory.
 
 ## Architecture Boundaries
 
@@ -70,6 +107,7 @@ Documentation expectation:
 - Follow the numbered docs system under `docs/`.
 - Update the owning feature/plan/ops doc instead of adding ad-hoc new docs.
 - Prefer references to code paths over copied implementation detail.
+- Keep docs current during implementation and debugging when durable knowledge changes; do not defer useful doc updates into separate “docs-only cleanup” work unless the user explicitly asks for that split.
 
 Do not:
 
