@@ -257,6 +257,38 @@ Use this flow before changing scraper code randomly:
    - Prefer improving low-context/detail quality before widening notebook insertion rules.
 5. Only after the above, change matcher penalties or salvage thresholds.
 
+## Automation Trust Verification
+
+Use this when product or support needs to confirm that scheduled updates are trustworthy over real elapsed time.
+
+1. Choose one staging or production user with an enabled schedule and stable profile inputs.
+2. Record the expected cadence:
+   - `GET /api/job-sources/schedule`
+   - note `enabled`, `cron`, `timezone`, `nextRunAt`, and `lastRunStatus`
+3. Wait across at least 1-2 actual schedule windows instead of relying on a manual trigger only.
+4. For each expected window, verify:
+   - the schedule trigger happened
+   - a run was created
+   - the run reached a terminal state
+   - offers or an explainable empty outcome reached the user-facing product
+5. Use these sources in order:
+   - `GET /api/ops/support/overview`
+   - `GET /api/ops/support/schedule-events?userId=<user-id>`
+   - `GET /api/ops/support/users/:id`
+   - `GET /api/job-sources/schedule`
+   - `GET /api/job-offers/summary`
+6. Record the actual timestamps for:
+   - scheduled window
+   - enqueue or trigger event
+   - run completion
+   - notebook or opportunities visibility
+7. If trust breaks, classify the failure before changing UI copy:
+   - scheduler did not trigger
+   - schedule triggered but enqueue failed
+   - run started but failed or timed out
+   - run completed but did not materialize useful offers
+8. Update the relevant ops/debugging doc when a new durable failure mode or verification shortcut is discovered.
+
 ## Scrape Productivity Knobs
 
 1. API:

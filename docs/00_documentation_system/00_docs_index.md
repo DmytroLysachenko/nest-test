@@ -1,6 +1,6 @@
 # Docs Index
 
-Last updated: 2026-04-24
+Last updated: 2026-04-25
 
 ## Purpose
 
@@ -95,6 +95,7 @@ Superseded or low-priority docs kept only for historical reference.
 
 - `01_operations_runbook_legacy.md`
 - `02_deploy_step_by_step_legacy.md`
+- `03_product_surface_and_role_boundary_audit_plan_completed.md`
 
 ## Ordering rules
 
