@@ -9,12 +9,17 @@ import type { DocumentDto } from '@/shared/types/api';
 
 type UseDocumentsPanelArgs = {
   token: string;
+  showTechnicalDetails?: boolean;
   overrideDocumentsQuery?: {
     data?: DocumentDto[];
   };
 };
 
-export const useDocumentsPanel = ({ token, overrideDocumentsQuery }: UseDocumentsPanelArgs) => {
+export const useDocumentsPanel = ({
+  token,
+  showTechnicalDetails = false,
+  overrideDocumentsQuery,
+}: UseDocumentsPanelArgs) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<'idle' | 'create-url' | 'upload' | 'confirm' | 'extract'>('idle');
@@ -27,7 +32,7 @@ export const useDocumentsPanel = ({ token, overrideDocumentsQuery }: UseDocument
     documentsQuery: internalDocumentsQuery,
     uploadHealthQuery,
     documentEventsQuery,
-  } = useDocumentsPanelQueries(token, selectedDocumentId);
+  } = useDocumentsPanelQueries(token, selectedDocumentId, showTechnicalDetails);
 
   const documentsQuery = overrideDocumentsQuery ?? internalDocumentsQuery;
 

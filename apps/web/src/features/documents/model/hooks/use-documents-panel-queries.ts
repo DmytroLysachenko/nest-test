@@ -10,9 +10,11 @@ import { queryKeys } from '@/shared/lib/query/query-keys';
 
 import type { DocumentDto, DocumentEventDto, DocumentUploadHealthDto } from '@/shared/types/api';
 
-const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
-
-export const useDocumentsPanelQueries = (token: string, selectedDocumentId: string | null) => {
+export const useDocumentsPanelQueries = (
+  token: string,
+  selectedDocumentId: string | null,
+  showTechnicalDetails: boolean,
+) => {
   const documentsQuery = useQuery(
     buildAuthedQueryOptions<DocumentDto[]>({
       token,
@@ -35,7 +37,7 @@ export const useDocumentsPanelQueries = (token: string, selectedDocumentId: stri
       queryKey: ['documents', 'upload-health', token],
       queryFn: getDocumentUploadHealth,
       ...liveQueryPreset(),
-      enabled: diagnosticsEnabled,
+      enabled: showTechnicalDetails,
     }),
   );
 
@@ -45,7 +47,7 @@ export const useDocumentsPanelQueries = (token: string, selectedDocumentId: stri
       queryKey: queryKeys.documents.events(token, selectedDocumentId),
       queryFn: (authToken) => listDocumentEvents(authToken, selectedDocumentId as string),
       ...liveQueryPreset(),
-      enabled: diagnosticsEnabled && Boolean(selectedDocumentId),
+      enabled: showTechnicalDetails && Boolean(selectedDocumentId),
     }),
   );
 
