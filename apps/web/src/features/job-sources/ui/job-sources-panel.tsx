@@ -4,15 +4,10 @@ import { useRouter } from 'next/navigation';
 import { CalendarClock, PlayCircle, Radar } from 'lucide-react';
 
 import { useJobSourcesPanel } from '@/features/job-sources/model/hooks/use-job-sources-panel';
-import {
-  getScheduleEventPresentation,
-  getSchedulePresetLabel,
-  getUserFacingRunStatus,
-} from '@/shared/lib/presentation/job-search-ui';
+import { getAutomationLastUpdateSummary, getAutomationPresetSummary } from '@/shared/lib/presentation/job-search-ui';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { EmptyState } from '@/shared/ui/empty-state';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { WorkflowFeedback, WorkflowInlineNotice } from '@/shared/ui/workflow-feedback';
@@ -35,10 +30,6 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
     formState: { errors: scheduleErrors },
   } = jobSourcesPanel.scheduleForm;
   const preflight = jobSourcesPanel.preflightQuery.data;
-  const sourceHealth = jobSourcesPanel.sourceHealthQuery.data?.items?.[0] ?? null;
-  const scheduleEvents = jobSourcesPanel.scheduleEventsQuery.data?.items ?? [];
-  const recentRuns = jobSourcesPanel.runsQuery.data?.items ?? [];
-  const usableRunRate = typeof sourceHealth?.usableRunRate === 'number' ? sourceHealth.usableRunRate : null;
   const now = Date.now();
   const nextRunAtValue = jobSourcesPanel.scheduleResult?.nextRunAt
     ? new Date(jobSourcesPanel.scheduleResult.nextRunAt).getTime()
@@ -47,10 +38,6 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
     ? new Date(jobSourcesPanel.scheduleResult.lastTriggeredAt).getTime()
     : null;
   const scheduleIsDue = typeof nextRunAtValue === 'number' && nextRunAtValue <= now;
-  const latestScheduleSuccess =
-    scheduleEvents.find((event) => event.eventType === 'schedule_enqueue_succeeded') ?? null;
-  const latestScheduleFailure =
-    scheduleEvents.find((event) => event.severity === 'error' || event.eventType === 'schedule_enqueue_failed') ?? null;
 
   const scheduleStory = !jobSourcesPanel.scheduleResult?.enabled
     ? {
@@ -58,41 +45,31 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         title: 'Automatic updates are off',
         description: 'Use manual updates until your targeting feels stable.',
       }
-    : sourceHealth?.activePause
+    : jobSourcesPanel.scheduleResult?.lastRunStatus === 'FAILED'
       ? {
-          tone: 'warning' as const,
-          title: scheduleIsDue ? 'An update is due but paused' : 'Automatic updates are paused',
-          description: sourceHealth.guidance,
+          tone: 'danger' as const,
+          title: 'The last automatic update needs attention',
+          description:
+            'The last automatic update did not finish cleanly. Check your setup and try another refresh when you are ready.',
         }
-      : jobSourcesPanel.scheduleResult?.lastRunStatus === 'FAILED' || latestScheduleFailure
+      : typeof lastTriggeredAtValue !== 'number'
         ? {
-            tone: 'danger' as const,
-            title: 'Recent automatic update failed',
-            description: latestScheduleFailure?.message ?? 'The last automatic update did not finish cleanly.',
+            tone: 'warning' as const,
+            title: 'Automatic updates are on but not proven yet',
+            description: 'The schedule is saved. Wait for the first successful update or run one manually now.',
           }
-        : latestScheduleSuccess
+        : scheduleIsDue
           ? {
+              tone: 'warning' as const,
+              title: 'The next update window has passed',
+              description:
+                'Confirm your schedule is still on, then run one fresh update if you want to check that everything is working normally.',
+            }
+          : {
               tone: 'positive' as const,
               title: 'Automatic updates are working',
-              description: latestScheduleSuccess.message,
-            }
-          : typeof lastTriggeredAtValue !== 'number'
-            ? {
-                tone: 'warning' as const,
-                title: 'Automatic updates are on but not proven yet',
-                description: 'The schedule is saved. Wait for the first successful update or run one manually now.',
-              }
-            : scheduleIsDue
-              ? {
-                  tone: 'warning' as const,
-                  title: 'Automatic update window passed',
-                  description: 'Check the recent activity below and confirm the next update succeeds.',
-                }
-              : {
-                  tone: 'neutral' as const,
-                  title: 'Waiting for the next automatic update',
-                  description: 'The schedule is active and the next update window is still ahead.',
-                };
+              description: 'Your schedule is on and the next update window is still ahead.',
+            };
 
   const getStoryTone = (value?: 'positive' | 'warning' | 'danger' | 'neutral') => {
     if (value === 'positive') {
@@ -133,21 +110,6 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           </p>
         </div>
       </div>
-
-      {sourceHealth ? (
-        <div className="border-border/60 bg-surface/70 mt-4 rounded-2xl border p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-text-strong text-sm font-semibold">Update quality</p>
-              <p className="text-text-soft mt-1 text-sm">
-                Recent usable update rate {usableRunRate == null ? 'n/a' : `${(usableRunRate * 100).toFixed(0)}%`}
-              </p>
-            </div>
-            {sourceHealth.activePause ? <span className="app-badge">Paused for quality</span> : null}
-          </div>
-          <p className="text-text-soft mt-3 text-sm leading-6">{sourceHealth.guidance}</p>
-        </div>
-      ) : null}
 
       <form
         className="mt-5 flex flex-col gap-4"
@@ -271,11 +233,11 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               <Radar className="text-primary h-4 w-4" />
               <p className="text-text-strong text-sm font-semibold">Automatic updates</p>
             </div>
-            <p className="text-text-soft text-xs">Keep this simple unless you need a custom schedule.</p>
+            <p className="text-text-soft text-xs">Keep this simple unless you truly need a custom cadence.</p>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" {...registerSchedule('enabled')} />
-            Enabled
+            Turn on
           </label>
         </div>
 
@@ -361,15 +323,16 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           <div className="app-inset-stack">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Current schedule</p>
             <p className="text-text-strong mt-2 text-sm font-semibold">
-              {jobSourcesPanel.scheduleResult?.enabled
-                ? getSchedulePresetLabel(jobSourcesPanel.scheduleResult.cron)
-                : 'Manual only'}
+              {getAutomationPresetSummary(
+                jobSourcesPanel.scheduleResult?.cron,
+                jobSourcesPanel.scheduleResult?.enabled,
+              )}
             </p>
           </div>
           <div className="app-inset-stack">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Last update</p>
             <p className="text-text-strong mt-2 text-sm font-semibold">
-              {getUserFacingRunStatus(jobSourcesPanel.scheduleResult?.lastRunStatus)}
+              {getAutomationLastUpdateSummary(jobSourcesPanel.scheduleResult?.lastRunStatus)}
             </p>
             <p className="text-text-soft mt-1 text-xs">
               {formatDateTime(jobSourcesPanel.scheduleResult?.lastTriggeredAt)}
@@ -407,74 +370,13 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-text-strong text-sm font-semibold">Recent automatic activity</p>
-            <span className="app-badge">{jobSourcesPanel.scheduleEventsQuery.data?.total ?? 0} items</span>
-          </div>
-          {scheduleEvents.length ? (
-            <div className="space-y-2">
-              {scheduleEvents.slice(0, 5).map((event) => {
-                const presentation = getScheduleEventPresentation(event);
-                return (
-                  <div key={event.id} className="border-border/60 bg-surface/70 rounded-2xl border p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="app-badge">{presentation.label}</span>
-                      <span className="app-badge">{event.severity}</span>
-                    </div>
-                    <p className="text-text-strong mt-2 text-sm font-medium">{presentation.summary}</p>
-                    <p className="text-text-soft mt-1 text-xs">{formatDateTime(event.createdAt)}</p>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <WorkflowInlineNotice
-              title="No automatic activity yet"
-              description="Activity will appear here once the schedule starts running."
-              tone="info"
-            />
-          )}
+          <WorkflowInlineNotice
+            title="How to use this page"
+            description="Set the schedule, confirm when the last update happened, and then do your actual review work in Opportunities or Notebook."
+            tone="info"
+          />
         </div>
       </form>
-
-      <div className="mt-5 space-y-2">
-        <p className="text-text-strong text-sm font-semibold">Recent updates</p>
-        <p className="text-text-soft text-xs">
-          Use this to confirm whether recent refreshes were useful and worth reviewing.
-        </p>
-        {recentRuns.length ? (
-          recentRuns.map((run) => (
-            <article key={run.id} className="app-muted-panel space-y-3 text-sm">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="app-badge">{getUserFacingRunStatus(run.status)}</span>
-                <span className="app-badge">
-                  {(run.usefulOfferCount ?? run.scrapedCount ?? 0).toString()} usable roles
-                </span>
-                <span className="app-badge">{(run.totalFound ?? 0).toString()} found</span>
-              </div>
-              <div className={`rounded-2xl border p-3 ${getStoryTone(run.story?.userVisibility)}`}>
-                <p className="text-text-strong font-semibold">
-                  {run.story?.summary ?? 'The latest update finished without a readable summary.'}
-                </p>
-                <p className="text-text-soft mt-1">
-                  {run.story?.recommendedAction ?? 'Open opportunities or notebook to continue.'}
-                </p>
-              </div>
-              {run.error ? (
-                <WorkflowInlineNotice title="This update failed" description={run.error} tone="danger" />
-              ) : null}
-              <p className="text-text-soft text-xs">
-                Finished {formatDateTime(run.finalizedAt ?? run.completedAt ?? run.createdAt)}
-              </p>
-            </article>
-          ))
-        ) : (
-          <EmptyState
-            title="No updates yet"
-            description="Run a one-time update or save a schedule once your profile is ready."
-          />
-        )}
-      </div>
     </Card>
   );
 };
