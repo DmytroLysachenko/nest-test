@@ -10,12 +10,17 @@ import {
   getWorkspaceRunStatusLabel,
   getWorkspaceRunStatusTone,
 } from '@/features/workspace/model/workspace-page-helpers';
+import {
+  getAutomationLastUpdateSummary,
+  getAutomationModeLabel,
+  getAutomationPresetSummary,
+} from '@/shared/lib/presentation/job-search-ui';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { usePrivateScrapeScheduleQuery } from '@/shared/lib/dashboard/private-dashboard-resource-queries';
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { HeroHeader, StatRow } from '@/shared/ui/dashboard-primitives';
+import { HeroHeader, StatRow, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { WorkflowBlockedState } from '@/shared/ui/workflow-blocked-state';
 
 const JobSourcesPanel = dynamic(
@@ -78,9 +83,10 @@ export const WorkspacePlanningPage = () => {
         subtitle="Run an update now, turn recurring updates on, and keep your search preferences simple."
         meta={
           <>
-            <span className="app-badge">{scrapeSchedule?.enabled ? 'Automatic updates on' : 'Manual updates'}</span>
+            <span className="app-badge">{getAutomationModeLabel(scrapeSchedule?.enabled)}</span>
             <span className="app-badge">
-              Latest refresh {getWorkspaceRunStatusLabel(scrapeSchedule?.lastRunStatus ?? summary.scrape.lastRunStatus)}
+              Latest refresh{' '}
+              {getAutomationLastUpdateSummary(scrapeSchedule?.lastRunStatus ?? summary.scrape.lastRunStatus)}
             </span>
           </>
         }
@@ -96,28 +102,41 @@ export const WorkspacePlanningPage = () => {
         }
       />
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+      <section className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)] lg:items-start">
         <JobSourcesPanel token={auth.token} />
 
-        <div className="space-y-4">
-          <Card title="Current automation" description="A plain-language view of your search update cadence.">
+        <div className="space-y-5">
+          <UtilityRail
+            title="Current automation"
+            description="A plain-language view of your search update cadence."
+            className="app-surface-elevated p-5 md:p-6"
+          >
             <div className="space-y-3">
               <StatRow
                 label="Update mode"
-                value={scrapeSchedule?.enabled ? 'Automatic' : 'Manual'}
+                value={getAutomationModeLabel(scrapeSchedule?.enabled)}
                 tone={scrapeSchedule?.enabled ? 'success' : 'neutral'}
               />
               <StatRow
-                label="Latest refresh"
-                value={getWorkspaceRunStatusLabel(scrapeSchedule?.lastRunStatus ?? summary.scrape.lastRunStatus)}
+                label="Last update"
+                value={getAutomationLastUpdateSummary(scrapeSchedule?.lastRunStatus ?? summary.scrape.lastRunStatus)}
                 tone={getWorkspaceRunStatusTone(scrapeSchedule?.lastRunStatus ?? summary.scrape.lastRunStatus)}
               />
-              <StatRow label="Last updated" value={formatWorkspaceDateTime(summary.scrape.lastRunAt)} />
-              <StatRow label="Next update" value={formatWorkspaceDateTime(scrapeSchedule?.nextRunAt ?? null)} />
+              <StatRow
+                label="Cadence"
+                value={getAutomationPresetSummary(scrapeSchedule?.cron, scrapeSchedule?.enabled)}
+                tone={scrapeSchedule?.enabled ? 'info' : 'neutral'}
+              />
+              <StatRow label="Last refreshed at" value={formatWorkspaceDateTime(summary.scrape.lastRunAt)} />
+              <StatRow label="Next refresh" value={formatWorkspaceDateTime(scrapeSchedule?.nextRunAt ?? null)} />
             </div>
-          </Card>
+          </UtilityRail>
 
-          <Card title="Before you automate" description="Keep the search predictable and avoid unnecessary noise.">
+          <Card
+            title="Before you automate"
+            description="Keep the search predictable and avoid unnecessary noise."
+            className="bg-surface-elevated/92"
+          >
             <div className="space-y-3 text-sm">
               <div className="app-inset-stack">
                 <p className="text-text-strong font-semibold">Keep your profile current</p>

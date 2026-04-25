@@ -19,9 +19,12 @@ const statusClass: Record<'ok' | 'weak' | 'missing', string> = {
 
 export const ProfileQualityCard = ({
   quality,
-  emptyDescription = 'No quality diagnostics available yet.',
+  emptyDescription = 'No profile health summary is available yet.',
 }: ProfileQualityCardProps) => (
-  <Card title="Profile quality" description="Deterministic diagnostics for search-readiness and matching consistency.">
+  <Card
+    title="Profile health"
+    description="A simple read on how complete the current profile is for search and matching."
+  >
     {quality ? (
       <div className="space-y-4">
         <div className="app-muted-panel flex items-end justify-between gap-4">
@@ -40,7 +43,7 @@ export const ProfileQualityCard = ({
               <div className="flex items-center justify-between gap-2">
                 <span className="text-text-strong font-medium">{signal.key}</span>
                 <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClass[signal.status]}`}>
-                  {signal.status}
+                  {signal.status === 'ok' ? 'Strong' : signal.status === 'weak' ? 'Could be stronger' : 'Missing'}
                 </span>
               </div>
               <p className="text-text-soft mt-2 text-xs leading-5">{signal.message}</p>
@@ -68,7 +71,7 @@ export const ProfileQualityCard = ({
       </div>
     ) : (
       <EmptyState
-        title="Quality diagnostics unavailable"
+        title="Profile health is unavailable"
         description={emptyDescription}
         className="border-0 bg-transparent p-0 text-left"
       />
