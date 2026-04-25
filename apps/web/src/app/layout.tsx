@@ -19,7 +19,7 @@ const headingFont = Sora({
 
 export const metadata: Metadata = {
   title: 'JobSeeker',
-  description: 'JobSeeker workspace for profile management, automated sourcing, and offer triage.',
+  description: 'JobSeeker workspace for profile setup, automatic job updates, and application tracking.',
 };
 
 export default async function RootLayout({
