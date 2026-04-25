@@ -337,14 +337,10 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     onSuccess: (result) => {
       syncJobSources();
       syncJobOffers();
-      toastSuccess(
-        result.status === 'reused'
-          ? 'Scrape served from recent cached run'
-          : 'Profile-based scrape queued successfully',
-      );
+      toastSuccess(result.status === 'reused' ? 'Recent results are already available' : 'Finding fresh matches now');
     },
     onError: (error) => {
-      toastError(toUserErrorMessage(error, 'Failed to enqueue profile scrape'));
+      toastError(toUserErrorMessage(error, 'Unable to look for fresh matches right now'));
     },
   });
 

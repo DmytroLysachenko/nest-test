@@ -15,7 +15,7 @@ export const enqueueScrapeSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['listingUrl'],
-        message: 'Listing URL is required for custom mode',
+        message: 'A listing URL is required for a custom one-time update',
       });
     }
   });

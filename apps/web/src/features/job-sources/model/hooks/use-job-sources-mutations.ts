@@ -24,11 +24,11 @@ export const useJobSourcesMutations = (token: string, form: UseFormReturn<Enqueu
     onSuccess: () => {
       form.clearErrors('root');
       syncJobSources();
-      toastSuccess('Scrape request queued');
+      toastSuccess('Search update started');
     },
     onError: (error: unknown) => {
       setRootServerError(form, error, {
-        fallbackMessage: 'Failed to enqueue scrape',
+        fallbackMessage: 'Unable to start the search update',
       });
     },
   });
@@ -43,7 +43,7 @@ export const useJobSourcesMutations = (token: string, form: UseFormReturn<Enqueu
     }) => updateScrapeSchedule(token, payload),
     onSuccess: () => {
       syncJobSources();
-      toastSuccess('Scrape schedule updated');
+      toastSuccess('Automatic updates saved');
     },
   });
 
@@ -52,7 +52,7 @@ export const useJobSourcesMutations = (token: string, form: UseFormReturn<Enqueu
     onSuccess: () => {
       syncJobSources();
       queryClient.invalidateQueries({ queryKey: ['job-offers', token] });
-      toastSuccess('Scheduled scrape enqueued');
+      toastSuccess('Automatic update started');
     },
   });
 

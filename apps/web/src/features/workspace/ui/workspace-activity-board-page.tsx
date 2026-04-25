@@ -9,6 +9,7 @@ import {
   getWorkspaceRunStatusLabel,
   getWorkspaceRunStatusTone,
 } from '@/features/workspace/model/workspace-page-helpers';
+import { getAutomationLastUpdateSummary } from '@/shared/lib/presentation/job-search-ui';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { usePrivateNotebookSummaryQuery } from '@/shared/lib/dashboard/private-dashboard-resource-queries';
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
@@ -156,8 +157,8 @@ export const WorkspaceActivityBoardPage = () => {
                 tone={summary.documents.ready > 0 ? 'success' : 'warning'}
               />
               <StatRow
-                label="Latest refresh"
-                value={getWorkspaceRunStatusLabel(summary.scrape.lastRunStatus)}
+                label="Last update"
+                value={getAutomationLastUpdateSummary(summary.scrape.lastRunStatus)}
                 tone={getWorkspaceRunStatusTone(summary.scrape.lastRunStatus)}
               />
               <StatRow

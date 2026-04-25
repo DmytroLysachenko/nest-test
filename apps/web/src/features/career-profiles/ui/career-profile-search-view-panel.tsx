@@ -18,15 +18,28 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
     formState: { errors },
   } = searchViewPanel.form;
 
+  const getStatusLabel = (status: string) => {
+    if (status === 'READY') {
+      return 'Ready';
+    }
+    if (status === 'PENDING') {
+      return 'In progress';
+    }
+    if (status === 'FAILED') {
+      return 'Needs attention';
+    }
+    return status;
+  };
+
   return (
     <Card
-      title="Career profile search view"
-      description="Validate denormalized profile fields and search indexes without dropping into raw database inspection."
+      title="Profile search summary"
+      description="Check how your current profile is represented for matching and job discovery."
     >
       <form className="space-y-3" onSubmit={searchViewPanel.submit}>
         <WorkflowInlineNotice
-          title="Use this to verify profile indexing, not as a primary workflow"
-          description="Filter by role, seniority, keywords, or technologies to confirm the generated search view matches what matching and sourcing depend on."
+          title="Use this as a profile check"
+          description="Filter by role, seniority, keywords, or technologies to confirm the current profile reflects the direction you want the app to search for."
           tone="info"
         />
         <div className="grid gap-3 md:grid-cols-4">
@@ -35,18 +48,18 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
               Status
             </Label>
             <select id="cp-status" className="app-select" {...register('status')}>
-              <option value="READY">READY</option>
-              <option value="PENDING">PENDING</option>
-              <option value="FAILED">FAILED</option>
+              <option value="READY">Ready</option>
+              <option value="PENDING">In progress</option>
+              <option value="FAILED">Needs attention</option>
             </select>
           </div>
           <div className="app-field-group">
             <Label htmlFor="cp-active" className="app-inline-label">
-              Is active
+              Version state
             </Label>
             <select id="cp-active" className="app-select" {...register('isActive')}>
-              <option value="true">true</option>
-              <option value="false">false</option>
+              <option value="true">Active</option>
+              <option value="false">Archived</option>
             </select>
           </div>
           <div className="app-field-group">
@@ -133,7 +146,7 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
                     <div className="text-text-soft text-[11px]">v{item.version}</div>
                   </td>
                   <td className="px-2 py-2">
-                    {item.status} / {item.isActive ? 'active' : 'inactive'}
+                    {getStatusLabel(item.status)} / {item.isActive ? 'active' : 'archived'}
                   </td>
                   <td className="px-2 py-2">{item.primarySeniority ?? '-'}</td>
                   <td className="px-2 py-2">{item.targetRoles.slice(0, 5).join(', ') || '-'}</td>
@@ -146,15 +159,15 @@ export const CareerProfileSearchViewPanel = ({ token }: CareerProfileSearchViewP
         </div>
       ) : searchViewPanel.hasRequested ? (
         <WorkflowFeedback
-          title="No indexed rows matched this filter set"
-          description="Try broadening the role or keyword filters first. If you expected a result, confirm the latest profile generation completed and the denormalized fields were refreshed."
+          title="No profile rows matched this filter"
+          description="Try broader role or keyword filters first. If you expected a result, confirm the latest profile update finished successfully."
           tone="warning"
           className="mt-4"
         />
       ) : (
         <WorkflowFeedback
-          title="Search results will appear here"
-          description="Run a query when you need to verify how profile data was flattened into searchable fields for downstream workflows."
+          title="Profile search results will appear here"
+          description="Run a query when you want to double-check that your current profile points the app in the right direction."
           tone="info"
           className="mt-4"
         />

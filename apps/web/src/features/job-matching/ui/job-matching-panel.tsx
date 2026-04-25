@@ -39,7 +39,7 @@ export const JobMatchingPanel = ({ token, disabled = false, disabledReason }: Jo
       >
         <WorkflowInlineNotice
           title="Use this for spot checks"
-          description="This panel is best for validating how one role maps to your current profile before you change broader sourcing or notebook strategy."
+          description="This panel is best for checking how one role lines up with your current profile before you change your broader search direction or notebook workflow."
           tone="info"
         />
         <div className="app-field-group">

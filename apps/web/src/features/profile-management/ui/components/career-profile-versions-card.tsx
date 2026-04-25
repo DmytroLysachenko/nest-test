@@ -39,11 +39,38 @@ export const CareerProfileVersionsCard = ({
   const generationForm = useProfileGenerationInstructionsForm();
   const activeGenerationState = latestProfile?.generationState ?? null;
   const isGenerationActive = activeGenerationState === 'QUEUED' || activeGenerationState === 'RUNNING';
+  const getProfileStatusLabel = (value: string) => {
+    if (value === 'READY') {
+      return 'Ready';
+    }
+    if (value === 'PENDING') {
+      return 'In progress';
+    }
+    if (value === 'FAILED') {
+      return 'Needs attention';
+    }
+    return value;
+  };
+  const getGenerationStateLabel = (value: string) => {
+    if (value === 'RUNNING') {
+      return 'Creating now';
+    }
+    if (value === 'QUEUED') {
+      return 'Queued';
+    }
+    if (value === 'READY') {
+      return 'Ready';
+    }
+    if (value === 'FAILED') {
+      return 'Needs attention';
+    }
+    return value;
+  };
 
   return (
     <Card
-      title="Career Profile Versions"
-      description="Updates create a new career profile version. Older versions can be restored."
+      title="Profile versions"
+      description="Each update creates a new version. Older versions stay available if you need to switch back."
     >
       <form
         className="space-y-3"
@@ -77,8 +104,8 @@ export const CareerProfileVersionsCard = ({
           ) : isGenerationActive ? (
             <p className="text-text-soft text-sm">
               {activeGenerationState === 'RUNNING'
-                ? 'A generation job is running. Wait for it to finish before starting another version.'
-                : 'A generation job is queued. Wait for it to start or finish before creating another version.'}
+                ? 'A new profile is being created right now. Wait for it to finish before starting another version.'
+                : 'A new profile is queued to start. Wait for it to finish before creating another version.'}
             </p>
           ) : (
             <span />
@@ -98,8 +125,8 @@ export const CareerProfileVersionsCard = ({
         {latestProfile ? (
           <div className="space-y-2">
             <InspectorRow label="Version" value={`v${latestProfile.version}`} />
-            <InspectorRow label="Status" value={latestProfile.status} />
-            <InspectorRow label="Generation state" value={latestProfile.generationState} />
+            <InspectorRow label="Status" value={getProfileStatusLabel(latestProfile.status)} />
+            <InspectorRow label="Update state" value={getGenerationStateLabel(latestProfile.generationState)} />
             <InspectorRow label="Queued" value={formatDateTime(latestProfile.generationQueuedAt)} />
             <InspectorRow label="Started" value={formatDateTime(latestProfile.generationStartedAt)} />
             <InspectorRow label="Attempts" value={String(latestProfile.generationAttemptCount)} />
@@ -121,8 +148,8 @@ export const CareerProfileVersionsCard = ({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="w-full space-y-2">
                   <InspectorRow label="Version" value={`v${item.version}${item.isActive ? ' (active)' : ''}`} />
-                  <InspectorRow label="Status" value={item.status} />
-                  <InspectorRow label="Generation state" value={item.generationState} />
+                  <InspectorRow label="Status" value={getProfileStatusLabel(item.status)} />
+                  <InspectorRow label="Update state" value={getGenerationStateLabel(item.generationState)} />
                   <InspectorRow label="Queued" value={formatDateTime(item.generationQueuedAt)} />
                   <InspectorRow label="Started" value={formatDateTime(item.generationStartedAt)} />
                   <InspectorRow label="Attempts" value={String(item.generationAttemptCount)} />

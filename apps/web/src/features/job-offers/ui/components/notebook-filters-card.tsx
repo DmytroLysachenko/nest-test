@@ -146,7 +146,7 @@ export const NotebookFiltersCard = ({
       description={
         isPipeline
           ? 'Filter active applications, surface stale work, and keep follow-ups visible without leaving the board.'
-          : 'Tune the triage slice and run notebook maintenance without leaving this workspace.'
+          : 'Tune the review slice and refresh opportunities without leaving this workspace.'
       }
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
@@ -390,7 +390,7 @@ export const NotebookFiltersCard = ({
           className="border-primary/20 hover:bg-primary/5 hover:text-primary h-8 transition-colors"
         >
           <Sparkles className="text-app-warning mr-2 h-3.5 w-3.5" />
-          {enqueueStatus === 'pending' ? 'Starting...' : 'Refresh from profile'}
+          {enqueueStatus === 'pending' ? 'Starting...' : 'Find fresh matches'}
         </Button>
 
         {onDismissAllSeen && !isPipeline ? (
@@ -424,7 +424,7 @@ export const NotebookFiltersCard = ({
         <p className="text-text-soft ml-auto text-xs">
           {isPipeline
             ? 'Use the board arrows to move roles forward or backward instantly.'
-            : 'Shortcuts: S save, D dismiss, M seen, A applied.'}
+            : 'Shortcuts: S save, D dismiss, M reviewed, A applied.'}
         </p>
       </div>
     </Card>
