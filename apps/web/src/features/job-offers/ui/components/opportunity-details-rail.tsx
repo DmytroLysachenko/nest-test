@@ -34,14 +34,16 @@ export const OpportunityDetailsRail = ({
       <Card
         title="Opportunity details"
         description="Select a role from the discovery queue to inspect it."
-        className="xl:max-h-[calc(100vh-7rem)]"
-        contentClassName="xl:max-h-[calc(100vh-12rem)] xl:overflow-y-auto"
+        className="xl:h-[calc(100vh-7rem)]"
+        contentClassName="xl:flex xl:h-[calc(100%-5.5rem)] xl:flex-col"
       >
-        <EmptyState
-          icon={<Pointer className="h-8 w-8" />}
-          title="No opportunity selected"
-          description="Use this rail for fit reasons, essential role context, and the keep-or-dismiss decision."
-        />
+        <div className="xl:flex xl:h-full xl:flex-col xl:justify-center">
+          <EmptyState
+            icon={<Pointer className="h-8 w-8" />}
+            title="No opportunity selected"
+            description="Use this rail for fit reasons, essential role context, and the keep-or-dismiss decision."
+          />
+        </div>
       </Card>
     );
   }
@@ -50,11 +52,11 @@ export const OpportunityDetailsRail = ({
     <Card
       title="Opportunity details"
       description={offer.title}
-      className="xl:max-h-[calc(100vh-7rem)]"
-      contentClassName="flex flex-col gap-4 xl:max-h-[calc(100vh-12rem)] xl:overflow-y-auto"
+      className="xl:flex xl:h-[calc(100vh-7rem)] xl:flex-col"
+      contentClassName="flex flex-col gap-4 xl:min-h-0 xl:flex-1 xl:gap-0"
     >
-      <div className="space-y-4 text-sm">
-        <div className="app-inset-stack space-y-2">
+      <div className="space-y-4 text-sm xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:space-y-0">
+        <div className="app-inset-stack space-y-2 xl:shrink-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="app-badge">{getUserFacingOfferStatus(offer.status)}</span>
             {typeof offer.matchScore === 'number' ? <span className="app-badge">Match {offer.matchScore}</span> : null}
@@ -73,39 +75,43 @@ export const OpportunityDetailsRail = ({
           ) : null}
         </div>
 
-        <OfferReliabilityNotice reliabilityContext={offer.reliabilityContext} />
+        <div className="space-y-4 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
+          <OfferReliabilityNotice reliabilityContext={offer.reliabilityContext} />
 
-        {offer.fitHighlights.length ? (
+          {offer.fitHighlights.length ? (
+            <div className="app-inset-stack space-y-2">
+              <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Why it may fit</p>
+              {offer.fitHighlights.map((highlight) => (
+                <p key={highlight} className="text-text-soft text-sm leading-6">
+                  {highlight}
+                </p>
+              ))}
+            </div>
+          ) : null}
+
+          <OfferStructuredDetailsPanel structuredDetails={offer.structuredDetails} />
+
           <div className="app-inset-stack space-y-2">
-            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Why it may fit</p>
-            {offer.fitHighlights.map((highlight) => (
-              <p key={highlight} className="text-text-soft text-sm leading-6">
-                {highlight}
-              </p>
-            ))}
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Role summary</p>
+            <p className="text-text-soft text-sm leading-6">
+              {offer.description?.trim() || 'Open the source listing if you need the full job description.'}
+            </p>
+            <OfferSourceLinks offer={offer} includeLocationSearch />
           </div>
-        ) : null}
-
-        <OfferStructuredDetailsPanel structuredDetails={offer.structuredDetails} />
-
-        <div className="app-inset-stack space-y-2">
-          <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Role summary</p>
-          <p className="text-text-soft line-clamp-6 text-sm leading-6">
-            {offer.description?.trim() || 'Open the source listing if you need the full job description.'}
-          </p>
-          <OfferSourceLinks offer={offer} includeLocationSearch />
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" disabled={isBusy} onClick={() => onSave(offer.id)}>
-            Save to pipeline
-          </Button>
-          <Button type="button" variant="secondary" disabled={isBusy} onClick={() => onMarkSeen(offer.id)}>
-            Mark reviewed
-          </Button>
-          <Button type="button" variant="ghost" disabled={isBusy} onClick={() => onDismiss(offer.id)}>
-            Dismiss
-          </Button>
+        <div className="border-border/60 bg-surface/95 xl:sticky xl:bottom-0 xl:mt-4 xl:shrink-0 xl:border-t xl:pt-4">
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" disabled={isBusy} onClick={() => onSave(offer.id)}>
+              Save to pipeline
+            </Button>
+            <Button type="button" variant="secondary" disabled={isBusy} onClick={() => onMarkSeen(offer.id)}>
+              Mark reviewed
+            </Button>
+            <Button type="button" variant="ghost" disabled={isBusy} onClick={() => onDismiss(offer.id)}>
+              Dismiss
+            </Button>
+          </div>
         </div>
       </div>
     </Card>
