@@ -151,7 +151,7 @@ export const NotebookOffersListCard = ({
           Clear selection
         </Button>
         <span className="app-badge">{selectedOfferIds.length} selected</span>
-        {degradedResultCount > 0 ? <span className="app-badge">degraded source: {degradedResultCount}</span> : null}
+        {degradedResultCount > 0 ? <span className="app-badge">lower-detail roles: {degradedResultCount}</span> : null}
         <div className="ml-auto flex flex-wrap gap-2">
           {selectedOfferIds.length ? (
             <Button
@@ -438,7 +438,7 @@ export const NotebookOffersListCard = ({
         <Button type="button" variant="secondary" disabled={!canPrev} onClick={onPrev}>
           Previous
         </Button>
-        <p className="text-muted-foreground text-xs">Starting from item {offset + 1}</p>
+        <p className="text-muted-foreground text-xs">Showing roles from {offset + 1}</p>
         <Button type="button" variant="secondary" disabled={!canNext} onClick={onNext}>
           Next
         </Button>
