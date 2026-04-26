@@ -138,7 +138,7 @@ Primary code areas:
 Related docs:
 
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md`
-- `docs/03_plans_and_roadmaps/05_catalog_standardization_implementation_plan.md`
+- `docs/99_archive_legacy/05_catalog_standardization_implementation_plan.md`
 
 ### `008` Catalog normalization persistence and backfill path
 
@@ -158,7 +158,7 @@ Primary code areas:
 
 Related docs:
 
-- `docs/03_plans_and_roadmaps/05_catalog_standardization_implementation_plan.md`
+- `docs/99_archive_legacy/05_catalog_standardization_implementation_plan.md`
 - `docs/02_product_workflows/20_scrape_feature.md`
 
 ### `009` Structured catalog read models and single-use OTP lifecycle

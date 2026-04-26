@@ -1,5 +1,7 @@
 # Performance, Scalability, and Structure Audit Plan
 
+Archived as completed: 2026-04-26
+
 ## Status
 
 Implemented on `dev` as of 2026-04-24.
