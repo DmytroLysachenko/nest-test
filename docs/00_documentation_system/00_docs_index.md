@@ -55,6 +55,7 @@ Future-facing planning documents.
 - `02_sprint_plan.md`
 - `03_year_plan.md`
 - `04_feature_evolution_plan.md`
+- `12_notebook_workflow_throughput_and_reminder_delivery_audit_plan.md`
 
 ### `04_architecture_and_data`
 
