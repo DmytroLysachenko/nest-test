@@ -29,7 +29,7 @@ This audit is based on the current docs direction in:
 - `docs/02_product_workflows/20_scrape_feature.md`
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md`
 - `docs/03_plans_and_roadmaps/01_roadmap.md`
-- `docs/03_plans_and_roadmaps/06_scrape_reliability_and_catalog_audit_plan.md`
+- `docs/99_archive_legacy/06_scrape_reliability_and_catalog_audit_plan.md`
 - `docs/04_architecture_and_data/01_decisions.md`
 - `docs/05_operations_and_deployment/01_runbook.md`
 
