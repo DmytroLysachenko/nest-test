@@ -18,7 +18,6 @@ import { Card } from '@/shared/ui/card';
 import { EditorialPanel, HeroHeader, MetricCard, StatusPill, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { WorkflowFeedback } from '@/shared/ui/workflow-feedback';
-import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
 
 const WorkspaceRecentOffersPanel = dynamic(
   () =>
@@ -75,7 +74,6 @@ export const WorkspaceDashboardPage = () => {
           <>
             <span className="app-badge">{formatCountLabel(summary.offers.total, 'opportunity')}</span>
             <span className="app-badge">{formatCountLabel(summary.offers.followUpDue, 'follow-up')}</span>
-            <span className="app-badge">Readiness {summary.health.readinessScore}%</span>
           </>
         }
         action={
@@ -83,8 +81,8 @@ export const WorkspaceDashboardPage = () => {
             <Link href={nextAction.href}>
               <Button>Continue</Button>
             </Link>
-            <Link href="/notebook">
-              <Button variant="secondary">Open notebook</Button>
+            <Link href="/opportunities">
+              <Button variant="secondary">Open opportunities</Button>
             </Link>
           </div>
         }
@@ -103,13 +101,15 @@ export const WorkspaceDashboardPage = () => {
               </span>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              <Link href="/planning" className="app-inset-stack block">
-                <p className="text-text-strong text-sm font-semibold">Automation</p>
-                <p className="text-text-soft mt-1 text-sm">Adjust update timing and run a refresh when needed.</p>
-              </Link>
               <Link href="/opportunities" className="app-inset-stack block">
                 <p className="text-text-strong text-sm font-semibold">Opportunities</p>
                 <p className="text-text-soft mt-1 text-sm">Review fresh roles and keep only the worthwhile ones.</p>
+              </Link>
+              <Link href="/notebook" className="app-inset-stack block">
+                <p className="text-text-strong text-sm font-semibold">Notebook</p>
+                <p className="text-text-soft mt-1 text-sm">
+                  Keep active applications moving once a role is worth pursuing.
+                </p>
               </Link>
               <Link href="/profile" className="app-inset-stack block">
                 <p className="text-text-strong text-sm font-semibold">Profile</p>
@@ -175,20 +175,18 @@ export const WorkspaceDashboardPage = () => {
           }}
         />
         <MetricCard
-          label="Document issues"
-          value={String(summary.documents.failed)}
-          caption="Uploads that still need recovery"
+          label="Automation"
+          value={getAutomationLastUpdateSummary(summary.scrape.lastRunStatus)}
+          caption="Last update signal"
           trend={{
-            label: summary.documents.failed > 0 ? 'Fix in profile' : `${summary.documents.ready} ready`,
-            tone: summary.documents.failed > 0 ? 'danger' : 'success',
+            label: summary.scrape.lastRunStatus === 'FAILED' ? 'Review automation' : 'Planning owns this control',
+            tone: summary.scrape.lastRunStatus === 'FAILED' ? 'danger' : 'info',
           }}
         />
       </div>
 
-      <WorkflowRecoveryPanel blockers={summary.blockerDetails ?? []} />
-
       <section className="grid gap-4 lg:grid-cols-2">
-        <Card title="Today" description="Shortcuts into the highest-pressure work queues.">
+        <Card title="Today" description="Open the highest-pressure work queue first, then leave this page.">
           {dashboard.isActionPlanLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, index) => (
@@ -226,7 +224,7 @@ export const WorkspaceDashboardPage = () => {
           )}
         </Card>
 
-        <Card title="Keep momentum" description="Simple entry points based on the current workspace state.">
+        <Card title="Keep momentum" description="Secondary routes to open after the highest-priority queue is clear.">
           {dashboard.isFocusLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, index) => (

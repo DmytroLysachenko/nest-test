@@ -8,7 +8,6 @@ import { getJobOfferActionPlan } from '@/features/job-offers/api/job-offers-api'
 import { useWorkspaceDashboardQueries } from '@/features/workspace/model/hooks/use-workspace-dashboard-queries';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
-import { usePrivateScrapeScheduleQuery } from '@/shared/lib/dashboard/private-dashboard-resource-queries';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
@@ -20,8 +19,6 @@ type UseWorkspaceDashboardDataArgs = {
 export const useWorkspaceDashboardData = ({ token }: UseWorkspaceDashboardDataArgs) => {
   const router = useRouter();
   const { summary, refreshSummary, isBootstrapping, summaryError } = usePrivateDashboardData();
-  const scrapeScheduleQuery = usePrivateScrapeScheduleQuery(token);
-  const scrapeSchedule = scrapeScheduleQuery.data;
   const { offersQuery, focusQuery } = useWorkspaceDashboardQueries(token);
   const actionPlanQuery = useQuery(
     buildAuthedQueryOptions({
@@ -74,7 +71,6 @@ export const useWorkspaceDashboardData = ({ token }: UseWorkspaceDashboardDataAr
       offers: offersQuery.data ?? [],
       focusGroups: focusQuery.data?.groups ?? [],
       actionPlan: actionPlanQuery.data?.buckets ?? [],
-      schedule: scrapeSchedule,
       isInitialLoading,
       summaryError,
       offersError,
@@ -88,7 +84,6 @@ export const useWorkspaceDashboardData = ({ token }: UseWorkspaceDashboardDataAr
       refetchOffers: offersQuery.refetch,
       refetchFocus: focusQuery.refetch,
       refetchActionPlan: actionPlanQuery.refetch,
-      refetchSchedule: scrapeScheduleQuery.refetch,
     }),
     [
       actionPlanError,
@@ -100,13 +95,11 @@ export const useWorkspaceDashboardData = ({ token }: UseWorkspaceDashboardDataAr
       focusQuery.isLoading,
       focusQuery.refetch,
       refreshSummary,
-      scrapeScheduleQuery.refetch,
       offersQuery.data,
       offersQuery.isLoading,
       offersQuery.refetch,
       offersError,
       isInitialLoading,
-      scrapeSchedule,
       summaryError,
       summary,
     ],
