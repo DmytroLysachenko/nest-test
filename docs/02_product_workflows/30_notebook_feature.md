@@ -1,6 +1,6 @@
 # Notebook Feature
 
-Last updated: 2026-04-11
+Last updated: 2026-04-26
 
 ## Purpose
 
@@ -15,6 +15,24 @@ It helps the user decide what to review now, move offers through a pipeline, and
 Includes opportunities/discovery queue, notebook views, pipeline states, filters, notes, tags, and follow-up fields.
 
 Does not own raw scrape execution, document extraction, or authentication.
+
+## Route ownership
+
+`Notebook` is the active-work workspace.
+
+It should own:
+
+- application pipeline status
+- notes and tags for kept roles
+- follow-up planning
+- prep work
+- active application context
+
+It should not own:
+
+- global workspace direction
+- automation setup
+- broad profile readiness explanation except when notebook work is directly blocked
 
 ## Main workflow
 
@@ -60,6 +78,9 @@ Current workflow-facing additions:
 - reminder preview now exposes overdue, due-today, upcoming, and stale-pipeline work as an in-app read model without external notification delivery
 - active pipeline bulk editing now supports decision checkpoints and prep-needed flags in addition to follow-up fields
 - prep packet responses now include workflow-aware attention context and requirement highlights
+- notebook is the intended singular owner of active application work even when discovery and dashboard routes link into it
+- notebook controls are now explicitly pipeline-scoped on the route itself; discovery refresh and broader orientation no longer ride along inside the main notebook controls
+- notebook route rendering now depends on notebook-owned queries plus a minimal route-level update-status input for empty-state trust messaging, instead of reusing the full workspace summary inside the notebook page hook
 
 Schema references:
 
