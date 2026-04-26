@@ -19,7 +19,7 @@ import { WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { ConfirmActionDialog } from '@/shared/ui/confirm-action-dialog';
-import { HeroHeader } from '@/shared/ui/dashboard-primitives';
+import { HeroHeader, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
 import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
 
@@ -27,13 +27,7 @@ export const ProfileManagementPage = () => {
   const router = useRouter();
   const auth = useRequireAuth();
   const { deleteAccountMutation } = useAccountDeletion();
-  const {
-    summary,
-    latestCareerProfile,
-    latestProfileInput,
-    documents: sharedDocuments,
-    isBootstrapping,
-  } = usePrivateDashboardData();
+  const { summary, isBootstrapping } = usePrivateDashboardData();
   const setLastVisitedSection = useAppUiStore((state) => state.setLastVisitedSection);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -54,9 +48,6 @@ export const ProfileManagementPage = () => {
     errors,
   } = useProfileManagementData({
     token: auth.token,
-    sharedLatestProfileInput: latestProfileInput,
-    sharedDocuments,
-    sharedLatestCareerProfile: latestCareerProfile,
   });
 
   if (!auth.token || isBootstrapping || !summary) {
@@ -89,10 +80,10 @@ export const ProfileManagementPage = () => {
   const profileQualityEmptyDescription = primaryBlocker
     ? primaryBlocker.description
     : generationState === 'RUNNING'
-      ? 'Profile generation is in progress. Quality details will appear when it finishes.'
+      ? 'Profile creation is in progress. A health summary will appear when it finishes.'
       : generationState === 'QUEUED'
-        ? 'Profile generation is queued. Quality details will appear when it starts and finishes.'
-        : 'Generate a ready profile to unlock quality details.';
+        ? 'Profile creation is queued. A health summary will appear once it starts and finishes.'
+        : 'Generate a ready profile to unlock the profile health summary.';
 
   return (
     <main className="app-page space-y-6">
@@ -121,7 +112,7 @@ export const ProfileManagementPage = () => {
         }
       />
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)]">
+      <section className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)] lg:items-start">
         <ProfileInputEditorCard
           initialTargetRoles={latestProfileInputQuery.data?.targetRoles}
           initialNotes={latestProfileInputQuery.data?.notes ?? ''}
@@ -131,9 +122,13 @@ export const ProfileManagementPage = () => {
         />
         <div className="space-y-4">
           <DocumentsReadinessCard documents={documents} />
-          <Card title="Generation readiness" description="The minimum you need before creating a fresh version.">
+          <UtilityRail
+            title="Generation readiness"
+            description="The minimum you need before creating a fresh version."
+            className="app-surface-elevated p-5 md:p-6"
+          >
             <div className="space-y-3 text-sm">
-              <div className="app-inset-stack">
+              <div className="border-border/60 border-b pb-3">
                 <p className="text-text-strong font-semibold">Ready documents</p>
                 <p className="text-text-soft mt-2">
                   {readyDocumentsCount > 0
@@ -141,20 +136,20 @@ export const ProfileManagementPage = () => {
                     : 'Upload and extract at least one document first.'}
                 </p>
               </div>
-              <div className="app-inset-stack">
+              <div>
                 <p className="text-text-strong font-semibold">Current generation state</p>
                 <p className="text-text-soft mt-2">
                   {generationState === 'RUNNING'
-                    ? 'A new version is being generated right now.'
+                    ? 'A new profile version is being created right now.'
                     : generationState === 'QUEUED'
-                      ? 'A new version is waiting to start.'
+                      ? 'A new profile version is waiting to start.'
                       : latestCareerProfileQuery.data
                         ? 'A profile is already available.'
                         : 'No generated profile yet.'}
                 </p>
               </div>
             </div>
-          </Card>
+          </UtilityRail>
         </div>
       </section>
 

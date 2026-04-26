@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-04-18
+Last updated: 2026-04-25
 
 ## Purpose
 
@@ -22,7 +22,7 @@ It should answer:
 - M3 BE + Worker Hardening: completed
   - worker callback safety, retry taxonomy, stale-run reconciliation, diagnostics, queue/deploy hardening
 - Reliability tranche in progress
-  - run stories, artifact-backed diagnostics, silent-failure detection, and notebook-visible scrape explanations are now the active priority before broader product expansion
+  - run stories, artifact-backed diagnostics, silent-failure detection, and notebook-visible update trust explanations are now the active priority before broader product expansion
 - M4 Frontend Workflow Completion: implemented
   - onboarding, notebook-first dashboard, persisted notebook preferences, recovery guidance, schedule/preflight controls, action-oriented notebook surfaces
 - M5 Robust Job Assistant Service: in progress
@@ -163,6 +163,14 @@ That framing should guide future implementation more than raw source count.
   - notebook board cards now prioritize due work and active next-step context instead of acting like a generic status grid
   - notebook now exposes a visible bulk workflow editor for active pipeline roles instead of limiting batch edits to follow-up-only metadata
   - opportunity empty states and dashboard focus cards now show server-driven trust messaging rather than generic “no data” copy
+  - dashboard, planning, shell, and discovery review surfaces are now in an active product-boundary cleanup pass that replaces raw sourcing language with user-facing automation wording
+  - the end-user automation page now relies on schedule state and readiness guidance only; it no longer pulls raw update history, scheduler event feeds, or source-health diagnostics into the normal product route
+  - discovery detail rail now uses a controlled desktop-height layout with internal scrolling and a reachable action bar
+  - opportunity pagination now exposes page and visible-range context in user language instead of implementation-centric wording
+  - document, profile, progress, and notebook-empty-state copy has also been shifted further away from diagnostics/run jargon toward plain-language status and recovery wording
+  - document technical diagnostics are now hidden by default on end-user routes and can be surfaced only when a route explicitly opts into technical detail
+  - notebook refresh controls and profile search-summary copy now use product-facing language around fresh matches and profile direction instead of sourcing/indexing terminology
+  - app shell chrome, dashboard, planning, and profile pages now use a lighter hierarchy with fewer nested utility cards, and the remaining advanced diagnostics stay on admin/tester surfaces instead of normal user routes
   - still contains mixed maturity areas where some screens feel productized and some remain utilitarian
 - Database and migrations
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields
@@ -374,7 +382,7 @@ That framing should guide future implementation more than raw source count.
 - Late scrape callbacks after stale-run recovery now return a stable idempotency reason instead of reopening or duplicating recovered notebook links.
 - Weekday schedule cron expressions are now computed correctly with timezone-aware next-run calculation.
 - Worker source orchestration now has an explicit adapter boundary for future non-Pracuj sources, but only Pracuj is production-ready.
-- Web schedule planning now explains schedule trust states more explicitly (`off`, `enabled but not yet proven`, `recent failure`, `due but paused`, `waiting for next window`) using schedule events plus source-health state.
+- Web schedule planning now explains schedule trust states more explicitly (`off`, `enabled but not yet proven`, `recent failure`, `due but paused`, `waiting for next window`) using product-facing schedule state, and the broader end-user/admin boundary cleanup audit is complete and archived.
 - Company discovery read APIs are now test-covered for search/location filtering and linked-offer summary fields.
 - Offer scoring remains deterministic-only in the active match path, with explicit tests preventing fallback to per-offer LLM scoring.
 - Root dependency audit gate now targets critical advisories first; `axios` is pinned at `>=1.15.0` to clear the current SSRF blocker from `verify:prepush`.
@@ -391,6 +399,7 @@ That framing should guide future implementation more than raw source count.
 - Document recovery exists, and extraction/profile-generation now expose DB-visible async lifecycle state, but worker queue durability is still below production-grade background-job expectations.
 - Support surfaces are present, but alerting and long-horizon observability are still limited.
 - Frontend has improved workflow structure, but visual/design consistency is still mixed across older and newer surfaces.
+- Product/admin role boundaries are materially cleaner on end-user routes, but long-term enforcement still depends on keeping future diagnostics work inside admin/support surfaces.
 
 ## Strategic Next Focus
 

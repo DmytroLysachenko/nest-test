@@ -1,17 +1,17 @@
-import { env } from '@/shared/config/env';
-import { getServerSession } from '@/shared/lib/auth/server-session';
+import { cookies } from 'next/headers';
 
-import type { UserDto, WorkspaceSummaryDto } from '@/shared/types/api';
+import { env } from '@/shared/config/env';
+
+import type { UserDto } from '@/shared/types/api';
 
 type BootstrapPayload<T> = {
   success: true;
   data: T;
 };
 
-export type PrivateDashboardBootstrap = {
+export type ServerSession = {
   token: string | null;
   user: UserDto | null;
-  summary: WorkspaceSummaryDto | null;
 };
 
 const fetchAuthedJson = async <T>(path: string, token: string) => {
@@ -35,21 +35,18 @@ const fetchAuthedJson = async <T>(path: string, token: string) => {
   }
 };
 
-export const getPrivateDashboardBootstrap = async (): Promise<PrivateDashboardBootstrap> => {
-  const { token, user } = await getServerSession();
+export const getServerSession = async (): Promise<ServerSession> => {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('career_assistant_access_token')?.value ?? null;
+
   if (!token) {
-    return {
-      token: null,
-      user,
-      summary: null,
-    };
+    return { token: null, user: null };
   }
 
-  const summary = await fetchAuthedJson<WorkspaceSummaryDto>('/workspace/summary', token);
+  const user = await fetchAuthedJson<UserDto>('/user', token);
 
   return {
     token,
     user,
-    summary,
   };
 };

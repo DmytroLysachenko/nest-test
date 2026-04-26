@@ -42,8 +42,8 @@ export const getNotebookCollectionState = ({
       nextStepTitle: 'Review wider discovery carefully',
       nextStepDescription:
         mode === 'explore'
-          ? 'Stay in explore mode, review the salvage-backed roles, and rerun sourcing later if this queue looks weak.'
-          : 'Switch to explore mode for a broader pass, then return to strict once the notebook has healthier detail-backed rows again.',
+          ? 'Stay in explore mode, review the lower-confidence roles, and refresh updates later if this queue still looks weak.'
+          : 'Switch to explore mode for a broader pass, then return to strict once the notebook has stronger detail-backed roles again.',
       actionLabel: mode === 'explore' ? 'Keep reviewing in explore' : 'Switch to explore',
       nextMode: mode === 'explore' ? null : 'explore',
     };
@@ -52,12 +52,12 @@ export const getNotebookCollectionState = ({
   if (lastScrapeStatus === 'FAILED') {
     return {
       key: 'failed',
-      title: 'The latest sourcing run failed before it produced notebook-ready offers',
+      title: 'The latest update stopped before new notebook roles were ready',
       description:
-        'The notebook is empty because the last run did not finish cleanly, not because the market is definitely empty. Review planning and diagnostics before you enqueue another run.',
-      nextStepTitle: 'Recover the run path first',
+        'The notebook is empty because the latest update did not finish cleanly, not because the market is definitely empty. Check the automation page before starting another refresh.',
+      nextStepTitle: 'Check the last update first',
       nextStepDescription:
-        'Open Planning to check the last run story, preflight guidance, and whether a fresh run is actually the right next action.',
+        'Open Planning to review what happened, confirm your setup is still ready, and decide whether you need another update now.',
       actionLabel: 'Open planning',
       nextMode: null,
     };
@@ -71,7 +71,7 @@ export const getNotebookCollectionState = ({
     nextStepTitle: 'Widen the search with intent',
     nextStepDescription:
       mode === 'explore'
-        ? 'Clear status, tag, and follow-up filters first. If the queue is still empty, refresh sourcing from Planning.'
+        ? 'Clear status, tag, and follow-up filters first. If the queue is still empty, start a fresh update from Planning.'
         : 'Relax filters or change mode only after you have confirmed this strict slice is truly exhausted.',
     actionLabel: mode === 'approx' ? 'Switch to explore' : 'Open planning',
     nextMode: mode === 'approx' ? 'explore' : null,

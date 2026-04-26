@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { zodFormResolver } from '@/shared/lib/forms/zod-form-resolver';
@@ -14,7 +14,6 @@ import {
 const DEFAULT_LISTING_URL = 'https://it.pracuj.pl/praca?wm=home-office&its=frontend';
 
 export const useJobSourcesPanel = (token: string) => {
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const form = useForm<EnqueueScrapeFormValues>({
     resolver: zodFormResolver<EnqueueScrapeFormValues>(enqueueScrapeSchema),
     defaultValues: {
@@ -52,8 +51,7 @@ export const useJobSourcesPanel = (token: string) => {
     [limit, listingUrl, mode],
   );
 
-  const { runsQuery, diagnosticsQuery, sourceHealthQuery, scheduleQuery, scheduleEventsQuery, preflightQuery } =
-    useJobSourcesQueries(token, selectedRunId, preflightParams);
+  const { scheduleQuery, preflightQuery } = useJobSourcesQueries(token, preflightParams);
   const { enqueueMutation, updateScheduleMutation, triggerScheduleNowMutation } = useJobSourcesMutations(token, form);
 
   useEffect(() => {
@@ -102,14 +100,8 @@ export const useJobSourcesPanel = (token: string) => {
     submit,
     submitSchedule,
     mode,
-    runsQuery,
-    diagnosticsQuery,
-    sourceHealthQuery,
     scheduleQuery,
-    scheduleEventsQuery,
     preflightQuery,
-    selectedRunId,
-    setSelectedRunId,
     enqueueResult: enqueueMutation.data,
     scheduleResult: scheduleQuery.data,
     isSubmitting: enqueueMutation.isPending,

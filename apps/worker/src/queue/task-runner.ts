@@ -80,6 +80,8 @@ export class TaskRunner {
       queued: this.queue.length,
       active: this.active,
       maxConcurrent: this.maxConcurrent,
+      maxQueueSize: this.maxQueueSize,
+      taskTimeoutMs: this.taskTimeoutMs,
     };
   }
 

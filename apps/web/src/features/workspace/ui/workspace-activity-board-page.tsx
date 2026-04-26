@@ -9,7 +9,9 @@ import {
   getWorkspaceRunStatusLabel,
   getWorkspaceRunStatusTone,
 } from '@/features/workspace/model/workspace-page-helpers';
+import { getAutomationLastUpdateSummary } from '@/shared/lib/presentation/job-search-ui';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
+import { usePrivateNotebookSummaryQuery } from '@/shared/lib/dashboard/private-dashboard-resource-queries';
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -20,7 +22,8 @@ import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
 export const WorkspaceActivityBoardPage = () => {
   const auth = useRequireAuth();
   const router = useRouter();
-  const { summary, notebookSummary, isBootstrapping, summaryError, refreshSummary } = usePrivateDashboardData();
+  const { token, summary, isBootstrapping, summaryError, refreshSummary } = usePrivateDashboardData();
+  const notebookSummary = usePrivateNotebookSummaryQuery(token).data;
 
   if (!auth.token || isBootstrapping) {
     return (
@@ -154,8 +157,8 @@ export const WorkspaceActivityBoardPage = () => {
                 tone={summary.documents.ready > 0 ? 'success' : 'warning'}
               />
               <StatRow
-                label="Latest refresh"
-                value={getWorkspaceRunStatusLabel(summary.scrape.lastRunStatus)}
+                label="Last update"
+                value={getAutomationLastUpdateSummary(summary.scrape.lastRunStatus)}
                 tone={getWorkspaceRunStatusTone(summary.scrape.lastRunStatus)}
               />
               <StatRow

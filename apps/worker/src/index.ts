@@ -27,7 +27,21 @@ const cloudRunPort = Number(process.env.PORT);
 const listenPort = Number.isFinite(cloudRunPort) && cloudRunPort > 0 ? cloudRunPort : env.WORKER_PORT;
 
 server.listen(listenPort, () => {
-  logger.info({ port: listenPort, queueProvider: env.QUEUE_PROVIDER }, 'Worker task server listening');
+  logger.info(
+    {
+      port: listenPort,
+      queueProvider: env.QUEUE_PROVIDER,
+      concurrencyPolicy: {
+        maxConcurrentTasks: env.WORKER_MAX_CONCURRENT_TASKS,
+        maxQueueSize: env.WORKER_MAX_QUEUE_SIZE,
+        taskTimeoutMs: env.WORKER_TASK_TIMEOUT_MS,
+        detailConcurrency: env.PRACUJ_DETAIL_CONCURRENCY,
+        detailDelayMs: env.PRACUJ_DETAIL_DELAY_MS,
+        browserFallbackCooldownMs: env.PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS,
+      },
+    },
+    'Worker task server listening',
+  );
 });
 
 const shutdown = (signal: string) => {

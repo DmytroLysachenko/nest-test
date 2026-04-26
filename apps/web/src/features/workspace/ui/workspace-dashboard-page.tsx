@@ -11,11 +11,11 @@ import {
   getWorkspaceRunStatusLabel,
   getWorkspaceRunStatusTone,
 } from '@/features/workspace/model/workspace-page-helpers';
-import { formatCountLabel } from '@/shared/lib/presentation/job-search-ui';
+import { formatCountLabel, getAutomationLastUpdateSummary } from '@/shared/lib/presentation/job-search-ui';
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { HeroHeader, MetricCard, StatusPill } from '@/shared/ui/dashboard-primitives';
+import { EditorialPanel, HeroHeader, MetricCard, StatusPill, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { WorkflowFeedback } from '@/shared/ui/workflow-feedback';
 import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
@@ -57,7 +57,6 @@ export const WorkspaceDashboardPage = () => {
 
   const summary = dashboard.summary;
   const offers = dashboard.offers;
-  const latestRunStatus = summary.scrape.lastRunStatus ?? 'IDLE';
   const nextAction = summary.nextAction ?? {
     title: 'Review new opportunities',
     description: 'Check new matches, keep the promising roles, and move only active work into the notebook.',
@@ -91,12 +90,12 @@ export const WorkspaceDashboardPage = () => {
         }
       />
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <Card title={nextAction.title} description={nextAction.description}>
-          <div className="space-y-4">
+      <section className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)] lg:items-start">
+        <EditorialPanel eyebrow="Next move" title={nextAction.title} description={nextAction.description}>
+          <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
               <StatusPill
-                value={getWorkspaceRunStatusLabel(summary.scrape.lastRunStatus)}
+                value={getAutomationLastUpdateSummary(summary.scrape.lastRunStatus)}
                 tone={getWorkspaceRunStatusTone(summary.scrape.lastRunStatus)}
               />
               <span className="text-text-soft text-sm">
@@ -114,30 +113,36 @@ export const WorkspaceDashboardPage = () => {
               </Link>
               <Link href="/profile" className="app-inset-stack block">
                 <p className="text-text-strong text-sm font-semibold">Profile</p>
-                <p className="text-text-soft mt-1 text-sm">Update source-of-truth details when your target changes.</p>
+                <p className="text-text-soft mt-1 text-sm">
+                  Update source-of-truth details only when your target changes.
+                </p>
               </Link>
             </div>
           </div>
-        </Card>
+        </EditorialPanel>
 
-        <Card title="Current status" description="The few signals that matter before you start the next session.">
+        <UtilityRail
+          title="Current status"
+          description="The few signals that matter before you start the next session."
+          className="app-surface-elevated p-5 md:p-6"
+        >
           <div className="space-y-3">
-            <div className="app-inset-stack">
+            <div className="border-border/60 border-b pb-3">
               <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Applications in motion</p>
               <p className="text-text-strong mt-2 text-2xl font-semibold">{summary.offers.applied}</p>
             </div>
-            <div className="app-inset-stack">
+            <div className="border-border/60 border-b pb-3">
               <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Due today</p>
               <p className="text-text-strong mt-2 text-2xl font-semibold">{summary.offers.followUpDue}</p>
             </div>
-            <div className="app-inset-stack">
-              <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Profile</p>
+            <div>
+              <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Updates</p>
               <p className="text-text-strong mt-2 text-base font-semibold">
-                {summary.profile.exists ? 'Ready' : 'Needs finishing'}
+                {getWorkspaceRunStatusLabel(summary.scrape.lastRunStatus)}
               </p>
             </div>
           </div>
-        </Card>
+        </UtilityRail>
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -208,3 +208,41 @@ test('returns CORS headers for allowed preflight origin', async () => {
     await closeServer(server);
   }
 });
+
+test('reports worker queue and concurrency policy on health', async () => {
+  const server = createTaskServer(
+    buildEnv({
+      WORKER_MAX_CONCURRENT_TASKS: 2,
+      WORKER_MAX_QUEUE_SIZE: 25,
+      WORKER_TASK_TIMEOUT_MS: 120000,
+      PRACUJ_DETAIL_CONCURRENCY: 3,
+      PRACUJ_DETAIL_DELAY_MS: 1500,
+      PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS: 4500,
+    }),
+    logger,
+  );
+  await new Promise<void>((resolve) => {
+    server.listen(0, () => resolve());
+  });
+  const port = (server.address() as AddressInfo).port;
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/health`);
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as {
+      ok: boolean;
+      queue: { maxConcurrent: number; maxQueueSize: number; taskTimeoutMs: number };
+      policy: { detailConcurrency: number; detailDelayMs: number; browserFallbackCooldownMs: number };
+    };
+
+    assert.equal(body.ok, true);
+    assert.equal(body.queue.maxConcurrent, 2);
+    assert.equal(body.queue.maxQueueSize, 25);
+    assert.equal(body.queue.taskTimeoutMs, 120000);
+    assert.equal(body.policy.detailConcurrency, 3);
+    assert.equal(body.policy.detailDelayMs, 1500);
+    assert.equal(body.policy.browserFallbackCooldownMs, 4500);
+  } finally {
+    await closeServer(server);
+  }
+});

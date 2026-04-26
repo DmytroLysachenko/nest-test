@@ -7,24 +7,12 @@ import { PrivateDashboardDataProvider } from '@/shared/lib/dashboard/private-das
 import { AppShell } from '@/shared/ui/app-shell';
 import { WorkspaceSplashState } from '@/shared/ui/async-states';
 
-import type {
-  CareerProfileDto,
-  DocumentDto,
-  JobOfferSummaryDto,
-  ProfileInputDto,
-  ScrapeScheduleDto,
-  WorkspaceSummaryDto,
-} from '@/shared/types/api';
+import type { WorkspaceSummaryDto } from '@/shared/types/api';
 
 type PrivateLayoutShellProps = {
   children: React.ReactNode;
   initialData?: {
     summary?: WorkspaceSummaryDto | null;
-    latestProfileInput?: ProfileInputDto | null;
-    latestCareerProfile?: CareerProfileDto | null;
-    documents?: DocumentDto[] | null;
-    notebookSummary?: JobOfferSummaryDto | null;
-    scrapeSchedule?: ScrapeScheduleDto | null;
   };
 };
 

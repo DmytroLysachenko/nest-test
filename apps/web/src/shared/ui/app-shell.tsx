@@ -18,7 +18,6 @@ import {
 
 import { env } from '@/shared/config/env';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
-import { formatDate } from '@/shared/lib/utils/date-format';
 import { Button } from '@/shared/ui/button';
 
 type AppShellProps = {
@@ -59,15 +58,11 @@ const AppShellSidebar = ({
   pathname,
   items,
   readinessScore,
-  nextActionTitle,
-  nextRunAt,
   onNavigate,
 }: {
   pathname: string;
   items: AppNavItem[];
   readinessScore?: number;
-  nextActionTitle?: string;
-  nextRunAt?: string | null;
   onNavigate?: () => void;
 }) => (
   <>
@@ -79,27 +74,16 @@ const AppShellSidebar = ({
           </span>
           <div>
             <p className="text-sidebar-foreground text-xl font-semibold tracking-tight">JobSeeker</p>
-            <p className="text-sidebar-foreground/65 mt-1 text-xs">Career intelligence workspace</p>
+            <p className="text-sidebar-foreground/65 mt-1 text-xs">Focused job-search workspace</p>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-[1rem] bg-white/60 px-3 py-2">
-            <p className="text-sidebar-foreground/55">Readiness</p>
-            <p className="text-sidebar-foreground mt-1 font-medium">
-              {readinessScore == null ? 'n/a' : `${readinessScore}%`}
-            </p>
-          </div>
-          <div className="rounded-[1rem] bg-white/60 px-3 py-2">
-            <p className="text-sidebar-foreground/55">Next run</p>
-            <p className="text-sidebar-foreground mt-1 font-medium">{nextRunAt ? formatDate(nextRunAt) : 'manual'}</p>
-          </div>
-        </div>
-        <div className="mt-3 rounded-[1.2rem] bg-white/70 p-3">
-          <p className="text-sidebar-foreground/55 text-[11px] uppercase tracking-[0.14em]">Next best move</p>
-          <p className="text-sidebar-foreground mt-2 text-sm leading-5">
-            {nextActionTitle ?? 'Review dashboard priorities'}
-          </p>
-        </div>
+        <p className="text-sidebar-foreground/72 text-sm leading-6">
+          {readinessScore == null
+            ? 'Move between setup, review, and notebook work without digging through admin-style controls.'
+            : readinessScore >= 80
+              ? 'Your workspace is ready for review, tracking, and follow-up work.'
+              : 'Finish the remaining setup steps, then the rest of the workspace will stay simple.'}
+        </p>
       </div>
     </div>
     <nav className="space-y-1.5 px-3 py-5">
@@ -135,7 +119,7 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { summary, scrapeSchedule } = usePrivateDashboardData();
+  const { summary } = usePrivateDashboardData();
   const workspaceReady = summary?.workflow.needsOnboarding === undefined ? true : !summary.workflow.needsOnboarding;
 
   const navItems = useMemo(() => {
@@ -172,13 +156,7 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
     <div className="app-shell">
       {!hideSidebar && (
         <aside className="bg-sidebar/85 text-sidebar-foreground sticky top-0 hidden h-screen w-72 overflow-y-auto xl:block">
-          <AppShellSidebar
-            pathname={pathname}
-            items={navItems}
-            readinessScore={summary?.health.readinessScore}
-            nextActionTitle={summary?.nextAction?.title}
-            nextRunAt={scrapeSchedule?.nextRunAt}
-          />
+          <AppShellSidebar pathname={pathname} items={navItems} readinessScore={summary?.health.readinessScore} />
         </aside>
       )}
 
@@ -201,8 +179,6 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
             pathname={pathname}
             items={navItems}
             readinessScore={summary?.health.readinessScore}
-            nextActionTitle={summary?.nextAction?.title}
-            nextRunAt={scrapeSchedule?.nextRunAt}
             onNavigate={() => setMobileOpen(false)}
           />
         </aside>
@@ -246,7 +222,9 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
                       {activePage}
                     </p>
                     <p className="text-text-soft text-xs">
-                      {summary?.nextAction?.title ?? 'Stay focused on the next step'}
+                      {workspaceReady
+                        ? 'Use the main product routes to review jobs, track applications, and keep the profile current.'
+                        : 'Finish setup to unlock the rest of the workspace.'}
                     </p>
                   </div>
                 </div>

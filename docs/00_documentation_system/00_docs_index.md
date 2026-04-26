@@ -1,6 +1,6 @@
 # Docs Index
 
-Last updated: 2026-04-24
+Last updated: 2026-04-26
 
 ## Purpose
 
@@ -55,8 +55,6 @@ Future-facing planning documents.
 - `02_sprint_plan.md`
 - `03_year_plan.md`
 - `04_feature_evolution_plan.md`
-- `05_catalog_standardization_implementation_plan.md`
-- `06_scrape_reliability_and_catalog_audit_plan.md`
 
 ### `04_architecture_and_data`
 
@@ -95,6 +93,11 @@ Superseded or low-priority docs kept only for historical reference.
 
 - `01_operations_runbook_legacy.md`
 - `02_deploy_step_by_step_legacy.md`
+- `03_product_surface_and_role_boundary_audit_plan_completed.md`
+- `05_catalog_standardization_implementation_plan.md`
+- `06_scrape_reliability_and_catalog_audit_plan.md`
+- `07_rate_limit_matching_data_quality_plan.md`
+- `09_performance_scalability_audit_plan.md`
 
 ## Ordering rules
 

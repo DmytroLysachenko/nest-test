@@ -1,5 +1,7 @@
 # Scrape Reliability And Catalog Audit Plan
 
+Archived as completed: 2026-04-26
+
 Last updated: 2026-04-08
 
 ## Purpose

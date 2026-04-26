@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic';
 import React, { useEffect, useRef } from 'react';
 
 import { useNotebookPage } from '@/features/job-offers/model/use-notebook-page';
-import { NotebookActionPlanCard } from '@/features/job-offers/ui/components/notebook-action-plan-card';
 import { NotebookFiltersCard } from '@/features/job-offers/ui/components/notebook-filters-card';
 import { NotebookOffersListCard } from '@/features/job-offers/ui/components/notebook-offers-list-card';
 import { NotebookPipelineCard } from '@/features/job-offers/ui/components/notebook-pipeline-card';
@@ -20,6 +19,16 @@ const NotebookOfferDetailsCard = dynamic(
     })),
   {
     loading: () => <div className="bg-surface-muted h-[32rem] animate-pulse rounded-lg" />,
+  },
+);
+
+const NotebookActionPlanCard = dynamic(
+  () =>
+    import('@/features/job-offers/ui/components/notebook-action-plan-card').then((module) => ({
+      default: module.NotebookActionPlanCard,
+    })),
+  {
+    loading: () => <div className="bg-surface-muted h-48 animate-pulse rounded-lg" />,
   },
 );
 

@@ -18,6 +18,23 @@ export const getUserFacingRunStatus = (status: string | null | undefined) => {
   }
 };
 
+export const getAutomationModeLabel = (enabled: boolean | null | undefined) =>
+  enabled ? 'Automatic updates on' : 'Manual updates';
+
+export const getAutomationPresetSummary = (cron: string | null | undefined, enabled: boolean | null | undefined) => {
+  if (!enabled) {
+    return 'Run updates when you want';
+  }
+  return getSchedulePresetLabel(cron);
+};
+
+export const getAutomationLastUpdateSummary = (status: string | null | undefined) => {
+  if (!status) {
+    return 'No updates yet';
+  }
+  return getUserFacingRunStatus(status);
+};
+
 export const getUserFacingOfferStatus = (status: string) => {
   switch (status) {
     case 'NEW':
@@ -75,13 +92,13 @@ export const getScheduleEventPresentation = (event: ScrapeScheduleEventDto) => {
       };
     case 'schedule_enqueue_succeeded':
       return {
-        label: 'Update queued',
-        summary: 'A scheduled search refresh was queued successfully.',
+        label: 'Update started',
+        summary: 'Your automatic search refresh started successfully.',
       };
     case 'schedule_enqueue_failed':
       return {
-        label: 'Update missed',
-        summary: event.message,
+        label: 'Update needs attention',
+        summary: event.message || 'The automatic refresh did not start this time.',
       };
     default:
       return {

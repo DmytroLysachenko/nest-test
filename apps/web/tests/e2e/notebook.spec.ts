@@ -446,7 +446,7 @@ test('notebook pipeline renders active offers and sends workflow actions', async
   await expect(page.getByLabel('Mode')).toHaveValue('strict');
 
   const scrapeRequest = page.waitForRequest('**/api/job-sources/scrape');
-  await page.getByRole('button', { name: 'Refresh from profile' }).click();
+  await page.getByRole('button', { name: 'Find fresh matches' }).click();
   const scrapePayload = (await scrapeRequest).postDataJSON();
   expect(scrapePayload).toEqual({ limit: 20 });
 

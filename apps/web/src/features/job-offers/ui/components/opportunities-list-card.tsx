@@ -71,6 +71,10 @@ export const OpportunitiesListCard = ({
   onMarkSeen,
   onDismiss,
 }: OpportunitiesListCardProps) => {
+  const currentPage = total === 0 ? 0 : Math.floor(offset / limit) + 1;
+  const startItem = total === 0 ? 0 : offset + 1;
+  const endItem = Math.min(offset + limit, total);
+
   const groups = [
     {
       key: 'fresh',
@@ -278,13 +282,16 @@ export const OpportunitiesListCard = ({
         )}
       </div>
 
-      <div className="mt-5 flex items-center justify-between">
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
         <Button type="button" variant="secondary" disabled={!canPrev} onClick={onPrev}>
           Previous
         </Button>
-        <p className="text-muted-foreground text-xs">
-          Showing {total === 0 ? 0 : offset + 1}-{Math.min(offset + limit, total)} of {total}
-        </p>
+        <div className="text-center">
+          <p className="text-muted-foreground text-xs">Page {currentPage}</p>
+          <p className="text-muted-foreground text-xs">
+            Showing {startItem}-{endItem} of {total} opportunities
+          </p>
+        </div>
         <Button type="button" variant="secondary" disabled={!canNext} onClick={onNext}>
           Next
         </Button>

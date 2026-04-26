@@ -1,6 +1,6 @@
 # Implementation History
 
-Last updated: 2026-04-02
+Last updated: 2026-04-25
 
 ## Purpose
 
@@ -138,7 +138,7 @@ Primary code areas:
 Related docs:
 
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md`
-- `docs/03_plans_and_roadmaps/05_catalog_standardization_implementation_plan.md`
+- `docs/99_archive_legacy/05_catalog_standardization_implementation_plan.md`
 
 ### `008` Catalog normalization persistence and backfill path
 
@@ -158,7 +158,7 @@ Primary code areas:
 
 Related docs:
 
-- `docs/03_plans_and_roadmaps/05_catalog_standardization_implementation_plan.md`
+- `docs/99_archive_legacy/05_catalog_standardization_implementation_plan.md`
 - `docs/02_product_workflows/20_scrape_feature.md`
 
 ### `009` Structured catalog read models and single-use OTP lifecycle
@@ -266,3 +266,27 @@ Related docs:
 
 - `docs/06_engineering_standards/02_backend_and_repo_standards.md`
 - `docs/00_documentation_system/03_code_to_docs_map.md`
+
+### `014` Product-surface boundary cleanup and role separation
+
+Summary:
+
+- finished the product-surface audit for the end-user web app
+- removed remaining sourcing/debug phrasing from normal user routes and tightened the user/admin separation
+- simplified shell/dashboard/planning/profile hierarchy so the product routes read like workflow pages instead of operator tooling
+- documented schedule trust verification steps and archived the completed audit plan
+
+Primary code areas:
+
+- `apps/web/src/shared/ui/app-shell.tsx`
+- `apps/web/src/features/workspace`
+- `apps/web/src/features/job-sources`
+- `apps/web/src/features/job-offers`
+- `apps/web/src/features/profile-management`
+
+Related docs:
+
+- `docs/01_project_context/02_project_state.md`
+- `docs/03_plans_and_roadmaps/01_roadmap.md`
+- `docs/05_operations_and_deployment/01_runbook.md`
+- `docs/99_archive_legacy/03_product_surface_and_role_boundary_audit_plan_completed.md`

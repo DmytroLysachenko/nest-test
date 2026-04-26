@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-04-21
+Last updated: 2026-04-25
 
 ## Purpose
 
@@ -44,7 +44,7 @@ The project should not drift into:
 ## Now (Execution Priority)
 
 1. Workflow differentiation in dashboard + notebook.
-   - Status: in progress (normalized follow-up fields, action-plan read model, prep packet read model, discovery/opportunities split, grouped discovery queues, notebook Kanban-first pipeline workflow, email reminder delivery state, and selected-offer follow-up shortcuts shipped; remaining work is user-facing reminder controls and richer prep support).
+   - Status: in progress (normalized follow-up fields, action-plan read model, prep packet read model, discovery/opportunities split, grouped discovery queues, notebook Kanban-first pipeline workflow, email reminder delivery state, selected-offer follow-up shortcuts, and the full product-surface boundary cleanup for dashboard/planning/discovery/profile/document routes shipped; the automation page now runs on plain schedule state instead of raw run/event diagnostics, shell/page chrome is simplified for product use, and remaining work is user-facing reminder controls plus richer prep support).
 2. Matching quality tuning (score calibration, stricter seniority/constraints behavior).
    - Status: in progress (capped approx penalties + explore recency weighting shipped; secondary seniority and structured catalog fields now feed deterministic scoring; threshold tuning ongoing).
 3. Scraper quality hardening and source-specific reliability.
@@ -72,7 +72,8 @@ The project should not drift into:
      - structured company and taxonomy context in offer review surfaces
      - explicit hidden/degraded result messaging
      - continued quality improvements for Kanban throughput and active-offer workspace ergonomics
-   - Status: in progress (structured catalog context and scrape reliability context are now visible in notebook and discovery detail surfaces; attention-state read models, richer focus/action-plan queues, workflow-aware prep context, explicit collection-state messaging, and email reminder delivery/state are shipped; deeper pipeline automation and user-facing delivery controls still remain).
+     - stricter separation between end-user product routes and admin/support diagnostics
+   - Status: in progress (structured catalog context and scrape reliability context are now visible in notebook and discovery detail surfaces; attention-state read models, richer focus/action-plan queues, workflow-aware prep context, explicit collection-state messaging, email reminder delivery/state, and the completed end-user/admin boundary cleanup are shipped; the user automation route no longer depends on raw run history or scheduler event feeds, and the remaining work is deeper pipeline automation plus user-facing delivery controls).
 2. Tighten scrape output usefulness, not just scrape completion.
    - Scope:
      - adaptive broad-acquisition query planning with target listing windows

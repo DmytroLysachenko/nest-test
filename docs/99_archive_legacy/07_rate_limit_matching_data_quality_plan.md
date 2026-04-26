@@ -1,5 +1,7 @@
 # Rate Limit, Matching, And Data Quality Plan
 
+Archived as completed: 2026-04-26
+
 ## Context
 
 This plan continues the existing scrape reliability work by simplifying API rate limits and improving deterministic job

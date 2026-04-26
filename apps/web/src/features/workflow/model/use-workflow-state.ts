@@ -9,8 +9,8 @@ type WorkflowStepKey =
   | 'documents-uploaded'
   | 'documents-extracted'
   | 'career-profile-ready'
-  | 'scrape-run-completed'
-  | 'notebook-materialized';
+  | 'first-update-completed'
+  | 'notebook-ready';
 
 type WorkflowStep = {
   key: WorkflowStepKey;
@@ -59,29 +59,31 @@ export const useWorkflowState = (token: string | null) => {
           ? `${readyDocuments} document(s) extracted and ready.`
           : failedDocuments > 0
             ? `${failedDocuments} document(s) failed extraction.`
-            : 'Run extraction to prepare profile generation.',
+            : 'Finish extraction so profile creation can use the documents.',
       },
       {
         key: 'career-profile-ready',
         label: 'Generate career profile',
         done: hasReadyCareerProfile,
-        hint: hasReadyCareerProfile ? 'Active career profile is READY.' : 'Generate an active READY career profile.',
+        hint: hasReadyCareerProfile
+          ? 'An active career profile is ready.'
+          : 'Generate the first active career profile.',
       },
       {
-        key: 'scrape-run-completed',
-        label: 'Complete at least one scrape run',
+        key: 'first-update-completed',
+        label: 'Finish the first job update',
         done: hasCompletedRun,
         hint: hasCompletedRun
-          ? 'Scrape run completed successfully.'
-          : 'Enqueue scrape and wait for callback completion.',
+          ? 'The first update finished successfully.'
+          : 'Start one update and wait for the first results to land.',
       },
       {
-        key: 'notebook-materialized',
-        label: 'Materialize notebook offers',
+        key: 'notebook-ready',
+        label: 'Review notebook roles',
         done: hasNotebookOffers,
         hint: hasNotebookOffers
           ? `${offersQuery.data?.total ?? 0} offer(s) available in notebook.`
-          : 'Notebook offers appear after successful scrape completion.',
+          : 'Notebook roles appear after the first successful update.',
       },
     ];
 

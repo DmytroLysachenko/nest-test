@@ -29,10 +29,6 @@ const createPanelState = (overrides: Record<string, unknown> = {}) =>
       formState: { errors: {} },
     },
     preflightQuery: { data: null },
-    sourceHealthQuery: { data: { items: [] } },
-    scheduleEventsQuery: { data: { items: [], total: 0 } },
-    runsQuery: { data: { items: [] } },
-    diagnosticsQuery: { data: null },
     scheduleResult: {
       enabled: true,
       cron: '0 9 * * *',
@@ -64,76 +60,9 @@ describe('JobSourcesPanel', () => {
     vi.useRealTimers();
   });
 
-  it('shows source-health pause when automation is actively paused', () => {
+  it('shows attention messaging when the last automatic update failed', () => {
     mockedUseJobSourcesPanel.mockReturnValue(
       createPanelState({
-        sourceHealthQuery: {
-          data: {
-            items: [
-              {
-                activePause: true,
-                guidance: 'Pause remains active until source health recovers.',
-              },
-            ],
-          },
-        },
-      }),
-    );
-
-    render(<JobSourcesPanel token="token" />);
-
-    expect(screen.getByText('Automatic updates are paused')).toBeInTheDocument();
-    expect(screen.getAllByText('Pause remains active until source health recovers.').length).toBeGreaterThan(0);
-  });
-
-  it('shows recent schedule failure when the latest event is an error', () => {
-    mockedUseJobSourcesPanel.mockReturnValue(
-      createPanelState({
-        scheduleEventsQuery: {
-          data: {
-            total: 1,
-            items: [
-              {
-                id: 'event-1',
-                eventType: 'schedule_enqueue_failed',
-                severity: 'error',
-                code: 'source_paused',
-                message: 'Scheduled enqueue failed because source automation is paused.',
-                sourceRunId: null,
-                requestId: 'req-1',
-                meta: null,
-                createdAt: '2026-04-10T10:00:00.000Z',
-              },
-            ],
-          },
-        },
-      }),
-    );
-
-    render(<JobSourcesPanel token="token" />);
-
-    expect(screen.getByText('Recent automatic update failed')).toBeInTheDocument();
-    expect(screen.getAllByText('Scheduled enqueue failed because source automation is paused.').length).toBeGreaterThan(
-      0,
-    );
-  });
-
-  it('shows due-but-paused messaging when source health blocks an overdue schedule', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-04-11T10:00:00.000Z'));
-
-    mockedUseJobSourcesPanel.mockReturnValue(
-      createPanelState({
-        sourceHealthQuery: {
-          data: {
-            items: [
-              {
-                activePause: true,
-                guidance: 'Pause remains active until source health recovers.',
-              },
-            ],
-          },
-        },
         scheduleResult: {
           enabled: true,
           cron: '0 9 * * *',
@@ -151,7 +80,57 @@ describe('JobSourcesPanel', () => {
 
     render(<JobSourcesPanel token="token" />);
 
-    expect(screen.getByText('An update is due but paused')).toBeInTheDocument();
+    expect(screen.getByText('The last automatic update needs attention')).toBeInTheDocument();
+    expect(screen.getByText(/did not finish cleanly/i)).toBeInTheDocument();
+  });
+
+  it('shows onboarding copy when automation has not run yet', () => {
+    mockedUseJobSourcesPanel.mockReturnValue(
+      createPanelState({
+        scheduleResult: {
+          enabled: true,
+          cron: '0 9 * * *',
+          timezone: 'Europe/Warsaw',
+          source: 'pracuj-pl-it',
+          limit: 20,
+          careerProfileId: null,
+          filters: null,
+          lastTriggeredAt: null,
+          nextRunAt: '2026-04-11T09:00:00.000Z',
+          lastRunStatus: null,
+        },
+      }),
+    );
+
+    render(<JobSourcesPanel token="token" />);
+
+    expect(screen.getByText('Automatic updates are on but not proven yet')).toBeInTheDocument();
+  });
+
+  it('shows due-window messaging when the next update window has passed', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-11T10:00:00.000Z'));
+
+    mockedUseJobSourcesPanel.mockReturnValue(
+      createPanelState({
+        scheduleResult: {
+          enabled: true,
+          cron: '0 9 * * *',
+          timezone: 'Europe/Warsaw',
+          source: 'pracuj-pl-it',
+          limit: 20,
+          careerProfileId: null,
+          filters: null,
+          lastTriggeredAt: '2026-04-10T09:00:00.000Z',
+          nextRunAt: '2026-04-11T09:00:00.000Z',
+          lastRunStatus: 'COMPLETED',
+        },
+      }),
+    );
+
+    render(<JobSourcesPanel token="token" />);
+
+    expect(screen.getByText('The next update window has passed')).toBeInTheDocument();
   });
 
   it('shows waiting-for-next-window messaging after a proven schedule success', () => {
@@ -172,17 +151,11 @@ describe('JobSourcesPanel', () => {
           nextRunAt: '2026-04-11T09:00:00.000Z',
           lastRunStatus: 'COMPLETED',
         },
-        scheduleEventsQuery: {
-          data: {
-            total: 0,
-            items: [],
-          },
-        },
       }),
     );
 
     render(<JobSourcesPanel token="token" />);
 
-    expect(screen.getByText('Waiting for the next automatic update')).toBeInTheDocument();
+    expect(screen.getByText('Automatic updates are working')).toBeInTheDocument();
   });
 });

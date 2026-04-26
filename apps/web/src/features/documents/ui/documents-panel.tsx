@@ -10,12 +10,11 @@ import { WorkflowFeedback, WorkflowInlineNotice } from '@/shared/ui/workflow-fee
 
 import type { DocumentDto } from '@/shared/types/api';
 
-const diagnosticsEnabled = process.env.NODE_ENV !== 'production';
-
 type DocumentsPanelProps = {
   token: string;
   disabled?: boolean;
   disabledReason?: string;
+  showTechnicalDetails?: boolean;
   documentsQuery?: {
     data?: DocumentDto[];
   };
@@ -25,6 +24,7 @@ export const DocumentsPanel = ({
   token,
   disabled = false,
   disabledReason,
+  showTechnicalDetails = false,
   documentsQuery: overrideDocumentsQuery,
 }: DocumentsPanelProps) => {
   const {
@@ -44,7 +44,7 @@ export const DocumentsPanel = ({
     retryExtractMutation,
     retryAllFailedMutation,
     removeDocumentMutation,
-  } = useDocumentsPanel({ token, overrideDocumentsQuery });
+  } = useDocumentsPanel({ token, showTechnicalDetails, overrideDocumentsQuery });
   const failedDocuments = (documentsQuery.data ?? []).filter(
     (document: { extractionStatus?: string }) => document.extractionStatus === 'FAILED',
   );
@@ -88,7 +88,7 @@ export const DocumentsPanel = ({
         {recoverySummary ? (
           <WorkflowInlineNotice title="Recovery update" description={recoverySummary} tone="success" />
         ) : null}
-        {diagnosticsEnabled && uploadHealthQuery.data ? (
+        {showTechnicalDetails && uploadHealthQuery.data ? (
           <WorkflowInlineNotice
             title={`Upload health: ${uploadHealthQuery.data.ok ? 'ready' : 'degraded'}`}
             description={`Bucket ${uploadHealthQuery.data.bucket.ok ? 'ok' : (uploadHealthQuery.data.bucket.reason ?? 'issue detected')}. Signed URL ${uploadHealthQuery.data.signedUrl.ok ? 'ok' : (uploadHealthQuery.data.signedUrl.reason ?? 'issue detected')}. Trace ${uploadHealthQuery.data.traceId}.`}
@@ -129,12 +129,16 @@ export const DocumentsPanel = ({
                         : 'border-app-warning-border bg-app-warning-soft text-app-warning'
                   }`}
                 >
-                  {document.extractionStatus}
+                  {document.extractionStatus === 'READY'
+                    ? 'Ready'
+                    : document.extractionStatus === 'FAILED'
+                      ? 'Needs attention'
+                      : 'In progress'}
                 </span>
               </div>
               <div>
                 <div className="flex flex-wrap gap-2">
-                  {diagnosticsEnabled ? (
+                  {showTechnicalDetails ? (
                     <Button type="button" variant="secondary" onClick={() => setSelectedDocumentId(document.id)}>
                       View diagnostics
                     </Button>
@@ -176,7 +180,7 @@ export const DocumentsPanel = ({
                 ) : null}
                 {document.extractionStatus === 'FAILED' ? (
                   <p className="text-app-warning mt-2 text-xs">
-                    Extraction failed. Retry here, inspect diagnostics, or replace the file before profile generation.
+                    We could not read this file yet. Retry here or replace the file before generating your profile.
                   </p>
                 ) : null}
               </div>
@@ -194,12 +198,12 @@ export const DocumentsPanel = ({
           <EmptyState
             icon={<FileX className="h-8 w-8" />}
             title="No documents yet"
-            description="Upload your CV or LinkedIn export to ground the AI generation."
+            description="Upload your CV or LinkedIn export so your profile has real experience and skills to work from."
           />
         )}
       </div>
 
-      {diagnosticsEnabled && selectedDocumentId && documentEventsQuery.data?.length ? (
+      {showTechnicalDetails && selectedDocumentId && documentEventsQuery.data?.length ? (
         <div className="mt-6 space-y-3">
           <p className="text-text-strong text-sm font-semibold">
             Diagnostics timeline ({selectedDocumentId.slice(0, 8)})
