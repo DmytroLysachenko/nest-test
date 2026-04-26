@@ -59,7 +59,7 @@ export const WorkspacePlanningPage = () => {
 
   if (summary.workflow.needsOnboarding) {
     const primaryBlocker =
-      summary.blockerDetails?.find((blocker) => blocker.blockedRoutes.includes('notebook')) ??
+      summary.blockerDetails?.find((blocker) => blocker.blockedRoutes.includes('planning')) ??
       summary.blockerDetails?.[0];
 
     return (
@@ -80,7 +80,7 @@ export const WorkspacePlanningPage = () => {
       <HeroHeader
         eyebrow="Automation"
         title="Control when the search updates"
-        subtitle="Run an update now, turn recurring updates on, and keep your search preferences simple."
+        subtitle="Use this page only for update timing, trust, and automation setup. Review and application work belong elsewhere."
         meta={
           <>
             <span className="app-badge">{getAutomationModeLabel(scrapeSchedule?.enabled)}</span>
@@ -134,7 +134,7 @@ export const WorkspacePlanningPage = () => {
 
           <Card
             title="Before you automate"
-            description="Keep the search predictable and avoid unnecessary noise."
+            description="Use this page as a control surface, not as a general workflow dashboard."
             className="bg-surface-elevated/92"
           >
             <div className="space-y-3 text-sm">
@@ -151,9 +151,10 @@ export const WorkspacePlanningPage = () => {
                 </p>
               </div>
               <div className="app-inset-stack">
-                <p className="text-text-strong font-semibold">Review in opportunities, track in notebook</p>
+                <p className="text-text-strong font-semibold">Leave this page once timing is set</p>
                 <p className="text-text-soft mt-2">
-                  Keep this page focused on update timing. Actual job decisions belong in the workflow pages.
+                  Keep this page focused on update timing. Review fresh roles in Opportunities and manage active work in
+                  Notebook.
                 </p>
               </div>
             </div>

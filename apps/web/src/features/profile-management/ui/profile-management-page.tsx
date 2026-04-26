@@ -20,7 +20,6 @@ import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { ConfirmActionDialog } from '@/shared/ui/confirm-action-dialog';
 import { HeroHeader, UtilityRail } from '@/shared/ui/dashboard-primitives';
-import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
 import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
 
 export const ProfileManagementPage = () => {
@@ -123,8 +122,8 @@ export const ProfileManagementPage = () => {
         <div className="space-y-4">
           <DocumentsReadinessCard documents={documents} />
           <UtilityRail
-            title="Generation readiness"
-            description="The minimum you need before creating a fresh version."
+            title="Keep this page narrowly owned"
+            description="Maintain the inputs and generated profile here, then leave for direction, review, or active application work."
             className="app-surface-elevated p-5 md:p-6"
           >
             <div className="space-y-3 text-sm">
@@ -136,7 +135,7 @@ export const ProfileManagementPage = () => {
                     : 'Upload and extract at least one document first.'}
                 </p>
               </div>
-              <div>
+              <div className="border-border/60 border-b pb-3">
                 <p className="text-text-strong font-semibold">Current generation state</p>
                 <p className="text-text-soft mt-2">
                   {generationState === 'RUNNING'
@@ -148,12 +147,17 @@ export const ProfileManagementPage = () => {
                         : 'No generated profile yet.'}
                 </p>
               </div>
+              <div>
+                <p className="text-text-strong font-semibold">Use other routes for the rest</p>
+                <p className="text-text-soft mt-2">
+                  Go back home for direction, review fresh roles in opportunities, and manage active applications in
+                  notebook.
+                </p>
+              </div>
             </div>
           </UtilityRail>
         </div>
       </section>
-
-      <WorkflowRecoveryPanel blockers={summary.blockerDetails ?? []} title="Fix profile blockers" />
 
       <DocumentsPanel token={auth.token} documentsQuery={documentsQuery} />
 
