@@ -1,6 +1,6 @@
 # Implementation History
 
-Last updated: 2026-04-25
+Last updated: 2026-04-26
 
 ## Purpose
 
@@ -290,3 +290,24 @@ Related docs:
 - `docs/03_plans_and_roadmaps/01_roadmap.md`
 - `docs/05_operations_and_deployment/01_runbook.md`
 - `docs/99_archive_legacy/03_product_surface_and_role_boundary_audit_plan_completed.md`
+
+### `015` Information-architecture and workflow-ownership cleanup
+
+Summary:
+
+- clarified page ownership across home, planning, opportunities, notebook, progress, and profile
+- reduced repeated blocker/readiness furniture on non-owning routes
+- made notebook rendering depend on notebook-owned data instead of the broad workspace summary, with only minimal route-level handoff where needed
+- archived the completed IA/workflow-ownership audit plan
+
+Primary code areas:
+
+- `apps/web/src/features/workspace`
+- `apps/web/src/features/job-offers`
+- `apps/web/src/features/profile-management`
+
+Related docs:
+
+- `docs/01_project_context/02_project_state.md`
+- `docs/03_plans_and_roadmaps/01_roadmap.md`
+- `docs/99_archive_legacy/11_information_architecture_and_workflow_ownership_audit_plan_completed.md`

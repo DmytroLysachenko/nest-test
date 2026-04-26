@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-04-25
+Last updated: 2026-04-26
 
 ## Purpose
 
@@ -171,6 +171,10 @@ That framing should guide future implementation more than raw source count.
   - document technical diagnostics are now hidden by default on end-user routes and can be surfaced only when a route explicitly opts into technical detail
   - notebook refresh controls and profile search-summary copy now use product-facing language around fresh matches and profile direction instead of sourcing/indexing terminology
   - app shell chrome, dashboard, planning, and profile pages now use a lighter hierarchy with fewer nested utility cards, and the remaining advanced diagnostics stay on admin/tester surfaces instead of normal user routes
+  - the information-architecture and workflow-ownership cleanup is now implemented across home, planning, opportunities, notebook, progress, and profile
+  - progress now acts as a momentum/history surface instead of a second dashboard-style orientation page
+  - profile avoids acting like a general recovery hub, while notebook controls are explicitly pipeline-only and route loading states describe discovery vs active-work purpose instead of generic readiness checks
+  - notebook page data now comes from notebook-owned queries plus a minimal route-level update-status handoff, and planning/progress blocker routing targets the owning route instead of falling back through notebook assumptions
   - still contains mixed maturity areas where some screens feel productized and some remain utilitarian
 - Database and migrations
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields

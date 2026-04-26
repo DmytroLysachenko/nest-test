@@ -98,6 +98,7 @@ Superseded or low-priority docs kept only for historical reference.
 - `06_scrape_reliability_and_catalog_audit_plan.md`
 - `07_rate_limit_matching_data_quality_plan.md`
 - `09_performance_scalability_audit_plan.md`
+- `11_information_architecture_and_workflow_ownership_audit_plan_completed.md`
 
 ## Ordering rules
 
