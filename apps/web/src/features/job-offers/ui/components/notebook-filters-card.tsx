@@ -69,8 +69,8 @@ type NotebookFiltersCardProps = {
   total: number;
   hiddenByModeCount?: number;
   listUpdatedAt: number | null | undefined;
-  onEnqueueProfileScrape: () => void;
-  enqueueStatus: 'idle' | 'pending' | 'success' | 'error';
+  onEnqueueProfileScrape?: () => void;
+  enqueueStatus?: 'idle' | 'pending' | 'success' | 'error';
   onDismissAllSeen?: () => void;
   onAutoArchive?: () => void;
   isBusy?: boolean;
@@ -381,17 +381,19 @@ export const NotebookFiltersCard = ({
       ) : null}
 
       <div className="border-border/40 mt-4 flex flex-wrap items-center gap-2 border-t pt-4">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={isBusy || enqueueStatus === 'pending'}
-          onClick={onEnqueueProfileScrape}
-          className="border-primary/20 hover:bg-primary/5 hover:text-primary h-8 transition-colors"
-        >
-          <Sparkles className="text-app-warning mr-2 h-3.5 w-3.5" />
-          {enqueueStatus === 'pending' ? 'Starting...' : 'Find fresh matches'}
-        </Button>
+        {!isPipeline && onEnqueueProfileScrape ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isBusy || enqueueStatus === 'pending'}
+            onClick={onEnqueueProfileScrape}
+            className="border-primary/20 hover:bg-primary/5 hover:text-primary h-8 transition-colors"
+          >
+            <Sparkles className="text-app-warning mr-2 h-3.5 w-3.5" />
+            {enqueueStatus === 'pending' ? 'Starting...' : 'Find fresh matches'}
+          </Button>
+        ) : null}
 
         {onDismissAllSeen && !isPipeline ? (
           <Button
@@ -423,7 +425,7 @@ export const NotebookFiltersCard = ({
 
         <p className="text-text-soft ml-auto text-xs">
           {isPipeline
-            ? 'Use the board arrows to move roles forward or backward instantly.'
+            ? 'Discovery stays in opportunities. Use this page to move active roles, plan follow-ups, and keep notes current.'
             : 'Shortcuts: S save, D dismiss, M reviewed, A applied.'}
         </p>
       </div>

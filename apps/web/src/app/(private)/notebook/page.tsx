@@ -28,7 +28,7 @@ export default function NotebookRoute() {
     return (
       <WorkspaceSplashState
         title="Preparing notebook"
-        subtitle="Validating profile readiness and notebook prerequisites before loading the triage view."
+        subtitle="Loading your active pipeline, follow-up plan, and selected workspace."
       />
     );
   }
@@ -66,6 +66,7 @@ export default function NotebookRoute() {
       token={auth.token}
       initialQuickAction={isNotebookQuickActionKey(focusParam) ? focusParam : null}
       initialOfferId={offerIdParam}
+      latestUpdateStatus={summary.scrape.lastRunStatus}
     />
   );
 }
