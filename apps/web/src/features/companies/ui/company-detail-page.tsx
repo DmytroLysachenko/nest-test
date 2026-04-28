@@ -44,13 +44,27 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
   const company = companyQuery.data;
   if (!company) {
     return (
-      <Card title="Company" description="No company detail is available for this record.">
-        <EmptyState
-          icon={<Building2 className="h-8 w-8" />}
-          title="Company not found"
-          description="The record may have been removed or is not visible in this workspace."
-        />
-      </Card>
+      <main className="app-page">
+        <Card title="Company" description="This route could not resolve a usable employer record.">
+          <EmptyState
+            icon={<Building2 className="h-8 w-8" />}
+            title="Company not found"
+            description="Go back to the company list or return to opportunities and open another linked employer."
+            action={
+              <div className="flex flex-wrap gap-2">
+                <Link href="/companies">
+                  <Button type="button">Back to companies</Button>
+                </Link>
+                <Link href="/opportunities">
+                  <Button type="button" variant="secondary">
+                    Open opportunities
+                  </Button>
+                </Link>
+              </div>
+            }
+          />
+        </Card>
+      </main>
     );
   }
 
