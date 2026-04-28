@@ -89,6 +89,7 @@ export const useDataSync = (token: string | null) => {
   const syncJobSources = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: queryKeys.jobSources.runs(token) });
     queryClient.invalidateQueries({ queryKey: queryKeys.jobSources.schedule(token), exact: true });
+    queryClient.invalidateQueries({ queryKey: ['job-sources', 'schedule-events', token] });
     queryClient.invalidateQueries({ queryKey: ['job-sources', 'preflight', token] });
     // Invalidate summary too as runs affect stats
     queryClient.invalidateQueries({ queryKey: queryKeys.jobSources.diagnosticsSummary(token, 72) });
