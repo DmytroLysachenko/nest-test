@@ -126,6 +126,7 @@ Frequent traps:
 - duplicate-intent protection returning `429`
 - `forceRefresh` bypassing reuse but not bypassing all idempotency windows immediately
 - `PENDING` vs `RUNNING` vs `COMPLETED` differences between acceptance, execution, and callback timing
+- Cloud Scheduler HTTP deadline shorter than Cloud Run cold-start + handler latency, producing scheduler-visible `504 DEADLINE_EXCEEDED` even when schedule events and run creation succeed
 
 Check first:
 
@@ -135,6 +136,12 @@ Check first:
 - `inserted`
 - `totalOffers`
 - `GET /api/job-sources/runs/:id`
+
+For scheduled automation specifically:
+
+- compare Cloud Scheduler execution logs with Cloud Run request logs for `/api/job-sources/schedule/trigger`
+- compare scheduler-visible outcome with `scrape_schedule_events`
+- if Scheduler shows `504` but DB shows `schedule_enqueue_succeeded`, treat scheduler deadline/cold-start as root cause before changing due-schedule pickup logic
 
 ### 2.1 Reuse vs Fresh Run Checklist
 

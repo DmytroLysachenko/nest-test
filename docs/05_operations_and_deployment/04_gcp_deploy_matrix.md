@@ -68,9 +68,11 @@ For the complete local + production inventory, use:
 | `SCHEDULER_JOB_NAME` | deploy-prod-on-main, promote-to-prod | Optional Cloud Scheduler job name override (default `job-seek-schedule-trigger`) |
 | `SCHEDULER_CRON` | deploy-prod-on-main, promote-to-prod | Optional Cloud Scheduler cron expression (default `0 */12 * * *`) |
 | `SCHEDULER_TIMEZONE` | deploy-prod-on-main, promote-to-prod | Optional Cloud Scheduler timezone (default `Europe/Warsaw`) |
+| `SCHEDULER_ATTEMPT_DEADLINE` | deploy-prod-on-main, promote-to-prod | Optional Cloud Scheduler HTTP deadline for `/api/job-sources/schedule/trigger` (default `180s`) |
 | `OPS_RECONCILE_JOB_NAME` | deploy-prod-on-main, promote-to-prod | Optional reconcile job name override (default `job-seek-reconcile-stale-runs`) |
 | `OPS_RECONCILE_CRON` | deploy-prod-on-main, promote-to-prod | Optional reconcile cron expression (default `0 2 * * *`) |
 | `OPS_RECONCILE_TIMEZONE` | deploy-prod-on-main, promote-to-prod | Optional reconcile timezone (default `Europe/Warsaw`) |
+| `OPS_RECONCILE_ATTEMPT_DEADLINE` | deploy-prod-on-main, promote-to-prod | Optional Cloud Scheduler HTTP deadline for `/api/ops/reconcile-stale-runs` (default `300s`) |
 | `WORKER_TASKS_DLQ` | deploy-prod-on-main, promote-to-prod | Optional DLQ queue name provisioned by deploy script (default `worker-scrape-dlq`) |
 | `WORKER_TASKS_SERVICE_ACCOUNT_EMAIL` | deploy-prod-on-main, promote-to-prod | Optional Cloud Tasks OIDC caller identity; defaults to the API runtime service account when `WORKER_SHARED_TOKEN` is unset |
 | `TASKS_MAX_ATTEMPTS` | deploy-prod-on-main, promote-to-prod | Optional Cloud Tasks retry max attempts (default `8`) |
@@ -292,7 +294,9 @@ For the complete local + production inventory, use:
 - `deploy-cloud-run-prod.sh` now upserts a Cloud Scheduler HTTP job after API deploy.
 - Target endpoint: `POST ${API_URL}/api/job-sources/schedule/trigger`.
 - Auth header: `Authorization: Bearer ${SCHEDULER_AUTH_TOKEN}`.
+- Attempt deadline: `${SCHEDULER_ATTEMPT_DEADLINE}` (default `180s`).
 - Default cadence: every 10 minutes (`*/10 * * * *`) in `Etc/UTC`.
 - Reconcile endpoint: `POST ${API_URL}/api/ops/reconcile-stale-runs`.
 - Reconcile auth header: `Authorization: Bearer ${OPS_INTERNAL_TOKEN}`.
+- Attempt deadline: `${OPS_RECONCILE_ATTEMPT_DEADLINE}` (default `300s`).
 - Reconcile cadence default: every 15 minutes (`*/15 * * * *`) in `Etc/UTC`.
