@@ -34,6 +34,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
     formState: { errors: scheduleErrors },
   } = jobSourcesPanel.scheduleForm;
   const preflight = jobSourcesPanel.preflightQuery.data;
+  const scheduleEvents = jobSourcesPanel.scheduleEvents ?? [];
   const now = Date.now();
   const nextRunAtValue = jobSourcesPanel.scheduleResult?.nextRunAt
     ? new Date(jobSourcesPanel.scheduleResult.nextRunAt).getTime()
@@ -42,13 +43,13 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
     ? new Date(jobSourcesPanel.scheduleResult.lastTriggeredAt).getTime()
     : null;
   const scheduleIsDue = typeof nextRunAtValue === 'number' && nextRunAtValue <= now;
-  const lastScheduleFailure = jobSourcesPanel.scheduleEvents.find((event) => event.severity === 'error');
-  const lastScheduleSuccess = jobSourcesPanel.scheduleEvents.find(
-    (event) => event.eventType === 'schedule_enqueue_succeeded',
-  );
+  const lastScheduleFailure = scheduleEvents.find((event) => event.severity === 'error');
+  const lastScheduleSuccess = scheduleEvents.find((event) => event.eventType === 'schedule_enqueue_succeeded');
   const trustEvidenceLabel = lastScheduleSuccess
     ? `Last proven enqueue ${formatDateTime(lastScheduleSuccess.createdAt)}`
-    : 'No successful scheduled enqueue recorded yet';
+    : typeof lastTriggeredAtValue === 'number'
+      ? `Last automatic trigger recorded ${formatDateTime(jobSourcesPanel.scheduleResult?.lastTriggeredAt)}`
+      : 'No successful scheduled enqueue recorded yet';
 
   const scheduleStory = !jobSourcesPanel.scheduleResult?.enabled
     ? {
@@ -63,7 +64,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           description:
             'The last automatic update did not finish cleanly. Check your setup and try another refresh when you are ready.',
         }
-      : typeof lastTriggeredAtValue !== 'number'
+      : typeof lastTriggeredAtValue !== 'number' && !lastScheduleSuccess
         ? {
             tone: 'warning' as const,
             title: 'Automatic updates are on but not proven yet',
@@ -401,9 +402,9 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               tone="danger"
             />
           ) : null}
-          {jobSourcesPanel.scheduleEvents.length ? (
+          {scheduleEvents.length ? (
             <div className="space-y-2">
-              {jobSourcesPanel.scheduleEvents.map((event) => {
+              {scheduleEvents.map((event) => {
                 const presentation = getScheduleEventPresentation(event);
                 const toneClass =
                   event.severity === 'error'
