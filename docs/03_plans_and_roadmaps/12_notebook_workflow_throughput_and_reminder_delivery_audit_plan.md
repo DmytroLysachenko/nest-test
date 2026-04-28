@@ -1,10 +1,56 @@
 # Notebook Workflow Throughput And Reminder Delivery Audit Plan
 
-Last updated: 2026-04-26
+Last updated: 2026-04-28
 
 ## Status
 
-Planned.
+Completed.
+
+Closure review on 2026-04-28:
+
+- Track 1 notebook throughput: implemented
+- Track 2 reminder controls and delivery trust: implemented
+- Track 3 scheduled scrape reliability and root-cause verification: implemented
+- Track 4 companies surface correctness: mostly implemented for current route contract
+- Track 5 company detail UI alignment: implemented for current empty-state/product baseline
+
+## Implemented slices
+
+- company detail route now resolves App Router params correctly in client rendering, removing the false `Company not found` dead end caused by unresolved dynamic params
+- company detail empty state now follows product surface layout and provides recovery navigation back to `Companies` and `Opportunities`
+- notebook now exposes reminder bucket queue cards on-route so overdue, due-today, upcoming, and stale work can be opened directly
+- selected-offer follow-up shortcuts now include `tomorrow`, `3 days`, and `1 week` completion/snooze paths for faster repeated pipeline work
+- notebook bulk queue maintenance now includes one-click reminder presets for `tomorrow`, `3 days`, and `1 week` without opening every role
+- reminder delivery messaging now explicitly separates notebook-owned tracking from external email delivery outcomes
+- notebook now exposes direct stale-role recovery and missing-next-step recovery lanes so drift can be worked from the route itself
+- planning automation now surfaces recent persisted schedule events in the end-user route so cadence trust can be checked without leaving product UX
+- production schedule root cause was confirmed as Cloud Scheduler HTTP `attemptDeadline` drift below real handler latency; deploy automation and live GCP jobs now use longer deadlines
+
+## Closure Snapshot
+
+## Completed outcomes
+
+- company detail lookup regression fixed at route level by resolving App Router params correctly before detail fetch
+- company detail empty-state quality brought up to product baseline with direct recovery actions
+- notebook exposes direct queue entry points for overdue, today, upcoming, and stale reminder work
+- selected-offer workspace supports faster repeated follow-up handling through `done`, `done + remind`, and `snooze` shortcuts
+- queue-level bulk maintenance now supports one-click reminder-date stamping for common repeated follow-up cadences
+- reminder delivery state now explains whether the notebook still owns the follow-up even when external email delivery fails
+- notebook exposes direct recovery lanes for failed reminder delivery, stale roles, and missing-next-step cleanup
+- planning route now exposes persisted schedule-event evidence instead of only saved cadence state
+- scheduled scrape reliability investigation produced a concrete root-cause statement with DB + GCP + code evidence
+- scheduled scrape reliability fix was applied in live GCP config and codified in deploy automation/docs
+
+## Verification recorded for closure
+
+1. `npm run build` in `apps/web`
+2. `pnpm --filter api test -- companies.service.spec.ts --runInBand`
+3. `pnpm smoke:e2e`
+
+## Remaining follow-up outside this plan
+
+- the longer-term company-memory product direction can still expand later, but the current user-facing route contract is now correct and aligned enough to remain exposed
+- reminder and notebook automation can deepen further in future roadmap slices, but this audit's required trust/throughput baseline is now met
 
 ## Goal
 

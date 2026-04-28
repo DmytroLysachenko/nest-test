@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-04-26
+Last updated: 2026-04-28
 
 ## Purpose
 
@@ -107,6 +107,11 @@ That framing should guide future implementation more than raw source count.
   - notebook reminder preview now exposes overdue, due-today, upcoming, and stale-pipeline work as an in-app read model
   - external email reminder delivery now persists per-offer daily-window state (`pending` / `delivered` / `failed`) and is surfaced back into notebook list/detail read models
   - notebook action-plan and selected-offer workspace now expose one-click follow-up shortcuts for done/snooze/prep flows without duplicating queue logic in web
+  - notebook now surfaces reminder bucket cards directly on the route so overdue, due-today, upcoming, and stale recovery queues can be opened without hunting through filters first
+  - selected-offer follow-up controls now cover tomorrow / 3-day / 1-week completion and snooze paths, reducing repeated date editing for routine recovery work
+  - queue-level bulk workflow maintenance now also supports one-click reminder presets for tomorrow / 3-day / 1-week follow-up stamping across the current selection
+  - reminder delivery copy now distinguishes notebook-owned follow-up tracking from external email delivery so failed email does not look like lost notebook state
+  - notebook now exposes direct recovery lanes for failed reminder delivery, stale roles, and missing-next-step cleanup instead of relying only on filters or list scanning
   - dashboard focus and action-plan lanes now include due-today, prep-next, and awaiting-decision workflow slices with explicit rationale and CTA metadata
   - pipeline bulk editing now supports decision checkpoints and prep-needed flags in addition to follow-up planning
   - bulk status flows, metadata, scoring, prep generation
@@ -116,6 +121,7 @@ That framing should guide future implementation more than raw source count.
   - preflight blockers/warnings before enqueue
   - user-managed scrape schedule
   - trigger-now for enabled schedule
+  - planning automation now surfaces recent schedule enqueue evidence directly from persisted schedule events so cadence trust can be checked without opening admin tooling
   - enqueue responses and notebook-adjacent job-source UX now expose explicit reuse diagnostics when catalog rematch or DB reuse is skipped because fresh-candidate minimums were not met
   - scrape ingestion now persists per-run source observations and raw payload ledgers alongside the canonical offer row
   - scrape callbacks now preserve structured offer details end-to-end so catalog rematch and matching can use parsed technologies, requirements, position levels, work modes, contract types, apply links, and company profile URLs
@@ -176,6 +182,7 @@ That framing should guide future implementation more than raw source count.
   - profile avoids acting like a general recovery hub, while notebook controls are explicitly pipeline-only and route loading states describe discovery vs active-work purpose instead of generic readiness checks
   - notebook page data now comes from notebook-owned queries plus a minimal route-level update-status handoff, and planning/progress blocker routing targets the owning route instead of falling back through notebook assumptions
   - still contains mixed maturity areas where some screens feel productized and some remain utilitarian
+  - company detail route now resolves dynamic params correctly in App Router client rendering, and the empty state includes safe navigation back to companies/opportunities instead of a dead end
 - Database and migrations
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields
   - catalog ingestion now starts resolving normalized company and taxonomy references alongside raw offer snapshots
@@ -385,6 +392,7 @@ That framing should guide future implementation more than raw source count.
 - Running scrapes now persist accepted offers incrementally, so timeout/finalization issues no longer imply full result loss by default.
 - Late scrape callbacks after stale-run recovery now return a stable idempotency reason instead of reopening or duplicating recovered notebook links.
 - Weekday schedule cron expressions are now computed correctly with timezone-aware next-run calculation.
+- Production scheduler deadline drift root cause is now fixed: Cloud Scheduler `attemptDeadline` values were too short for real Cloud Run handler latency, so deploy automation and live jobs now use longer deadlines and no longer report false timeout failures while enqueue succeeds.
 - Worker source orchestration now has an explicit adapter boundary for future non-Pracuj sources, but only Pracuj is production-ready.
 - Web schedule planning now explains schedule trust states more explicitly (`off`, `enabled but not yet proven`, `recent failure`, `due but paused`, `waiting for next window`) using product-facing schedule state, and the broader end-user/admin boundary cleanup audit is complete and archived.
 - Company discovery read APIs are now test-covered for search/location filtering and linked-offer summary fields.
