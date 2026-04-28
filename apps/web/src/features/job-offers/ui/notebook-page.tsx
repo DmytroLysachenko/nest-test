@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import React, { useEffect, useRef } from 'react';
+import { AlertTriangle, ArrowRight, Clock3, MailWarning } from 'lucide-react';
 
 import { useNotebookPage } from '@/features/job-offers/model/use-notebook-page';
 import { NotebookFiltersCard } from '@/features/job-offers/ui/components/notebook-filters-card';
@@ -11,8 +12,10 @@ import { NotebookPipelineCard } from '@/features/job-offers/ui/components/notebo
 import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { HeroHeader, UtilityRail } from '@/shared/ui/dashboard-primitives';
+import { formatDateTime } from '@/shared/lib/utils/date-format';
 
 import type { NotebookQuickActionKey } from '@/features/job-offers/model/types/notebook-view-model';
+import type { JobOfferReminderPreviewDto } from '@/shared/types/api';
 
 const NotebookOfferDetailsCard = dynamic(
   () =>
@@ -67,6 +70,23 @@ export const NotebookPage = ({
     },
   );
   const mobileWorkspaceRef = useRef<HTMLElement | null>(null);
+  const reminderBucketQuickActions: Record<
+    JobOfferReminderPreviewDto['buckets'][number]['key'],
+    NotebookQuickActionKey
+  > = {
+    overdue: 'followUpDue',
+    today: 'followUpDueToday',
+    upcoming: 'followUpUpcoming',
+    stale: 'stalePipeline',
+  };
+  const failedReminderOffers = pipelineOffers.filter((offer) => offer.reminderDelivery?.state === 'failed');
+  const stalePipelineOffers = pipelineOffers.filter((offer) =>
+    offer.attentionSignals?.some((signal) => signal.key === 'stale_pipeline'),
+  );
+  const missingNextStepOffers = pipelineOffers.filter((offer) =>
+    offer.attentionSignals?.some((signal) => signal.key === 'missing_next_step'),
+  );
+  const reminderBuckets = notebook.reminderPreview?.buckets.filter((bucket) => bucket.count > 0) ?? [];
 
   useEffect(() => {
     if (typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches || !notebook.selectedOffer) {
@@ -208,6 +228,187 @@ export const NotebookPage = ({
           </div>
         </UtilityRail>
       </section>
+
+      {reminderBuckets.length ? (
+        <section className="grid gap-3 xl:grid-cols-2">
+          {reminderBuckets.map((bucket) => (
+            <div key={bucket.key} className="app-surface-elevated space-y-3 p-4 md:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-text-soft text-xs uppercase tracking-[0.16em]">{bucket.label}</p>
+                  <p className="text-text-strong mt-2 text-lg font-semibold">{bucket.count} roles need this pass</p>
+                </div>
+                <span className="app-badge">{bucket.count}</span>
+              </div>
+              {bucket.items[0] ? (
+                <div className="app-muted-panel space-y-2">
+                  <p className="text-text-strong text-sm font-semibold">{bucket.items[0].title}</p>
+                  <p className="text-text-soft text-sm">
+                    {bucket.items[0].company ?? 'Unknown company'}
+                    {bucket.items[0].nextStep ? ` | ${bucket.items[0].nextStep}` : ''}
+                  </p>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => notebook.applyQuickAction(reminderBucketQuickActions[bucket.key])}
+                >
+                  Open queue
+                  <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                </Button>
+                {bucket.key === 'today' || bucket.key === 'upcoming' ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => notebook.applyQuickAction('prepRecommended')}
+                  >
+                    Prep next replies
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </section>
+      ) : null}
+
+      {failedReminderOffers.length ? (
+        <section className="app-surface-elevated space-y-4 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <MailWarning className="text-app-danger h-4 w-4" />
+                <p className="text-text-strong text-sm font-semibold">Reminder delivery needs recovery</p>
+              </div>
+              <p className="text-text-soft text-sm">
+                {failedReminderOffers.length} active roles failed external email delivery. Notebook follow-up still
+                exists here.
+              </p>
+            </div>
+            <span className="app-badge border-app-danger-border bg-app-danger-soft text-app-danger">
+              {failedReminderOffers.length} failed
+            </span>
+          </div>
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+            <div className="app-muted-panel space-y-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="text-app-warning h-4 w-4" />
+                <p className="text-text-strong text-sm font-semibold">Recovery path</p>
+              </div>
+              <p className="text-text-soft text-sm">
+                Work overdue queue in notebook first. If mail failed, reschedule or complete follow-up from selected
+                workspace instead of waiting on email.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" onClick={() => notebook.applyQuickAction('followUpDue')}>
+                Open overdue roles
+              </Button>
+              <Link href="/planning">
+                <Button type="button" size="sm" variant="secondary">
+                  Check automation
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {stalePipelineOffers.length || missingNextStepOffers.length ? (
+        <section className="grid gap-3 xl:grid-cols-2">
+          {stalePipelineOffers.length ? (
+            <div className="app-surface-elevated space-y-4 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Clock3 className="text-app-warning h-4 w-4" />
+                    <p className="text-text-strong text-sm font-semibold">Stale roles need a recovery pass</p>
+                  </div>
+                  <p className="text-text-soft text-sm">
+                    {stalePipelineOffers.length} active roles are drifting without a fresh touch or decision checkpoint.
+                  </p>
+                </div>
+                <span className="app-badge border-app-warning-border bg-app-warning-soft text-app-warning">
+                  {stalePipelineOffers.length} stale
+                </span>
+              </div>
+              {stalePipelineOffers[0] ? (
+                <div className="app-muted-panel space-y-2">
+                  <p className="text-text-strong text-sm font-semibold">{stalePipelineOffers[0].title}</p>
+                  <p className="text-text-soft text-sm">
+                    {stalePipelineOffers[0].company ?? 'Unknown company'}
+                    {stalePipelineOffers[0].nextStep ? ` | ${stalePipelineOffers[0].nextStep}` : ''}
+                  </p>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" onClick={() => notebook.applyQuickAction('stalePipeline')}>
+                  Open stale queue
+                </Button>
+                {stalePipelineOffers[0] ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => notebook.setNotebookSelectedOffer(stalePipelineOffers[0]?.id ?? null)}
+                  >
+                    Open first stale role
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {missingNextStepOffers.length ? (
+            <div className="app-surface-elevated space-y-4 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <ArrowRight className="text-primary h-4 w-4" />
+                    <p className="text-text-strong text-sm font-semibold">Missing next-step cleanup</p>
+                  </div>
+                  <p className="text-text-soft text-sm">
+                    {missingNextStepOffers.length} roles still need a concrete next move attached in the notebook.
+                  </p>
+                </div>
+                <span className="app-badge">{missingNextStepOffers.length} missing next step</span>
+              </div>
+              {missingNextStepOffers[0] ? (
+                <div className="app-muted-panel space-y-2">
+                  <p className="text-text-strong text-sm font-semibold">{missingNextStepOffers[0].title}</p>
+                  <p className="text-text-soft text-sm">
+                    {missingNextStepOffers[0].company ?? 'Unknown company'}
+                    {missingNextStepOffers[0].followUpAt
+                      ? ` | ${formatDateTime(missingNextStepOffers[0].followUpAt)}`
+                      : ''}
+                  </p>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {missingNextStepOffers[0] ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => notebook.setNotebookSelectedOffer(missingNextStepOffers[0]?.id ?? null)}
+                  >
+                    Open first gap
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => notebook.applyQuickAction('followUpDue')}
+                >
+                  Work due queue
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <NotebookActionPlanCard
         actionPlan={notebook.actionPlan ?? null}

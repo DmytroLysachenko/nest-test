@@ -360,17 +360,38 @@ export const NotebookOfferDetailsCard = ({
             >
               Done, remind tomorrow
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={isBusy}
+              onClick={() => onCompleteFollowUp('in3days')}
+            >
+              Done, remind in 3 days
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={isBusy}
+              onClick={() => onCompleteFollowUp('in1week')}
+            >
+              Done, remind in 1 week
+            </Button>
             <Button type="button" size="sm" variant="secondary" disabled={isBusy} onClick={() => onSnoozeFollowUp(24)}>
               Snooze 1 day
             </Button>
             <Button type="button" size="sm" variant="secondary" disabled={isBusy} onClick={() => onSnoozeFollowUp(72)}>
               Snooze 3 days
             </Button>
+            <Button type="button" size="sm" variant="secondary" disabled={isBusy} onClick={() => onSnoozeFollowUp(168)}>
+              Snooze 1 week
+            </Button>
             <Button type="button" size="sm" variant="ghost" disabled={isBusy} onClick={onClearFollowUp}>
               Clear follow-up
             </Button>
             <p className="text-text-soft self-center text-xs">
-              Keep dates, contact context, and the next touch in one place so the role does not drift.
+              External email can fail; notebook still keeps date, contact context, and next touch here.
             </p>
           </div>
         </section>

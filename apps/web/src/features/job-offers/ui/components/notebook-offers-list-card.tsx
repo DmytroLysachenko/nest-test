@@ -135,6 +135,27 @@ export const NotebookOffersListCard = ({
     onOpenPlanning?.();
   };
 
+  const applyBulkReminderPreset = (durationHours: number) => {
+    if (!selectedOfferIds.length) {
+      return;
+    }
+
+    const nextDate = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
+
+    if (onBulkWorkflowSave) {
+      onBulkWorkflowSave({
+        ids: selectedOfferIds,
+        followUpAt: nextDate,
+      });
+      return;
+    }
+
+    onBulkFollowUpSave({
+      ids: selectedOfferIds,
+      followUpAt: nextDate,
+    });
+  };
+
   return (
     <Card title="Offer queue" description="The active notebook slice, organized for fast review and batch maintenance.">
       <div className="app-toolbar mb-4 flex flex-wrap items-center gap-2">
@@ -181,7 +202,34 @@ export const NotebookOffersListCard = ({
             disabled={!selectedOfferIds.length || isBusy}
             onClick={() => onBulkSnooze(72)}
           >
-            Bulk Snooze
+            Snooze 3d
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-8 px-3 text-xs"
+            disabled={!selectedOfferIds.length || isBusy}
+            onClick={() => applyBulkReminderPreset(24)}
+          >
+            Set tomorrow
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-8 px-3 text-xs"
+            disabled={!selectedOfferIds.length || isBusy}
+            onClick={() => applyBulkReminderPreset(72)}
+          >
+            Set 3d
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-8 px-3 text-xs"
+            disabled={!selectedOfferIds.length || isBusy}
+            onClick={() => applyBulkReminderPreset(168)}
+          >
+            Set 1w
           </Button>
           <Button
             type="button"
@@ -208,7 +256,7 @@ export const NotebookOffersListCard = ({
         <div className="mb-4 space-y-3">
           <WorkflowInlineNotice
             title={`Bulk actions are ready for ${selectedOfferIds.length} selected offer${selectedOfferIds.length === 1 ? '' : 's'}`}
-            description="Use bulk save or dismiss for quick cleanup. Open the bulk plan only when you need to stamp one follow-up date, next step, or note across the selection."
+            description="Use one-click reminder presets for repeated follow-up work. Open the bulk plan only when you need to stamp richer workflow fields across the selection."
             tone="info"
           />
           {bulkPanelOpen ? (
