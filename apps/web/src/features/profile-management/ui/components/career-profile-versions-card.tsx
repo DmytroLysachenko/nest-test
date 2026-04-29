@@ -2,6 +2,7 @@
 
 import { useProfileGenerationInstructionsForm } from '@/features/profile-management/model/hooks/use-profile-generation-instructions-form';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
+import { toOptionalTrimmedString } from '@/shared/lib/utils/input-normalizers';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { InspectorRow } from '@/shared/ui/inspector-row';
@@ -75,7 +76,7 @@ export const CareerProfileVersionsCard = ({
       <form
         className="space-y-3"
         onSubmit={generationForm.handleSubmit((values) => {
-          onGenerate({ instructions: values.instructions?.trim() ? values.instructions.trim() : undefined });
+          onGenerate({ instructions: toOptionalTrimmedString(values.instructions) });
         })}
       >
         <div className="app-field-group">

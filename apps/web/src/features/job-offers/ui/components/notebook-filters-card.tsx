@@ -250,8 +250,8 @@ export const NotebookFiltersCard = ({
           </div>
         </div>
 
-        <div className="app-utility-rail space-y-4">
-          <div className="app-inset-stack">
+        <div className="bg-surface-muted/44 space-y-4 rounded-[1.6rem] p-5">
+          <div className="app-muted-panel">
             <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Current slice</p>
             <p className="text-text-strong mt-2 text-2xl font-semibold tracking-[-0.03em]">{total}</p>
             <p className="text-text-soft mt-1 text-sm">
@@ -294,24 +294,24 @@ export const NotebookFiltersCard = ({
           <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
             {!isPipeline ? (
               <>
-                <div className="app-muted-panel">
+                <div className="bg-surface-muted/46 rounded-2xl px-4 py-3">
                   <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Unscored</p>
                   <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.unscored}</p>
                 </div>
-                <div className="app-muted-panel">
+                <div className="bg-surface-muted/46 rounded-2xl px-4 py-3">
                   <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Strict top matches</p>
                   <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.highConfidenceStrict}</p>
                 </div>
               </>
             ) : (
               <>
-                <div className="app-muted-panel">
+                <div className="bg-surface-muted/46 rounded-2xl px-4 py-3">
                   <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Saved</p>
                   <p className="text-text-strong mt-1 text-2xl font-semibold">
                     {summary.buckets.find((bucket) => bucket.key === 'saved')?.count ?? 0}
                   </p>
                 </div>
-                <div className="app-muted-panel">
+                <div className="bg-surface-muted/46 rounded-2xl px-4 py-3">
                   <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Applied</p>
                   <p className="text-text-strong mt-1 text-2xl font-semibold">
                     {summary.buckets.find((bucket) => bucket.key === 'applied')?.count ?? 0}
@@ -319,11 +319,11 @@ export const NotebookFiltersCard = ({
                 </div>
               </>
             )}
-            <div className="app-muted-panel">
+            <div className="bg-surface-muted/46 rounded-2xl px-4 py-3">
               <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Saved follow-ups</p>
               <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.followUpUpcoming}</p>
             </div>
-            <div className="app-muted-panel">
+            <div className="bg-surface-muted/46 rounded-2xl px-4 py-3">
               <p className="text-text-soft text-xs uppercase tracking-[0.18em]">
                 {isPipeline ? 'Missing next step' : 'Stale untriaged'}
               </p>
@@ -331,11 +331,11 @@ export const NotebookFiltersCard = ({
                 {isPipeline ? summary.missingNextStep : summary.staleUntriaged}
               </p>
             </div>
-            <div className="app-muted-panel">
+            <div className="bg-surface-muted/46 rounded-2xl px-4 py-3">
               <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Follow-up due</p>
               <p className="text-text-strong mt-1 text-2xl font-semibold">{summary.followUpDue}</p>
             </div>
-            <div className="app-muted-panel">
+            <div className="bg-surface-muted/46 rounded-2xl px-4 py-3">
               <p className="text-text-soft text-xs uppercase tracking-[0.18em]">
                 {isPipeline ? 'Stale pipeline' : 'Follow-up upcoming'}
               </p>

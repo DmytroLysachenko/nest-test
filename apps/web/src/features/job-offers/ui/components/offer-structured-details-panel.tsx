@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 
+import { buildPathWithQuery } from '@/shared/lib/utils/url-normalizers';
+
 import type { JobOfferListItemDto } from '@/shared/types/api';
 
 type OfferStructuredDetailsPanelProps = {
@@ -94,7 +96,7 @@ export const OfferStructuredDetailsPanel = ({ structuredDetails }: OfferStructur
             <div className="flex flex-wrap gap-2">
               <p className="text-text-soft text-sm">HQ: {companySummary.hqLocation}</p>
               <Link
-                href={`/companies?location=${encodeURIComponent(companySummary.hqLocation)}`}
+                href={buildPathWithQuery('/companies', { location: companySummary.hqLocation })}
                 className="text-primary inline-flex text-xs underline-offset-4 hover:underline"
               >
                 Browse this location

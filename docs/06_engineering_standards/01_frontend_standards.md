@@ -1,6 +1,6 @@
 # Frontend Standards
 
-Last updated: 2026-02-25
+Last updated: 2026-04-29
 
 ## Purpose
 
@@ -98,6 +98,7 @@ UI rules:
   - page preferences
   - transient workflow selections
 - Never duplicate server entities from Query cache into Zustand.
+- Keep route-only orientation state local to the owning route or feature hook. Do not add app-global Zustand state unless multiple routes genuinely read and mutate it.
 
 ## Component Rules
 
@@ -158,6 +159,14 @@ Forms:
 - Keep schemas in `features/<feature>/model/validation`.
 - Keep submit/mutation orchestration in hooks (`model/hooks`), not in route files.
 - Use `shared/lib/forms/zod-form-resolver.ts` as the single resolver bridge for RHF + Zod typing.
+- Reuse shared edge-normalization helpers from `shared/lib/utils/*` for trim/filter/url shaping logic instead of re-implementing ad hoc `trim()` and path cleanup in multiple features.
+
+## Auth And Trust Boundary Rules
+
+- Do not mirror auth tokens into JS-readable cookies for server bootstrap convenience.
+- Do not persist long-lived auth tokens in `localStorage` when the API already supports httpOnly cookie session recovery.
+- Current preferred model is: API owns httpOnly auth cookies, the client may keep short-lived access tokens in memory only, and server bootstrap may resolve session state by forwarding cookies to the API.
+- If the frontend needs a session placeholder for query gating, it must be a non-secret sentinel value, not a mirrored credential.
 
 ## TypeScript Rules
 
@@ -217,6 +226,7 @@ Forms:
   - utility rails
   - inset stacks
   - metric tiles
+- Prefer open sectioning, tonal grouping, and whitespace before adding another bordered card. Borders should communicate separation, not act as default layout filler.
 - Treat dashboard, planning, notebook, activity, and profile as one connected workspace family.
 - Preserve route structure and functionality during visual redesigns; improve composition before adding new interactions.
 - Empty, hidden, degraded, and blocked states must feel intentional and informative, not like raw placeholder boxes.

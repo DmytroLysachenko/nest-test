@@ -67,7 +67,6 @@ export const WorkspaceDashboardPage = () => {
   return (
     <main className="app-page space-y-6">
       <HeroHeader
-        eyebrow="Home"
         title="Keep the search moving"
         subtitle="Use this page for direction only: what changed, what needs action next, and where to continue."
         meta={
@@ -88,8 +87,12 @@ export const WorkspaceDashboardPage = () => {
         }
       />
 
-      <section className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)] lg:items-start">
-        <EditorialPanel eyebrow="Next move" title={nextAction.title} description={nextAction.description}>
+      <section className="app-editorial-section items-start">
+        <EditorialPanel
+          title={nextAction.title}
+          description={nextAction.description}
+          className="bg-transparent p-0 shadow-none ring-0"
+        >
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
               <StatusPill
@@ -124,7 +127,7 @@ export const WorkspaceDashboardPage = () => {
         <UtilityRail
           title="Current status"
           description="The few signals that matter before you start the next session."
-          className="app-surface-elevated p-5 md:p-6"
+          className="sticky top-4"
         >
           <div className="space-y-3">
             <div className="border-border/60 border-b pb-3">

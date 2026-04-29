@@ -1,3 +1,5 @@
+import { cookies } from 'next/headers';
+
 import { env } from '@/shared/config/env';
 import { getServerSession } from '@/shared/lib/auth/server-session';
 
@@ -14,11 +16,11 @@ export type PrivateDashboardBootstrap = {
   summary: WorkspaceSummaryDto | null;
 };
 
-const fetchAuthedJson = async <T>(path: string, token: string) => {
+const fetchAuthedJson = async <T>(path: string, cookieHeader: string) => {
   try {
     const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Cookie: cookieHeader,
         'Content-Type': 'application/json',
       },
       cache: 'no-store',
@@ -37,7 +39,8 @@ const fetchAuthedJson = async <T>(path: string, token: string) => {
 
 export const getPrivateDashboardBootstrap = async (): Promise<PrivateDashboardBootstrap> => {
   const { token, user } = await getServerSession();
-  if (!token) {
+  const cookieHeader = (await cookies()).toString();
+  if (!token || !cookieHeader) {
     return {
       token: null,
       user,
@@ -45,7 +48,7 @@ export const getPrivateDashboardBootstrap = async (): Promise<PrivateDashboardBo
     };
   }
 
-  const summary = await fetchAuthedJson<WorkspaceSummaryDto>('/workspace/summary', token);
+  const summary = await fetchAuthedJson<WorkspaceSummaryDto>('/workspace/summary', cookieHeader);
 
   return {
     token,

@@ -131,7 +131,7 @@ export const NotebookOfferDetailsCard = ({
   return (
     <Card title="Offer details" description={offer.title} className="xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto">
       <div className="space-y-4 text-sm">
-        <div className="app-inset-stack space-y-2">
+        <div className="app-muted-panel space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="app-badge border-primary/20 bg-primary/5 text-primary">{offer.status}</span>
             {typeof offer.matchScore === 'number' ? <span className="app-badge">Match {offer.matchScore}</span> : null}
@@ -164,7 +164,7 @@ export const NotebookOfferDetailsCard = ({
         <OfferReminderDeliveryState reminderDelivery={offer.reminderDelivery} />
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="app-inset-stack space-y-2">
+          <div className="app-muted-panel space-y-2">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Next action</p>
             <p className="text-text-strong text-sm font-semibold">
               {offer.recommendedAction?.label ?? followUpSummary}
@@ -178,7 +178,7 @@ export const NotebookOfferDetailsCard = ({
               <p className="text-text-soft text-sm">Decision checkpoint: {formatDateTime(decisionDueAt)}</p>
             ) : null}
           </div>
-          <div className="app-inset-stack space-y-2">
+          <div className="app-muted-panel space-y-2">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Prep context</p>
             {contactName ? <p className="text-text-soft text-sm">Contact: {contactName}</p> : null}
             {applicationUrl ? (
@@ -213,7 +213,7 @@ export const NotebookOfferDetailsCard = ({
           <OfferCompactSourceLinks offer={offer} />
         </div>
 
-        <div className="bg-surface-muted/66 flex flex-wrap gap-1.5 rounded-[1.2rem] p-2">
+        <div className="bg-surface-muted/54 flex flex-wrap gap-1.5 rounded-[1.35rem] p-2.5">
           {STATUSES.map((status) => (
             <Button
               key={status}
@@ -234,7 +234,7 @@ export const NotebookOfferDetailsCard = ({
           ))}
         </div>
 
-        <section className="app-inset-stack space-y-3">
+        <section className="bg-surface-muted/38 space-y-3 rounded-[1.6rem] p-4">
           <div className="space-y-1">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Follow-up plan</p>
             <p className="text-text-strong text-sm font-semibold">Keep one clear next move attached to this role</p>
@@ -396,7 +396,7 @@ export const NotebookOfferDetailsCard = ({
           </div>
         </section>
 
-        <section className="app-inset-stack space-y-3">
+        <section className="bg-surface-muted/38 space-y-3 rounded-[1.6rem] p-4">
           <div className="space-y-1">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Prep packet</p>
             <p className="text-text-strong text-sm font-semibold">
@@ -497,7 +497,7 @@ export const NotebookOfferDetailsCard = ({
           )}
         </section>
 
-        <section className="app-inset-stack space-y-3">
+        <section className="bg-surface-muted/38 space-y-3 rounded-[1.6rem] p-4">
           <div className="space-y-1">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Notes and tags</p>
             <p className="text-text-strong text-sm font-semibold">

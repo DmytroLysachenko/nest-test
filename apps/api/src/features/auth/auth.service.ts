@@ -246,6 +246,10 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token is required');
+    }
+
     let payload: { sub: string; role: string };
     try {
       payload = await this.tokenService.verifyRefreshToken(refreshToken);

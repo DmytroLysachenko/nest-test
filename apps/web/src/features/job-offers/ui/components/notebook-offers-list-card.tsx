@@ -5,6 +5,7 @@ import { ArrowRight, Inbox, Layers3 } from 'lucide-react';
 
 import { getNotebookCollectionState } from '@/features/job-offers/model/notebook-state-copy';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
+import { toOptionalTrimmedString, toTrimmedString } from '@/shared/lib/utils/input-normalizers';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
@@ -88,15 +89,24 @@ export const NotebookOffersListCard = ({
   const [bulkDecisionDueAt, setBulkDecisionDueAt] = useState('');
   const [bulkPrepRecommended, setBulkPrepRecommended] = useState<'keep' | 'yes' | 'no'>('keep');
   const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
+  const normalizedBulkNextStep = toTrimmedString(bulkNextStep);
+  const normalizedBulkNote = toTrimmedString(bulkNote);
   const canSaveBulkFollowUp = useMemo(
     () =>
       selectedOfferIds.length > 0 &&
       (bulkFollowUpAt.trim().length > 0 ||
-        bulkNextStep.trim().length > 0 ||
-        bulkNote.trim().length > 0 ||
+        normalizedBulkNextStep.length > 0 ||
+        normalizedBulkNote.length > 0 ||
         bulkDecisionDueAt.trim().length > 0 ||
         bulkPrepRecommended !== 'keep'),
-    [bulkDecisionDueAt, bulkFollowUpAt, bulkNextStep, bulkNote, bulkPrepRecommended, selectedOfferIds.length],
+    [
+      bulkDecisionDueAt,
+      bulkFollowUpAt,
+      bulkPrepRecommended,
+      normalizedBulkNextStep,
+      normalizedBulkNote,
+      selectedOfferIds.length,
+    ],
   );
   const collectionState = getNotebookCollectionState({
     mode,
@@ -123,7 +133,7 @@ export const NotebookOffersListCard = ({
 
   const getPipelineValue = (offer: JobOfferListItemDto, key: 'nextStep' | 'followUpNote') => {
     const value = offer[key] ?? offer.pipelineMeta?.[key];
-    return typeof value === 'string' ? value.trim() : '';
+    return toTrimmedString(typeof value === 'string' ? value : '');
   };
 
   const handlePrimaryCollectionAction = () => {
@@ -330,8 +340,8 @@ export const NotebookOffersListCard = ({
                   const payload = {
                     ids: selectedOfferIds,
                     followUpAt: bulkFollowUpAt ? new Date(bulkFollowUpAt).toISOString() : null,
-                    nextStep: bulkNextStep.trim() || null,
-                    note: bulkNote.trim() || null,
+                    nextStep: toOptionalTrimmedString(bulkNextStep) ?? null,
+                    note: toOptionalTrimmedString(bulkNote) ?? null,
                     decisionDueAt: bulkDecisionDueAt ? new Date(bulkDecisionDueAt).toISOString() : null,
                     prepRecommended: bulkPrepRecommended === 'keep' ? null : bulkPrepRecommended === 'yes',
                   };

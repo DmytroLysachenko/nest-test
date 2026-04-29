@@ -1,6 +1,7 @@
-﻿import { BadRequestException, Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 
 import { Public } from '@/common/decorators';
 import { Device, DeviceType } from '@/common/decorators/device.decorator';
@@ -21,6 +22,7 @@ import { ResetPasswordDto } from './dto/rest-password';
 import { User } from './auth.interface';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { GoogleOauthLoginDto } from './dto/google-oauth-login.dto';
+import { clearAuthCookies, readRefreshTokenCookie, setAuthCookies } from './utils/auth-cookies';
 
 const toErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message.trim()) {
@@ -36,32 +38,64 @@ export class AuthController {
     private authService: AuthService,
     private mailService: MailService,
     private optsService: OptsService,
+    private configService: ConfigService,
   ) {}
+
+  private get isProduction() {
+    return this.configService.get('NODE_ENV') === 'production';
+  }
+
+  private persistAuthCookies(response: Response, tokens: { accessToken: string; refreshToken: string }) {
+    setAuthCookies(response, tokens, {
+      accessTokenExpiration: this.configService.get('ACCESS_TOKEN_EXPIRATION') ?? '15m',
+      refreshTokenExpiration: this.configService.get('REFRESH_TOKEN_EXPIRATION') ?? '7d',
+      isProduction: this.isProduction,
+    });
+  }
 
   @Public()
   @UseGuards(LocalAuthGuard)
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })
   @AuthRateLimit()
-  async login(@Body() body: LoginDto, @Device() device: DeviceType, @Req() request: Request) {
+  async login(
+    @Body() body: LoginDto,
+    @Device() device: DeviceType,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const user = request.user as User;
-    return this.authService.login(user, device);
+    const result = await this.authService.login(user, device);
+    this.persistAuthCookies(response, result);
+    return result;
   }
 
   @Public()
   @Post('oauth/google')
   @ApiOperation({ summary: 'Login or register with Google OAuth (authorization code or id token)' })
   @AuthRateLimit()
-  async loginWithGoogle(@Body() body: GoogleOauthLoginDto, @Device() device: DeviceType) {
-    return this.authService.loginWithGoogle(body, device);
+  async loginWithGoogle(
+    @Body() body: GoogleOauthLoginDto,
+    @Device() device: DeviceType,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.loginWithGoogle(body, device);
+    this.persistAuthCookies(response, result);
+    return result;
   }
 
   @Public()
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh access token using refresh token' })
   @AuthRateLimit()
-  async refresh(@Body() body: RefreshTokenDto) {
-    return this.authService.refresh(body.refreshToken);
+  async refresh(
+    @Body() body: RefreshTokenDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.refresh(body.refreshToken ?? readRefreshTokenCookie(request) ?? '');
+    this.persistAuthCookies(response, result);
+    return result;
   }
 
   @Public()
@@ -76,8 +110,9 @@ export class AuthController {
   @Post('logout')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout current user' })
-  async logout(@CurrentUser() user: JwtValidateUser) {
+  async logout(@CurrentUser() user: JwtValidateUser, @Res({ passthrough: true }) response: Response) {
     await this.authService.logout(user.userId);
+    clearAuthCookies(response, this.isProduction);
     return 'Logout successfully';
   }
 

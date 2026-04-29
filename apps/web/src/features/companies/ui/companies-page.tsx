@@ -7,6 +7,7 @@ import { Building2, ExternalLink, MapPin } from 'lucide-react';
 
 import { listCompanies } from '@/features/companies/api/companies-api';
 import { queryKeys } from '@/shared/lib/query/query-keys';
+import { toOptionalTrimmedString } from '@/shared/lib/utils/input-normalizers';
 import { formatRelativeTime, formatStatusTimestamp } from '@/shared/lib/utils/date-format';
 import { PageErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
@@ -29,8 +30,8 @@ export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPagePr
 
   const params = useMemo(
     () => ({
-      search: search.trim() || undefined,
-      location: location.trim() || undefined,
+      search: toOptionalTrimmedString(search),
+      location: toOptionalTrimmedString(location),
       limit: PAGE_SIZE,
       offset,
     }),

@@ -103,7 +103,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
       className="overflow-hidden"
     >
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="app-inset-stack">
+        <div className="app-muted-panel">
           <div className="mb-3 flex items-center gap-2">
             <PlayCircle className="text-primary h-4 w-4" />
             <p className="text-text-strong text-sm font-semibold">Run now</p>
@@ -112,7 +112,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             Use this after changing your profile, documents, or search direction.
           </p>
         </div>
-        <div className="app-inset-stack">
+        <div className="app-muted-panel">
           <div className="mb-3 flex items-center gap-2">
             <CalendarClock className="text-text-strong h-4 w-4" />
             <p className="text-text-strong text-sm font-semibold">Keep it automatic</p>
@@ -238,7 +238,10 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         </div>
       ) : null}
 
-      <form className="app-muted-panel mt-5 space-y-4" onSubmit={jobSourcesPanel.submitSchedule}>
+      <form
+        className="bg-surface-muted/38 mt-5 space-y-4 rounded-[1.7rem] p-5"
+        onSubmit={jobSourcesPanel.submitSchedule}
+      >
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="mb-1 flex items-center gap-2">
@@ -332,7 +335,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
-          <div className="app-inset-stack">
+          <div className="app-muted-panel">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Current schedule</p>
             <p className="text-text-strong mt-2 text-sm font-semibold">
               {getAutomationPresetSummary(
@@ -341,7 +344,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               )}
             </p>
           </div>
-          <div className="app-inset-stack">
+          <div className="app-muted-panel">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Last update</p>
             <p className="text-text-strong mt-2 text-sm font-semibold">
               {getAutomationLastUpdateSummary(jobSourcesPanel.scheduleResult?.lastRunStatus)}
@@ -350,7 +353,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               {formatDateTime(jobSourcesPanel.scheduleResult?.lastTriggeredAt)}
             </p>
           </div>
-          <div className="app-inset-stack">
+          <div className="app-muted-panel">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Next update</p>
             <p className="text-text-strong mt-2 text-sm font-semibold">
               {formatDateTime(jobSourcesPanel.scheduleResult?.nextRunAt)}

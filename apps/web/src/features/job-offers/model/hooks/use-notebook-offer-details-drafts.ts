@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
+import { toNormalizedCsvValues } from '@/shared/lib/utils/input-normalizers';
+
 import type { JobOfferListItemDto } from '@/shared/types/api';
 
 type UseNotebookOfferDetailsDraftsArgs = {
@@ -17,10 +19,7 @@ export const useNotebookOfferDetailsDrafts = ({ offer }: UseNotebookOfferDetails
     setTagsDraft(offer?.tags?.join(', ') ?? '');
   }, [offer?.id, offer?.notes, offer?.tags]);
 
-  const normalizedTags = tagsDraft
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter(Boolean);
+  const normalizedTags = toNormalizedCsvValues(tagsDraft);
 
   return {
     notesDraft,

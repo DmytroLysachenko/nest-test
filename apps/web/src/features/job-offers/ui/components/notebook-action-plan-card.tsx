@@ -71,7 +71,7 @@ export const NotebookActionPlanCard = ({
                 notebookActionPlanQuickActions[bucket.key as keyof typeof notebookActionPlanQuickActions];
 
               return (
-                <div key={bucket.key} className="app-muted-panel space-y-3">
+                <div key={bucket.key} className="bg-surface-muted/46 space-y-3 rounded-[1.5rem] px-4 py-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -98,7 +98,7 @@ export const NotebookActionPlanCard = ({
             })}
           </div>
         ) : (
-          <div className="app-muted-panel">
+          <div className="bg-surface-muted/46 rounded-[1.5rem] px-4 py-4">
             <p className="text-text-strong text-sm font-semibold">No active action buckets right now.</p>
             <p className="text-text-soft mt-1 text-sm">
               The pipeline is clear enough that you can review roles normally instead of working an urgent queue.
@@ -107,7 +107,7 @@ export const NotebookActionPlanCard = ({
         )}
 
         {showSelectedOfferActions || showPrepAction ? (
-          <div className="app-inset-stack space-y-3">
+          <div className="bg-surface-muted/38 space-y-3 rounded-[1.5rem] p-4">
             <div className="space-y-1">
               <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Selected offer shortcuts</p>
               <p className="text-text-strong text-sm font-semibold">

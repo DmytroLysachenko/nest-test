@@ -5,9 +5,6 @@ import { create } from 'zustand';
 import type { NotebookFiltersDto } from '@/shared/types/api';
 
 type AppUiState = {
-  dashboard: {
-    lastVisitedSection: 'workflow' | 'profile' | 'notebook' | 'scraping';
-  };
   notebook: {
     selectedOfferId: string | null;
     selectedOfferIds: string[];
@@ -23,7 +20,6 @@ type AppUiState = {
 };
 
 type AppUiActions = {
-  setLastVisitedSection: (section: AppUiState['dashboard']['lastVisitedSection']) => void;
   setNotebookSelectedOffer: (offerId: string | null) => void;
   toggleNotebookSelectedOfferId: (offerId: string) => void;
   clearNotebookSelectedOfferIds: () => void;
@@ -51,9 +47,6 @@ export const initialNotebookFilters: NotebookFiltersDto = {
 };
 
 export const useAppUiStore = create<AppUiState & AppUiActions>((set) => ({
-  dashboard: {
-    lastVisitedSection: 'workflow',
-  },
   notebook: {
     selectedOfferId: null,
     selectedOfferIds: [],
@@ -66,11 +59,6 @@ export const useAppUiStore = create<AppUiState & AppUiActions>((set) => ({
       limit: 20,
     },
   },
-  setLastVisitedSection: (section) =>
-    set((state) => ({
-      ...state,
-      dashboard: { ...state.dashboard, lastVisitedSection: section },
-    })),
   setNotebookSelectedOffer: (offerId) =>
     set((state) => ({
       ...state,

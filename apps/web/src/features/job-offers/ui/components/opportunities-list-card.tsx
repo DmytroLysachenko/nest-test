@@ -226,8 +226,8 @@ export const OpportunitiesListCard = ({
           </div>
         </div>
 
-        <div className="app-utility-rail space-y-4">
-          <div className="app-inset-stack">
+        <div className="bg-surface-muted/44 space-y-4 rounded-[1.6rem] p-5">
+          <div className="app-muted-panel">
             <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Current queue</p>
             <p className="text-text-strong mt-2 text-2xl font-semibold tracking-[-0.03em]">{total}</p>
             <p className="text-text-soft mt-1 text-sm">

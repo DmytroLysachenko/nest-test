@@ -1,6 +1,7 @@
 'use client';
 
 import { useProfileInputEditorForm } from '@/features/profile-management/model/hooks/use-profile-input-editor-form';
+import { toOptionalTrimmedString } from '@/shared/lib/utils/input-normalizers';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
@@ -39,7 +40,7 @@ export const ProfileInputEditorCard = ({
         onSubmit={form.handleSubmit((values) => {
           onSubmit({
             targetRoles: values.targetRoles,
-            notes: values.notes?.trim() ? values.notes.trim() : undefined,
+            notes: toOptionalTrimmedString(values.notes),
           });
         })}
       >

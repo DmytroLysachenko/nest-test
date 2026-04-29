@@ -8,6 +8,7 @@ import {
   clearStoredTokens,
   onStoredTokensChanged,
   readStoredTokens,
+  SESSION_TOKEN_PLACEHOLDER,
   writeStoredTokens,
 } from '@/features/auth/model/utils/token-storage';
 import { ApiError } from '@/shared/lib/http/api-error';
@@ -38,21 +39,18 @@ export const AuthProvider = ({
   children: ReactNode;
   initialSession?: InitialAuthSession;
 }) => {
-  const [token, setToken] = useState<string | null>(initialSession?.token ?? null);
+  const [accessToken, setAccessToken] = useState<string | null>(
+    initialSession?.token && initialSession.token !== SESSION_TOKEN_PLACEHOLDER ? initialSession.token : null,
+  );
   const [sessionUser, setSessionUser] = useState<UserDto | null>(initialSession?.user ?? null);
   const [isHydrated, setIsHydrated] = useState(Boolean(initialSession));
+  const token = accessToken ?? (sessionUser ? SESSION_TOKEN_PLACEHOLDER : null);
 
   useEffect(() => {
-    const syncTokens = () => {
-      const tokens = readStoredTokens();
-      setToken(tokens.accessToken);
-      if (!tokens.accessToken) {
-        setSessionUser(null);
-      }
-      setIsHydrated(true);
-    };
-    syncTokens();
-    return onStoredTokensChanged(syncTokens);
+    setIsHydrated(true);
+    return onStoredTokensChanged(() => {
+      setAccessToken(readStoredTokens().accessToken);
+    });
   }, []);
 
   const userQuery = useAuthMeQuery(token, initialSession?.token === token ? (initialSession?.user ?? null) : null);
@@ -66,20 +64,20 @@ export const AuthProvider = ({
   useEffect(() => {
     if (userQuery.error instanceof ApiError && userQuery.error.status === 401) {
       clearStoredTokens();
-      setToken(null);
+      setAccessToken(null);
       setSessionUser(null);
     }
   }, [userQuery.error]);
 
   const setSession = (accessToken: string, refreshToken: string, user: UserDto) => {
     writeStoredTokens({ accessToken, refreshToken });
-    setToken(accessToken);
+    setAccessToken(accessToken);
     setSessionUser(user);
   };
 
   const clearSession = () => {
     clearStoredTokens();
-    setToken(null);
+    setAccessToken(null);
     setSessionUser(null);
   };
 

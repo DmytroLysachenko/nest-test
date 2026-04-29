@@ -1,5 +1,9 @@
 import { env } from '@/shared/config/env';
-import { clearStoredTokens, readStoredTokens, writeStoredTokens } from '@/features/auth/model/utils/token-storage';
+import {
+  clearStoredTokens,
+  SESSION_TOKEN_PLACEHOLDER,
+  writeStoredTokens,
+} from '@/features/auth/model/utils/token-storage';
 
 import { ApiError } from './api-error';
 
@@ -13,7 +17,7 @@ type RequestInitWithAuth = RequestInit & {
 const buildHeaders = (init?: RequestInitWithAuth) => {
   const headers = new Headers(init?.headers);
   headers.set('Content-Type', 'application/json');
-  if (init?.token) {
+  if (init?.token && init.token !== SESSION_TOKEN_PLACEHOLDER) {
     headers.set('Authorization', `Bearer ${init.token}`);
   }
   return headers;
@@ -23,6 +27,7 @@ export const apiRequest = async <T>(path: string, init?: RequestInitWithAuth): P
   const request = async (tokenOverride?: string | null) =>
     fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
       ...init,
+      credentials: 'include',
       headers: buildHeaders({
         ...init,
         token: tokenOverride ?? init?.token ?? null,
@@ -50,6 +55,7 @@ export const apiTextRequest = async (path: string, init?: RequestInitWithAuth): 
   const request = async (tokenOverride?: string | null) =>
     fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
       ...init,
+      credentials: 'include',
       headers: buildHeaders({
         ...init,
         token: tokenOverride ?? init?.token ?? null,
@@ -90,18 +96,13 @@ const refreshAccessToken = async (): Promise<{ accessToken: string; refreshToken
   }
 
   refreshPromise = (async () => {
-    const { refreshToken } = readStoredTokens();
-    if (!refreshToken) {
-      return null;
-    }
-
     const refreshPath = '/auth/refresh';
     const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${refreshPath}`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ refreshToken }),
     });
 
     if (!response.ok) {

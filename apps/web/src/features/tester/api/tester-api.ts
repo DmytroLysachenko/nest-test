@@ -1,4 +1,5 @@
 import { ApiError } from '@/shared/lib/http/api-error';
+import { buildUrlFromBase, normalizePathWithLeadingSlash } from '@/shared/lib/utils/url-normalizers';
 
 import { type TesterService } from '../model/endpoint-presets';
 
@@ -80,16 +81,8 @@ const parseBody = (value?: string): unknown => {
   }
 };
 
-const normalizeBaseUrl = (baseUrl: string) => baseUrl.trim().replace(/\/+$/, '');
-
-const buildUrl = (baseUrl: string, path: string) => {
-  const normalizedBase = normalizeBaseUrl(baseUrl);
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${normalizedBase}${normalizedPath}`;
-};
-
 const resolveApiRootUrl = (apiBaseUrl: string, path: string) => {
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const normalizedPath = normalizePathWithLeadingSlash(path);
   const parsed = new URL(apiBaseUrl);
   return `${parsed.origin}${normalizedPath}`;
 };
@@ -125,7 +118,7 @@ export const runTesterRequest = async (input: TesterRequestInput): Promise<Teste
       return resolveApiRootUrl(input.apiBaseUrl, input.path);
     }
 
-    return buildUrl(input.service === 'api' ? input.apiBaseUrl : input.workerBaseUrl, input.path);
+    return buildUrlFromBase(input.service === 'api' ? input.apiBaseUrl : input.workerBaseUrl, input.path);
   })();
 
   const parsedBody = parseBody(input.bodyText);

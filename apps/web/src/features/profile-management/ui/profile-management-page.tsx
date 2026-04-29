@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { DocumentsPanel } from '@/features/documents';
@@ -14,7 +14,6 @@ import { ProfileInputEditorCard } from '@/features/profile-management/ui/compone
 import { ProfileQualityCard } from '@/features/profile-management/ui/components/profile-quality-card';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
 import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboard-data-context';
-import { useAppUiStore } from '@/shared/store/app-ui-store';
 import { WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -27,12 +26,7 @@ export const ProfileManagementPage = () => {
   const auth = useRequireAuth();
   const { deleteAccountMutation } = useAccountDeletion();
   const { summary, isBootstrapping } = usePrivateDashboardData();
-  const setLastVisitedSection = useAppUiStore((state) => state.setLastVisitedSection);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
-  useEffect(() => {
-    setLastVisitedSection('profile');
-  }, [setLastVisitedSection]);
 
   const {
     latestProfileInputQuery,
@@ -87,7 +81,6 @@ export const ProfileManagementPage = () => {
   return (
     <main className="app-page space-y-6">
       <HeroHeader
-        eyebrow="Profile"
         title="Keep your source of truth clean"
         subtitle="This page is for target roles, documents, and profile generation. Everything else should stay secondary."
         meta={
@@ -124,7 +117,7 @@ export const ProfileManagementPage = () => {
           <UtilityRail
             title="Keep this page narrowly owned"
             description="Maintain the inputs and generated profile here, then leave for direction, review, or active application work."
-            className="app-surface-elevated p-5 md:p-6"
+            className="sticky top-4"
           >
             <div className="space-y-3 text-sm">
               <div className="border-border/60 border-b pb-3">
@@ -183,19 +176,19 @@ export const ProfileManagementPage = () => {
       <Card title="Account settings" description="Rarely used account actions live here, away from the main workflow.">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div className="space-y-3 text-sm">
-            <div className="app-inset-stack">
+            <div className="app-muted-panel">
               <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Last login</p>
               <p className="text-text-strong mt-2">
                 {auth.user?.lastLoginAt ? formatDateTime(auth.user.lastLoginAt) : 'No login timestamp yet'}
               </p>
             </div>
-            <div className="app-inset-stack">
+            <div className="app-muted-panel">
               <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Account state</p>
               <p className="text-text-strong mt-2">{auth.user?.isActive === false ? 'Inactive' : 'Active'}</p>
             </div>
           </div>
 
-          <div className="app-inset-stack space-y-3 text-sm lg:max-w-sm">
+          <div className="app-muted-panel space-y-3 text-sm lg:max-w-sm">
             <p className="text-text-strong font-semibold">Delete account</p>
             <p className="text-text-soft">
               This removes access immediately and should only be used when you want to close the account entirely.

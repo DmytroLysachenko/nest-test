@@ -80,7 +80,7 @@ const trendToneClasses: Record<Exclude<StatRowProps['tone'], undefined>, string>
 };
 
 export const SectionHeader = ({ title, subtitle, action, className }: SectionHeaderProps) => (
-  <div className={cn('app-page-header flex flex-wrap items-center justify-between gap-3', className)}>
+  <div className={cn('app-page-header flex flex-wrap items-center justify-between gap-4', className)}>
     <div>
       <h1 className="app-title">{title}</h1>
       {subtitle ? <p className="app-subtitle mt-1">{subtitle}</p> : null}
@@ -92,9 +92,7 @@ export const SectionHeader = ({ title, subtitle, action, className }: SectionHea
 export const HeroHeader = ({ eyebrow, title, subtitle, meta, action, className }: HeroHeaderProps) => (
   <section className={cn('app-hero flex flex-col gap-6 md:flex-row md:items-end md:justify-between', className)}>
     <div className="relative z-10 space-y-3">
-      {eyebrow ? (
-        <span className="app-badge border-primary/20 bg-primary/10 text-primary rounded-full px-3 py-1">{eyebrow}</span>
-      ) : null}
+      {eyebrow ? <p className="text-text-soft text-[0.72rem] uppercase tracking-[0.22em]">{eyebrow}</p> : null}
       <div className="space-y-2">
         <h1 className="app-title">{title}</h1>
         {subtitle ? <p className="app-subtitle">{subtitle}</p> : null}
@@ -106,7 +104,7 @@ export const HeroHeader = ({ eyebrow, title, subtitle, meta, action, className }
 );
 
 export const MetricCard = ({ label, value, caption, trend, className }: MetricCardProps) => (
-  <div className={cn('app-kpi flex flex-col', className)}>
+  <div className={cn('app-kpi flex flex-col gap-1.5', className)}>
     <p className="text-text-soft mb-2 text-[0.68rem] font-medium uppercase tracking-[0.2em]">{label}</p>
     <p className="text-text-strong text-3xl font-semibold tracking-[-0.04em] md:text-[2rem]">{value}</p>
     {caption ? <p className="text-text-soft mt-2 text-sm leading-6">{caption}</p> : null}
@@ -143,7 +141,7 @@ export const DataTableShell = ({ title, description, children, className }: Data
 );
 
 export const StatRow = ({ label, value, tone = 'neutral' }: StatRowProps) => (
-  <div className="bg-surface-muted/74 flex items-center justify-between gap-3 rounded-[1.2rem] px-4 py-3">
+  <div className="bg-surface-muted/56 flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
     <span className="text-text-soft text-sm">{label}</span>
     {typeof value === 'string' ? <StatusPill value={value} tone={tone} /> : value}
   </div>

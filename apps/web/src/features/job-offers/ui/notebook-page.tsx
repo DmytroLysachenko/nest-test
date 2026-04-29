@@ -154,7 +154,6 @@ export const NotebookPage = ({
   return (
     <main className="app-page space-y-6">
       <HeroHeader
-        eyebrow="Notebook"
         title="Keep active roles moving"
         subtitle="Track follow-ups, notes, prep work, and status changes for the jobs you decided to pursue."
         action={
@@ -171,7 +170,7 @@ export const NotebookPage = ({
           notebook.reminderPreview.counts.upcoming +
           notebook.reminderPreview.counts.stale >
           0 ? (
-          <div className="app-surface-elevated grid gap-3 p-4 md:grid-cols-4 md:p-5">
+          <div className="bg-surface-muted/46 grid gap-3 rounded-[1.75rem] p-4 md:grid-cols-4 md:p-5">
             <div>
               <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Overdue</p>
               <p className="text-text-strong mt-2 text-2xl font-semibold">{notebook.reminderPreview.counts.overdue}</p>
@@ -193,7 +192,7 @@ export const NotebookPage = ({
             </div>
           </div>
         ) : (
-          <div className="app-surface-elevated p-5">
+          <div className="bg-surface-muted/46 rounded-[1.75rem] p-5">
             <p className="text-text-strong text-sm font-semibold">No urgent reminder cluster right now.</p>
             <p className="text-text-soft mt-2 text-sm">
               Use the board and selected workspace below to keep active roles current before they become stale.
@@ -204,7 +203,7 @@ export const NotebookPage = ({
         <UtilityRail
           title="Keep notebook singular"
           description="This route owns active application work only."
-          className="app-surface-elevated p-5 md:p-6"
+          className="sticky top-4"
         >
           <div className="space-y-3 text-sm">
             <div className="border-border/60 border-b pb-3">

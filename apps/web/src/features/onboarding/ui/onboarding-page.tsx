@@ -58,7 +58,6 @@ export const OnboardingPage = () => {
   return (
     <main className="app-page max-w-5xl space-y-6">
       <HeroHeader
-        eyebrow="Setup"
         title="Set your direction once"
         subtitle="Add the basics here, then do the daily work in opportunities and notebook."
         meta={
@@ -317,25 +316,25 @@ export const OnboardingPage = () => {
         <Card title="Review and generate" description="Check the essentials once, then create the first profile.">
           <div className="space-y-6">
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="app-muted-panel text-sm">
+              <div className="app-inset-stack text-sm">
                 <p className="text-text-soft text-xs uppercase tracking-wider">Target roles</p>
                 <p className="text-text-strong mt-1 font-medium">
                   {onboarding.draft.desiredPositions.join(', ') || 'None specified'}
                 </p>
               </div>
-              <div className="app-muted-panel text-sm">
+              <div className="app-inset-stack text-sm">
                 <p className="text-text-soft text-xs uppercase tracking-wider">Domains</p>
                 <p className="text-text-strong mt-1 font-medium">
                   {onboarding.draft.jobDomains.join(', ') || 'None specified'}
                 </p>
               </div>
-              <div className="app-muted-panel text-sm">
+              <div className="app-inset-stack text-sm">
                 <p className="text-text-soft text-xs uppercase tracking-wider">Core skills</p>
                 <p className="text-text-strong mt-1 font-medium">
                   {onboarding.draft.coreSkills.join(', ') || 'None specified'}
                 </p>
               </div>
-              <div className="app-muted-panel text-sm">
+              <div className="app-inset-stack text-sm">
                 <p className="text-text-soft text-xs uppercase tracking-wider">Role experience</p>
                 <p className="text-text-strong mt-1 font-medium">
                   {onboarding.draft.experienceYearsInRole != null
