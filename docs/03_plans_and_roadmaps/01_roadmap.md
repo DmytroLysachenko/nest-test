@@ -64,7 +64,15 @@ The project should not drift into:
 
 ## Next
 
-1. Make notebook/action workflow clearly better than native boards.
+1. Simplify frontend visual language and harden client trust boundaries.
+   - Scope:
+     - reduce box-over-box route composition
+     - rebalance shell/page hierarchy toward spacing and typography instead of repeated bordered cards
+     - tighten frontend auth/session storage boundaries
+     - centralize input normalization and safe URL/query shaping
+     - narrow shared UI state to clearer route ownership
+   - Status: planned (successor audit after the completed notebook throughput/reminder delivery pass; see `docs/03_plans_and_roadmaps/13_frontend_ui_ux_design_and_trust_hardening_audit_plan.md`).
+2. Make notebook/action workflow clearly better than native boards.
    - Scope:
      - follow-up and reminder reliability
      - stronger "today's focus" / "needs attention" queues
@@ -74,7 +82,7 @@ The project should not drift into:
      - continued quality improvements for Kanban throughput and active-offer workspace ergonomics
      - stricter separation between end-user product routes and admin/support diagnostics
    - Status: in progress (structured catalog context and scrape reliability context are now visible in notebook and discovery detail surfaces; attention-state read models, richer focus/action-plan queues, reminder bucket cards, stale-role/missing-next-step recovery lanes, workflow-aware prep context, explicit collection-state messaging, clarified email reminder delivery/state, completed end-user/admin boundary cleanup, and completed route-ownership cleanup are shipped; the user automation route no longer depends on raw run history or scheduler event feeds, and now also shows persisted schedule-event evidence in product UI; remaining work is deeper pipeline automation plus broader delivery controls).
-2. Tighten scrape output usefulness, not just scrape completion.
+3. Tighten scrape output usefulness, not just scrape completion.
    - Scope:
      - adaptive broad-acquisition query planning with target listing windows
      - minimum fresh-candidate gating before catalog/db reuse can satisfy a user scrape
@@ -89,17 +97,17 @@ The project should not drift into:
      - structured observation coverage metrics for missing employment type, empty requirements, apply links, and source profile capture
      - migration of legacy `job_offers.details` usage toward normalized relation tables and observation history
    - Status: in progress (fresh-candidate gating is now exposed through enqueue reuse diagnostics; canonical offer rows now persist observation history, raw payloads, structured salary, and multi-value relations; callbacks now preserve parsed details; diagnostics now split discovered/full-detail/partial/salvaged output; stale-run recovery preserves incrementally persisted offers; broader productivity tuning remains).
-3. Improve deterministic ranking calibration and cross-source trust handling.
+4. Improve deterministic ranking calibration and cross-source trust handling.
    - Scope:
      - mode thresholds + penalty tuning
      - explanation quality
      - stronger handling of incomplete source metadata
    - Status: in progress (matching now uses structured catalog fields from scraper details, accepts secondary seniority as candidate-compatible, and avoids hard-blocking ambiguous body-text seniority signals).
-4. Expand diagnostics and source-health aggregation for long-running scrape history.
+5. Expand diagnostics and source-health aggregation for long-running scrape history.
    - Status: in progress (timeline buckets, lifecycle counters, run/export surfaces, transport/browser diagnostics shipped).
-5. Extend document diagnostics with percentile timing metrics per stage (upload/confirm/extract).
+6. Extend document diagnostics with percentile timing metrics per stage (upload/confirm/extract).
    - Status: in progress (`document_stage_metrics` + `/api/documents/diagnostics/summary` added; extraction retry endpoints and explicit retry outcome summaries shipped).
-6. Persist user notebook operating preferences across sessions/devices.
+7. Persist user notebook operating preferences across sessions/devices.
    - Status: completed (`/api/job-offers/preferences` + web hydration/persistence shipped).
 
 ## Later

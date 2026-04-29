@@ -311,3 +311,20 @@ Related docs:
 - `docs/01_project_context/02_project_state.md`
 - `docs/03_plans_and_roadmaps/01_roadmap.md`
 - `docs/99_archive_legacy/11_information_architecture_and_workflow_ownership_audit_plan_completed.md`
+
+### `016` Notebook throughput audit closure and successor frontend audit kickoff
+
+Summary:
+
+- archived the completed notebook throughput, reminder delivery, schedule trust, and companies audit plan
+- opened the next active frontend audit focused on UI/UX simplification, trust-boundary hardening, input hygiene, and shared-state cleanup
+- updated the active roadmap so the new frontend polish/hardening stream is the current web-facing successor slice
+
+Primary code areas:
+
+- `docs/99_archive_legacy/12_notebook_workflow_throughput_and_reminder_delivery_audit_plan_completed.md`
+- `docs/03_plans_and_roadmaps/13_frontend_ui_ux_design_and_trust_hardening_audit_plan.md`
+
+Related docs:
+
+- `docs/03_plans_and_roadmaps/01_roadmap.md`

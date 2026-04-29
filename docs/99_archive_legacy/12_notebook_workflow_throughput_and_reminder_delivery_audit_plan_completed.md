@@ -1,5 +1,7 @@
 # Notebook Workflow Throughput And Reminder Delivery Audit Plan
 
+Archived as completed: 2026-04-28
+
 Last updated: 2026-04-28
 
 ## Status
