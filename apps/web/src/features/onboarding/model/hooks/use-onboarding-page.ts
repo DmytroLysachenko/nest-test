@@ -14,6 +14,7 @@ import {
 } from '@/features/onboarding/model/validation/onboarding-step-one-schema';
 import { defaultOnboardingDraft } from '@/features/onboarding/model/types/onboarding-draft';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
+import { toNormalizedStringArray } from '@/shared/lib/utils/input-normalizers';
 
 const toStepOneFormValues = (
   draft: Pick<
@@ -43,9 +44,6 @@ const toStepOneFormValues = (
   sectionNotes: draft.sectionNotes,
   generalNotes: draft.generalNotes,
 });
-
-const normalizeStringArray = <T extends string>(values: Array<T | undefined> | undefined): T[] =>
-  (values ?? []).filter((value): value is T => typeof value === 'string');
 
 export const useOnboardingPage = () => {
   const auth = useRequireAuth();
@@ -93,15 +91,15 @@ export const useOnboardingPage = () => {
   useEffect(() => {
     const subscription = stepOneForm.watch((values) => {
       patchDraft({
-        desiredPositions: normalizeStringArray(values.desiredPositions),
-        jobDomains: normalizeStringArray(values.jobDomains),
-        coreSkills: normalizeStringArray(values.coreSkills),
+        desiredPositions: toNormalizedStringArray(values.desiredPositions),
+        jobDomains: toNormalizedStringArray(values.jobDomains),
+        coreSkills: toNormalizedStringArray(values.coreSkills),
         experienceYearsInRole: values.experienceYearsInRole ?? null,
-        targetSeniority: normalizeStringArray(values.targetSeniority),
-        hardWorkModes: normalizeStringArray(values.hardWorkModes),
-        softWorkModes: normalizeStringArray(values.softWorkModes),
-        hardContractTypes: normalizeStringArray(values.hardContractTypes),
-        softContractTypes: normalizeStringArray(values.softContractTypes),
+        targetSeniority: toNormalizedStringArray(values.targetSeniority),
+        hardWorkModes: toNormalizedStringArray(values.hardWorkModes),
+        softWorkModes: toNormalizedStringArray(values.softWorkModes),
+        hardContractTypes: toNormalizedStringArray(values.hardContractTypes),
+        softContractTypes: toNormalizedStringArray(values.softContractTypes),
         sectionNotes: {
           positions: values.sectionNotes?.positions ?? '',
           domains: values.sectionNotes?.domains ?? '',

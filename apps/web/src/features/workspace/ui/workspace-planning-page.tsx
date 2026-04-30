@@ -59,7 +59,7 @@ export const WorkspacePlanningPage = () => {
 
   if (summary.workflow.needsOnboarding) {
     const primaryBlocker =
-      summary.blockerDetails?.find((blocker) => blocker.blockedRoutes.includes('notebook')) ??
+      summary.blockerDetails?.find((blocker) => blocker.blockedRoutes.includes('planning')) ??
       summary.blockerDetails?.[0];
 
     return (
@@ -78,9 +78,8 @@ export const WorkspacePlanningPage = () => {
   return (
     <main className="app-page space-y-6">
       <HeroHeader
-        eyebrow="Automation"
         title="Control when the search updates"
-        subtitle="Run an update now, turn recurring updates on, and keep your search preferences simple."
+        subtitle="Use this page only for update timing, trust, and automation setup. Review and application work belong elsewhere."
         meta={
           <>
             <span className="app-badge">{getAutomationModeLabel(scrapeSchedule?.enabled)}</span>
@@ -109,7 +108,7 @@ export const WorkspacePlanningPage = () => {
           <UtilityRail
             title="Current automation"
             description="A plain-language view of your search update cadence."
-            className="app-surface-elevated p-5 md:p-6"
+            className="sticky top-4"
           >
             <div className="space-y-3">
               <StatRow
@@ -134,26 +133,27 @@ export const WorkspacePlanningPage = () => {
 
           <Card
             title="Before you automate"
-            description="Keep the search predictable and avoid unnecessary noise."
+            description="Use this page as a control surface, not as a general workflow dashboard."
             className="bg-surface-elevated/92"
           >
             <div className="space-y-3 text-sm">
-              <div className="app-inset-stack">
+              <div className="app-muted-panel">
                 <p className="text-text-strong font-semibold">Keep your profile current</p>
                 <p className="text-text-soft mt-2">
                   Update target role, skills, and documents only when your real job target changes.
                 </p>
               </div>
-              <div className="app-inset-stack">
+              <div className="app-muted-panel">
                 <p className="text-text-strong font-semibold">Use presets first</p>
                 <p className="text-text-soft mt-2">
                   A morning or evening schedule is easier to trust than a fully custom setup.
                 </p>
               </div>
-              <div className="app-inset-stack">
-                <p className="text-text-strong font-semibold">Review in opportunities, track in notebook</p>
+              <div className="app-muted-panel">
+                <p className="text-text-strong font-semibold">Leave this page once timing is set</p>
                 <p className="text-text-soft mt-2">
-                  Keep this page focused on update timing. Actual job decisions belong in the workflow pages.
+                  Keep this page focused on update timing. Review fresh roles in Opportunities and manage active work in
+                  Notebook.
                 </p>
               </div>
             </div>

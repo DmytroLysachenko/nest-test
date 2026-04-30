@@ -5,6 +5,7 @@ import { useMutation } from '@tanstack/react-query';
 import { generateCareerProfile } from '@/features/career-profiles/api/career-profiles-api';
 import { setRootServerError } from '@/shared/lib/forms/set-root-server-error';
 import { useDataSync } from '@/shared/lib/query/use-data-sync';
+import { toOptionalTrimmedString } from '@/shared/lib/utils/input-normalizers';
 import { toastSuccess } from '@/shared/lib/ui/toast';
 
 import type { UseFormReturn } from 'react-hook-form';
@@ -16,7 +17,7 @@ export const useCareerProfileMutations = (token: string, form: UseFormReturn<Car
   const generateMutation = useMutation({
     mutationFn: (values: CareerProfileGenerationFormValues) =>
       generateCareerProfile(token, {
-        instructions: values.instructions?.trim() ? values.instructions.trim() : undefined,
+        instructions: toOptionalTrimmedString(values.instructions),
       }),
     onSuccess: (data) => {
       form.clearErrors('root');

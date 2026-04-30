@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNotebookPage } from '@/features/job-offers/model/use-notebook-page';
 import { NotebookPage } from '@/features/job-offers/ui/notebook-page';
 
-import type { JobOfferListItemDto, JobOfferSummaryDto, WorkspaceSummaryDto } from '@/shared/types/api';
+import type { JobOfferListItemDto, JobOfferSummaryDto } from '@/shared/types/api';
 
 vi.mock('@/features/job-offers/model/use-notebook-page', () => ({
   useNotebookPage: vi.fn(),
@@ -55,37 +55,6 @@ const offer: JobOfferListItemDto = {
   createdAt: '2026-03-20T10:00:00.000Z',
 };
 
-const workspaceSummary: WorkspaceSummaryDto = {
-  profile: { exists: true, status: 'READY', version: 1, updatedAt: null },
-  profileInput: { exists: true, updatedAt: null },
-  offers: {
-    total: 1,
-    scored: 1,
-    saved: 0,
-    applied: 0,
-    interviewing: 0,
-    offersMade: 0,
-    rejected: 0,
-    followUpDue: 0,
-    lastUpdatedAt: null,
-  },
-  documents: { total: 1, ready: 1, pending: 0, failed: 0 },
-  scrape: { lastRunStatus: 'COMPLETED', lastRunAt: null, lastRunProgress: null, totalRuns: 1 },
-  workflow: { needsOnboarding: false },
-  nextAction: {
-    key: 'triage-notebook',
-    title: 'Review your notebook',
-    description: 'Use notebook and profile tools to keep the workspace moving.',
-    href: '/notebook',
-    priority: 'info',
-  },
-  activity: [],
-  health: { readinessScore: 100, blockers: [], scrapeReliability: 'stable' },
-  readinessBreakdown: [],
-  blockerDetails: [],
-  recommendedSequence: [],
-};
-
 const notebookSummary: JobOfferSummaryDto = {
   total: 1,
   scored: 1,
@@ -133,7 +102,6 @@ describe('NotebookPage pipeline workspace', () => {
       lastInteractionAt: null,
       preferencesQuery: { isLoading: false },
       summaryQuery: { data: notebookSummary },
-      workspaceSummary,
       notebookSummary,
       selectedOffer: offer,
       selectedId: offer.id,
@@ -180,7 +148,7 @@ describe('NotebookPage pipeline workspace', () => {
       isPreferencesLoading: false,
     } as unknown as ReturnType<typeof useNotebookPage>);
 
-    render(<NotebookPage token="token" />);
+    render(<NotebookPage token="token" latestUpdateStatus="COMPLETED" />);
 
     expect(screen.getAllByText('Senior Backend Engineer').length).toBeGreaterThan(0);
     expect(screen.getByText('Keep active roles moving')).toBeInTheDocument();

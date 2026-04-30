@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { toTrimmedString } from '@/shared/lib/utils/input-normalizers';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 
@@ -14,20 +15,20 @@ type TagInputProps = {
 
 export const TagInput = ({ label, placeholder, values, onChange, disabled = false, maxItems = 20 }: TagInputProps) => {
   const [draft, setDraft] = useState('');
+  const normalizedDraft = toTrimmedString(draft);
 
   const addTag = () => {
-    const value = draft.trim();
-    if (!value || disabled) {
+    if (!normalizedDraft || disabled) {
       return;
     }
     if (values.length >= maxItems) {
       return;
     }
-    if (values.some((item) => item.toLowerCase() === value.toLowerCase())) {
+    if (values.some((item) => item.toLowerCase() === normalizedDraft.toLowerCase())) {
       setDraft('');
       return;
     }
-    onChange([...values, value]);
+    onChange([...values, normalizedDraft]);
     setDraft('');
   };
 
@@ -56,7 +57,7 @@ export const TagInput = ({ label, placeholder, values, onChange, disabled = fals
             }
           }}
         />
-        <Button type="button" variant="secondary" onClick={addTag} disabled={disabled || !draft.trim()}>
+        <Button type="button" variant="secondary" onClick={addTag} disabled={disabled || !normalizedDraft}>
           Add
         </Button>
       </div>

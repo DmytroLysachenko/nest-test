@@ -1,10 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { CalendarClock, PlayCircle, Radar } from 'lucide-react';
+import { CalendarClock, PlayCircle, Radar, TriangleAlert } from 'lucide-react';
 
 import { useJobSourcesPanel } from '@/features/job-sources/model/hooks/use-job-sources-panel';
-import { getAutomationLastUpdateSummary, getAutomationPresetSummary } from '@/shared/lib/presentation/job-search-ui';
+import {
+  getAutomationLastUpdateSummary,
+  getAutomationPresetSummary,
+  getScheduleEventPresentation,
+} from '@/shared/lib/presentation/job-search-ui';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -30,6 +34,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
     formState: { errors: scheduleErrors },
   } = jobSourcesPanel.scheduleForm;
   const preflight = jobSourcesPanel.preflightQuery.data;
+  const scheduleEvents = jobSourcesPanel.scheduleEvents ?? [];
   const now = Date.now();
   const nextRunAtValue = jobSourcesPanel.scheduleResult?.nextRunAt
     ? new Date(jobSourcesPanel.scheduleResult.nextRunAt).getTime()
@@ -38,6 +43,13 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
     ? new Date(jobSourcesPanel.scheduleResult.lastTriggeredAt).getTime()
     : null;
   const scheduleIsDue = typeof nextRunAtValue === 'number' && nextRunAtValue <= now;
+  const lastScheduleFailure = scheduleEvents.find((event) => event.severity === 'error');
+  const lastScheduleSuccess = scheduleEvents.find((event) => event.eventType === 'schedule_enqueue_succeeded');
+  const trustEvidenceLabel = lastScheduleSuccess
+    ? `Last proven enqueue ${formatDateTime(lastScheduleSuccess.createdAt)}`
+    : typeof lastTriggeredAtValue === 'number'
+      ? `Last automatic trigger recorded ${formatDateTime(jobSourcesPanel.scheduleResult?.lastTriggeredAt)}`
+      : 'No successful scheduled enqueue recorded yet';
 
   const scheduleStory = !jobSourcesPanel.scheduleResult?.enabled
     ? {
@@ -52,23 +64,23 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           description:
             'The last automatic update did not finish cleanly. Check your setup and try another refresh when you are ready.',
         }
-      : typeof lastTriggeredAtValue !== 'number'
+      : typeof lastTriggeredAtValue !== 'number' && !lastScheduleSuccess
         ? {
             tone: 'warning' as const,
             title: 'Automatic updates are on but not proven yet',
-            description: 'The schedule is saved. Wait for the first successful update or run one manually now.',
+            description: 'Schedule is saved. First successful scheduled enqueue has not been recorded yet.',
           }
         : scheduleIsDue
           ? {
               tone: 'warning' as const,
-              title: 'The next update window has passed',
+              title: 'Next update window has passed',
               description:
-                'Confirm your schedule is still on, then run one fresh update if you want to check that everything is working normally.',
+                'Confirm recent schedule events. If no enqueue evidence appears, run one update now and inspect automation state.',
             }
           : {
               tone: 'positive' as const,
               title: 'Automatic updates are working',
-              description: 'Your schedule is on and the next update window is still ahead.',
+              description: 'Schedule is on, next update window is ahead, and recent enqueue evidence exists.',
             };
 
   const getStoryTone = (value?: 'positive' | 'warning' | 'danger' | 'neutral') => {
@@ -91,7 +103,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
       className="overflow-hidden"
     >
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="app-inset-stack">
+        <div className="app-muted-panel">
           <div className="mb-3 flex items-center gap-2">
             <PlayCircle className="text-primary h-4 w-4" />
             <p className="text-text-strong text-sm font-semibold">Run now</p>
@@ -100,7 +112,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             Use this after changing your profile, documents, or search direction.
           </p>
         </div>
-        <div className="app-inset-stack">
+        <div className="app-muted-panel">
           <div className="mb-3 flex items-center gap-2">
             <CalendarClock className="text-text-strong h-4 w-4" />
             <p className="text-text-strong text-sm font-semibold">Keep it automatic</p>
@@ -226,7 +238,10 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         </div>
       ) : null}
 
-      <form className="app-muted-panel mt-5 space-y-4" onSubmit={jobSourcesPanel.submitSchedule}>
+      <form
+        className="bg-surface-muted/38 mt-5 space-y-4 rounded-[1.7rem] p-5"
+        onSubmit={jobSourcesPanel.submitSchedule}
+      >
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="mb-1 flex items-center gap-2">
@@ -320,7 +335,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
-          <div className="app-inset-stack">
+          <div className="app-muted-panel">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Current schedule</p>
             <p className="text-text-strong mt-2 text-sm font-semibold">
               {getAutomationPresetSummary(
@@ -329,7 +344,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               )}
             </p>
           </div>
-          <div className="app-inset-stack">
+          <div className="app-muted-panel">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Last update</p>
             <p className="text-text-strong mt-2 text-sm font-semibold">
               {getAutomationLastUpdateSummary(jobSourcesPanel.scheduleResult?.lastRunStatus)}
@@ -338,7 +353,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               {formatDateTime(jobSourcesPanel.scheduleResult?.lastTriggeredAt)}
             </p>
           </div>
-          <div className="app-inset-stack">
+          <div className="app-muted-panel">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Next update</p>
             <p className="text-text-strong mt-2 text-sm font-semibold">
               {formatDateTime(jobSourcesPanel.scheduleResult?.nextRunAt)}
@@ -349,6 +364,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         <div className={`rounded-2xl border p-3 ${getStoryTone(scheduleStory.tone)}`}>
           <p className="text-text-strong font-semibold">{scheduleStory.title}</p>
           <p className="text-text-soft mt-1">{scheduleStory.description}</p>
+          <p className="text-text-soft mt-2 text-xs">{trustEvidenceLabel}</p>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -375,6 +391,55 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
             description="Set the schedule, confirm when the last update happened, and then do your actual review work in Opportunities or Notebook."
             tone="info"
           />
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Radar className="text-primary h-4 w-4" />
+            <p className="text-text-strong text-sm font-semibold">Recent automation evidence</p>
+          </div>
+          {lastScheduleFailure ? (
+            <WorkflowInlineNotice
+              title="Latest scheduled enqueue failed"
+              description={lastScheduleFailure.message}
+              tone="danger"
+            />
+          ) : null}
+          {scheduleEvents.length ? (
+            <div className="space-y-2">
+              {scheduleEvents.map((event) => {
+                const presentation = getScheduleEventPresentation(event);
+                const toneClass =
+                  event.severity === 'error'
+                    ? 'border-app-danger-border bg-app-danger-soft'
+                    : event.severity === 'warning'
+                      ? 'border-app-warning-border bg-app-warning-soft'
+                      : 'border-border/60 bg-surface/70';
+
+                return (
+                  <div key={event.id} className={`rounded-2xl border p-3 ${toneClass}`}>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-text-strong text-sm font-semibold">{presentation.label}</p>
+                        <p className="text-text-soft mt-1 text-sm">{presentation.summary}</p>
+                      </div>
+                      <p className="text-text-soft text-xs">{formatDateTime(event.createdAt)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="app-muted-panel flex items-start gap-3">
+              <TriangleAlert className="text-app-warning mt-0.5 h-4 w-4" />
+              <div>
+                <p className="text-text-strong text-sm font-semibold">No recent schedule events yet</p>
+                <p className="text-text-soft mt-1 text-sm">
+                  Save schedule, then wait for next window or run one immediate update to create baseline evidence.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </form>
     </Card>

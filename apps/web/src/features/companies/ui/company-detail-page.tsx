@@ -7,6 +7,7 @@ import { Building2, ExternalLink, MapPin } from 'lucide-react';
 import { getCompanyDetail } from '@/features/companies/api/companies-api';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 import { formatDate, formatDateTime, formatRelativeTime } from '@/shared/lib/utils/date-format';
+import { buildPathWithQuery } from '@/shared/lib/utils/url-normalizers';
 import { PageErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -44,20 +45,33 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
   const company = companyQuery.data;
   if (!company) {
     return (
-      <Card title="Company" description="No company detail is available for this record.">
-        <EmptyState
-          icon={<Building2 className="h-8 w-8" />}
-          title="Company not found"
-          description="The record may have been removed or is not visible in this workspace."
-        />
-      </Card>
+      <main className="app-page">
+        <Card title="Company" description="This route could not resolve a usable employer record.">
+          <EmptyState
+            icon={<Building2 className="h-8 w-8" />}
+            title="Company not found"
+            description="Go back to the company list or return to opportunities and open another linked employer."
+            action={
+              <div className="flex flex-wrap gap-2">
+                <Link href="/companies">
+                  <Button type="button">Back to companies</Button>
+                </Link>
+                <Link href="/opportunities">
+                  <Button type="button" variant="secondary">
+                    Open opportunities
+                  </Button>
+                </Link>
+              </div>
+            }
+          />
+        </Card>
+      </main>
     );
   }
 
   return (
     <main className="app-page space-y-6">
       <HeroHeader
-        eyebrow="Company"
         title={company.canonicalName}
         subtitle={company.description ?? 'This employer is linked to offers already present in your workspace catalog.'}
         meta={
@@ -104,11 +118,11 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
         description="Use this page to understand the employer and jump into recent linked offers."
       >
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="app-inset-stack space-y-2">
+          <div className="app-muted-panel space-y-2">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Headquarters</p>
             <p className="text-text-strong text-sm font-semibold">{company.hqLocation ?? 'Not specified'}</p>
           </div>
-          <div className="app-inset-stack space-y-2">
+          <div className="app-muted-panel space-y-2">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Last seen</p>
             <p className="text-text-strong text-sm font-semibold">{formatDateTime(company.lastSeenAt)}</p>
             <p className="text-text-soft text-xs">{formatRelativeTime(company.lastSeenAt)}</p>
@@ -153,7 +167,7 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
                     </Button>
                   </Link>
                   {offer.location ? (
-                    <Link href={`/companies?location=${encodeURIComponent(offer.location)}`}>
+                    <Link href={buildPathWithQuery('/companies', { location: offer.location })}>
                       <Button type="button" size="sm" variant="secondary">
                         More in this location
                       </Button>

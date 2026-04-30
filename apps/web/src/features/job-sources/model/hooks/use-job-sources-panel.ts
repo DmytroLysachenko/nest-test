@@ -51,7 +51,7 @@ export const useJobSourcesPanel = (token: string) => {
     [limit, listingUrl, mode],
   );
 
-  const { scheduleQuery, preflightQuery } = useJobSourcesQueries(token, preflightParams);
+  const { scheduleQuery, scheduleEventsQuery, preflightQuery } = useJobSourcesQueries(token, preflightParams);
   const { enqueueMutation, updateScheduleMutation, triggerScheduleNowMutation } = useJobSourcesMutations(token, form);
 
   useEffect(() => {
@@ -101,9 +101,11 @@ export const useJobSourcesPanel = (token: string) => {
     submitSchedule,
     mode,
     scheduleQuery,
+    scheduleEventsQuery,
     preflightQuery,
     enqueueResult: enqueueMutation.data,
     scheduleResult: scheduleQuery.data,
+    scheduleEvents: scheduleEventsQuery.data?.items ?? [],
     isSubmitting: enqueueMutation.isPending,
     isSavingSchedule: updateScheduleMutation.isPending,
     isTriggeringSchedule: triggerScheduleNowMutation.isPending,

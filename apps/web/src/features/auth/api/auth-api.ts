@@ -40,10 +40,10 @@ export const sendRegisterCode = (email: string) =>
     body: JSON.stringify({ email }),
   });
 
-export const getCurrentUser = (token: string) =>
+export const getCurrentUser = (token?: string | null) =>
   apiRequest<UserDto>('/user', {
     method: 'GET',
-    token,
+    token: token ?? null,
   });
 
 export const deleteCurrentUser = (token: string) =>

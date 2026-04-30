@@ -3,7 +3,6 @@ import { useAppUiStore } from '@/shared/store/app-ui-store';
 describe('useAppUiStore', () => {
   beforeEach(() => {
     useAppUiStore.setState({
-      dashboard: { lastVisitedSection: 'workflow' },
       notebook: {
         selectedOfferId: null,
         selectedOfferIds: [],

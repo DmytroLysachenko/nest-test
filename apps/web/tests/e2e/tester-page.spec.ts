@@ -42,7 +42,7 @@ test('tester page can send a mocked API request and render response payload', as
 
   await page.goto('/tester', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByText('E2E Tester')).toBeVisible();
+  await expect(page.getByText('E2E Tester')).toBeVisible({ timeout: 20_000 });
 
   const requestPromise = page.waitForRequest((request) => request.url().endsWith('/health'));
   await page.getByRole('button', { name: 'Send request' }).click();

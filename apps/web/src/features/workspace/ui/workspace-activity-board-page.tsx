@@ -15,7 +15,7 @@ import { usePrivateNotebookSummaryQuery } from '@/shared/lib/dashboard/private-d
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { HeroHeader, StatRow, StatusPill } from '@/shared/ui/dashboard-primitives';
+import { HeroHeader, StatRow, StatusPill, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { WorkflowFeedback } from '@/shared/ui/workflow-feedback';
 import { WorkflowRouteBlock } from '@/shared/ui/workflow-route-block';
 
@@ -29,7 +29,7 @@ export const WorkspaceActivityBoardPage = () => {
     return (
       <WorkspaceSplashState
         title="Opening progress"
-        subtitle="Restoring recent changes, readiness, and the queues that deserve attention next."
+        subtitle="Restoring recent changes, momentum signals, and the next queue worth opening."
       />
     );
   }
@@ -50,7 +50,7 @@ export const WorkspaceActivityBoardPage = () => {
     return (
       <WorkflowRouteBlock
         summary={summary}
-        route="notebook"
+        route="activity"
         title="Progress unlocks after setup"
         fallbackDescription="Finish setup before using the day-to-day tracking views."
         fallbackActionLabel="Go to home"
@@ -68,11 +68,11 @@ export const WorkspaceActivityBoardPage = () => {
     <main className="app-page space-y-6">
       <HeroHeader
         eyebrow="Progress"
-        title="See what changed and what needs attention"
-        subtitle="Use this view to check recent updates, readiness, and the next bucket worth opening."
+        title="Track momentum over time"
+        subtitle="Use this page to read the recent story of your search: what moved, what stalled, and which queue should carry the momentum forward."
         meta={
           <>
-            <span className="app-badge">Readiness {summary.health.readinessScore}%</span>
+            <span className="app-badge">{summary.offers.applied} active applications</span>
             <span className="app-badge">{summary.offers.followUpDue} follow-ups due</span>
           </>
         }
@@ -81,28 +81,28 @@ export const WorkspaceActivityBoardPage = () => {
             <Link href="/notebook">
               <Button>Continue in notebook</Button>
             </Link>
-            <Link href="/planning">
-              <Button variant="secondary">Adjust automation</Button>
+            <Link href="/">
+              <Button variant="secondary">Back to home</Button>
             </Link>
           </div>
         }
       />
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+      <section className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] lg:items-start">
         <div className="space-y-4">
           <Card
             title="Recent changes"
-            description="The latest meaningful updates across setup, documents, and applications."
+            description="The latest meaningful updates across profile setup, automatic updates, and active applications."
           >
             <div className="space-y-3 text-sm">
               {activity.length ? (
-                activity.map((item) => (
-                  <div key={item.key} className="app-inset-stack">
+                activity.map((item, index) => (
+                  <div key={`${item.key}-${index}`} className="app-inset-stack">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-text-strong font-semibold">{item.label}</p>
                       <StatusPill value={item.tone} tone={item.tone} />
                     </div>
-                    <p className="text-text-soft mt-2">{formatWorkspaceDateTime(item.timestamp)}</p>
+                    <p className="text-text-soft mt-2 text-sm">{formatWorkspaceDateTime(item.timestamp)}</p>
                   </div>
                 ))
               ) : (
@@ -116,45 +116,44 @@ export const WorkspaceActivityBoardPage = () => {
             </div>
           </Card>
 
-          <Card title="Setup readiness" description="The core checks that keep the workspace working smoothly.">
-            <div className="space-y-3">
-              {summary.readinessBreakdown?.length ? (
-                summary.readinessBreakdown.map((step) => (
-                  <div key={step.key} className="app-inset-stack">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-text-strong text-sm font-semibold">{step.label}</p>
-                      <StatusPill
-                        value={step.ready ? 'Ready' : 'Needs work'}
-                        tone={step.ready ? 'success' : 'warning'}
-                      />
-                    </div>
-                    <p className="text-text-soft mt-2 text-sm leading-6">{step.detail}</p>
-                  </div>
-                ))
-              ) : (
-                <WorkflowFeedback
-                  title="Readiness details are temporarily unavailable"
-                  description="Refresh if you need the full setup breakdown."
-                  tone="warning"
-                  className="p-4 sm:p-5"
-                />
-              )}
+          <Card title="How to read this page" description="Progress is the historical view, not the command center.">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="app-inset-stack">
+                <p className="text-text-strong text-sm font-semibold">Use Home for direction</p>
+                <p className="text-text-soft mt-2 text-sm">Go back home when you want the single best next move.</p>
+              </div>
+              <div className="app-inset-stack">
+                <p className="text-text-strong text-sm font-semibold">Use Opportunities for review</p>
+                <p className="text-text-soft mt-2 text-sm">
+                  Fresh-role decisions still belong in the discovery workflow.
+                </p>
+              </div>
+              <div className="app-inset-stack">
+                <p className="text-text-strong text-sm font-semibold">Use Notebook for action</p>
+                <p className="text-text-soft mt-2 text-sm">
+                  Follow-ups, notes, and active applications belong in the notebook.
+                </p>
+              </div>
             </div>
           </Card>
         </div>
 
         <div className="space-y-4">
-          <Card title="Current state" description="A compact summary before you choose the next page.">
+          <UtilityRail
+            title="Momentum now"
+            description="Compact signals that explain whether the search is moving or waiting."
+            className="app-surface-elevated p-5 md:p-6"
+          >
             <div className="space-y-3">
               <StatRow
-                label="Profile"
-                value={summary.profile.exists ? 'Ready' : 'Needs work'}
-                tone={summary.profile.exists ? 'success' : 'warning'}
+                label="Active applications"
+                value={String(summary.offers.applied)}
+                tone={summary.offers.applied > 0 ? 'success' : 'neutral'}
               />
               <StatRow
-                label="Documents"
-                value={summary.documents.ready > 0 ? 'Ready' : 'Needs work'}
-                tone={summary.documents.ready > 0 ? 'success' : 'warning'}
+                label="Fresh opportunities"
+                value={String(summary.offers.total)}
+                tone={summary.offers.total > 0 ? 'info' : 'neutral'}
               />
               <StatRow
                 label="Last update"
@@ -167,39 +166,12 @@ export const WorkspaceActivityBoardPage = () => {
                 tone={summary.offers.followUpDue > 0 ? 'warning' : 'success'}
               />
             </div>
-          </Card>
+          </UtilityRail>
 
-          {summary.blockerDetails?.length ? (
-            <Card title="Needs fixing" description="The blockers most likely to slow the workflow down.">
-              <div className="space-y-3">
-                {summary.blockerDetails.map((blocker) => (
-                  <div key={blocker.key} className="app-inset-stack space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-text-strong text-sm font-semibold">{blocker.title}</p>
-                      <StatusPill
-                        value={blocker.severity}
-                        tone={
-                          blocker.severity === 'critical'
-                            ? 'danger'
-                            : blocker.severity === 'warning'
-                              ? 'warning'
-                              : 'info'
-                        }
-                      />
-                    </div>
-                    <p className="text-text-soft text-sm leading-6">{blocker.description}</p>
-                    <Link href={blocker.href}>
-                      <Button variant="secondary" className="h-9">
-                        {blocker.ctaLabel}
-                      </Button>
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          ) : null}
-
-          <Card title="Open next" description="The highest-value queues for the next focused session.">
+          <Card
+            title="Carry momentum forward"
+            description="The next queue to open after you understand the recent changes."
+          >
             <div className="space-y-3">
               {focusBuckets.length ? (
                 focusBuckets.map((item) => (
@@ -214,7 +186,7 @@ export const WorkspaceActivityBoardPage = () => {
               ) : (
                 <WorkflowFeedback
                   title="No priority queues are waiting"
-                  description="You can continue normally in opportunities or notebook."
+                  description="If nothing urgent is waiting, return home for direction or continue normally in notebook."
                   tone="info"
                   className="p-4 sm:p-5"
                 />

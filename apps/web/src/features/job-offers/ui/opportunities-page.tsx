@@ -46,7 +46,6 @@ export const OpportunitiesPage = ({
   return (
     <main className="app-page space-y-6">
       <HeroHeader
-        eyebrow="Opportunities"
         title="Review new roles quickly"
         subtitle="Keep or dismiss new matches fast, then move only the worthwhile roles into your active pipeline."
         meta={

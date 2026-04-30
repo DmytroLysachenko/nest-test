@@ -87,6 +87,9 @@ Required core values:
    - `GCP_WORKER_SERVICE`
    - `GCP_WEB_SERVICE`
    - `GCS_BUCKET`
+   - Scheduler timing vars when internal HTTP jobs need more than the legacy 30-second deadline:
+     - `SCHEDULER_ATTEMPT_DEADLINE` (default `180s`)
+     - `OPS_RECONCILE_ATTEMPT_DEADLINE` (default `300s`)
    - Core runtime vars:
      - `GOOGLE_OAUTH_CLIENT_ID`
      - `GEMINI_MODEL`
@@ -139,6 +142,12 @@ Cost profile defaults:
 1. `min-instances=0` for all services (cold starts enabled to minimize idle cost).
 2. API/Web memory `512Mi`, Worker memory `1Gi`.
 3. Max instances capped at `2` per service by default.
+
+Cloud Scheduler deadline note:
+
+1. `min-instances=0` keeps idle cost low but allows cold starts.
+2. Internal scheduler-triggered HTTP routes can therefore exceed a 30-second scheduler deadline even when the API eventually succeeds.
+3. Keep Cloud Scheduler attempt deadlines above observed cold-start + handler latency, or Scheduler may log `504 DEADLINE_EXCEEDED` while DB state shows successful enqueue/reconcile work.
 
 ## 6) First production test
 

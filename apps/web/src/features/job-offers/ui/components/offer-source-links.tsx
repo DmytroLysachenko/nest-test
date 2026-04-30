@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 
+import { buildPathWithQuery } from '@/shared/lib/utils/url-normalizers';
+
 import type { JobOfferListItemDto } from '@/shared/types/api';
 
 type OfferSourceLinksProps = {
@@ -24,7 +26,7 @@ export const OfferSourceLinks = ({ offer, includeLocationSearch = false }: Offer
       </Link>
     ) : null}
     {includeLocationSearch && offer.location ? (
-      <Link href={`/companies?location=${encodeURIComponent(offer.location)}`} className={linkClassName}>
+      <Link href={buildPathWithQuery('/companies', { location: offer.location })} className={linkClassName}>
         More companies in {offer.location}
       </Link>
     ) : null}

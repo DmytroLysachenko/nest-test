@@ -5,6 +5,7 @@ import { Pointer } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { getUserFacingOfferStatus } from '@/shared/lib/presentation/job-search-ui';
+import { toTrimmedString } from '@/shared/lib/utils/input-normalizers';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
 
@@ -56,7 +57,7 @@ export const OpportunityDetailsRail = ({
       contentClassName="flex flex-col gap-4 xl:min-h-0 xl:flex-1 xl:gap-0"
     >
       <div className="space-y-4 text-sm xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:space-y-0">
-        <div className="app-inset-stack space-y-2 xl:shrink-0">
+        <div className="app-muted-panel space-y-2 xl:shrink-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="app-badge">{getUserFacingOfferStatus(offer.status)}</span>
             {typeof offer.matchScore === 'number' ? <span className="app-badge">Match {offer.matchScore}</span> : null}
@@ -91,16 +92,16 @@ export const OpportunityDetailsRail = ({
 
           <OfferStructuredDetailsPanel structuredDetails={offer.structuredDetails} />
 
-          <div className="app-inset-stack space-y-2">
+          <div className="app-muted-panel space-y-2">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Role summary</p>
             <p className="text-text-soft text-sm leading-6">
-              {offer.description?.trim() || 'Open the source listing if you need the full job description.'}
+              {toTrimmedString(offer.description) || 'Open the source listing if you need the full job description.'}
             </p>
             <OfferSourceLinks offer={offer} includeLocationSearch />
           </div>
         </div>
 
-        <div className="border-border/60 bg-surface/95 xl:sticky xl:bottom-0 xl:mt-4 xl:shrink-0 xl:border-t xl:pt-4">
+        <div className="bg-surface/95 xl:border-border/45 xl:sticky xl:bottom-0 xl:mt-4 xl:shrink-0 xl:border-t xl:pt-4">
           <div className="flex flex-wrap gap-2">
             <Button type="button" disabled={isBusy} onClick={() => onSave(offer.id)}>
               Save to pipeline

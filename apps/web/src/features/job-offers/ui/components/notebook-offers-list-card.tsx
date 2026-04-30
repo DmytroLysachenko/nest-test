@@ -5,6 +5,7 @@ import { ArrowRight, Inbox, Layers3 } from 'lucide-react';
 
 import { getNotebookCollectionState } from '@/features/job-offers/model/notebook-state-copy';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
+import { toOptionalTrimmedString, toTrimmedString } from '@/shared/lib/utils/input-normalizers';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
@@ -88,15 +89,24 @@ export const NotebookOffersListCard = ({
   const [bulkDecisionDueAt, setBulkDecisionDueAt] = useState('');
   const [bulkPrepRecommended, setBulkPrepRecommended] = useState<'keep' | 'yes' | 'no'>('keep');
   const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
+  const normalizedBulkNextStep = toTrimmedString(bulkNextStep);
+  const normalizedBulkNote = toTrimmedString(bulkNote);
   const canSaveBulkFollowUp = useMemo(
     () =>
       selectedOfferIds.length > 0 &&
       (bulkFollowUpAt.trim().length > 0 ||
-        bulkNextStep.trim().length > 0 ||
-        bulkNote.trim().length > 0 ||
+        normalizedBulkNextStep.length > 0 ||
+        normalizedBulkNote.length > 0 ||
         bulkDecisionDueAt.trim().length > 0 ||
         bulkPrepRecommended !== 'keep'),
-    [bulkDecisionDueAt, bulkFollowUpAt, bulkNextStep, bulkNote, bulkPrepRecommended, selectedOfferIds.length],
+    [
+      bulkDecisionDueAt,
+      bulkFollowUpAt,
+      bulkPrepRecommended,
+      normalizedBulkNextStep,
+      normalizedBulkNote,
+      selectedOfferIds.length,
+    ],
   );
   const collectionState = getNotebookCollectionState({
     mode,
@@ -123,7 +133,7 @@ export const NotebookOffersListCard = ({
 
   const getPipelineValue = (offer: JobOfferListItemDto, key: 'nextStep' | 'followUpNote') => {
     const value = offer[key] ?? offer.pipelineMeta?.[key];
-    return typeof value === 'string' ? value.trim() : '';
+    return toTrimmedString(typeof value === 'string' ? value : '');
   };
 
   const handlePrimaryCollectionAction = () => {
@@ -133,6 +143,27 @@ export const NotebookOffersListCard = ({
     }
 
     onOpenPlanning?.();
+  };
+
+  const applyBulkReminderPreset = (durationHours: number) => {
+    if (!selectedOfferIds.length) {
+      return;
+    }
+
+    const nextDate = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
+
+    if (onBulkWorkflowSave) {
+      onBulkWorkflowSave({
+        ids: selectedOfferIds,
+        followUpAt: nextDate,
+      });
+      return;
+    }
+
+    onBulkFollowUpSave({
+      ids: selectedOfferIds,
+      followUpAt: nextDate,
+    });
   };
 
   return (
@@ -181,7 +212,34 @@ export const NotebookOffersListCard = ({
             disabled={!selectedOfferIds.length || isBusy}
             onClick={() => onBulkSnooze(72)}
           >
-            Bulk Snooze
+            Snooze 3d
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-8 px-3 text-xs"
+            disabled={!selectedOfferIds.length || isBusy}
+            onClick={() => applyBulkReminderPreset(24)}
+          >
+            Set tomorrow
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-8 px-3 text-xs"
+            disabled={!selectedOfferIds.length || isBusy}
+            onClick={() => applyBulkReminderPreset(72)}
+          >
+            Set 3d
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-8 px-3 text-xs"
+            disabled={!selectedOfferIds.length || isBusy}
+            onClick={() => applyBulkReminderPreset(168)}
+          >
+            Set 1w
           </Button>
           <Button
             type="button"
@@ -208,7 +266,7 @@ export const NotebookOffersListCard = ({
         <div className="mb-4 space-y-3">
           <WorkflowInlineNotice
             title={`Bulk actions are ready for ${selectedOfferIds.length} selected offer${selectedOfferIds.length === 1 ? '' : 's'}`}
-            description="Use bulk save or dismiss for quick cleanup. Open the bulk plan only when you need to stamp one follow-up date, next step, or note across the selection."
+            description="Use one-click reminder presets for repeated follow-up work. Open the bulk plan only when you need to stamp richer workflow fields across the selection."
             tone="info"
           />
           {bulkPanelOpen ? (
@@ -282,8 +340,8 @@ export const NotebookOffersListCard = ({
                   const payload = {
                     ids: selectedOfferIds,
                     followUpAt: bulkFollowUpAt ? new Date(bulkFollowUpAt).toISOString() : null,
-                    nextStep: bulkNextStep.trim() || null,
-                    note: bulkNote.trim() || null,
+                    nextStep: toOptionalTrimmedString(bulkNextStep) ?? null,
+                    note: toOptionalTrimmedString(bulkNote) ?? null,
                     decisionDueAt: bulkDecisionDueAt ? new Date(bulkDecisionDueAt).toISOString() : null,
                     prepRecommended: bulkPrepRecommended === 'keep' ? null : bulkPrepRecommended === 'yes',
                   };

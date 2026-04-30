@@ -18,7 +18,6 @@ import { Card } from '@/shared/ui/card';
 import { EditorialPanel, HeroHeader, MetricCard, StatusPill, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { WorkflowFeedback } from '@/shared/ui/workflow-feedback';
-import { WorkflowRecoveryPanel } from '@/shared/ui/workflow-recovery-panel';
 
 const WorkspaceRecentOffersPanel = dynamic(
   () =>
@@ -68,14 +67,12 @@ export const WorkspaceDashboardPage = () => {
   return (
     <main className="app-page space-y-6">
       <HeroHeader
-        eyebrow="Home"
         title="Keep the search moving"
         subtitle="Use this page for direction only: what changed, what needs action next, and where to continue."
         meta={
           <>
             <span className="app-badge">{formatCountLabel(summary.offers.total, 'opportunity')}</span>
             <span className="app-badge">{formatCountLabel(summary.offers.followUpDue, 'follow-up')}</span>
-            <span className="app-badge">Readiness {summary.health.readinessScore}%</span>
           </>
         }
         action={
@@ -83,15 +80,19 @@ export const WorkspaceDashboardPage = () => {
             <Link href={nextAction.href}>
               <Button>Continue</Button>
             </Link>
-            <Link href="/notebook">
-              <Button variant="secondary">Open notebook</Button>
+            <Link href="/opportunities">
+              <Button variant="secondary">Open opportunities</Button>
             </Link>
           </div>
         }
       />
 
-      <section className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)] lg:items-start">
-        <EditorialPanel eyebrow="Next move" title={nextAction.title} description={nextAction.description}>
+      <section className="app-editorial-section items-start">
+        <EditorialPanel
+          title={nextAction.title}
+          description={nextAction.description}
+          className="bg-transparent p-0 shadow-none ring-0"
+        >
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
               <StatusPill
@@ -103,13 +104,15 @@ export const WorkspaceDashboardPage = () => {
               </span>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              <Link href="/planning" className="app-inset-stack block">
-                <p className="text-text-strong text-sm font-semibold">Automation</p>
-                <p className="text-text-soft mt-1 text-sm">Adjust update timing and run a refresh when needed.</p>
-              </Link>
               <Link href="/opportunities" className="app-inset-stack block">
                 <p className="text-text-strong text-sm font-semibold">Opportunities</p>
                 <p className="text-text-soft mt-1 text-sm">Review fresh roles and keep only the worthwhile ones.</p>
+              </Link>
+              <Link href="/notebook" className="app-inset-stack block">
+                <p className="text-text-strong text-sm font-semibold">Notebook</p>
+                <p className="text-text-soft mt-1 text-sm">
+                  Keep active applications moving once a role is worth pursuing.
+                </p>
               </Link>
               <Link href="/profile" className="app-inset-stack block">
                 <p className="text-text-strong text-sm font-semibold">Profile</p>
@@ -124,7 +127,7 @@ export const WorkspaceDashboardPage = () => {
         <UtilityRail
           title="Current status"
           description="The few signals that matter before you start the next session."
-          className="app-surface-elevated p-5 md:p-6"
+          className="sticky top-4"
         >
           <div className="space-y-3">
             <div className="border-border/60 border-b pb-3">
@@ -175,20 +178,18 @@ export const WorkspaceDashboardPage = () => {
           }}
         />
         <MetricCard
-          label="Document issues"
-          value={String(summary.documents.failed)}
-          caption="Uploads that still need recovery"
+          label="Automation"
+          value={getAutomationLastUpdateSummary(summary.scrape.lastRunStatus)}
+          caption="Last update signal"
           trend={{
-            label: summary.documents.failed > 0 ? 'Fix in profile' : `${summary.documents.ready} ready`,
-            tone: summary.documents.failed > 0 ? 'danger' : 'success',
+            label: summary.scrape.lastRunStatus === 'FAILED' ? 'Review automation' : 'Planning owns this control',
+            tone: summary.scrape.lastRunStatus === 'FAILED' ? 'danger' : 'info',
           }}
         />
       </div>
 
-      <WorkflowRecoveryPanel blockers={summary.blockerDetails ?? []} />
-
       <section className="grid gap-4 lg:grid-cols-2">
-        <Card title="Today" description="Shortcuts into the highest-pressure work queues.">
+        <Card title="Today" description="Open the highest-pressure work queue first, then leave this page.">
           {dashboard.isActionPlanLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, index) => (
@@ -226,7 +227,7 @@ export const WorkspaceDashboardPage = () => {
           )}
         </Card>
 
-        <Card title="Keep momentum" description="Simple entry points based on the current workspace state.">
+        <Card title="Keep momentum" description="Secondary routes to open after the highest-priority queue is clear.">
           {dashboard.isFocusLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, index) => (

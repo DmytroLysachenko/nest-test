@@ -1,7 +1,9 @@
 'use client';
 
+import { useMutation } from '@tanstack/react-query';
 import { usePathname } from 'next/navigation';
 
+import { logout } from '@/features/auth/api/auth-api';
 import { useRequireAuth } from '@/features/auth/model/context/auth-context';
 import { PrivateDashboardDataProvider } from '@/shared/lib/dashboard/private-dashboard-data-context';
 import { AppShell } from '@/shared/ui/app-shell';
@@ -19,6 +21,15 @@ type PrivateLayoutShellProps = {
 export const PrivateLayoutShell = ({ children, initialData }: PrivateLayoutShellProps) => {
   const auth = useRequireAuth();
   const pathname = usePathname();
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      if (!auth.token) {
+        return;
+      }
+      await logout(auth.token);
+    },
+    onSettled: () => auth.clearSession(),
+  });
 
   if (!auth.isHydrated || auth.isLoading || !auth.isAuthenticated) {
     return (
@@ -36,9 +47,7 @@ export const PrivateLayoutShell = ({ children, initialData }: PrivateLayoutShell
       <AppShell
         userEmail={auth.user?.email}
         userRole={auth.user?.role}
-        onSignOut={() => {
-          auth.clearSession();
-        }}
+        onSignOut={() => logoutMutation.mutate()}
         hideSidebar={isSetupFlow}
       >
         {children}

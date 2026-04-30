@@ -1,6 +1,6 @@
 # Onboarding And Profile Input Feature
 
-Last updated: 2026-03-30
+Last updated: 2026-04-26
 
 ## Purpose
 
@@ -15,6 +15,24 @@ It gives the app enough structured user intent to produce relevant outcomes late
 Includes onboarding flow, profile input capture, and readiness-related setup state.
 
 Does not own final career profile generation, notebook workflow, or scrape execution.
+
+## Route ownership
+
+`Onboarding` should own first-time setup only.
+
+`Profile` should own durable source-of-truth maintenance after setup:
+
+- target role direction
+- documents
+- profile generation
+- profile quality
+
+Neither route should become a general dashboard or active-work workflow surface.
+
+Current IA cleanup notes:
+
+- profile is being tightened away from broad blocker/recovery summaries so it stays focused on inputs, documents, and generated profile state
+- cross-workflow direction should come from `Home`, while active application management belongs in `Notebook`
 
 ## Main workflow
 

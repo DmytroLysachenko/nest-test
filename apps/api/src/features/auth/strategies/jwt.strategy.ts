@@ -9,6 +9,7 @@ import { usersTable } from '@repo/db';
 import { Drizzle } from '@/common/decorators';
 import { JwtPayload, JwtValidateUser } from '@/types/interface/jwt';
 import { AuthorizationService } from '@/common/authorization/authorization.service';
+import { readAccessTokenCookie } from '@/features/auth/utils/auth-cookies';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -18,7 +19,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly authorizationService: AuthorizationService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([ExtractJwt.fromAuthHeaderAsBearerToken(), readAccessTokenCookie]),
       ignoreExpiration: false,
       secretOrKey: config.get('ACCESS_TOKEN_SECRET'),
     });

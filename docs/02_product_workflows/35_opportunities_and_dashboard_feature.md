@@ -1,6 +1,6 @@
 # Opportunities And Dashboard Feature
 
-Last updated: 2026-03-30
+Last updated: 2026-04-26
 
 ## Purpose
 
@@ -22,6 +22,50 @@ It reduces confusion by turning system state into actionable next steps.
 Includes workspace summary, dashboard summary cards, next-action guidance, discovery entry points, and readiness messaging.
 
 Does not own detailed notebook state transitions, scrape execution internals, or extraction internals.
+
+## Route ownership
+
+`Home` is the fast direction page.
+
+It should own:
+
+- what changed
+- what needs attention next
+- where the user should go now
+
+It should not own:
+
+- detailed progress history
+- full active-application workflow
+- profile editing
+- deep automation control
+
+`Progress` is the momentum and history page.
+
+It should own:
+
+- recent workspace movement
+- changes across setup, updates, and application flow
+- a historical read on whether the search is moving forward
+
+It should not own:
+
+- the main next-action decision
+- full readiness and blocker summaries repeated from `Home` or `Profile`
+- automation controls
+
+`Opportunities` is the first-pass review page.
+
+It should own:
+
+- fresh-role review
+- discovery filters and review modes
+- keep vs dismiss decisions
+
+It should not own:
+
+- long-lived application management
+- general workspace summary beyond what supports review
 
 ## Main workflow
 
@@ -58,6 +102,10 @@ Current routing/read-model additions:
 - dashboard action-plan buckets now carry explicit priority and rationale metadata
 - dashboard focus lanes now expose richer active-work slices such as due-today and prep-next
 - opportunities and notebook empty states now consume API-driven collection-state guidance so hidden/degraded queues are explained instead of shown as generic empties
+- dashboard is now being tightened toward direction-only ownership so repeated readiness and blocker furniture can move out of the home route
+- progress is now being tightened toward momentum/history ownership so it stops duplicating the dashboard command role
+- opportunities bootstrapping and gating copy now stays specific to discovery/review instead of describing the route as a generic readiness checkpoint
+- planning and progress route blockers now resolve against their own route ownership instead of reusing notebook-targeted fallback routing
 
 ## Dependencies
 

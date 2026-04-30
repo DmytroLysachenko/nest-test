@@ -130,7 +130,7 @@ describe('JobSourcesPanel', () => {
 
     render(<JobSourcesPanel token="token" />);
 
-    expect(screen.getByText('The next update window has passed')).toBeInTheDocument();
+    expect(screen.getByText('Next update window has passed')).toBeInTheDocument();
   });
 
   it('shows waiting-for-next-window messaging after a proven schedule success', () => {

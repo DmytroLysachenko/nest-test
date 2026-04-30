@@ -9,6 +9,7 @@ import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
 import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
+import { toOptionalTrimmedString } from '@/shared/lib/utils/input-normalizers';
 
 import type { DiscoveryQuickActionKey } from '@/features/job-offers/model/types/notebook-view-model';
 
@@ -37,8 +38,8 @@ export const useOpportunitiesPage = ({
       limit: 20,
       offset,
       mode,
-      search: search || undefined,
-      tag: tag || undefined,
+      search: toOptionalTrimmedString(search),
+      tag: toOptionalTrimmedString(tag),
       hasScore: hasScore === 'all' ? undefined : hasScore === 'yes',
     }),
     [hasScore, mode, offset, search, tag],

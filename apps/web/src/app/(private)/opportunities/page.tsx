@@ -28,7 +28,7 @@ export default function OpportunitiesRoute() {
     return (
       <WorkspaceSplashState
         title="Preparing opportunities"
-        subtitle="Validating profile readiness before loading the discovery review surface."
+        subtitle="Loading your fresh review queue and discovery filters."
       />
     );
   }
@@ -49,7 +49,7 @@ export default function OpportunitiesRoute() {
     return (
       <WorkflowRouteBlock
         summary={summary}
-        route="notebook"
+        route="opportunities"
         title="Opportunities are locked"
         fallbackDescription="Complete onboarding to unlock discovery and review."
         fallbackActionLabel="Go to dashboard"

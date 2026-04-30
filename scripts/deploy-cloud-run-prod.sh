@@ -124,6 +124,7 @@ upsert_scheduler_job() {
   local timezone="$3"
   local uri="$4"
   local token="$5"
+  local attempt_deadline="$6"
 
   echo "Syncing scheduler job: $job_name ($schedule)"
   
@@ -141,7 +142,7 @@ upsert_scheduler_job() {
       --http-method=POST \
       --update-headers="$headers" \
       --message-body='{}' \
-      --attempt-deadline=30s \
+      --attempt-deadline="$attempt_deadline" \
       >/dev/null
   else
     gcloud scheduler jobs create http "$job_name" \
@@ -153,7 +154,7 @@ upsert_scheduler_job() {
       --http-method=POST \
       --headers="$headers" \
       --message-body='{}' \
-      --attempt-deadline=30s \
+      --attempt-deadline="$attempt_deadline" \
       >/dev/null
   fi
 }
@@ -258,10 +259,12 @@ WORKER_MIN_INSTANCES="${WORKER_MIN_INSTANCES:-0}"
 SCHEDULER_JOB_NAME="${SCHEDULER_JOB_NAME:-job-seek-schedule-trigger}"
 SCHEDULER_CRON="${SCHEDULER_CRON:-0 */12 * * *}" # Every 12 hours instead of 4
 SCHEDULER_TIMEZONE="${SCHEDULER_TIMEZONE:-Europe/Warsaw}"
+SCHEDULER_ATTEMPT_DEADLINE="${SCHEDULER_ATTEMPT_DEADLINE:-180s}"
 
 OPS_RECONCILE_JOB_NAME="${OPS_RECONCILE_JOB_NAME:-job-seek-reconcile-stale-runs}"
 OPS_RECONCILE_CRON="${OPS_RECONCILE_CRON:-0 2 * * *}" # Every 24 hours (at 2:00 AM) instead of 6
 OPS_RECONCILE_TIMEZONE="${OPS_RECONCILE_TIMEZONE:-Europe/Warsaw}"
+OPS_RECONCILE_ATTEMPT_DEADLINE="${OPS_RECONCILE_ATTEMPT_DEADLINE:-300s}"
 
 IMAGE_BASE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}"
 API_RUNTIME_SA="${GCP_API_RUNTIME_SERVICE_ACCOUNT:-api-runtime@${GCP_PROJECT_ID}.iam.gserviceaccount.com}"
@@ -484,14 +487,16 @@ if [[ "$DEPLOY_API" == "true" ]]; then
     "$SCHEDULER_CRON" \
     "$SCHEDULER_TIMEZONE" \
     "${API_URL}/api/job-sources/schedule/trigger" \
-    "$SCHEDULER_AUTH_TOKEN"
+    "$SCHEDULER_AUTH_TOKEN" \
+    "$SCHEDULER_ATTEMPT_DEADLINE"
   echo "Ensure Cloud Scheduler stale-run reconcile job..."
   upsert_scheduler_job \
     "$OPS_RECONCILE_JOB_NAME" \
     "$OPS_RECONCILE_CRON" \
     "$OPS_RECONCILE_TIMEZONE" \
     "${API_URL}/api/ops/reconcile-stale-runs" \
-    "$OPS_INTERNAL_TOKEN"
+    "$OPS_INTERNAL_TOKEN" \
+    "$OPS_RECONCILE_ATTEMPT_DEADLINE"
 fi
 
 echo "API_URL=${API_URL}"

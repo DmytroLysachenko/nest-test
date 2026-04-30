@@ -26,31 +26,31 @@ const buildReminderDeliveryCopy = (reminderDelivery: JobOfferReminderDeliveryDto
   if (reminderDelivery.state === 'delivered') {
     return {
       badge: `${bucketLabel} emailed`,
-      title: `${bucketLabel} reminder digest already went out.`,
+      title: `${bucketLabel} reminder email already went out.`,
       description: reminderDelivery.lastSentAt
-        ? `Delivered ${formatDateTime(reminderDelivery.lastSentAt)}.`
-        : 'Delivered in the current reminder window.',
+        ? `External email delivered ${formatDateTime(reminderDelivery.lastSentAt)}. Notebook tracking stays active here.`
+        : 'External email delivered in current reminder window. Notebook tracking stays active here.',
     };
   }
 
   if (reminderDelivery.state === 'failed') {
     return {
       badge: `${bucketLabel} failed`,
-      title: `${bucketLabel} reminder email failed in the current window.`,
+      title: `${bucketLabel} reminder email failed in current window.`,
       description: reminderDelivery.lastError
         ? reminderDelivery.lastAttemptedAt
-          ? `${reminderDelivery.lastError} Last attempt ${formatDateTime(reminderDelivery.lastAttemptedAt)}.`
+          ? `${reminderDelivery.lastError} Last attempt ${formatDateTime(reminderDelivery.lastAttemptedAt)}. Notebook follow-up still remains on this role.`
           : reminderDelivery.lastError
-        : 'The scheduler attempted delivery but the mail step failed.',
+        : 'Scheduler attempted external delivery, but mail step failed. Notebook follow-up still remains on this role.',
     };
   }
 
   return {
     badge: `${bucketLabel} pending`,
-    title: `${bucketLabel} reminder window is still pending delivery.`,
+    title: `${bucketLabel} reminder email still pending.`,
     description: reminderDelivery.lastAttemptedAt
-      ? `No successful digest yet. Last attempt ${formatDateTime(reminderDelivery.lastAttemptedAt)}.`
-      : 'No digest has been sent for the current reminder window yet.',
+      ? `No successful external email yet. Last attempt ${formatDateTime(reminderDelivery.lastAttemptedAt)}.`
+      : 'No external email has been sent for current reminder window yet.',
   };
 };
 
