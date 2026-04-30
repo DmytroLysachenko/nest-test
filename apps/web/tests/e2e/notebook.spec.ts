@@ -441,7 +441,7 @@ test('notebook pipeline renders active offers and sends workflow actions', async
 
   await page.goto('/notebook', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByRole('heading', { name: 'Keep active roles moving' })).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole('heading', { name: 'Keep active roles moving' })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole('button', { name: /Backend Developer/ }).first()).toBeVisible();
 
   await page

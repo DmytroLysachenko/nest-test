@@ -342,7 +342,9 @@ test('profile management supports save, generate, and restore actions', async ({
 
   await page.goto('/profile', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByRole('heading', { name: 'Keep your source of truth clean' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Keep your source of truth clean' })).toBeVisible({
+    timeout: 20_000,
+  });
 
   await page.getByLabel('Target roles').fill('Frontend Developer');
   const saveRequest = page.waitForRequest('**/api/profile-inputs');

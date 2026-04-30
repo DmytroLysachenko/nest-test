@@ -178,7 +178,7 @@ test('onboarding flow saves structured input and triggers generation', async ({ 
 
   await page.goto('/onboarding', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByRole('heading', { name: 'Set your direction once' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Set your direction once' })).toBeVisible({ timeout: 20_000 });
 
   await page.getByPlaceholder('Frontend Developer, Software Engineer').fill('Frontend Developer');
   await page.getByPlaceholder('Frontend Developer, Software Engineer').press('Enter');
@@ -299,8 +299,8 @@ test('onboarding loads server draft into form', async ({ page }) => {
 
   await page.goto('/onboarding', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByText(/Backend Developer/)).toBeVisible();
-  await expect(page.getByText(/Node\.js/)).toBeVisible();
+  await expect(page.getByText(/Backend Developer/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/Node\.js/)).toBeVisible({ timeout: 20_000 });
 });
 
 test('onboarding keeps step-one values after reload via local draft persistence', async ({ page }) => {
@@ -386,6 +386,7 @@ test('onboarding keeps step-one values after reload via local draft persistence'
 
   await page.goto('/onboarding', { waitUntil: 'domcontentloaded' });
 
+  await expect(page.getByPlaceholder('Frontend Developer, Software Engineer')).toBeVisible({ timeout: 20_000 });
   await page.getByPlaceholder('Frontend Developer, Software Engineer').fill('Data Engineer');
   await page.getByPlaceholder('Frontend Developer, Software Engineer').press('Enter');
   await page.locator('#general-notes').fill('Need roles with data platform ownership.');

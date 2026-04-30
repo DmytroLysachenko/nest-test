@@ -39,18 +39,32 @@ export const AuthProvider = ({
   children: ReactNode;
   initialSession?: InitialAuthSession;
 }) => {
-  const [accessToken, setAccessToken] = useState<string | null>(
-    initialSession?.token && initialSession.token !== SESSION_TOKEN_PLACEHOLDER ? initialSession.token : null,
-  );
+  const hasInitialSession = Boolean(initialSession?.token || initialSession?.user);
+  const [clientAuthState, setClientAuthState] = useState<{
+    accessToken: string | null;
+    isHydrated: boolean;
+  }>({
+    accessToken:
+      initialSession?.token && initialSession.token !== SESSION_TOKEN_PLACEHOLDER ? initialSession.token : null,
+    isHydrated: hasInitialSession,
+  });
   const [sessionUser, setSessionUser] = useState<UserDto | null>(initialSession?.user ?? null);
-  const [isHydrated, setIsHydrated] = useState(Boolean(initialSession));
+  const accessToken = clientAuthState.accessToken;
+  const isHydrated = clientAuthState.isHydrated;
   const token = accessToken ?? (sessionUser ? SESSION_TOKEN_PLACEHOLDER : null);
 
   useEffect(() => {
-    setIsHydrated(true);
-    return onStoredTokensChanged(() => {
-      setAccessToken(readStoredTokens().accessToken);
-    });
+    const syncStoredAccessToken = () => {
+      const nextAccessToken = readStoredTokens().accessToken;
+      setClientAuthState({
+        accessToken: nextAccessToken,
+        isHydrated: true,
+      });
+    };
+
+    syncStoredAccessToken();
+
+    return onStoredTokensChanged(syncStoredAccessToken);
   }, []);
 
   const userQuery = useAuthMeQuery(token, initialSession?.token === token ? (initialSession?.user ?? null) : null);
@@ -64,20 +78,29 @@ export const AuthProvider = ({
   useEffect(() => {
     if (userQuery.error instanceof ApiError && userQuery.error.status === 401) {
       clearStoredTokens();
-      setAccessToken(null);
+      setClientAuthState({
+        accessToken: null,
+        isHydrated: true,
+      });
       setSessionUser(null);
     }
   }, [userQuery.error]);
 
   const setSession = (accessToken: string, refreshToken: string, user: UserDto) => {
     writeStoredTokens({ accessToken, refreshToken });
-    setAccessToken(accessToken);
+    setClientAuthState({
+      accessToken,
+      isHydrated: true,
+    });
     setSessionUser(user);
   };
 
   const clearSession = () => {
     clearStoredTokens();
-    setAccessToken(null);
+    setClientAuthState({
+      accessToken: null,
+      isHydrated: true,
+    });
     setSessionUser(null);
   };
 
