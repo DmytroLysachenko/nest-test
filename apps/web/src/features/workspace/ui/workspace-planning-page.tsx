@@ -19,14 +19,13 @@ import { usePrivateDashboardData } from '@/shared/lib/dashboard/private-dashboar
 import { usePrivateScrapeScheduleQuery } from '@/shared/lib/dashboard/private-dashboard-resource-queries';
 import { PageErrorState, WorkspaceSplashState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
-import { Card } from '@/shared/ui/card';
 import { HeroHeader, StatRow, UtilityRail } from '@/shared/ui/dashboard-primitives';
 import { WorkflowBlockedState } from '@/shared/ui/workflow-blocked-state';
 
 const JobSourcesPanel = dynamic(
   () => import('@/features/job-sources').then((module) => ({ default: module.JobSourcesPanel })),
   {
-    loading: () => <div className="bg-surface-muted h-[28rem] animate-pulse rounded-lg" />,
+    loading: () => <div className="bg-surface-muted/38 h-[28rem] animate-pulse rounded-[1.45rem]" />,
   },
 );
 
@@ -104,12 +103,8 @@ export const WorkspacePlanningPage = () => {
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)] lg:items-start">
         <JobSourcesPanel token={auth.token} />
 
-        <div className="space-y-5">
-          <UtilityRail
-            title="Current automation"
-            description="A plain-language view of your search update cadence."
-            className="sticky top-4"
-          >
+        <div className="space-y-5 lg:self-start">
+          <UtilityRail title="Current automation" description="A plain-language view of your search update cadence.">
             <div className="space-y-3">
               <StatRow
                 label="Update mode"
@@ -131,33 +126,36 @@ export const WorkspacePlanningPage = () => {
             </div>
           </UtilityRail>
 
-          <Card
-            title="Before you automate"
-            description="Use this page as a control surface, not as a general workflow dashboard."
-            className="bg-surface-elevated/92"
-          >
-            <div className="space-y-3 text-sm">
-              <div className="app-muted-panel">
+          <section className="app-tonal-section space-y-4">
+            <div className="space-y-1.5">
+              <h2 className="text-text-strong text-lg font-semibold tracking-[-0.02em]">Before you automate</h2>
+              <p className="text-text-soft text-sm leading-6">
+                Use this route as a timing control surface, not as a general workflow dashboard.
+              </p>
+            </div>
+
+            <div className="space-y-4 text-sm">
+              <div className="border-border/45 space-y-2 border-b pb-4">
                 <p className="text-text-strong font-semibold">Keep your profile current</p>
-                <p className="text-text-soft mt-2">
+                <p className="text-text-soft leading-6">
                   Update target role, skills, and documents only when your real job target changes.
                 </p>
               </div>
-              <div className="app-muted-panel">
+              <div className="border-border/45 space-y-2 border-b pb-4">
                 <p className="text-text-strong font-semibold">Use presets first</p>
-                <p className="text-text-soft mt-2">
+                <p className="text-text-soft leading-6">
                   A morning or evening schedule is easier to trust than a fully custom setup.
                 </p>
               </div>
-              <div className="app-muted-panel">
+              <div className="space-y-2">
                 <p className="text-text-strong font-semibold">Leave this page once timing is set</p>
-                <p className="text-text-soft mt-2">
+                <p className="text-text-soft leading-6">
                   Keep this page focused on update timing. Review fresh roles in Opportunities and manage active work in
                   Notebook.
                 </p>
               </div>
             </div>
-          </Card>
+          </section>
         </div>
       </section>
     </main>
