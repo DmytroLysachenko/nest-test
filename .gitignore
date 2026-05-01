@@ -60,6 +60,7 @@ pracuj-pl-cookies.json
 .smoke-stack.log
 .profile-run-result.json
 .support-local/
+.codex/
 
 # Playwright/e2e temp artifacts
 **/.last-run
