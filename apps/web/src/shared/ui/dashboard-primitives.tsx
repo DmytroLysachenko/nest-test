@@ -141,7 +141,7 @@ export const DataTableShell = ({ title, description, children, className }: Data
 );
 
 export const StatRow = ({ label, value, tone = 'neutral' }: StatRowProps) => (
-  <div className="bg-surface-muted/56 flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
+  <div className="bg-surface-muted/34 flex items-center justify-between gap-3 rounded-[1.1rem] px-4 py-3">
     <span className="text-text-soft text-sm">{label}</span>
     {typeof value === 'string' ? <StatusPill value={value} tone={tone} /> : value}
   </div>

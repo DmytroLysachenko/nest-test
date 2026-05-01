@@ -19,7 +19,7 @@ export const Card = ({ title, description, children, className, contentClassName
           <CardDescription className="text-text-soft max-w-3xl text-[0.92rem] leading-6">{description}</CardDescription>
         ) : null}
       </CardHeader>
-      <CardContent className={cn('px-5 pb-5 md:px-6 md:pb-6', contentClassName)}>{children}</CardContent>
+      <CardContent className={cn('px-5 pb-5 pt-1 md:px-6 md:pb-6', contentClassName)}>{children}</CardContent>
     </ShadcnCard>
   );
 };
