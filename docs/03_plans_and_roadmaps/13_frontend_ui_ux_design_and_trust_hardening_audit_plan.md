@@ -1,6 +1,6 @@
 # Frontend UI UX Design And Trust Hardening Audit Plan
 
-Last updated: 2026-04-29
+Last updated: 2026-05-01
 
 ## Status
 
@@ -298,6 +298,666 @@ Should become:
 2. centralize input normalization helpers
 3. align form schemas and submit mappers around consistent sanitation rules
 4. update tests and docs for the new trust boundary
+
+## Execution Tranche: Workspace UX Flattening And Query Trust
+
+This section turns the audit into a concrete implementation plan for the next frontend-heavy delivery slice.
+
+It is intentionally more specific than the earlier audit tracks and should be treated as the canonical commit plan for this tranche.
+
+### Why This Tranche Is Active Now
+
+The product workflow is stronger than it was a few weeks ago, but the web app still has several credibility problems that are now blocking the next layer of product polish:
+
+1. core routes still feel too boxed and too component-grid-like
+2. shell/header composition still makes the workspace feel framed inside cards instead of feeling like one app surface
+3. planning still has sticky/layout behavior that looks broken
+4. opportunities still behaves too much like an admin list instead of a fast review queue
+5. free-text filters still create unnecessary query churn and contribute to `429` pressure
+6. route-to-route notebook freshness is not trustworthy enough after mutations
+7. companies and profile still show mixed hierarchy quality, weak loaders, and visual imbalance
+
+This is not decorative cleanup. It affects:
+
+- perceived product quality
+- request-budget safety
+- workflow trust
+- route deep-linking quality
+- maintainability of future frontend work
+
+### Normalized User-Reported Pain
+
+User feedback for this tranche maps to these concrete product problems:
+
+1. header feels detached because it lives inside another rounded box instead of acting like workspace chrome
+2. planning page utility content overlaps nearby sections because sticky behavior is wrong
+3. opportunities route is still too box-heavy, especially around filters, counts, and detail surfaces
+4. opportunity details rail has weak spacing and too much nested framing
+5. opportunities should prefer `Show more` review flow over page-by-page navigation
+6. opportunities search and tag filters should debounce and persist in URL state
+7. notebook should reflect updates after opportunity actions without requiring a hard refresh
+8. company route loading and querying still feels rough
+9. profile route has poor visual balance and still leaks raw signal keys like `target_roles`
+10. toast undo action is visually harsh and inconsistent with the rest of the app
+
+### Execution Rules
+
+These rules should constrain all implementation work in this tranche:
+
+1. main route content should stay open on the page canvas whenever possible
+2. widgets, side rails, destructive settings, and dense metadata clusters may stay enclosed
+3. avoid box-inside-box composition unless the inner box adds clear information value
+4. maximum decorative nesting depth should be `1`
+5. free-text server-backed filters must debounce before query execution
+6. meaningful route filter state should live in URL query params
+7. workflow mutations must refresh or invalidate every affected read model
+8. prefer targeted mutable-query refetch rules over making all queries globally aggressive
+9. API stays owner of workflow semantics; web improves presentation, state ownership, and trust
+
+### Route-Level Priorities
+
+Execution order for this tranche:
+
+1. app shell and header chrome
+2. planning layout and sticky behavior
+3. opportunities state, pagination model, and visual density
+4. notebook freshness and state ownership
+5. companies list/detail query hygiene and loading UX
+6. profile hierarchy and label humanization
+7. toaster/action visual cleanup
+8. regression coverage and doc follow-through
+
+## Detailed Commit Plan
+
+Target commit size for this tranche should usually stay in the `~200-300` changed-line range.
+
+If a slice naturally grows beyond `500+` lines, split it into two commits as described below instead of pushing a bloated mixed commit.
+
+### Commit 1
+
+`docs: activate workspace ux flattening and query trust tranche`
+
+Intent:
+
+- update this file with the concrete execution tranche
+- record active route-level pain and implementation rules
+- make this document the owner for the upcoming frontend cleanup sequence
+
+Expected scope:
+
+- docs only
+- roughly `120-220` changed lines
+
+Acceptance:
+
+- one owning plan exists for the tranche
+- route priorities are explicit
+- later code commits can reference this file without ambiguity
+
+### Commit 2
+
+`refactor: turn workspace header into full-width shell chrome`
+
+Intent:
+
+- make header start at the sidebar edge and span the workspace width
+- remove the floating framed-card feeling from shell chrome
+
+Implementation focus:
+
+- update `apps/web/src/shared/ui/app-shell.tsx`
+- reduce or remove the rounded framed wrapper around header content
+- preserve back button, mobile nav trigger, user identity, sign-out, and sticky behavior
+- adjust shell spacing and divider treatment in `apps/web/src/app/globals.css` if needed
+
+Expected scope:
+
+- roughly `150-260` changed lines
+
+Acceptance:
+
+- header reads as app chrome, not another content card
+- shell still works with and without sidebar
+- mobile and desktop sticky behavior remain stable
+
+### Commit 3
+
+`refactor: soften shared surface primitives and add open-section defaults`
+
+Intent:
+
+- reduce boxiness at the primitive level before route-specific cleanup
+
+Implementation focus:
+
+- update `apps/web/src/app/globals.css`
+- soften `app-surface`, `app-surface-elevated`, `app-muted-panel`, `app-inset-stack`, `app-utility-rail`, and `app-page-header`
+- introduce or clarify open-section and tonal-section composition defaults
+- preserve enough visual structure for widgets and destructive actions
+
+Expected scope:
+
+- roughly `180-280` changed lines
+
+Acceptance:
+
+- routes are nudged toward spacing and typography rather than extra framed surfaces
+- existing pages do not collapse into structureless whitespace
+
+### Commit 4
+
+`fix: stabilize planning sticky behavior and utility rail layering`
+
+Intent:
+
+- remove the sticky overlap bug on the planning route
+
+Implementation focus:
+
+- inspect `apps/web/src/features/workspace/ui/workspace-planning-page.tsx`
+- correct sticky top offsets and z-index layering
+- stop the “Current automation” region from sitting over neighboring content
+- verify common desktop widths where the issue currently appears
+
+Expected scope:
+
+- roughly `80-180` changed lines
+
+Acceptance:
+
+- no sticky collision remains
+- planning content is never visually obscured by the utility area
+
+### Commit 5
+
+`refactor: flatten planning route composition`
+
+Intent:
+
+- simplify planning into one primary automation flow plus one support rail
+
+Implementation focus:
+
+- reduce panel-on-panel composition in `workspace-planning-page.tsx`
+- lighten loaders and grouped support sections
+- preserve automation trust and update-context visibility without stacking inset blocks
+
+Expected scope:
+
+- roughly `180-280` changed lines
+
+Acceptance:
+
+- planning reads as one route, not several boxed widgets
+- support context still exists but no longer dominates the page
+
+### Commit 6
+
+`feat: hydrate opportunities filter state from url query`
+
+Intent:
+
+- make discovery state deep-linkable and reload-safe
+
+Implementation focus:
+
+- sync `mode`, `hasScore`, `search`, `tag`, `focus`, and `offerId` from route query into the route/controller
+- normalize route inputs before they reach query builders
+- keep offset reset behavior deterministic when the filter set changes
+
+Expected scope:
+
+- roughly `160-240` changed lines
+
+Acceptance:
+
+- reload and direct links preserve discovery state
+- browser back/forward returns to the same review slice
+
+### Commit 7
+
+`feat: persist opportunities filter state back to url query`
+
+Intent:
+
+- complete two-way URL state ownership for the discovery route
+
+Implementation focus:
+
+- push meaningful filter changes back to route query params
+- avoid noisy or empty params
+- preserve selected-offer deep-linking behavior
+
+Expected scope:
+
+- roughly `140-220` changed lines
+
+Acceptance:
+
+- route URL reflects active discovery state
+- links are shareable and stable
+
+### Commit 8
+
+`fix: debounce opportunities free-text filters`
+
+Intent:
+
+- stop API calls on every keypress for `search` and `tag`
+
+Implementation focus:
+
+- add debounced handling for opportunities free-text filters
+- keep select/toggle filters immediate
+- ensure debounce interacts correctly with URL sync and offset reset
+
+Expected scope:
+
+- roughly `120-220` changed lines
+
+Acceptance:
+
+- typing no longer triggers fetch per symbol
+- rate-limit pressure is reduced
+
+### Commit 9
+
+`feat: convert opportunities controller to incremental show-more loading`
+
+Intent:
+
+- replace page-by-page navigation with a continuous review flow
+
+Implementation focus:
+
+- reduce discovery batch size from `20` to `10`
+- accumulate pages using current offset-based API semantics
+- preserve selected offer stability while loading additional results
+
+Expected scope:
+
+- roughly `200-300` changed lines
+
+Acceptance:
+
+- user can keep reviewing with `Show more`
+- current selection remains stable after loading more items
+
+### Commit 10
+
+`refactor: replace opportunities pager ui with show-more actions`
+
+Intent:
+
+- finish the discovery UX shift away from admin pagination
+
+Implementation focus:
+
+- update opportunities list UI
+- remove previous/next controls
+- add a clear `Show more` action and supporting count language
+
+Expected scope:
+
+- roughly `120-220` changed lines
+
+Acceptance:
+
+- opportunities route no longer feels like an admin table pager
+
+### Commit 11
+
+`refactor: simplify opportunities toolbar and list density`
+
+Intent:
+
+- reduce box density in the main opportunities pane
+
+Implementation focus:
+
+- flatten filter toolbar
+- reduce nested reset/count framing
+- simplify row-level surface treatment while preserving scanability
+
+Expected scope:
+
+- roughly `180-280` changed lines
+
+Acceptance:
+
+- main discovery pane reads cleaner and less repetitive
+
+### Commit 12
+
+`refactor: tighten opportunity details rail spacing and hierarchy`
+
+Intent:
+
+- make the selected-offer workspace feel intentional and readable
+
+Implementation focus:
+
+- adjust `apps/web/src/features/job-offers/ui/components/opportunity-details-rail.tsx`
+- add better spacing between scroll body, company section, explanation text, timestamp area, and action blocks
+- remove nested framing that does not add information value
+
+Expected scope:
+
+- roughly `180-280` changed lines
+
+Acceptance:
+
+- detail rail breathes
+- nested box treatment is significantly reduced
+
+### Commit 13
+
+`fix: refresh notebook and discovery read models after cross-route mutations`
+
+Intent:
+
+- remove the stale notebook behavior after opportunity actions
+
+Implementation focus:
+
+- inspect `apps/web/src/shared/lib/query/use-data-sync.ts`
+- inspect notebook/discovery query hooks and route mount behavior
+- ensure mutations invalidate or refresh:
+  - discovery list
+  - notebook list
+  - notebook summary
+  - action plan
+  - reminder preview
+  - workspace summary
+  - focus queues
+- add targeted mount-refetch rules for mutable workflow queries if invalidation alone is insufficient
+
+Expected scope:
+
+- roughly `180-300` changed lines
+
+Acceptance:
+
+- save in opportunities, then open notebook, and the new state is visible without hard refresh
+- summary widgets stay aligned with list state
+
+### Commit 14
+
+`refactor: narrow notebook state ownership`
+
+Intent:
+
+- keep only durable notebook state global and move transient UI concerns closer to the route
+
+Implementation focus:
+
+- audit `apps/web/src/shared/store/app-ui-store.ts`
+- keep persisted notebook preferences global
+- narrow route-local or purely presentational state where feasible
+- reduce broad coupling between controller hooks and the shared store
+
+Expected scope:
+
+- roughly `200-300` changed lines
+
+Acceptance:
+
+- notebook store boundaries become easier to reason about
+- route-only UI concerns are less globally coupled
+
+### Commit 15
+
+`refactor: flatten notebook route composition`
+
+Intent:
+
+- continue notebook cleanup after freshness/state ownership are fixed
+
+Implementation focus:
+
+- simplify reminder blocks, action-plan framing, and selected-workspace composition
+- keep workflow-value widgets but remove decorative nested containers
+
+Expected scope:
+
+- roughly `220-320` changed lines
+
+Acceptance:
+
+- notebook feels like one active-work route, not stacked modules
+
+### Commit 16
+
+`fix: debounce and url-sync companies filters`
+
+Intent:
+
+- remove the same query churn pattern from companies
+
+Implementation focus:
+
+- debounce `search` and `location`
+- mirror values to route query
+- keep reset and deep-linking behavior deterministic
+
+Expected scope:
+
+- roughly `180-280` changed lines
+
+Acceptance:
+
+- companies route no longer fetches on every symbol
+- route links preserve current company browse state
+
+### Commit 17
+
+`refactor: replace companies loading and list box density`
+
+Intent:
+
+- make company list loading and browsing feel product-grade
+
+Implementation focus:
+
+- replace generic loading with route-specific skeletons
+- flatten company list composition
+- reduce nested inset-stack use inside company cards while keeping actions visible
+
+Expected scope:
+
+- roughly `180-260` changed lines
+
+Acceptance:
+
+- company route looks intentional in both loading and loaded states
+
+### Commit 18
+
+`refactor: flatten company detail composition`
+
+Intent:
+
+- align company detail with the lighter route-composition rules
+
+Implementation focus:
+
+- reduce nested framing in metadata and recent-offers sections
+- keep hero/context area open
+- preserve outbound actions and related-offer usefulness
+
+Expected scope:
+
+- roughly `180-280` changed lines
+
+Acceptance:
+
+- company detail route feels coherent with opportunities/notebook cleanup
+
+### Commit 19
+
+`refactor: rebalance profile route hierarchy and spacing`
+
+Intent:
+
+- fix profile route visual balance and wasted space
+
+Implementation focus:
+
+- make profile input clearly dominant
+- reduce awkward empty space below the primary editor
+- stop neighboring sections from stretching to unrelated heights when content is short
+
+Expected scope:
+
+- roughly `180-280` changed lines
+
+Acceptance:
+
+- profile route hierarchy matches the actual user task priority
+
+### Commit 20
+
+`refactor: humanize profile health labels and simplify health card`
+
+Intent:
+
+- stop exposing raw backend signal names in the product UI
+
+Implementation focus:
+
+- map keys like `target_roles`, `core_competencies`, and `keywords_coverage` to user-facing labels
+- simplify card grouping where possible without losing meaning
+
+Expected scope:
+
+- roughly `120-220` changed lines
+
+Acceptance:
+
+- no raw DB-facing labels remain on the profile health surface
+
+### Commit 21
+
+`refactor: restyle toast action into lighter undo affordance`
+
+Intent:
+
+- remove the visually harsh black undo action style
+
+Implementation focus:
+
+- update toaster config and/or action rendering
+- prefer a lighter icon-led undo affordance while preserving accessibility
+
+Expected scope:
+
+- roughly `80-160` changed lines
+
+Acceptance:
+
+- toast action feels integrated with the app instead of visually breaking it
+
+### Commit 22
+
+`test: lock route query hygiene and workflow freshness regressions`
+
+Intent:
+
+- prevent the same route and query bugs from returning
+
+Implementation focus:
+
+- add unit/integration coverage for:
+  - debounce timing
+  - URL hydration and writeback
+  - profile signal label mapping
+- add e2e coverage for:
+  - opportunities -> save role -> notebook reflects change
+  - opportunities filters survive reload
+  - companies filters debounce and survive reload
+  - planning sticky area no longer overlaps visible content
+
+Expected scope:
+
+- roughly `220-320` changed lines
+
+Acceptance:
+
+- major tranche behaviors are test-covered
+
+### Commit 23
+
+`docs: update roadmap and frontend standards after ux-query tranche`
+
+Intent:
+
+- make documentation reflect the implemented route, query, and surface rules
+
+Implementation focus:
+
+- update `docs/03_plans_and_roadmaps/01_roadmap.md`
+- update `docs/03_plans_and_roadmaps/02_sprint_plan.md`
+- update `docs/06_engineering_standards/01_frontend_standards.md`
+- update `docs/01_project_context/02_project_state.md` if behavior changed materially
+
+Expected scope:
+
+- roughly `120-220` changed lines
+
+Acceptance:
+
+- docs no longer describe the older box-heavy or query-heavy behavior
+
+## Validation Plan For This Tranche
+
+Required checks:
+
+1. `pnpm --filter web check-types`
+2. `pnpm --filter web test`
+3. targeted `pnpm --filter web test:e2e`
+
+Run `pnpm smoke:e2e` when:
+
+1. opportunities/notebook mutation flow changes affect seeded cross-route workflow expectations
+2. route-level query/state behavior changes influence seeded end-to-end navigation logic
+
+Manual validation checklist:
+
+1. shell header on desktop and mobile
+2. planning sticky behavior at multiple viewport heights
+3. opportunities typing behavior for `search` and `tag`
+4. opportunities `Show more` review flow
+5. opportunity details rail spacing on desktop and mobile
+6. save a role in opportunities, then open notebook without full-page refresh
+7. companies loading, typing, reload, and deep-link behavior
+8. profile route with short and long data states
+9. toaster undo action appearance and usability
+
+## Out Of Scope For This Tranche
+
+Unless required by a hard dependency, do not fold these into the tranche:
+
+1. backend cursor-pagination redesign
+2. new source adapters
+3. deeper prep-packet or assistant feature expansion
+4. durable async platform migration work
+5. major notebook business-logic redesign
+6. full visual design-system rewrite
+
+## Follow-On Work After This Tranche
+
+After this tranche, the best next product sequence remains:
+
+1. deepen notebook toward lightweight application CRM behavior
+2. continue reliability-first platform work around durable async and source-health gating
+3. improve workflow intelligence and explanation quality before source expansion
+4. only then revisit second-source rollout
+
+This preserves the existing roadmap rule:
+
+- simplify first
+- harden second
+- broaden later
 
 ## Suggested Commit Sequence
 

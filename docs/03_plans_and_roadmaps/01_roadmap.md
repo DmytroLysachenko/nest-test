@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-04-28
+Last updated: 2026-05-01
 
 ## Purpose
 
@@ -71,7 +71,7 @@ The project should not drift into:
      - tighten frontend auth/session storage boundaries
      - centralize input normalization and safe URL/query shaping
      - narrow shared UI state to clearer route ownership
-   - Status: planned (successor audit after the completed notebook throughput/reminder delivery pass; see `docs/03_plans_and_roadmaps/13_frontend_ui_ux_design_and_trust_hardening_audit_plan.md`).
+   - Status: active planning tranche (the concrete execution sequence is now documented in `docs/03_plans_and_roadmaps/13_frontend_ui_ux_design_and_trust_hardening_audit_plan.md`, including the full-width shell header pass, planning sticky/layout fix, opportunities `Show more` flow, debounced URL-synced filters, notebook freshness hardening, company route query cleanup, profile hierarchy cleanup, and the route-level regression test plan).
 2. Make notebook/action workflow clearly better than native boards.
    - Scope:
      - follow-up and reminder reliability

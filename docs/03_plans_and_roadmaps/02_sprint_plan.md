@@ -1,6 +1,6 @@
 # Sprint Plan
 
-Last updated: 2026-03-21
+Last updated: 2026-05-01
 
 This document translates the current roadmap into implementation-oriented sprint slices. It is intentionally more detailed than `docs/03_plans_and_roadmaps/01_roadmap.md` and should be updated whenever priorities or dependencies shift materially.
 
@@ -18,6 +18,38 @@ This document translates the current roadmap into implementation-oriented sprint
   - faster action loops in notebook
   - stronger source reliability
   - safer startup, smoke, and deploy behavior
+
+## Active Frontend Tranche: Workspace UX Flattening And Query Trust
+
+This is the current web-focused execution slice that should run before any broader frontend expansion or aesthetic redesign.
+
+Primary reasons:
+
+- core workflow routes still feel too boxed and too panel-heavy
+- planning still has sticky/layout trust issues
+- opportunities still uses request-heavy free-text filtering and page-based review interaction
+- notebook route freshness still needs stronger cross-route mutation trust
+- companies and profile still have mixed hierarchy quality and rough loading/query behavior
+
+The detailed commit-by-commit plan is owned by:
+
+- `docs/03_plans_and_roadmaps/13_frontend_ui_ux_design_and_trust_hardening_audit_plan.md`
+
+Execution highlights for this tranche:
+
+1. rebuild the shell header into full-width workspace chrome
+2. fix planning sticky overlap and flatten planning route composition
+3. move opportunities to URL-driven debounced filters and `Show more` review flow
+4. tighten opportunities detail-rail spacing and reduce nested box treatment
+5. harden notebook/discovery freshness after cross-route mutations
+6. debounce and URL-sync company-route filters while improving company loading states
+7. rebalance profile hierarchy and replace raw profile-health signal labels with user-facing wording
+8. add regression coverage for query hygiene, route freshness, and layout stability
+
+Preferred commit sizing:
+
+- usually `~200-300` changed lines
+- split any `500+` line frontend slice into two smaller commits around state/model vs UI/composition boundaries
 
 ## Product Strategy Constraint
 
