@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 
 import { getDiscoverySummary, listDiscoveryJobOffers } from '@/features/job-offers/api/job-offers-api';
 import { useNotebookMutations } from '@/features/job-offers/model/hooks/use-notebook-mutations';
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
+import { useDebouncedValue } from '@/shared/lib/hooks/use-debounced-value';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
 import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
@@ -58,9 +59,12 @@ export const useOpportunitiesPage = ({
     PER_PAGE_OPTIONS.includes(initialPerPage as (typeof PER_PAGE_OPTIONS)[number]) ? initialPerPage : DEFAULT_PER_PAGE,
   );
   const [selectedId, setSelectedId] = useState<string | null>(initialOfferId);
+  const didHydrateFiltersRef = useRef(false);
+  const debouncedSearch = useDebouncedValue(search, 400);
+  const debouncedTag = useDebouncedValue(tag, 400);
   const offset = (page - 1) * perPage;
-  const normalizedSearch = toOptionalTrimmedString(search);
-  const normalizedTag = toOptionalTrimmedString(tag);
+  const normalizedSearch = toOptionalTrimmedString(debouncedSearch);
+  const normalizedTag = toOptionalTrimmedString(debouncedTag);
 
   const listParams = useMemo(
     () => ({
@@ -73,6 +77,15 @@ export const useOpportunitiesPage = ({
     }),
     [hasScore, mode, normalizedSearch, normalizedTag, offset, perPage],
   );
+
+  useEffect(() => {
+    if (!didHydrateFiltersRef.current) {
+      didHydrateFiltersRef.current = true;
+      return;
+    }
+
+    setPage(DEFAULT_PAGE);
+  }, [mode, hasScore, normalizedSearch, normalizedTag]);
 
   useEffect(() => {
     const nextPath = buildPathWithQuery(pathname, {
