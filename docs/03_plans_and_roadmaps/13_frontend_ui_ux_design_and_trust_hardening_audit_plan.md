@@ -682,7 +682,7 @@ Acceptance:
 - save in opportunities, then open notebook, and the new state is visible without hard refresh
 - summary widgets stay aligned with list state
 
-### Commit 14
+### Commit 14 [completed]
 
 `refactor: narrow notebook state ownership`
 

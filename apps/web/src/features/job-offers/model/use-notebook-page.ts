@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNotebookMutations } from '@/features/job-offers/model/hooks/use-notebook-mutations';
 import { useNotebookQueries } from '@/features/job-offers/model/hooks/use-notebook-queries';
@@ -21,26 +21,29 @@ type UseNotebookPageArgs = {
   initialOfferId?: string | null;
 };
 
+const NOTEBOOK_PAGE_SIZE = 20;
+
 export const useNotebookPage = ({ token, initialQuickAction = null, initialOfferId = null }: UseNotebookPageArgs) => {
   const notebookSummaryQuery = usePrivateNotebookSummaryQuery(token);
   const notebookSummary = notebookSummaryQuery.data;
-  const selectedId = useAppUiStore((state) => state.notebook.selectedOfferId);
-  const selectedOfferIds = useAppUiStore((state) => state.notebook.selectedOfferIds);
   const filters = useAppUiStore((state) => state.notebook.filters);
   const savedPreset = useAppUiStore((state) => state.notebook.savedPreset);
-  const pagination = useAppUiStore((state) => state.notebook.pagination);
-  const lastInteractionAt = useAppUiStore((state) => state.notebook.lastInteractionAt);
   const hydratedFromServer = useAppUiStore((state) => state.notebook.hydratedFromServer);
-  const setNotebookSelectedOffer = useAppUiStore((state) => state.setNotebookSelectedOffer);
-  const toggleNotebookSelectedOfferId = useAppUiStore((state) => state.toggleNotebookSelectedOfferId);
-  const clearNotebookSelectedOfferIds = useAppUiStore((state) => state.clearNotebookSelectedOfferIds);
-  const setNotebookSelectedOfferIds = useAppUiStore((state) => state.setNotebookSelectedOfferIds);
   const setNotebookFilter = useAppUiStore((state) => state.setNotebookFilter);
   const hydrateNotebookPreferences = useAppUiStore((state) => state.hydrateNotebookPreferences);
   const resetNotebookFilters = useAppUiStore((state) => state.resetNotebookFilters);
   const saveNotebookFilterPreset = useAppUiStore((state) => state.saveNotebookFilterPreset);
   const applyNotebookFilterPreset = useAppUiStore((state) => state.applyNotebookFilterPreset);
-  const setNotebookOffset = useAppUiStore((state) => state.setNotebookOffset);
+  const [selectedId, setSelectedId] = useState<string | null>(initialOfferId);
+  const [selectedOfferIds, setSelectedOfferIds] = useState<string[]>(initialOfferId ? [initialOfferId] : []);
+  const [paginationOffset, setPaginationOffset] = useState(0);
+  const pagination = useMemo(
+    () => ({
+      offset: paginationOffset,
+      limit: NOTEBOOK_PAGE_SIZE,
+    }),
+    [paginationOffset],
+  );
 
   const listParams = useMemo(() => toNotebookListParams(filters, pagination), [filters, pagination]);
 
@@ -139,13 +142,43 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
   const selectedVisibleIds = listQuery.data?.items.map((offer) => offer.id) ?? [];
   const isAllVisibleSelected =
     selectedVisibleIds.length > 0 && selectedVisibleIds.every((id) => selectedOfferIds.includes(id));
+  const setNotebookSelectedOffer = useCallback((offerId: string | null) => {
+    setSelectedId(offerId);
+    setSelectedOfferIds((current) => {
+      if (!offerId) {
+        return [];
+      }
+      return Array.from(new Set([...current, offerId]));
+    });
+  }, []);
+  const toggleNotebookSelectedOfferId = useCallback((offerId: string) => {
+    setSelectedOfferIds((current) => {
+      if (current.includes(offerId)) {
+        return current.filter((id) => id !== offerId);
+      }
+      return [...current, offerId];
+    });
+  }, []);
+  const clearNotebookSelectedOfferIds = useCallback(() => {
+    setSelectedOfferIds([]);
+    setSelectedId(null);
+  }, []);
+  const setAllNotebookSelectedOfferIds = useCallback((ids: string[]) => {
+    setSelectedOfferIds(Array.from(new Set(ids)));
+  }, []);
+  const setNotebookOffset = useCallback((offset: number) => {
+    setPaginationOffset(Math.max(0, offset));
+  }, []);
+  const resetNotebookRouteState = useCallback(() => {
+    setPaginationOffset(0);
+    clearNotebookSelectedOfferIds();
+  }, [clearNotebookSelectedOfferIds]);
 
   const applyQuickAction = useCallback(
     (action: NotebookQuickActionKey) => {
       const nextFilters = notebookQuickActionFilters[action];
 
-      setNotebookSelectedOffer(null);
-      clearNotebookSelectedOfferIds();
+      resetNotebookRouteState();
       setNotebookFilter('search', '');
       setNotebookFilter('tag', '');
       setNotebookFilter('status', nextFilters.status);
@@ -154,7 +187,7 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
       setNotebookFilter('followUp', nextFilters.followUp);
       setNotebookFilter('attention', nextFilters.attention);
     },
-    [clearNotebookSelectedOfferIds, setNotebookFilter, setNotebookSelectedOffer],
+    [resetNotebookRouteState, setNotebookFilter],
   );
 
   useEffect(() => {
@@ -173,6 +206,29 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     }
   }, [applyQuickAction, hydratedFromServer, initialOfferId, initialQuickAction, setNotebookSelectedOffer]);
 
+  useEffect(() => {
+    setPaginationOffset(0);
+    setSelectedOfferIds([]);
+  }, [filters]);
+
+  useEffect(() => {
+    if (!listQuery.data?.items.length) {
+      if (selectedId) {
+        setSelectedId(null);
+      }
+      return;
+    }
+
+    const selectedStillVisible = listQuery.data.items.some((offer) => offer.id === selectedId);
+    if (!selectedStillVisible) {
+      setSelectedId(listQuery.data.items[0]?.id ?? null);
+    }
+  }, [listQuery.data?.items, selectedId]);
+
+  useEffect(() => {
+    setSelectedOfferIds((current) => current.filter((id) => selectedVisibleIds.includes(id)));
+  }, [selectedVisibleIds]);
+
   return {
     listQuery,
     historyQuery,
@@ -183,7 +239,6 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     selectedVisibleIds,
     isAllVisibleSelected,
     savedPreset,
-    lastInteractionAt,
     preferencesQuery,
     summaryQuery,
     sharedSummaryQuery: notebookSummaryQuery,
@@ -216,11 +271,17 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
     setNotebookSelectedOffer,
     toggleNotebookSelectedOfferId,
     clearNotebookSelectedOfferIds,
-    setNotebookSelectedOfferIds,
+    setNotebookSelectedOfferIds: setAllNotebookSelectedOfferIds,
     setNotebookFilter,
-    resetNotebookFilters,
+    resetNotebookFilters: () => {
+      resetNotebookRouteState();
+      resetNotebookFilters();
+    },
     saveNotebookFilterPreset,
-    applyNotebookFilterPreset,
+    applyNotebookFilterPreset: () => {
+      resetNotebookRouteState();
+      applyNotebookFilterPreset();
+    },
     setNotebookOffset,
     applyQuickAction,
     updateStatus: statusMutation.mutate,
