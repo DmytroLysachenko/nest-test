@@ -727,7 +727,7 @@ Acceptance:
 
 - notebook feels like one active-work route, not stacked modules
 
-### Commit 16
+### Commit 16 [completed]
 
 `fix: debounce and url-sync companies filters`
 
