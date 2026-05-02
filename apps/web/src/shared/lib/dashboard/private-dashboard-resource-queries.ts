@@ -11,7 +11,7 @@ import {
 } from '@/shared/lib/dashboard/private-dashboard-data-normalizers';
 import { isRateLimitedError } from '@/shared/lib/http/rate-limit';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
-import { mutableQueryPreset } from '@/shared/lib/query/query-option-presets';
+import { mutableQueryPreset, mutableRouteQueryPreset } from '@/shared/lib/query/query-option-presets';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
 import type { JobOfferSummaryDto, ScrapeScheduleDto } from '@/shared/types/api';
@@ -25,7 +25,7 @@ export const usePrivateNotebookSummaryQuery = (token: string | null, initialData
       queryKey: queryKeys.jobOffers.summary(token),
       queryFn: getNotebookSummary,
       initialData: initialData ?? undefined,
-      ...mutableQueryPreset(),
+      ...mutableRouteQueryPreset(),
     }),
   );
 

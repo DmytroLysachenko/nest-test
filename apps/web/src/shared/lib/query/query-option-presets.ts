@@ -9,6 +9,11 @@ export const mutableQueryPreset = () => ({
   staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
 });
 
+export const mutableRouteQueryPreset = () => ({
+  ...mutableQueryPreset(),
+  refetchOnMount: true as const,
+});
+
 export const liveQueryPreset = () => ({
   staleTime: QUERY_STALE_TIME.DIAGNOSTICS_DATA,
 });

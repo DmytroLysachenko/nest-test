@@ -9,7 +9,7 @@ import { useNotebookMutations } from '@/features/job-offers/model/hooks/use-note
 import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { useDebouncedValue } from '@/shared/lib/hooks/use-debounced-value';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
-import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
+import { mutableRouteQueryPreset } from '@/shared/lib/query/query-option-presets';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 import { toOptionalTrimmedString } from '@/shared/lib/utils/input-normalizers';
 import { buildPathWithQuery } from '@/shared/lib/utils/url-normalizers';
@@ -109,7 +109,7 @@ export const useOpportunitiesPage = ({
       token,
       queryKey: queryKeys.jobOffers.discovery(token, listParams),
       queryFn: (authToken) => listDiscoveryJobOffers(authToken, listParams),
-      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      ...mutableRouteQueryPreset(),
     }),
   );
 
@@ -118,7 +118,7 @@ export const useOpportunitiesPage = ({
       token,
       queryKey: queryKeys.jobOffers.discoverySummary(token),
       queryFn: getDiscoverySummary,
-      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      ...mutableRouteQueryPreset(),
     }),
   );
 
