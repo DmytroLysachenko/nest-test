@@ -706,7 +706,7 @@ Acceptance:
 - notebook store boundaries become easier to reason about
 - route-only UI concerns are less globally coupled
 
-### Commit 15
+### Commit 15 [completed]
 
 `refactor: flatten notebook route composition`
 
