@@ -333,7 +333,7 @@ User feedback for this tranche maps to these concrete product problems:
 2. planning page utility content overlaps nearby sections because sticky behavior is wrong
 3. opportunities route is still too box-heavy, especially around filters, counts, and detail surfaces
 4. opportunity details rail has weak spacing and too much nested framing
-5. opportunities should prefer `Show more` review flow over page-by-page navigation
+5. opportunities should preserve explicit page-based review, but pagination state should be visible and shareable through the URL
 6. opportunities search and tag filters should debounce and persist in URL state
 7. notebook should reflect updates after opportunity actions without requiring a hard refresh
 8. company route loading and querying still feels rough
@@ -562,40 +562,40 @@ Acceptance:
 
 ### Commit 9
 
-`feat: convert opportunities controller to incremental show-more loading`
+`feat: move opportunities pagination state into url query`
 
 Intent:
 
-- replace page-by-page navigation with a continuous review flow
+- keep explicit page-based review while making pagination state shareable and reload-safe
 
 Implementation focus:
 
-- reduce discovery batch size from `20` to `10`
-- accumulate pages using current offset-based API semantics
-- preserve selected offer stability while loading additional results
+- expose `page` and `perPage` in the route query
+- derive list offset from page state instead of keeping pagination purely local
+- preserve selected-offer deep links and filter query compatibility
 
 Expected scope:
 
-- roughly `200-300` changed lines
+- roughly `180-280` changed lines
 
 Acceptance:
 
-- user can keep reviewing with `Show more`
-- current selection remains stable after loading more items
+- current page and page size survive reload and browser navigation
+- discovery links can point to the right paged slice directly
 
 ### Commit 10
 
-`refactor: replace opportunities pager ui with show-more actions`
+`refactor: expand opportunities pagination controls without fake sorting`
 
 Intent:
 
-- finish the discovery UX shift away from admin pagination
+- make pagination feel deliberate without introducing unsupported sorting behavior
 
 Implementation focus:
 
-- update opportunities list UI
-- remove previous/next controls
-- add a clear `Show more` action and supporting count language
+- add `perPage` control using the existing backend `limit` support
+- keep current API-owned discovery ordering intact
+- leave sorting as a future step until the API contract supports it explicitly
 
 Expected scope:
 
@@ -603,7 +603,8 @@ Expected scope:
 
 Acceptance:
 
-- opportunities route no longer feels like an admin table pager
+- opportunities route supports user-visible page size control
+- no misleading sort control is added without backend support
 
 ### Commit 11
 
