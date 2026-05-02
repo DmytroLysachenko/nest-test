@@ -26,6 +26,8 @@ type OpportunitiesListCardProps = {
   hasScore: 'all' | 'yes' | 'no';
   search: string;
   tag: string;
+  page: number;
+  perPage: number;
   selectedId: string | null;
   offset: number;
   limit: number;
@@ -37,6 +39,8 @@ type OpportunitiesListCardProps = {
   onHasScoreChange: (value: 'all' | 'yes' | 'no') => void;
   onSearchChange: (value: string) => void;
   onTagChange: (value: string) => void;
+  onPageChange: (page: number) => void;
+  onPerPageChange: (value: number) => void;
   onResetFilters: () => void;
   onPrev: () => void;
   onNext: () => void;
@@ -53,6 +57,8 @@ export const OpportunitiesListCard = ({
   hasScore,
   search,
   tag,
+  page,
+  perPage,
   selectedId,
   offset,
   limit,
@@ -64,6 +70,8 @@ export const OpportunitiesListCard = ({
   onHasScoreChange,
   onSearchChange,
   onTagChange,
+  onPageChange,
+  onPerPageChange,
   onResetFilters,
   onPrev,
   onNext,
@@ -71,7 +79,8 @@ export const OpportunitiesListCard = ({
   onMarkSeen,
   onDismiss,
 }: OpportunitiesListCardProps) => {
-  const currentPage = total === 0 ? 0 : Math.floor(offset / limit) + 1;
+  const currentPage = total === 0 ? 0 : page;
+  const totalPages = total === 0 ? 0 : Math.max(1, Math.ceil(total / limit));
   const startItem = total === 0 ? 0 : offset + 1;
   const endItem = Math.min(offset + limit, total);
 
@@ -224,6 +233,22 @@ export const OpportunitiesListCard = ({
               onChange={(event) => onSearchChange(event.target.value)}
             />
           </div>
+          <div className="app-field-group">
+            <Label htmlFor="opportunity-per-page" className="app-inline-label">
+              Per page
+            </Label>
+            <select
+              id="opportunity-per-page"
+              className="app-select"
+              value={perPage}
+              onChange={(event) => onPerPageChange(Number(event.target.value))}
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={30}>30</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
         </div>
 
         <div className="bg-surface-muted/44 space-y-4 rounded-[1.6rem] p-5">
@@ -233,7 +258,10 @@ export const OpportunitiesListCard = ({
             <p className="text-text-soft mt-1 text-sm">
               {formatCountLabel(total, 'matched opportunity')} available for review
             </p>
-            <p className="text-text-soft mt-2 text-xs">View: {REVIEW_MODE_LABELS[mode]}</p>
+            <p className="text-text-soft mt-2 text-xs">
+              View: {REVIEW_MODE_LABELS[mode]} | Page {currentPage || 1}
+              {totalPages ? ` of ${totalPages}` : ''}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="secondary" onClick={onResetFilters} className="h-9 px-4">
@@ -287,14 +315,31 @@ export const OpportunitiesListCard = ({
           Previous
         </Button>
         <div className="text-center">
-          <p className="text-muted-foreground text-xs">Page {currentPage}</p>
+          <p className="text-muted-foreground text-xs">
+            Page {currentPage || 1}
+            {totalPages ? ` of ${totalPages}` : ''}
+          </p>
           <p className="text-muted-foreground text-xs">
             Showing {startItem}-{endItem} of {total} opportunities
           </p>
         </div>
-        <Button type="button" variant="secondary" disabled={!canNext} onClick={onNext}>
-          Next
-        </Button>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="opportunity-page" className="sr-only">
+            Page number
+          </Label>
+          <Input
+            id="opportunity-page"
+            type="number"
+            min={1}
+            max={Math.max(totalPages, 1)}
+            value={currentPage || 1}
+            className="h-9 w-20 text-center"
+            onChange={(event) => onPageChange(Math.max(1, Number(event.target.value) || 1))}
+          />
+          <Button type="button" variant="secondary" disabled={!canNext} onClick={onNext}>
+            Next
+          </Button>
+        </div>
       </div>
     </Card>
   );

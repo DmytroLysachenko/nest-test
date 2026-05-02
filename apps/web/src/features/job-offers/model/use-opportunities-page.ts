@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 
 import { getDiscoverySummary, listDiscoveryJobOffers } from '@/features/job-offers/api/job-offers-api';
@@ -10,6 +11,7 @@ import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options
 import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 import { toOptionalTrimmedString } from '@/shared/lib/utils/input-normalizers';
+import { buildPathWithQuery } from '@/shared/lib/utils/url-normalizers';
 
 import type { DiscoveryQuickActionKey } from '@/features/job-offers/model/types/notebook-view-model';
 
@@ -17,33 +19,77 @@ type UseOpportunitiesPageArgs = {
   token: string;
   initialQuickAction?: DiscoveryQuickActionKey | null;
   initialOfferId?: string | null;
+  initialMode?: 'strict' | 'approx' | 'explore';
+  initialHasScore?: 'all' | 'yes' | 'no';
+  initialSearch?: string;
+  initialTag?: string;
+  initialPage?: number;
+  initialPerPage?: number;
 };
+
+const DEFAULT_PAGE = 1;
+const DEFAULT_PER_PAGE = 20;
+const PER_PAGE_OPTIONS = [10, 20, 30, 50] as const;
 
 export const useOpportunitiesPage = ({
   token,
   initialQuickAction = null,
   initialOfferId = null,
+  initialMode = 'strict',
+  initialHasScore = 'all',
+  initialSearch = '',
+  initialTag = '',
+  initialPage = DEFAULT_PAGE,
+  initialPerPage = DEFAULT_PER_PAGE,
 }: UseOpportunitiesPageArgs) => {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<'strict' | 'approx' | 'explore'>(
-    initialQuickAction === 'strictTop' || initialQuickAction === 'staleUntriaged' ? 'strict' : 'strict',
+    initialQuickAction === 'strictTop' || initialQuickAction === 'staleUntriaged' ? 'strict' : initialMode,
   );
-  const [hasScore, setHasScore] = useState<'all' | 'yes' | 'no'>(initialQuickAction === 'unscored' ? 'no' : 'all');
-  const [search, setSearch] = useState('');
-  const [tag, setTag] = useState('');
-  const [offset, setOffset] = useState(0);
+  const [hasScore, setHasScore] = useState<'all' | 'yes' | 'no'>(
+    initialQuickAction === 'unscored' ? 'no' : initialHasScore,
+  );
+  const [search, setSearch] = useState(initialSearch);
+  const [tag, setTag] = useState(initialTag);
+  const [page, setPage] = useState(Math.max(DEFAULT_PAGE, initialPage));
+  const [perPage, setPerPage] = useState(
+    PER_PAGE_OPTIONS.includes(initialPerPage as (typeof PER_PAGE_OPTIONS)[number]) ? initialPerPage : DEFAULT_PER_PAGE,
+  );
   const [selectedId, setSelectedId] = useState<string | null>(initialOfferId);
+  const offset = (page - 1) * perPage;
+  const normalizedSearch = toOptionalTrimmedString(search);
+  const normalizedTag = toOptionalTrimmedString(tag);
 
   const listParams = useMemo(
     () => ({
-      limit: 20,
+      limit: perPage,
       offset,
       mode,
-      search: toOptionalTrimmedString(search),
-      tag: toOptionalTrimmedString(tag),
+      search: normalizedSearch,
+      tag: normalizedTag,
       hasScore: hasScore === 'all' ? undefined : hasScore === 'yes',
     }),
-    [hasScore, mode, offset, search, tag],
+    [hasScore, mode, normalizedSearch, normalizedTag, offset, perPage],
   );
+
+  useEffect(() => {
+    const nextPath = buildPathWithQuery(pathname, {
+      mode: mode !== 'strict' ? mode : null,
+      hasScore: hasScore !== 'all' ? hasScore : null,
+      search: normalizedSearch,
+      tag: normalizedTag,
+      page: page > DEFAULT_PAGE ? page : null,
+      perPage: perPage !== DEFAULT_PER_PAGE ? perPage : null,
+      offerId: selectedId,
+    });
+    const currentPath = searchParams?.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
+
+    if (nextPath !== currentPath) {
+      router.replace(nextPath, { scroll: false });
+    }
+  }, [pathname, router, searchParams, mode, hasScore, normalizedSearch, normalizedTag, page, perPage, selectedId]);
 
   const listQuery = useQuery(
     buildAuthedQueryOptions({
@@ -90,21 +136,32 @@ export const useOpportunitiesPage = ({
     hasScore,
     search,
     tag,
+    page,
+    perPage,
     offset,
-    canPrev: offset > 0,
-    canNext: (listQuery.data?.items.length ?? 0) === 20,
+    canPrev: page > DEFAULT_PAGE,
+    canNext: offset + perPage < (listQuery.data?.total ?? 0),
     setSelectedId,
     setMode,
     setHasScore,
     setSearch,
     setTag,
-    setOffset,
+    setPage,
+    setPerPage: (value: number) => {
+      const nextValue = PER_PAGE_OPTIONS.includes(value as (typeof PER_PAGE_OPTIONS)[number])
+        ? value
+        : DEFAULT_PER_PAGE;
+      setPerPage(nextValue);
+      setPage(DEFAULT_PAGE);
+    },
     resetFilters: () => {
       setMode('strict');
       setHasScore('all');
       setSearch('');
       setTag('');
-      setOffset(0);
+      setPage(DEFAULT_PAGE);
+      setPerPage(DEFAULT_PER_PAGE);
+      setSelectedId(null);
     },
     saveOpportunity: (id: string) => mutations.statusMutation.mutate({ id, status: 'SAVED' }),
     markSeen: (id: string) => mutations.statusMutation.mutate({ id, status: 'SEEN' }),
