@@ -750,7 +750,7 @@ Acceptance:
 - companies route no longer fetches on every symbol
 - route links preserve current company browse state
 
-### Commit 17
+### Commit 17 [completed]
 
 `refactor: replace companies loading and list box density`
 
