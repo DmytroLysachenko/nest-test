@@ -816,7 +816,7 @@ Acceptance:
 
 - profile route hierarchy matches the actual user task priority
 
-### Commit 20
+### Commit 20 [completed]
 
 `refactor: humanize profile health labels and simplify health card`
 
