@@ -104,20 +104,39 @@ export const ProfileManagementPage = () => {
         }
       />
 
-      <section className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)] lg:items-start">
-        <ProfileInputEditorCard
-          initialTargetRoles={latestProfileInputQuery.data?.targetRoles}
-          initialNotes={latestProfileInputQuery.data?.notes ?? ''}
-          onSubmit={(payload) => saveProfileInputMutation.mutate(payload)}
-          isSaving={saveProfileInputMutation.isPending}
-          errorMessage={errors.saveProfileInput}
-        />
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)] xl:items-start">
         <div className="space-y-4">
+          <div className="app-open-section border-border/45 border-b pb-3">
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Profile focus</p>
+            <p className="text-text-soft mt-1 text-sm">
+              Keep the target role editor dominant here. Documents and generation status should support it, not compete
+              with it.
+            </p>
+          </div>
+          <ProfileInputEditorCard
+            initialTargetRoles={latestProfileInputQuery.data?.targetRoles}
+            initialNotes={latestProfileInputQuery.data?.notes ?? ''}
+            onSubmit={(payload) => saveProfileInputMutation.mutate(payload)}
+            isSaving={saveProfileInputMutation.isPending}
+            errorMessage={errors.saveProfileInput}
+          />
+          <section className="space-y-3">
+            <div className="app-open-section border-border/45 border-b pb-3">
+              <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Documents</p>
+              <p className="text-text-soft mt-1 text-sm">
+                Keep extraction readiness visible here, then use the full documents workspace below when you need
+                uploads or deeper inspection.
+              </p>
+            </div>
+            <DocumentsPanel token={auth.token} documentsQuery={documentsQuery} />
+          </section>
+        </div>
+
+        <div className="space-y-4 xl:sticky xl:top-24">
           <DocumentsReadinessCard documents={documents} />
           <UtilityRail
             title="Keep this page narrowly owned"
             description="Maintain the inputs and generated profile here, then leave for direction, review, or active application work."
-            className="sticky top-4"
           >
             <div className="space-y-3 text-sm">
               <div className="border-border/60 border-b pb-3">
@@ -149,12 +168,26 @@ export const ProfileManagementPage = () => {
               </div>
             </div>
           </UtilityRail>
+
+          <div className="app-tonal-section space-y-3">
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Generation readiness</p>
+            <p className="text-text-strong text-lg font-semibold">
+              {generationState === 'RUNNING'
+                ? 'Profile generation is running now.'
+                : generationState === 'QUEUED'
+                  ? 'A generation request is queued.'
+                  : canGenerate
+                    ? 'You can generate a fresh version when the input looks right.'
+                    : 'Profile generation is blocked until documents are ready.'}
+            </p>
+            <p className="text-text-soft text-sm">
+              Keep this rail lightweight. The main editor and version history should carry most of the page weight.
+            </p>
+          </div>
         </div>
       </section>
 
-      <DocumentsPanel token={auth.token} documentsQuery={documentsQuery} />
-
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] xl:items-start">
         <CareerProfileVersionsCard
           latestProfile={latestCareerProfileQuery.data ?? null}
           versions={careerProfileVersionsQuery.data}
@@ -167,10 +200,12 @@ export const ProfileManagementPage = () => {
           generateErrorMessage={errors.generateProfile}
           restoreErrorMessage={errors.restoreProfile}
         />
-        <ProfileQualityCard
-          quality={careerProfileQualityQuery.data}
-          emptyDescription={profileQualityEmptyDescription}
-        />
+        <div className="xl:self-start">
+          <ProfileQualityCard
+            quality={careerProfileQualityQuery.data}
+            emptyDescription={profileQualityEmptyDescription}
+          />
+        </div>
       </section>
 
       <Card title="Account settings" description="Rarely used account actions live here, away from the main workflow.">

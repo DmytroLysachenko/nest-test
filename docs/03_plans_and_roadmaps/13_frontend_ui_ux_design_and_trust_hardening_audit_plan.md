@@ -794,7 +794,7 @@ Acceptance:
 
 - company detail route feels coherent with opportunities/notebook cleanup
 
-### Commit 19
+### Commit 19 [completed]
 
 `refactor: rebalance profile route hierarchy and spacing`
 
