@@ -772,7 +772,7 @@ Acceptance:
 
 - company route looks intentional in both loading and loaded states
 
-### Commit 18
+### Commit 18 [completed]
 
 `refactor: flatten company detail composition`
 
