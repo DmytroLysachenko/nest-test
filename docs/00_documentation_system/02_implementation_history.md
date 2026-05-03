@@ -323,8 +323,33 @@ Summary:
 Primary code areas:
 
 - `docs/99_archive_legacy/12_notebook_workflow_throughput_and_reminder_delivery_audit_plan_completed.md`
-- `docs/03_plans_and_roadmaps/13_frontend_ui_ux_design_and_trust_hardening_audit_plan.md`
+- `docs/99_archive_legacy/13_frontend_ui_ux_design_and_trust_hardening_audit_plan_completed.md`
 
 Related docs:
 
 - `docs/03_plans_and_roadmaps/01_roadmap.md`
+
+### `017` Frontend UX/query trust tranche closure and archive
+
+Summary:
+
+- completed the frontend UI/UX and query-trust tranche that flattened the core workspace surfaces
+- locked route-query hygiene and workflow-freshness regressions with targeted web tests
+- synced roadmap, sprint plan, project state, and frontend standards to the new baseline
+- archived the completed frontend audit so active planning docs no longer point at finished tranche work
+
+Primary code areas:
+
+- `docs/01_project_context/02_project_state.md`
+- `docs/03_plans_and_roadmaps/01_roadmap.md`
+- `docs/03_plans_and_roadmaps/02_sprint_plan.md`
+- `docs/06_engineering_standards/01_frontend_standards.md`
+- `docs/99_archive_legacy/13_frontend_ui_ux_design_and_trust_hardening_audit_plan_completed.md`
+
+Related docs:
+
+- `apps/web/src/shared/ui/app-shell.tsx`
+- `apps/web/src/features/workspace/ui/workspace-planning-page.tsx`
+- `apps/web/src/features/job-offers`
+- `apps/web/src/features/companies`
+- `apps/web/src/features/profile-management`

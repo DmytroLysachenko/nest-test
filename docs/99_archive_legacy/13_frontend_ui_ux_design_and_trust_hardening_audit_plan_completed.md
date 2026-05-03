@@ -1,24 +1,35 @@
 # Frontend UI UX Design And Trust Hardening Audit Plan
 
-Last updated: 2026-05-01
+Archived as completed: 2026-05-03
 
-## Status
+## Outcome
 
-In progress.
+This audit is complete and archived.
 
-Initial implementation started:
+It delivered the intended baseline for the core workspace family:
 
-1. JS-readable auth cookie mirroring removed from web session bootstrap path
-2. auth now restores through httpOnly API cookies plus in-memory client tokens instead of `localStorage`
-3. API login, refresh, logout, and JWT guard now accept secure cookie-based session flow
-4. server session bootstrap now rehydrates from cookie-backed `/user` lookup instead of readable token duplication
-5. shared input/url normalization helpers added and first repeat callers migrated
-6. shared workspace surface primitives softened to reduce repeated bordered-card treatment
-7. dashboard, planning, notebook, profile, and onboarding received first-pass layout flattening
-8. opportunities and company detail routes now use lighter supporting surfaces and shared query-link shaping
-9. notebook bulk workflow editor and tag input now reuse centralized trim/normalization helpers
-10. planning automation controls now use flatter grouped sections instead of stacked inset panels
-11. notebook filters, action plan, and selected-offer workspace now rely more on tonal grouping than nested card chrome
+1. shell/header chrome is now full-width and no longer framed like a floating content card
+2. planning no longer has the sticky overlap bug and now uses flatter automation/support composition
+3. opportunities and companies free-text filters now debounce before route/query updates
+4. opportunities filter and pagination state now survives reload/back/forward through explicit URL ownership
+5. notebook/discovery/workflow-summary freshness after offer mutations is materially more trustworthy
+6. company and profile routes now use calmer composition with less repeated box-over-box framing
+7. profile quality labels are now user-facing instead of raw DB-style keys
+8. undo toast actions now match the lighter workspace language
+9. route-level regression coverage now protects query hygiene and workflow freshness behavior
+
+## Canonical active docs after completion
+
+- `docs/01_project_context/02_project_state.md`
+- `docs/03_plans_and_roadmaps/01_roadmap.md`
+- `docs/03_plans_and_roadmaps/02_sprint_plan.md`
+- `docs/06_engineering_standards/01_frontend_standards.md`
+
+## Historical note
+
+This archive entry replaces the active planning document that previously lived at:
+
+- `docs/03_plans_and_roadmaps/13_frontend_ui_ux_design_and_trust_hardening_audit_plan.md`
 
 ## Goal
 
