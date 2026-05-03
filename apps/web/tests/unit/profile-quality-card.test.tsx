@@ -27,7 +27,7 @@ describe('ProfileQualityCard', () => {
 
     expect(screen.getByText('Target roles')).toBeInTheDocument();
     expect(screen.getByText('Keyword coverage')).toBeInTheDocument();
-    expect(screen.getByText('Core competencies')).toBeInTheDocument();
+    expect(screen.getByText(/Core competencies/)).toBeInTheDocument();
     expect(screen.queryByText('target_roles')).not.toBeInTheDocument();
     expect(screen.queryByText('keywords_coverage')).not.toBeInTheDocument();
   });

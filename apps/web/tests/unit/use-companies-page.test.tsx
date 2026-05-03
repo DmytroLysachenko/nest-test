@@ -39,7 +39,6 @@ const createWrapper = () => {
 
 describe('useCompaniesPage', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
     mockedSearchParams = new URLSearchParams();
     replaceMock.mockReset();
     mockedListCompanies.mockResolvedValue({
@@ -50,6 +49,7 @@ describe('useCompaniesPage', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.clearAllMocks();
   });
 
   it('hydrates initial route state and queries the corresponding page slice', async () => {
@@ -81,6 +81,8 @@ describe('useCompaniesPage', () => {
   });
 
   it('debounces free-text filters before syncing them to the route query', async () => {
+    vi.useFakeTimers();
+
     const { result } = renderHook(() => useCompaniesPage({ token: 'token' }), {
       wrapper: createWrapper(),
     });
@@ -94,14 +96,14 @@ describe('useCompaniesPage', () => {
 
     await act(async () => {
       vi.advanceTimersByTime(400);
+      await Promise.resolve();
     });
 
-    await waitFor(() =>
-      expect(replaceMock).toHaveBeenCalledWith('/companies?search=Product&location=Berlin', { scroll: false }),
-    );
+    expect(replaceMock).toHaveBeenCalledWith('/companies?search=Product&location=Berlin', { scroll: false });
   });
 
   it('resets back to the first page when debounced filters change', async () => {
+    vi.useFakeTimers();
     mockedSearchParams = new URLSearchParams('page=3');
 
     const { result } = renderHook(
@@ -123,8 +125,9 @@ describe('useCompaniesPage', () => {
 
     await act(async () => {
       vi.advanceTimersByTime(400);
+      await Promise.resolve();
     });
 
-    await waitFor(() => expect(result.current.page).toBe(1));
+    expect(result.current.page).toBe(1);
   });
 });

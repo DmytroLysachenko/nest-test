@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 
@@ -32,6 +32,7 @@ export const useCompaniesPage = ({
   const [search, setSearch] = useState(initialSearch ?? '');
   const [location, setLocation] = useState(initialLocation ?? '');
   const [page, setPage] = useState(Math.max(DEFAULT_PAGE, initialPage));
+  const didHydrateFiltersRef = useRef(false);
   const debouncedSearch = useDebouncedValue(search, 400);
   const debouncedLocation = useDebouncedValue(location, 400);
   const normalizedSearch = toOptionalTrimmedString(debouncedSearch);
@@ -49,6 +50,10 @@ export const useCompaniesPage = ({
   );
 
   useEffect(() => {
+    if (!didHydrateFiltersRef.current) {
+      didHydrateFiltersRef.current = true;
+      return;
+    }
     setPage(DEFAULT_PAGE);
   }, [normalizedSearch, normalizedLocation]);
 

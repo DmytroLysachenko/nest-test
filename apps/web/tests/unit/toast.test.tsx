@@ -10,11 +10,13 @@ import {
   toastSuccessWithAction,
 } from '@/shared/lib/ui/toast';
 
-const dismissMock = vi.fn();
-const successMock = vi.fn();
-const errorMock = vi.fn();
-const baseToastMock = vi.fn();
-const customMock = vi.fn();
+const { dismissMock, successMock, errorMock, baseToastMock, customMock } = vi.hoisted(() => ({
+  dismissMock: vi.fn(),
+  successMock: vi.fn(),
+  errorMock: vi.fn(),
+  baseToastMock: vi.fn(),
+  customMock: vi.fn(),
+}));
 
 vi.mock('sonner', () => ({
   toast: Object.assign(baseToastMock, {

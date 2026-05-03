@@ -858,7 +858,7 @@ Acceptance:
 
 - toast action feels integrated with the app instead of visually breaking it
 
-### Commit 22
+### Commit 22 [completed]
 
 `test: lock route query hygiene and workflow freshness regressions`
 
