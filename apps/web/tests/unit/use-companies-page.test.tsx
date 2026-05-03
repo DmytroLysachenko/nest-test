@@ -32,10 +32,14 @@ const createWrapper = () => {
     },
   });
 
-  return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
+  function CompaniesPageQueryWrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  }
+
+  return CompaniesPageQueryWrapper;
 };
+
+const CompaniesPageQueryWrapper = createWrapper();
 
 describe('useCompaniesPage', () => {
   beforeEach(() => {
@@ -64,7 +68,7 @@ describe('useCompaniesPage', () => {
           initialPage: 2,
         }),
       {
-        wrapper: createWrapper(),
+        wrapper: CompaniesPageQueryWrapper,
       },
     );
 
@@ -84,7 +88,7 @@ describe('useCompaniesPage', () => {
     vi.useFakeTimers();
 
     const { result } = renderHook(() => useCompaniesPage({ token: 'token' }), {
-      wrapper: createWrapper(),
+      wrapper: CompaniesPageQueryWrapper,
     });
 
     act(() => {
@@ -113,7 +117,7 @@ describe('useCompaniesPage', () => {
           initialPage: 3,
         }),
       {
-        wrapper: createWrapper(),
+        wrapper: CompaniesPageQueryWrapper,
       },
     );
 
