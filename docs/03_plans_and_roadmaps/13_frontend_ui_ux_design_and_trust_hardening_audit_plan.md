@@ -837,7 +837,7 @@ Acceptance:
 
 - no raw DB-facing labels remain on the profile health surface
 
-### Commit 21
+### Commit 21 [completed]
 
 `refactor: restyle toast action into lighter undo affordance`
 
