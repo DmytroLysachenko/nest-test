@@ -345,7 +345,7 @@ test('profile management supports save, generate, and restore actions', async ({
   await expect(page.getByRole('heading', { name: 'Keep your source of truth clean' })).toBeVisible({
     timeout: 20_000,
   });
-  await expect(page.getByText('Target roles')).toBeVisible();
+  await expect(page.getByLabel('Target roles')).toBeVisible();
   await expect(page.getByText('Technology coverage')).toBeVisible();
   await expect(page.getByText('target_roles')).toHaveCount(0);
 
