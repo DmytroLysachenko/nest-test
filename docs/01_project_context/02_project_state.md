@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-04-28
+Last updated: 2026-05-03
 
 ## Purpose
 
@@ -166,13 +166,16 @@ That framing should guide future implementation more than raw source count.
 - Web
   - major move from panel-heavy internal tooling toward guided product workflow
   - opportunities now handles first-pass discovery while notebook is now a distinct active pipeline workspace
+  - workspace shell header now behaves like full-width app chrome instead of another floating card, which materially improves the sense of one connected workspace
   - notebook board cards now prioritize due work and active next-step context instead of acting like a generic status grid
   - notebook now exposes a visible bulk workflow editor for active pipeline roles instead of limiting batch edits to follow-up-only metadata
   - opportunity empty states and dashboard focus cards now show server-driven trust messaging rather than generic “no data” copy
   - dashboard, planning, shell, and discovery review surfaces are now in an active product-boundary cleanup pass that replaces raw sourcing language with user-facing automation wording
   - the end-user automation page now relies on schedule state and readiness guidance only; it no longer pulls raw update history, scheduler event feeds, or source-health diagnostics into the normal product route
+  - planning no longer has the sticky utility-rail overlap that previously broke the automation surface at common desktop widths
   - discovery detail rail now uses a controlled desktop-height layout with internal scrolling and a reachable action bar
-  - opportunity pagination now exposes page and visible-range context in user language instead of implementation-centric wording
+  - opportunity pagination and filters now survive reload/back/forward through URL ownership, including explicit `page`, `perPage`, `search`, `tag`, `mode`, and selected-offer context
+  - opportunities and companies free-text filters now debounce before route/query updates, which reduces request churn and rate-limit pressure
   - document, profile, progress, and notebook-empty-state copy has also been shifted further away from diagnostics/run jargon toward plain-language status and recovery wording
   - document technical diagnostics are now hidden by default on end-user routes and can be surfaced only when a route explicitly opts into technical detail
   - notebook refresh controls and profile search-summary copy now use product-facing language around fresh matches and profile direction instead of sourcing/indexing terminology
@@ -181,8 +184,40 @@ That framing should guide future implementation more than raw source count.
   - progress now acts as a momentum/history surface instead of a second dashboard-style orientation page
   - profile avoids acting like a general recovery hub, while notebook controls are explicitly pipeline-only and route loading states describe discovery vs active-work purpose instead of generic readiness checks
   - notebook page data now comes from notebook-owned queries plus a minimal route-level update-status handoff, and planning/progress blocker routing targets the owning route instead of falling back through notebook assumptions
+  - notebook, discovery, and workflow summary queries now refetch more reliably after offer mutations, so route-to-route handoff trust is materially better without making all queries globally chatty
+  - company browse/detail routes now use flatter loading and content composition, while profile hierarchy now better prioritizes the input source-of-truth surface over secondary support widgets
+  - undo toast actions now use lighter integrated controls rather than harsh black action blocks
   - still contains mixed maturity areas where some screens feel productized and some remain utilitarian
   - company detail route now resolves dynamic params correctly in App Router client rendering, and the empty state includes safe navigation back to companies/opportunities instead of a dead end
+
+### Current Web Baseline After The UX/Query Tranche
+
+- Workspace shell:
+  - full-width header chrome
+  - calmer transition between sidebar, header, and page content
+- Planning:
+  - no sticky overlap bug
+  - flatter automation/support composition
+- Opportunities:
+  - debounced free-text filtering
+  - URL-owned discovery and pagination state
+  - lighter queue controls and details rail
+- Notebook:
+  - narrower route-local state ownership
+  - stronger cross-route freshness after mutations
+  - flatter action-plan and selected-offer composition
+- Companies:
+  - debounced browse filters
+  - URL-restorable list state
+  - improved loaders and flatter browse/detail surfaces
+- Profile:
+  - stronger input-first hierarchy
+  - user-facing quality signal labels
+  - less visually wasteful support sections
+- Shared UX:
+  - lighter surface primitives
+  - lighter undo toast action affordances
+  - regression coverage for route query hygiene and workflow freshness
 - Database and migrations
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields
   - catalog ingestion now starts resolving normalized company and taxonomy references alongside raw offer snapshots
@@ -410,7 +445,7 @@ That framing should guide future implementation more than raw source count.
 - Reminder delivery now exists for email and is visible in product/ops surfaces, but user controls and broader notification channels are still missing.
 - Document recovery exists, and extraction/profile-generation now expose DB-visible async lifecycle state, but worker queue durability is still below production-grade background-job expectations.
 - Support surfaces are present, but alerting and long-horizon observability are still limited.
-- Frontend has improved workflow structure, but visual/design consistency is still mixed across older and newer surfaces.
+- Frontend workflow structure and query hygiene are materially stronger on the core workspace routes, but some older and secondary surfaces still need the same flatter composition discipline.
 - Product/admin role boundaries are materially cleaner on end-user routes, but long-term enforcement still depends on keeping future diagnostics work inside admin/support surfaces.
 
 ## Strategic Next Focus

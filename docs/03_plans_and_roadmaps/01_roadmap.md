@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-05-01
+Last updated: 2026-05-03
 
 ## Purpose
 
@@ -71,7 +71,20 @@ The project should not drift into:
      - tighten frontend auth/session storage boundaries
      - centralize input normalization and safe URL/query shaping
      - narrow shared UI state to clearer route ownership
-   - Status: active planning tranche (the concrete execution sequence is now documented in `docs/03_plans_and_roadmaps/13_frontend_ui_ux_design_and_trust_hardening_audit_plan.md`, including the full-width shell header pass, planning sticky/layout fix, opportunities `Show more` flow, debounced URL-synced filters, notebook freshness hardening, company route query cleanup, profile hierarchy cleanup, and the route-level regression test plan).
+   - Status: completed tranche (the shell header is now full-width workspace chrome, shared surface primitives are flatter, planning/opportunities/notebook/companies/profile use lighter route composition, opportunities and companies free-text filters are debounced and URL-synced, opportunities pagination state is now shareable through the URL with explicit `page` and `perPage`, notebook/discovery freshness after mutations is hardened, and the route-level regression coverage for query hygiene and workflow freshness is in place).
+   - Delivered baseline:
+     - shell/header no longer reads like a floating card above the workspace
+     - planning keeps automation guidance visible without sticky overlap bugs
+     - opportunities and companies free-text filters no longer fire one request per keystroke
+     - opportunities filter and pagination state can be shared, reloaded, and restored via URL query
+     - notebook/discovery/dashboard workflow summaries now refresh more reliably after offer mutations
+     - company browse/detail and profile surfaces now use flatter, calmer composition
+     - profile health labels no longer leak raw DB-style signal keys
+     - undo toast actions now match the lighter workspace language instead of breaking it visually
+   - Remaining follow-on after this tranche:
+     - continue flattening older secondary routes that still carry heavier legacy chrome
+     - keep future route additions aligned with URL-owned filter state and debounced request discipline
+     - continue trust-first workflow improvements in notebook rather than broadening listing mechanics
 2. Make notebook/action workflow clearly better than native boards.
    - Scope:
      - follow-up and reminder reliability

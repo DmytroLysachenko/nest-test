@@ -886,7 +886,7 @@ Acceptance:
 
 - major tranche behaviors are test-covered
 
-### Commit 23
+### Commit 23 [completed]
 
 `docs: update roadmap and frontend standards after ux-query tranche`
 
