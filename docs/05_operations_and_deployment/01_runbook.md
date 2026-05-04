@@ -100,6 +100,10 @@ Canonical environment inventory:
    - `WORKER_TASKS_OIDC_AUDIENCE` (optional explicit worker OIDC audience)
    - `SCHEDULER_AUTH_TOKEN` (internal scheduler auth for `/api/job-sources/schedule/trigger`)
    - `OPS_INTERNAL_TOKEN` (internal scheduler auth for `/api/ops/reconcile-stale-runs`)
+   - `OPS_ALERTS_WEBHOOK_URL` (optional production webhook target for proactive ops alerts)
+   - `OPS_ALERTS_WEBHOOK_BEARER_TOKEN` (optional bearer token for the ops alerts webhook)
+   - `OPS_ALERTS_WINDOW_HOURS` (metrics window used for alert payload evaluation)
+   - `OPS_ALERTS_COOLDOWN_MINUTES` (dedupe cooldown before the same alert payload can be re-sent)
 2. Worker:
   - `WORKER_MAX_BODY_BYTES` (example: `262144`)
   - `WORKER_ALLOWED_ORIGINS` (explicit CORS allowlist; no `*` in production; defaults to the public web origin when deploy input is unset)
@@ -416,6 +420,7 @@ For exact variable-level mapping and secret sources, use:
 9. Admin dead-letter replay trigger: `POST /api/ops/scrape/callbacks/replay`
 10. Admin stale-run reconcile: `POST /api/ops/scrape/runs/:id/reconcile`
 11. Internal bulk stale-run reconcile: `POST /api/ops/reconcile-stale-runs`
+12. Internal ops alert dispatch: `POST /api/ops/dispatch-alerts`
 12. Admin support overview: `GET /api/ops/support/overview`
 13. Admin scrape incident bundle: `GET /api/ops/support/scrape-runs/:id`
 14. Admin user incident bundle: `GET /api/ops/support/users/:id`

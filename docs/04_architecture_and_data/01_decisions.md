@@ -21,6 +21,17 @@ ADR-lite log for major architectural and contract decisions.
   - Worker ingress needs one durable row it can claim/update deterministically when Cloud Tasks retries, late callbacks, or overlapping deliveries occur.
   - Separating current lease ownership from historical event append keeps concurrency control simple without losing audit depth.
 
+## 2026-05-04: Ops Alert Dispatch Uses A Dedicated Delivery Ledger
+
+- Decision:
+  - Keep ops metrics and alert-flag derivation read-only in `OpsService`.
+  - Dispatch proactive notifications through a dedicated `ops_alert_events` ledger plus a token-protected internal `/api/ops/dispatch-alerts` endpoint.
+  - Use cooldown dedupe against the last delivered payload hash before re-sending the same alert state.
+- Why:
+  - Raw metrics flags alone still require manual dashboard review.
+  - Delivery history must be durable enough to explain whether alerts were sent, skipped by cooldown, or failed at the webhook boundary.
+  - Keeping alert dispatch separate from metrics shaping avoids turning one large service into both a read model and an outbound integration owner.
+
 ## 2026-03-22: Scraping Is Acquisition Infrastructure, Not The Product
 
 - Decision:

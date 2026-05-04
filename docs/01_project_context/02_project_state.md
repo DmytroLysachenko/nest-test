@@ -145,6 +145,7 @@ That framing should guide future implementation more than raw source count.
   - modularization is now an active engineering concern because `job-sources` and `job-offers` service files have grown beyond easy human scanability
   - feature-local helper modules are now the preferred way to move pure derivation, shaping, and preference logic out of large Nest services before creating more service classes
   - support-facing read models now provide LLM-friendly incident bundles instead of forcing raw endpoint composition
+  - ops now has an internal webhook alert dispatch path with persisted delivery history so callback dead letters, stale runs, and other alert flags can trigger proactive notifications instead of dashboard-only review
   - job-offer read models now expose normalized company and taxonomy summaries in addition to raw listing fields
   - job-offer read models now also expose normalized multi-value relations so structured review does not depend only on legacy `details` JSON
   - notebook and discovery list responses now also expose explicit collection-state guidance so hidden/degraded/empty queues are explained by API instead of inferred only in the web layer
@@ -339,6 +340,7 @@ That framing should guide future implementation more than raw source count.
 - Scheduler `next_run_at` calculation now respects weekday cron expressions instead of falling back to the default daily schedule for unsupported patterns.
 - Production deploy now auto-upserts a Cloud Scheduler job for `/api/job-sources/schedule/trigger`.
 - Production deploy now auto-upserts a second Cloud Scheduler job for `/api/ops/reconcile-stale-runs`.
+- Production deploy can now also upsert a third Cloud Scheduler job for `/api/ops/dispatch-alerts` when `OPS_ALERTS_WEBHOOK_URL` is configured.
 - Production deploy now converges Cloud Tasks queue retry policy on every rollout (main queue + reserved DLQ queue provisioning).
 - Production bootstrap rejects wildcard CORS (`ALLOWED_ORIGINS=*`) in production mode.
 - Notebook filter/view preferences are now persisted server-side and restored across sessions/devices.

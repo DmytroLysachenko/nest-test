@@ -10,6 +10,27 @@ It is not a full changelog. It exists to preserve the architectural story of the
 
 ## History
 
+### `015` Proactive ops alert dispatch and delivery ledger
+
+Summary:
+
+- introduced `ops_alert_events` as a durable delivery history for proactive ops notifications
+- added webhook-based alert dispatch behind a token-protected internal ops endpoint
+- wired production deploy automation so Cloud Scheduler can trigger `/api/ops/dispatch-alerts` when a webhook target is configured
+
+Primary code areas:
+
+- `packages/db/src/schema/ops-alert-events.ts`
+- `apps/api/src/features/ops/ops-alerts.service.ts`
+- `apps/api/src/features/ops/ops.controller.ts`
+- `scripts/deploy-cloud-run-prod.sh`
+
+Related docs:
+
+- `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
+- `docs/05_operations_and_deployment/01_runbook.md`
+- `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md`
+
 ### `014` Durable worker task execution lease ownership
 
 Summary:

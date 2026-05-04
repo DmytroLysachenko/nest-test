@@ -77,11 +77,12 @@ Implemented on 2026-04-16:
 15. Ops metrics now surface callback dead letters, incremental ingest dead letters, source degradation, stale-run, and scheduler-enqueue alert flags.
 16. Focused coverage was added for env deadline validation, callback hash stability, batch incremental ingest payloads, extended task metadata, and adapter-specific pipeline stages.
 17. Active worker-task lease ownership now persists in `worker_task_executions`, and worker ingress claims that row atomically instead of deriving duplicate protection only from `scrape_execution_events`.
+18. Ops alert flags now dispatch through a dedicated internal webhook path backed by `ops_alert_events` delivery history, and production deploy automation can upsert a Cloud Scheduler job for `/api/ops/dispatch-alerts`.
 
 Remaining follow-up work:
 
 1. Completed: active lease ownership now lives in the atomic `worker_task_executions` table instead of event-derived state.
-2. Wire the new ops alert flags into the production alerting provider and notification channels.
+2. Completed: ops alert flags now have a production-ready webhook dispatch path, delivery history, cooldown dedupe, and deploy-managed scheduler wiring.
 3. Add smoke/e2e coverage that exercises Cloud Tasks dispatch, batch incremental ingest, terminal callback, and dead-letter replay together.
 4. Continue with the lower-priority throughput work: bounded HTTP detail concurrency, browser fallback budgets, and production artifact storage policy.
 

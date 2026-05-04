@@ -221,4 +221,32 @@ describe('validateEnv', () => {
       }),
     ).not.toThrow();
   });
+
+  it('rejects non-https ops alerts webhook in production mode', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        NODE_ENV: 'production',
+        WORKER_TASK_PROVIDER: 'cloud-tasks',
+        WORKER_TASKS_PROJECT_ID: 'proj',
+        WORKER_TASKS_LOCATION: 'us-central1',
+        WORKER_TASKS_QUEUE: 'scrape',
+        WORKER_TASK_URL: 'https://worker.example.com/tasks',
+        WORKER_CALLBACK_URL: 'https://api.example.com/api/job-sources/complete',
+        OPS_ALERTS_WEBHOOK_URL: 'http://alerts.example.com/webhook',
+      }),
+    ).toThrow('OPS_ALERTS_WEBHOOK_URL must use https in production mode');
+  });
+
+  it('accepts ops alerts webhook config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        OPS_ALERTS_WEBHOOK_URL: 'https://alerts.example.com/webhook',
+        OPS_ALERTS_WEBHOOK_BEARER_TOKEN: 'alerts-token',
+        OPS_ALERTS_WINDOW_HOURS: '12',
+        OPS_ALERTS_COOLDOWN_MINUTES: '30',
+      }),
+    ).not.toThrow();
+  });
 });

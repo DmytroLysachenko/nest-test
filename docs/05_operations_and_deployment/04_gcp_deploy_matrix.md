@@ -2,7 +2,7 @@
 
 Canonical runtime/deploy contract for Google Cloud Run production deployments.
 
-Last updated: 2026-04-10
+Last updated: 2026-05-04
 
 For the complete local + production inventory, use:
 
@@ -73,6 +73,13 @@ For the complete local + production inventory, use:
 | `OPS_RECONCILE_CRON` | deploy-prod-on-main, promote-to-prod | Optional reconcile cron expression (default `0 2 * * *`) |
 | `OPS_RECONCILE_TIMEZONE` | deploy-prod-on-main, promote-to-prod | Optional reconcile timezone (default `Europe/Warsaw`) |
 | `OPS_RECONCILE_ATTEMPT_DEADLINE` | deploy-prod-on-main, promote-to-prod | Optional Cloud Scheduler HTTP deadline for `/api/ops/reconcile-stale-runs` (default `300s`) |
+| `OPS_ALERTS_JOB_NAME` | deploy-prod-on-main, promote-to-prod | Optional ops alerts job name override (default `job-seek-dispatch-ops-alerts`) |
+| `OPS_ALERTS_CRON` | deploy-prod-on-main, promote-to-prod | Optional ops alerts cron expression (default `*/30 * * * *`) |
+| `OPS_ALERTS_TIMEZONE` | deploy-prod-on-main, promote-to-prod | Optional ops alerts timezone (default `Europe/Warsaw`) |
+| `OPS_ALERTS_ATTEMPT_DEADLINE` | deploy-prod-on-main, promote-to-prod | Optional Cloud Scheduler HTTP deadline for `/api/ops/dispatch-alerts` (default `180s`) |
+| `OPS_ALERTS_WEBHOOK_URL` | deploy-prod-on-main, promote-to-prod | Optional production webhook target for proactive ops alerts; when unset the alert scheduler job is skipped |
+| `OPS_ALERTS_WINDOW_HOURS` | deploy-prod-on-main, promote-to-prod | Optional metrics window used when evaluating active ops alerts (default `24`) |
+| `OPS_ALERTS_COOLDOWN_MINUTES` | deploy-prod-on-main, promote-to-prod | Optional cooldown before identical ops alert payloads can be re-sent (default `60`) |
 | `WORKER_TASKS_DLQ` | deploy-prod-on-main, promote-to-prod | Optional DLQ queue name provisioned by deploy script (default `worker-scrape-dlq`) |
 | `WORKER_TASKS_SERVICE_ACCOUNT_EMAIL` | deploy-prod-on-main, promote-to-prod | Optional Cloud Tasks OIDC caller identity; defaults to the API runtime service account when `WORKER_SHARED_TOKEN` is unset |
 | `TASKS_MAX_ATTEMPTS` | deploy-prod-on-main, promote-to-prod | Optional Cloud Tasks retry max attempts (default `8`) |
@@ -94,6 +101,7 @@ For the complete local + production inventory, use:
 | `WORKER_CALLBACK_TOKEN` | deploy-prod-on-main, promote-to-prod | shared worker callback token |
 | `SCHEDULER_AUTH_TOKEN` | deploy-prod-on-main, promote-to-prod | shared bearer token for `/api/job-sources/schedule/trigger` |
 | `OPS_INTERNAL_TOKEN` | deploy-prod-on-main, promote-to-prod | shared bearer token for `/api/ops/reconcile-stale-runs` |
+| `OPS_ALERTS_WEBHOOK_BEARER_TOKEN` | deploy-prod-on-main, promote-to-prod | optional bearer token forwarded to the configured ops alerts webhook |
 
 ### Optional GitHub Secrets (`secrets.*`)
 
@@ -300,3 +308,8 @@ For the complete local + production inventory, use:
 - Reconcile auth header: `Authorization: Bearer ${OPS_INTERNAL_TOKEN}`.
 - Attempt deadline: `${OPS_RECONCILE_ATTEMPT_DEADLINE}` (default `300s`).
 - Reconcile cadence default: every 15 minutes (`*/15 * * * *`) in `Etc/UTC`.
+- Alert dispatch endpoint: `POST ${API_URL}/api/ops/dispatch-alerts`.
+- Alert dispatch auth header: `Authorization: Bearer ${OPS_INTERNAL_TOKEN}`.
+- Alert dispatch attempt deadline: `${OPS_ALERTS_ATTEMPT_DEADLINE}` (default `180s`).
+- Alert dispatch cadence default: every 30 minutes (`*/30 * * * *`) in `Etc/UTC`.
+- Alert dispatch job is created only when `OPS_ALERTS_WEBHOOK_URL` is configured.
