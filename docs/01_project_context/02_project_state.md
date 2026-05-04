@@ -226,10 +226,10 @@ That framing should guide future implementation more than raw source count.
   - catalog persistence now also stores source observation history, raw payload ledgers, source-company profiles, structured compensation columns, and normalized multi-value offer relations
   - company alias persistence is now being tightened so aliases are treated as additive identity evidence instead of automatic copies of the canonical company row
 - CI/CD and smoke
-  - split verify/smoke gates exist
+- split verify/smoke gates exist
 - release candidate and manual production promotion exist
 - deployment workflows now emit machine-readable release metadata with resolved revisions/images
-- smoke now auto-starts dedicated local services, repairs stale fixture scrape runs, and tolerates rate-limit windows during polling
+- smoke now auto-starts dedicated local services, repairs stale fixture scrape runs, tolerates rate-limit windows during polling, and verifies batch incremental-ingest plus dead-letter callback replay recovery in the scrape workflow
 
 ## Key Technical Decisions Active in Code
 

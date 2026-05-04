@@ -160,6 +160,11 @@ Canonical environment inventory:
    - Optional deterministic mode for CI/external-source instability: `SMOKE_FORCE_CALLBACK=true pnpm smoke:e2e`
    - Optional worker no-op accept mode (useful in CI): `WORKER_SMOKE_ACCEPT_ONLY=true`
    - Smoke now starts dedicated local API/worker/web processes on fallback ports and resets stale fixture scrape runs during seed.
+   - The scrape smoke path now explicitly exercises:
+     - terminal worker completion callback
+     - failed-terminal run after `POST /api/job-sources/runs/:id/offers/batch`
+     - admin `POST /api/ops/scrape/callbacks/replay` recovery for a worker dead-letter callback file
+   - Local replay coverage relies on matching `WORKER_AUTH_TOKEN` and `TASKS_AUTH_TOKEN` values so the API can call worker `/callbacks/replay`.
 
 ## Local Git Gates
 

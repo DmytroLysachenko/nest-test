@@ -208,6 +208,119 @@ function Start-ManagedService {
   }
 }
 
+function Ensure-EmptyDirectory {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path
+  )
+
+  if (Test-Path $Path) {
+    Get-ChildItem -Path $Path -Force | Remove-Item -Recurse -Force
+  } else {
+    New-Item -ItemType Directory -Path $Path -Force | Out-Null
+  }
+}
+
+function Wait-ForRunStatus {
+  param(
+    [Parameter(Mandatory = $true)][string]$ApiBaseUrl,
+    [Parameter(Mandatory = $true)][string]$RunId,
+    [Parameter(Mandatory = $true)][hashtable]$Headers,
+    [Parameter(Mandatory = $true)][string[]]$AllowedStatuses,
+    [int]$TimeoutSeconds = 120,
+    [int]$PollSeconds = 5,
+    [string]$Context = 'Poll scrape run status'
+  )
+
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  $lastStatus = $null
+
+  while ((Get-Date) -lt $deadline) {
+    Start-Sleep -Seconds $PollSeconds
+    $runResponse = $null
+    try {
+      $runResponse = Invoke-WebRequest -Uri "$($ApiBaseUrl.TrimEnd('/'))/api/job-sources/runs/$RunId" -Headers $Headers -UseBasicParsing -TimeoutSec 20
+    } catch {
+      if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 429) {
+        $delaySeconds = Get-RetryDelaySeconds -Response $_.Exception.Response -DefaultSeconds 15
+        Write-Host "$Context was rate limited, retrying in $delaySeconds seconds..."
+        Start-Sleep -Seconds $delaySeconds
+        continue
+      }
+      throw
+    }
+
+    Assert-StatusCode -Actual $runResponse.StatusCode -Allowed @(200) -Context $Context
+    $runPayload = $runResponse.Content | ConvertFrom-Json
+    $lastStatus = [string]$runPayload.data.status
+    if ($AllowedStatuses -contains $lastStatus) {
+      return @{
+        Status = $lastStatus
+        Payload = $runPayload
+      }
+    }
+  }
+
+  throw "$Context did not reach expected status. expected=$($AllowedStatuses -join ',') actual=$lastStatus sourceRunId=$RunId"
+}
+
+function Write-DeadLetterReplayFile {
+  param(
+    [Parameter(Mandatory = $true)][string]$DeadLetterDir,
+    [Parameter(Mandatory = $true)][string]$ApiBaseUrl,
+    [Parameter(Mandatory = $true)][string]$WorkerCallbackToken,
+    [Parameter(Mandatory = $true)][string]$SourceRunId
+  )
+
+  if (-not (Test-Path $DeadLetterDir)) {
+    New-Item -ItemType Directory -Path $DeadLetterDir -Force | Out-Null
+  }
+
+  $runId = "smoke-replay-run-$([Guid]::NewGuid().ToString())"
+  $callbackPayload = @{
+    source = 'pracuj-pl'
+    sourceRunId = $SourceRunId
+    runId = $runId
+    eventId = "smoke-replay-event-$([Guid]::NewGuid().ToString())"
+    attemptNo = 1
+    status = 'COMPLETED'
+    scrapedCount = 1
+    totalFound = 1
+    listingUrl = 'https://it.pracuj.pl/praca?wm=home-office&its=frontend'
+    jobs = @(
+      @{
+        source = 'pracuj-pl'
+        sourceId = "smoke-replay-source-$([Guid]::NewGuid().ToString())"
+        url = "https://example.com/smoke-replay-job/$SourceRunId"
+        title = 'Smoke Replay Platform Engineer'
+        description = 'Synthetic dead-letter replay payload to verify callback recovery.'
+        company = 'Smoke Replay Inc'
+        location = 'Remote'
+        employmentType = 'B2B'
+        requirements = @('TypeScript', 'Queues')
+        tags = @('smoke', 'replay')
+      }
+    )
+  }
+
+  $entry = @{
+    callbackUrl = "$($ApiBaseUrl.TrimEnd('/'))/api/job-sources/complete"
+    callbackToken = $WorkerCallbackToken
+    requestId = "smoke-dead-letter-$([Guid]::NewGuid().ToString())"
+    payload = $callbackPayload
+    reason = 'synthetic smoke dead-letter replay coverage'
+    createdAt = (Get-Date).ToString('o')
+  }
+
+  $path = Join-Path $DeadLetterDir "smoke-replay-$($SourceRunId)-$([Guid]::NewGuid().ToString()).json"
+  $json = $entry | ConvertTo-Json -Depth 10
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText($path, $json, $utf8NoBom)
+  return @{
+    Path = $path
+    OfferUrl = $callbackPayload.jobs[0].url
+  }
+}
+
 function Build-BaseUrl {
   param(
     [Parameter(Mandatory = $true)][string]$Name,
@@ -334,7 +447,9 @@ function Ensure-LocalSmokeServices {
     [Parameter(Mandatory = $true)][string]$WorkerBaseUrl,
     [Parameter(Mandatory = $true)][string]$WebBaseUrl,
     [Parameter(Mandatory = $true)][string]$RepoRoot,
-    [Parameter(Mandatory = $true)][string]$WorkerCallbackToken
+    [Parameter(Mandatory = $true)][string]$WorkerCallbackToken,
+    [Parameter(Mandatory = $true)][string]$WorkerTaskAuthToken,
+    [Parameter(Mandatory = $true)][string]$WorkerDeadLetterDir
   )
 
   $managed = @()
@@ -350,8 +465,8 @@ function Ensure-LocalSmokeServices {
       HealthPath = '/health'
       FallbackPort = 3100
       CommandTemplate = {
-        param([int]$Port, [string]$CallbackToken)
-        "`$env:HOST='0.0.0.0'; `$env:PORT='$Port'; `$env:WORKER_TASK_URL='http://localhost:4101/tasks'; `$env:WORKER_CALLBACK_URL='http://localhost:$Port/api/job-sources/complete'; `$env:WORKER_CALLBACK_TOKEN='$CallbackToken'; pnpm --filter api dev"
+        param([int]$Port, [string]$CallbackToken, [string]$TaskAuthToken, [string]$DeadLetterDir)
+        "`$env:HOST='0.0.0.0'; `$env:PORT='$Port'; `$env:WORKER_TASK_URL='http://localhost:4101/tasks'; `$env:WORKER_CALLBACK_URL='http://localhost:$Port/api/job-sources/complete'; `$env:WORKER_CALLBACK_TOKEN='$CallbackToken'; `$env:WORKER_AUTH_TOKEN='$TaskAuthToken'; `$env:WORKER_DEAD_LETTER_DIR='$DeadLetterDir'; pnpm --filter api dev"
       }
     },
     @{
@@ -360,8 +475,8 @@ function Ensure-LocalSmokeServices {
       HealthPath = '/health'
       FallbackPort = 4101
       CommandTemplate = {
-        param([int]$Port, [string]$CallbackToken)
-        "`$env:PORT='$Port'; `$env:WORKER_PORT='$Port'; `$env:WORKER_SMOKE_ACCEPT_ONLY='true'; `$env:WORKER_CALLBACK_TOKEN='$CallbackToken'; pnpm --filter worker dev"
+        param([int]$Port, [string]$CallbackToken, [string]$TaskAuthToken, [string]$DeadLetterDir)
+        "`$env:PORT='$Port'; `$env:WORKER_PORT='$Port'; `$env:WORKER_SMOKE_ACCEPT_ONLY='true'; `$env:WORKER_CALLBACK_TOKEN='$CallbackToken'; `$env:TASKS_AUTH_TOKEN='$TaskAuthToken'; `$env:WORKER_DEAD_LETTER_DIR='$DeadLetterDir'; pnpm --filter worker dev"
       }
     },
     @{
@@ -391,9 +506,14 @@ function Ensure-LocalSmokeServices {
       throw "Dedicated smoke port $fallbackPort for $($definition.Name) is occupied by another unhealthy service."
     } else {
       Write-Host "Starting local $($definition.Name) smoke service on dedicated port $fallbackPort."
+      $commandArgs = if ($definition.Name -eq 'web') {
+        @($fallbackPort)
+      } else {
+        @($fallbackPort, $WorkerCallbackToken, $WorkerTaskAuthToken, $WorkerDeadLetterDir)
+      }
       $managed += Start-ManagedService `
         -Name $definition.Name `
-        -Command (& $definition.CommandTemplate $fallbackPort $WorkerCallbackToken) `
+        -Command (& $definition.CommandTemplate @commandArgs) `
         -WorkingDirectory $RepoRoot `
         -LogDirectory $logDirectory
     }
@@ -432,7 +552,10 @@ $forceCallback = @('1', 'true', 'yes') -contains $forceCallbackRaw.ToLower()
 $autoStartRaw = Get-EnvOrDefault -Name 'SMOKE_AUTOSTART' -Default 'true'
 $autoStart = @('1', 'true', 'yes') -contains $autoStartRaw.ToLower()
 $localWorkerCallbackToken = 'smoke-local-worker-callback-token'
+$localWorkerTaskAuthToken = 'smoke-local-worker-task-auth-token'
 $workerCallbackToken = Get-EnvOrDefault -Name 'WORKER_CALLBACK_TOKEN' -Default $localWorkerCallbackToken
+$workerTaskAuthToken = Get-EnvOrDefault -Name 'WORKER_AUTH_TOKEN' -Default $localWorkerTaskAuthToken
+$workerDeadLetterDir = Get-EnvOrDefault -Name 'WORKER_DEAD_LETTER_DIR' -Default (Join-Path $repoRoot 'data/dead-letter')
 $managedServices = @()
 
 if (-not $skipSeed) {
@@ -464,12 +587,16 @@ if (
     -WorkerBaseUrl $workerBaseUrl `
     -WebBaseUrl $webBaseUrl `
     -RepoRoot $repoRoot `
-    -WorkerCallbackToken $workerCallbackToken
+    -WorkerCallbackToken $workerCallbackToken `
+    -WorkerTaskAuthToken $workerTaskAuthToken `
+    -WorkerDeadLetterDir $workerDeadLetterDir
   $managedServices = $autostartResult.Managed
   $apiBaseUrl = $autostartResult.ApiBaseUrl
   $workerBaseUrl = $autostartResult.WorkerBaseUrl
   $webBaseUrl = $autostartResult.WebBaseUrl
 }
+
+Ensure-EmptyDirectory -Path $workerDeadLetterDir
 
 Write-Host '2) Checking service health endpoints...'
 $stage = 'health-checks'
@@ -999,29 +1126,54 @@ $failedRunId = $failedScrapePayload.data.sourceRunId
 Require-Value -Value $failedRunId -Message 'Failed incremental scrape enqueue did not return sourceRunId.'
 
 $failedEventId = "smoke-ingest-$([Guid]::NewGuid().ToString())"
-$incrementalOfferUrl = "https://example.com/smoke-failed-job/$failedRunId"
+$incrementalOfferUrls = @(
+  "https://example.com/smoke-failed-job/$failedRunId/1",
+  "https://example.com/smoke-failed-job/$failedRunId/2"
+)
 $incrementalBody = @{
   sourceRunId = $failedRunId
   runId = "smoke-run-$([Guid]::NewGuid().ToString())"
   eventId = $failedEventId
   attemptNo = 1
   source = 'pracuj-pl'
-  job = @{
-    source = 'pracuj-pl'
-    sourceId = "smoke-source-failed-$([Guid]::NewGuid().ToString())"
-    url = $incrementalOfferUrl
-    title = 'Smoke Incremental Backend Engineer'
-    description = 'Synthetic incremental payload that should survive a failed terminal callback.'
-    company = 'Smoke Incremental Inc'
-    location = 'Remote'
-    employmentType = 'B2B'
-    requirements = @('TypeScript', 'NestJS')
-    tags = @('smoke', 'incremental')
-  }
+  jobs = @(
+    @{
+      source = 'pracuj-pl'
+      sourceId = "smoke-source-failed-$([Guid]::NewGuid().ToString())"
+      url = $incrementalOfferUrls[0]
+      title = 'Smoke Incremental Backend Engineer'
+      description = 'Synthetic incremental payload that should survive a failed terminal callback.'
+      company = 'Smoke Incremental Inc'
+      location = 'Remote'
+      employmentType = 'B2B'
+      requirements = @('TypeScript', 'NestJS')
+      tags = @('smoke', 'incremental', 'batch')
+    },
+    @{
+      source = 'pracuj-pl'
+      sourceId = "smoke-source-failed-$([Guid]::NewGuid().ToString())"
+      url = $incrementalOfferUrls[1]
+      title = 'Smoke Incremental Platform Engineer'
+      description = 'Second synthetic incremental payload to verify batch ingest survives failed completion.'
+      company = 'Smoke Incremental Inc'
+      location = 'Remote'
+      employmentType = 'B2B'
+      requirements = @('Queues', 'Observability')
+      tags = @('smoke', 'incremental', 'batch')
+    }
+  )
 } | ConvertTo-Json -Depth 8
 
-$incrementalResponse = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$failedRunId/offers" -Method Post -Headers $callbackHeaders -ContentType 'application/json' -Body $incrementalBody -UseBasicParsing -TimeoutSec 20
-Assert-StatusCode -Actual $incrementalResponse.StatusCode -Allowed @(200, 201) -Context 'Incremental offer ingest'
+$incrementalResponse = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$failedRunId/offers/batch" -Method Post -Headers $callbackHeaders -ContentType 'application/json' -Body $incrementalBody -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $incrementalResponse.StatusCode -Allowed @(200, 201) -Context 'Incremental offer batch ingest'
+$incrementalResponsePayload = $incrementalResponse.Content | ConvertFrom-Json
+$incrementalResult = if ($null -ne $incrementalResponsePayload.data) { $incrementalResponsePayload.data } else { $incrementalResponsePayload }
+if (-not $incrementalResult.ok) {
+  throw 'Incremental offer batch ingest did not return ok=true.'
+}
+if ($incrementalResult.ingested -lt 1) {
+  throw 'Incremental offer batch ingest did not persist any accepted offers.'
+}
 
 $failedCallbackBody = @{
   source = 'pracuj-pl'
@@ -1039,44 +1191,82 @@ $failedCallbackBody = @{
 $failedCallbackResponse = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/complete" -Method Post -Headers $callbackHeaders -ContentType 'application/json' -Body $failedCallbackBody -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $failedCallbackResponse.StatusCode -Allowed @(200, 201) -Context 'Force failed scrape completion callback'
 
-$failedDeadline = (Get-Date).AddMinutes(2)
-$failedFinalStatus = $null
-while ((Get-Date) -lt $failedDeadline) {
-  Start-Sleep -Seconds 5
-  $failedRun = $null
-  try {
-    $failedRun = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/runs/$failedRunId" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
-  } catch {
-    if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 429) {
-      $delaySeconds = Get-RetryDelaySeconds -Response $_.Exception.Response -DefaultSeconds 15
-      Write-Host "Rate limited while polling failed incremental run status, retrying in $delaySeconds seconds..."
-      Start-Sleep -Seconds $delaySeconds
-      continue
-    }
-    throw
-  }
-  Assert-StatusCode -Actual $failedRun.StatusCode -Allowed @(200) -Context 'Get failed incremental scrape run'
-  $failedRunPayload = $failedRun.Content | ConvertFrom-Json
-  $failedFinalStatus = $failedRunPayload.data.status
-  if ($failedFinalStatus -eq 'FAILED') {
-    break
-  }
-}
-
-if ($failedFinalStatus -ne 'FAILED') {
-  throw "Incremental failure scenario did not finalize as failed. status=$failedFinalStatus sourceRunId=$failedRunId"
-}
+$failedRunFinal = Wait-ForRunStatus `
+  -ApiBaseUrl $apiBaseUrl `
+  -RunId $failedRunId `
+  -Headers $authHeaders `
+  -AllowedStatuses @('FAILED') `
+  -TimeoutSeconds 120 `
+  -Context 'Wait for failed incremental scrape run'
+$failedFinalStatus = $failedRunFinal.Status
 
 $failedOffersApprox = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers?mode=approx&limit=100" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
 Assert-StatusCode -Actual $failedOffersApprox.StatusCode -Allowed @(200) -Context 'List job offers after failed incremental scrape'
 $failedOffersApproxPayload = $failedOffersApprox.Content | ConvertFrom-Json
 $failedIncrementalOffers = @(
   $failedOffersApproxPayload.data.items | Where-Object {
-    $_.sourceRunId -eq $failedRunId -or $_.url -eq $incrementalOfferUrl
+    $_.sourceRunId -eq $failedRunId -or $incrementalOfferUrls -contains $_.url
   }
 )
+if ($failedIncrementalOffers.Count -lt 2) {
+  Write-Host "Incremental batch ingest retained $($failedIncrementalOffers.Count) visible offers after failed finalization."
+}
 if ($failedIncrementalOffers.Count -lt 1) {
-  throw "Incremental ingest offer was not retained after failed scrape finalization. sourceRunId=$failedRunId"
+  throw "Incremental batch ingest did not preserve any visible offers after failed scrape finalization. sourceRunId=$failedRunId"
+}
+
+Write-Host '12.03) Verifying dead-letter callback replay path...'
+$stage = 'verify-dead-letter-replay'
+$replayScrapeHeaders = @{
+  Authorization = "Bearer $token"
+  'x-request-id' = "smoke-replay-$([Guid]::NewGuid().ToString())"
+}
+$replayScrape = Invoke-WebRequestWithRateLimitRetry -Context 'Enqueue scrape for dead-letter replay scenario' -Attempts 2 -DefaultDelaySeconds 65 -Action {
+  Invoke-WebRequest -Uri "$apiBaseUrl/api/job-sources/scrape" -Method Post -Headers $replayScrapeHeaders -ContentType 'application/json' -Body $failedScrapeBody -UseBasicParsing -TimeoutSec 45
+}
+Assert-StatusCode -Actual $replayScrape.StatusCode -Allowed @(200, 201, 202) -Context 'Enqueue dead-letter replay scrape'
+$replayScrapePayload = $replayScrape.Content | ConvertFrom-Json
+$replayRunId = $replayScrapePayload.data.sourceRunId
+Require-Value -Value $replayRunId -Message 'Dead-letter replay scrape enqueue did not return sourceRunId.'
+
+$deadLetterFixture = Write-DeadLetterReplayFile `
+  -DeadLetterDir $workerDeadLetterDir `
+  -ApiBaseUrl $apiBaseUrl `
+  -WorkerCallbackToken $workerCallbackToken `
+  -SourceRunId $replayRunId
+if (-not (Test-Path $deadLetterFixture.Path)) {
+  throw "Dead-letter replay fixture was not created. path=$($deadLetterFixture.Path)"
+}
+
+$replayResponse = Invoke-WebRequest -Uri "$apiBaseUrl/api/ops/scrape/callbacks/replay" -Method Post -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $replayResponse.StatusCode -Allowed @(200, 201) -Context 'Replay dead-letter callbacks'
+$replayPayload = $replayResponse.Content | ConvertFrom-Json
+$replayResult = if ($null -ne $replayPayload.data) { $replayPayload.data } else { $replayPayload }
+if ($replayResult.sent -lt 1) {
+  throw 'Dead-letter replay did not report any sent callbacks.'
+}
+
+$replayRunFinal = Wait-ForRunStatus `
+  -ApiBaseUrl $apiBaseUrl `
+  -RunId $replayRunId `
+  -Headers $authHeaders `
+  -AllowedStatuses @('COMPLETED') `
+  -TimeoutSeconds 120 `
+  -Context 'Wait for dead-letter replay scrape run'
+if (Test-Path $deadLetterFixture.Path) {
+  throw "Dead-letter replay fixture still exists after replay. path=$($deadLetterFixture.Path)"
+}
+
+$replayOffersApprox = Invoke-WebRequest -Uri "$apiBaseUrl/api/job-offers?mode=approx&limit=100" -Headers $authHeaders -UseBasicParsing -TimeoutSec 20
+Assert-StatusCode -Actual $replayOffersApprox.StatusCode -Allowed @(200) -Context 'List job offers after dead-letter replay'
+$replayOffersApproxPayload = $replayOffersApprox.Content | ConvertFrom-Json
+$replayOffers = @(
+  $replayOffersApproxPayload.data.items | Where-Object {
+    $_.sourceRunId -eq $replayRunId -or $_.url -eq $deadLetterFixture.OfferUrl
+  }
+)
+if ($replayOffers.Count -lt 1) {
+  throw "Dead-letter replay did not restore offer visibility. sourceRunId=$replayRunId"
 }
 
 Write-Host '12.05) Verifying notebook summary endpoint...'

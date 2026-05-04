@@ -10,6 +10,24 @@ It is not a full changelog. It exists to preserve the architectural story of the
 
 ## History
 
+### `016` Scrape smoke coverage for batch ingest and dead-letter replay
+
+Summary:
+
+- extended `scripts/smoke-e2e.ps1` so one scrape recovery flow now covers deterministic completion, batch incremental ingest before a failed terminal callback, and admin-triggered dead-letter callback replay
+- taught local smoke autostart to share worker replay auth between API and worker
+- fixed replay-fixture writing to use BOM-free UTF-8 because worker replay reads files with plain `JSON.parse`
+
+Primary code areas:
+
+- `scripts/smoke-e2e.ps1`
+
+Related docs:
+
+- `docs/05_operations_and_deployment/01_runbook.md`
+- `docs/05_operations_and_deployment/02_e2e_debugging.md`
+- `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
+
 ### `015` Proactive ops alert dispatch and delivery ledger
 
 Summary:

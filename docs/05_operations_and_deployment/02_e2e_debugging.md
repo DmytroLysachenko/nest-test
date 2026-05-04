@@ -83,6 +83,21 @@ SMOKE_SKIP_SEED=true \
 pnpm smoke:e2e
 ```
 
+Current scrape smoke coverage now verifies one combined recovery story:
+
+- accepted scrape enqueue
+- deterministic terminal callback success path
+- failed terminal callback after `POST /api/job-sources/runs/:id/offers/batch`
+- notebook visibility for incrementally persisted offers after failure
+- admin-triggered `POST /api/ops/scrape/callbacks/replay` against a worker dead-letter callback file
+- completed run + notebook visibility after replay recovery
+
+For local smoke autostart, replay coverage depends on a shared local worker auth token:
+
+- API local smoke process gets `WORKER_AUTH_TOKEN`
+- worker local smoke process gets the same `TASKS_AUTH_TOKEN`
+- the smoke script writes the replay fixture as BOM-free UTF-8 because worker replay uses plain `JSON.parse`
+
 ## Repo Tools
 
 ### 1. Support Toolkit

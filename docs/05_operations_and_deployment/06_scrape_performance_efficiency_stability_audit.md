@@ -83,7 +83,7 @@ Remaining follow-up work:
 
 1. Completed: active lease ownership now lives in the atomic `worker_task_executions` table instead of event-derived state.
 2. Completed: ops alert flags now have a production-ready webhook dispatch path, delivery history, cooldown dedupe, and deploy-managed scheduler wiring.
-3. Add smoke/e2e coverage that exercises Cloud Tasks dispatch, batch incremental ingest, terminal callback, and dead-letter replay together.
+3. Completed: `scripts/smoke-e2e.ps1` now covers the batch incremental-ingest endpoint, failed-terminal preservation, and admin-triggered dead-letter callback replay in one end-to-end flow.
 4. Continue with the lower-priority throughput work: bounded HTTP detail concurrency, browser fallback budgets, and production artifact storage policy.
 
 ## Current Strengths
