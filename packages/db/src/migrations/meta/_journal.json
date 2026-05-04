@@ -309,6 +309,13 @@
       "when": 1777240800000,
       "tag": "0043_worker_task_executions",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1777327200000,
+      "tag": "0044_ops_alert_events",
+      "breakpoints": true
     }
   ]
 }

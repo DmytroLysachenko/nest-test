@@ -9,6 +9,7 @@ import * as notebookPreferences from './notebook-preferences';
 import * as documents from './documents';
 import * as documentEvents from './document-events';
 import * as apiRequestEvents from './api-request-events';
+import * as opsAlertEvents from './ops-alert-events';
 import * as authorizationEvents from './authorization-events';
 import * as documentStageMetrics from './document-stage-metrics';
 import * as careerProfiles from './career-profiles';
@@ -58,6 +59,7 @@ export * from './notebook-preferences';
 export * from './documents';
 export * from './document-events';
 export * from './api-request-events';
+export * from './ops-alert-events';
 export * from './authorization-events';
 export * from './document-stage-metrics';
 export * from './career-profiles';
@@ -114,6 +116,7 @@ const schema = {
   ...documents,
   ...documentEvents,
   ...apiRequestEvents,
+  ...opsAlertEvents,
   ...authorizationEvents,
   ...documentStageMetrics,
   ...careerProfiles,
