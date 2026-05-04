@@ -86,6 +86,13 @@ Remaining follow-up work:
 3. Completed: `scripts/smoke-e2e.ps1` now covers the batch incremental-ingest endpoint, failed-terminal preservation, and admin-triggered dead-letter callback replay in one end-to-end flow.
 4. Continue with the lower-priority throughput work: bounded HTTP detail concurrency, browser fallback budgets, and production artifact storage policy.
 
+Progress note on item 4:
+
+- browser fallback now has explicit worker env budgets for max fallback count and total fallback time, and the resulting usage/remaining budget is exposed in worker health plus scrape diagnostics.
+- remaining work under item 4 is still:
+  - final concurrency-policy cleanup for HTTP detail throughput
+  - explicit production artifact storage/retention policy beyond local filesystem manifests
+
 ## Current Strengths
 
 ### Observable Lifecycle

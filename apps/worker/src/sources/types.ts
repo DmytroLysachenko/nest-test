@@ -111,6 +111,10 @@ export type SourceFetchResult = {
   hasZeroOffers: boolean;
   detailAttemptedCount: number;
   detailBudget: number | null;
+  browserFallbackCount: number;
+  browserFallbackBudgetMs: number | null;
+  browserFallbackBudgetUsedMs: number;
+  browserFallbackBudgetRemainingMs: number | null;
   detailStopReason: 'completed' | 'budget_reached' | 'source_degraded';
 };
 

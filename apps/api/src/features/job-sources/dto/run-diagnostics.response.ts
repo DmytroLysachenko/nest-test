@@ -88,6 +88,9 @@ class ScrapeRunDiagnosticsPayloadResponse {
       jobLinksDiscovered: number;
       blockedPages: number;
       browserFallbacks: number;
+      browserFallbackBudgetMs?: number | null;
+      browserFallbackBudgetUsedMs?: number;
+      browserFallbackBudgetRemainingMs?: number | null;
       detailAttemptedCount: number;
     };
     parse: {

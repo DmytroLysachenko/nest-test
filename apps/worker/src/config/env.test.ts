@@ -141,3 +141,17 @@ test('WORKER_ALLOWED_ORIGINS cannot be wildcard in production', async () => {
     },
   );
 });
+
+test('browser fallback budget env overrides are parsed', async () => {
+  await withEnv(
+    {
+      PRACUJ_BROWSER_FALLBACK_MAX_COUNT: '5',
+      PRACUJ_BROWSER_FALLBACK_BUDGET_MS: '18000',
+    },
+    () => {
+      const env = loadEnv();
+      assert.equal(env.PRACUJ_BROWSER_FALLBACK_MAX_COUNT, 5);
+      assert.equal(env.PRACUJ_BROWSER_FALLBACK_BUDGET_MS, 18000);
+    },
+  );
+});

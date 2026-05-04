@@ -38,6 +38,8 @@ server.listen(listenPort, () => {
         detailConcurrency: env.PRACUJ_DETAIL_CONCURRENCY,
         detailDelayMs: env.PRACUJ_DETAIL_DELAY_MS,
         browserFallbackCooldownMs: env.PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS,
+        browserFallbackMaxCount: env.PRACUJ_BROWSER_FALLBACK_MAX_COUNT,
+        browserFallbackBudgetMs: env.PRACUJ_BROWSER_FALLBACK_BUDGET_MS,
       },
     },
     'Worker task server listening',

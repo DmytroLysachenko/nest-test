@@ -1149,6 +1149,8 @@ export const crawlPracujPl = async (
     detailDelayMs?: number;
     detailConcurrency?: number;
     browserFallbackCooldownMs?: number;
+    browserFallbackMaxCount?: number;
+    browserFallbackBudgetMs?: number;
     listingOnly?: boolean;
     detailHost?: string;
     detailCookiesPath?: string;
@@ -1173,6 +1175,10 @@ export const crawlPracujPl = async (
   detailDiagnostics: DetailFetchDiagnostics[];
   detailAttemptedCount: number;
   detailBudget: number | null;
+  browserFallbackCount: number;
+  browserFallbackBudgetMs: number | null;
+  browserFallbackBudgetUsedMs: number;
+  browserFallbackBudgetRemainingMs: number | null;
   detailStopReason: 'completed' | 'budget_reached' | 'source_degraded';
 }> => {
   const listingDelayMs = options?.listingDelayMs ?? 1500;
@@ -1180,6 +1186,10 @@ export const crawlPracujPl = async (
   const detailDelayMs = options?.detailDelayMs ?? 2000;
   const detailConcurrency = Math.max(1, options?.detailConcurrency ?? 1);
   const browserFallbackCooldownMs = options?.browserFallbackCooldownMs ?? Math.max(2000, detailDelayMs + 1000);
+  const browserFallbackMaxCount = Math.max(1, options?.browserFallbackMaxCount ?? 3);
+  const browserFallbackBudgetMs = options?.browserFallbackBudgetMs
+    ? Math.max(1000, options.browserFallbackBudgetMs)
+    : null;
   const detailHumanize = options?.detailHumanize ?? false;
   const listingOnly = options?.listingOnly ?? false;
   const detailHost = options?.detailHost;
@@ -1361,6 +1371,8 @@ export const crawlPracujPl = async (
     const pages: RawPage[] = [];
     const blockedUrls: string[] = [];
     const detailDiagnostics: DetailFetchDiagnostics[] = [];
+    let browserFallbackCount = listingMethod === 'browser' ? 1 : 0;
+    let browserFallbackBudgetUsedMs = 0;
     if (listingOnly) {
       return {
         pages,
@@ -1375,6 +1387,11 @@ export const crawlPracujPl = async (
         detailDiagnostics,
         detailAttemptedCount: 0,
         detailBudget,
+        browserFallbackCount,
+        browserFallbackBudgetMs,
+        browserFallbackBudgetUsedMs,
+        browserFallbackBudgetRemainingMs:
+          browserFallbackBudgetMs === null ? null : Math.max(0, browserFallbackBudgetMs - browserFallbackBudgetUsedMs),
         detailStopReason: 'completed',
       };
     }
@@ -1388,6 +1405,56 @@ export const crawlPracujPl = async (
     let detailSourceDegraded = false;
     let detailBrowserTimeouts = 0;
     let detailBrowserFailures = 0;
+    const canUseBrowserFallback = (url: string) => {
+      const nextCount = browserFallbackCount + 1;
+      if (nextCount > browserFallbackMaxCount) {
+        detailStopReason = 'budget_reached';
+        logger?.warn(
+          {
+            url,
+            nextCount,
+            browserFallbackMaxCount,
+          },
+          'Stopping detail crawl because browser fallback count budget is exhausted',
+        );
+        return false;
+      }
+      if (browserFallbackBudgetMs !== null && browserFallbackBudgetUsedMs >= browserFallbackBudgetMs) {
+        detailStopReason = 'budget_reached';
+        logger?.warn(
+          {
+            url,
+            browserFallbackBudgetMs,
+            browserFallbackBudgetUsedMs,
+          },
+          'Stopping detail crawl because browser fallback time budget is exhausted',
+        );
+        return false;
+      }
+      return true;
+    };
+
+    const runBudgetedBrowserFallback = async <T>(url: string, task: () => Promise<T>) => {
+      if (!canUseBrowserFallback(url)) {
+        detailDiagnostics.push({
+          url,
+          attempt: 2,
+          transport: 'browser',
+          error: 'browser_fallback_budget_exhausted',
+        });
+        detailSourceDegraded = true;
+        return null;
+      }
+
+      browserFallbackCount += 1;
+      const startedAt = Date.now();
+      try {
+        return await runBrowserFallback(task);
+      } finally {
+        browserFallbackBudgetUsedMs += Date.now() - startedAt;
+      }
+    };
+
     const processDetailTarget = async (url: string) => {
       throwIfAborted(abortSignal);
       if (detailSourceDegraded) {
@@ -1423,6 +1490,7 @@ export const crawlPracujPl = async (
           htmlLength: result.html.length,
           blocked,
           expired,
+          transport: 'http',
           attempt: 1,
         });
 
@@ -1452,7 +1520,7 @@ export const crawlPracujPl = async (
               blocked: result.blocked,
             },
           });
-          result = await runBrowserFallback(async () => {
+          const fallbackResult = await runBudgetedBrowserFallback(url, async () => {
             await sleepWithAbort(detailDelayMs + randomBetween(500, 1500), abortSignal);
             const fallbackResult = await loadDetailPageBrowser(
               await ensureBrowserSession(),
@@ -1467,6 +1535,10 @@ export const crawlPracujPl = async (
             await sleepWithAbort(browserFallbackCooldownMs + randomBetween(500, 1500), abortSignal);
             return fallbackResult;
           });
+          if (!fallbackResult) {
+            return;
+          }
+          result = fallbackResult;
           blocked = result.blocked;
           expired = result.expired;
           transport = 'browser';
@@ -1479,6 +1551,7 @@ export const crawlPracujPl = async (
             htmlLength: result.html.length,
             blocked,
             expired,
+            transport: 'browser',
             attempt: 2,
           });
         }
@@ -1528,7 +1601,7 @@ export const crawlPracujPl = async (
             },
           });
           try {
-            const fallbackResult = await runBrowserFallback(async () => {
+            const fallbackResult = await runBudgetedBrowserFallback(url, async () => {
               const result = await loadDetailPageBrowser(
                 await ensureBrowserSession(),
                 url,
@@ -1542,6 +1615,9 @@ export const crawlPracujPl = async (
               await sleepWithAbort(browserFallbackCooldownMs, abortSignal);
               return result;
             });
+            if (!fallbackResult) {
+              return;
+            }
             detailDiagnostics.push({
               url,
               finalUrl: fallbackResult.finalUrl,
@@ -1550,6 +1626,7 @@ export const crawlPracujPl = async (
               htmlLength: fallbackResult.html.length,
               blocked: fallbackResult.blocked,
               expired: fallbackResult.expired,
+              transport: 'browser',
               attempt: 2,
             });
             if (fallbackResult.blocked) {
@@ -1657,6 +1734,11 @@ export const crawlPracujPl = async (
       detailDiagnostics,
       detailAttemptedCount: detailTargets.length,
       detailBudget,
+      browserFallbackCount,
+      browserFallbackBudgetMs,
+      browserFallbackBudgetUsedMs,
+      browserFallbackBudgetRemainingMs:
+        browserFallbackBudgetMs === null ? null : Math.max(0, browserFallbackBudgetMs - browserFallbackBudgetUsedMs),
       detailStopReason,
     };
   } finally {

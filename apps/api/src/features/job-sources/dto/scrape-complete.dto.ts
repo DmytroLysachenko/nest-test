@@ -194,6 +194,30 @@ class ScrapeRunDiagnosticsDto {
   @Min(0)
   detailBudget?: number;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  browserFallbackCount?: number;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  browserFallbackBudgetMs?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  browserFallbackBudgetUsedMs?: number;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  browserFallbackBudgetRemainingMs?: number;
+
   @ApiPropertyOptional({ enum: ['completed', 'budget_reached', 'source_degraded'] })
   @IsOptional()
   @IsIn(['completed', 'budget_reached', 'source_degraded'])
@@ -265,6 +289,9 @@ class ScrapeRunDiagnosticsDto {
       jobLinksDiscovered: number;
       blockedPages: number;
       browserFallbacks: number;
+      browserFallbackBudgetMs?: number | null;
+      browserFallbackBudgetUsedMs?: number;
+      browserFallbackBudgetRemainingMs?: number | null;
       detailAttemptedCount: number;
     };
     parse: {

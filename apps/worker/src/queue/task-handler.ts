@@ -14,6 +14,8 @@ export const handleTask = async (
     detailDelayMs?: number;
     detailConcurrency?: number;
     browserFallbackCooldownMs?: number;
+    browserFallbackMaxCount?: number;
+    browserFallbackBudgetMs?: number;
     detailCacheHours?: number;
     listingOnly?: boolean;
     detailHost?: string;
@@ -48,6 +50,8 @@ export const handleTask = async (
         detailDelayMs: options.detailDelayMs,
         detailConcurrency: options.detailConcurrency,
         browserFallbackCooldownMs: options.browserFallbackCooldownMs,
+        browserFallbackMaxCount: options.browserFallbackMaxCount,
+        browserFallbackBudgetMs: options.browserFallbackBudgetMs,
         detailCacheHours: options.detailCacheHours,
         listingOnly: options.listingOnly,
         detailHost: options.detailHost,

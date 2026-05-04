@@ -3064,6 +3064,15 @@ export class JobSourcesService {
         jobLinksDiscovered: Number(fetch?.jobLinksDiscovered ?? 0),
         blockedPages: Number(fetch?.blockedPages ?? 0),
         browserFallbacks: Number(fetch?.browserFallbacks ?? 0),
+        browserFallbackBudgetMs:
+          fetch?.browserFallbackBudgetMs === null || fetch?.browserFallbackBudgetMs === undefined
+            ? null
+            : Number(fetch.browserFallbackBudgetMs),
+        browserFallbackBudgetUsedMs: Number(fetch?.browserFallbackBudgetUsedMs ?? 0),
+        browserFallbackBudgetRemainingMs:
+          fetch?.browserFallbackBudgetRemainingMs === null || fetch?.browserFallbackBudgetRemainingMs === undefined
+            ? null
+            : Number(fetch.browserFallbackBudgetRemainingMs),
         detailAttemptedCount: Number(fetch?.detailAttemptedCount ?? 0),
       },
       parse: {

@@ -51,6 +51,8 @@ const buildEnv = (overrides: Partial<WorkerEnv> = {}): WorkerEnv =>
     PRACUJ_LISTING_DELAY_MS: 1500,
     PRACUJ_LISTING_COOLDOWN_MS: 0,
     PRACUJ_DETAIL_DELAY_MS: 2000,
+    PRACUJ_BROWSER_FALLBACK_MAX_COUNT: 3,
+    PRACUJ_BROWSER_FALLBACK_BUDGET_MS: 30000,
     PRACUJ_DETAIL_CACHE_HOURS: 24,
     PRACUJ_LISTING_ONLY: false,
     PRACUJ_DETAIL_HOST: undefined,
@@ -219,6 +221,8 @@ test('reports worker queue and concurrency policy on health', async () => {
       PRACUJ_DETAIL_CONCURRENCY: 3,
       PRACUJ_DETAIL_DELAY_MS: 1500,
       PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS: 4500,
+      PRACUJ_BROWSER_FALLBACK_MAX_COUNT: 4,
+      PRACUJ_BROWSER_FALLBACK_BUDGET_MS: 18000,
     }),
     logger,
   );
@@ -233,7 +237,13 @@ test('reports worker queue and concurrency policy on health', async () => {
     const body = (await response.json()) as {
       ok: boolean;
       queue: { maxConcurrent: number; maxQueueSize: number; taskTimeoutMs: number };
-      policy: { detailConcurrency: number; detailDelayMs: number; browserFallbackCooldownMs: number };
+      policy: {
+        detailConcurrency: number;
+        detailDelayMs: number;
+        browserFallbackCooldownMs: number;
+        browserFallbackMaxCount: number;
+        browserFallbackBudgetMs: number;
+      };
     };
 
     assert.equal(body.ok, true);
@@ -243,6 +253,8 @@ test('reports worker queue and concurrency policy on health', async () => {
     assert.equal(body.policy.detailConcurrency, 3);
     assert.equal(body.policy.detailDelayMs, 1500);
     assert.equal(body.policy.browserFallbackCooldownMs, 4500);
+    assert.equal(body.policy.browserFallbackMaxCount, 4);
+    assert.equal(body.policy.browserFallbackBudgetMs, 18000);
   } finally {
     await closeServer(server);
   }

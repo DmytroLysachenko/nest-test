@@ -85,6 +85,10 @@ type CallbackPayload = {
     };
     detailAttemptedCount?: number;
     detailBudget?: number | null;
+    browserFallbackCount?: number;
+    browserFallbackBudgetMs?: number | null;
+    browserFallbackBudgetUsedMs?: number;
+    browserFallbackBudgetRemainingMs?: number | null;
     detailStopReason?: 'completed' | 'budget_reached' | 'source_degraded';
     silentFailure?: boolean;
     artifacts?: OutputArtifactManifest | null;
@@ -94,6 +98,9 @@ type CallbackPayload = {
         jobLinksDiscovered: number;
         blockedPages: number;
         browserFallbacks: number;
+        browserFallbackBudgetMs?: number | null;
+        browserFallbackBudgetUsedMs?: number;
+        browserFallbackBudgetRemainingMs?: number | null;
         detailAttemptedCount: number;
       };
       parse: {
@@ -1089,6 +1096,8 @@ export const runScrapeJob = async (
     detailDelayMs?: number;
     detailConcurrency?: number;
     browserFallbackCooldownMs?: number;
+    browserFallbackMaxCount?: number;
+    browserFallbackBudgetMs?: number;
     detailCacheHours?: number;
     listingOnly?: boolean;
     detailHost?: string;
@@ -1156,6 +1165,10 @@ export const runScrapeJob = async (
     let attemptsExecuted = 0;
     let adaptiveDetailDelayMs = effectiveTiming.detailDelayMs;
     let adaptiveDelayApplied = 0;
+    let lastBrowserFallbackCount = 0;
+    let lastBrowserFallbackBudgetMs: number | null = options.browserFallbackBudgetMs ?? null;
+    let lastBrowserFallbackBudgetUsedMs = 0;
+    let lastBrowserFallbackBudgetRemainingMs: number | null = options.browserFallbackBudgetMs ?? null;
     const emitExecutionEvent = async (
       stage: string,
       status: 'info' | 'success' | 'warning' | 'failed',
@@ -1520,6 +1533,8 @@ export const runScrapeJob = async (
           detailDelayMs: adaptiveDetailDelayMs,
           detailConcurrency: options.detailConcurrency,
           browserFallbackCooldownMs: effectiveTiming.browserFallbackCooldownMs,
+          browserFallbackMaxCount: options.browserFallbackMaxCount,
+          browserFallbackBudgetMs: options.browserFallbackBudgetMs,
           listingOnly: options.listingOnly,
           detailHost: options.detailHost,
           detailCookiesPath: options.detailCookiesPath,
@@ -1644,6 +1659,10 @@ export const runScrapeJob = async (
       totalDetailAttemptedCount += crawlResult.detailAttemptedCount;
       lastDetailBudget = crawlResult.detailBudget;
       lastDetailStopReason = crawlResult.detailStopReason;
+      lastBrowserFallbackCount = crawlResult.browserFallbackCount;
+      lastBrowserFallbackBudgetMs = crawlResult.browserFallbackBudgetMs;
+      lastBrowserFallbackBudgetUsedMs = crawlResult.browserFallbackBudgetUsedMs;
+      lastBrowserFallbackBudgetRemainingMs = crawlResult.browserFallbackBudgetRemainingMs;
       crawlResult.jobLinks.forEach((url) => aggregatedJobLinks.add(url));
       crawlResult.skippedUrls.forEach((url) => aggregatedSkippedUrls.add(url));
       crawlResult.recommendedJobLinks.forEach((url) => aggregatedRecommendedLinks.add(url));
@@ -1796,13 +1815,16 @@ export const runScrapeJob = async (
       options.outputMode === 'full' ? (options.outputRetentionHours ?? 72) : undefined,
     );
     const outputPath = output.path;
-    const browserFallbackCount = aggregatedDiagnostics.filter((item) => item.transport === 'browser').length;
+    const browserFallbackCount = lastBrowserFallbackCount;
     const stageMetrics = {
       fetch: {
         pagesVisited: aggregatedPages.length,
         jobLinksDiscovered: aggregatedJobLinks.size,
         blockedPages: aggregatedBlockedUrls.length,
         browserFallbacks: browserFallbackCount,
+        browserFallbackBudgetMs: lastBrowserFallbackBudgetMs,
+        browserFallbackBudgetUsedMs: lastBrowserFallbackBudgetUsedMs,
+        browserFallbackBudgetRemainingMs: lastBrowserFallbackBudgetRemainingMs,
         detailAttemptedCount: totalDetailAttemptedCount,
       },
       parse: {
@@ -1862,6 +1884,10 @@ export const runScrapeJob = async (
           blockedPages: aggregatedBlockedUrls.length,
           detailAttemptedCount: totalDetailAttemptedCount,
           detailBudget: lastDetailBudget,
+          browserFallbackCount: lastBrowserFallbackCount,
+          browserFallbackBudgetMs: lastBrowserFallbackBudgetMs,
+          browserFallbackBudgetUsedMs: lastBrowserFallbackBudgetUsedMs,
+          browserFallbackBudgetRemainingMs: lastBrowserFallbackBudgetRemainingMs,
           detailStopReason: lastDetailStopReason,
           silentFailure,
           artifacts: output.artifacts,

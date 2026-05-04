@@ -206,6 +206,8 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger, deps: TaskServe
       detailDelayMs: env.PRACUJ_DETAIL_DELAY_MS,
       detailConcurrency: env.PRACUJ_DETAIL_CONCURRENCY,
       browserFallbackCooldownMs: env.PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS,
+      browserFallbackMaxCount: env.PRACUJ_BROWSER_FALLBACK_MAX_COUNT,
+      browserFallbackBudgetMs: env.PRACUJ_BROWSER_FALLBACK_BUDGET_MS,
       detailCacheHours: env.PRACUJ_DETAIL_CACHE_HOURS,
       listingOnly: env.PRACUJ_LISTING_ONLY,
       detailHost: env.PRACUJ_DETAIL_HOST,
@@ -331,6 +333,8 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger, deps: TaskServe
           detailConcurrency: env.PRACUJ_DETAIL_CONCURRENCY,
           detailDelayMs: env.PRACUJ_DETAIL_DELAY_MS,
           browserFallbackCooldownMs: env.PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS,
+          browserFallbackMaxCount: env.PRACUJ_BROWSER_FALLBACK_MAX_COUNT,
+          browserFallbackBudgetMs: env.PRACUJ_BROWSER_FALLBACK_BUDGET_MS,
         },
       });
       return;

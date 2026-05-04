@@ -53,6 +53,8 @@ const envSchema = z.object({
   PRACUJ_DETAIL_DELAY_MS: z.coerce.number().int().min(0).max(30000).default(2000),
   PRACUJ_DETAIL_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(2),
   PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS: z.coerce.number().int().min(0).max(60000).default(4000),
+  PRACUJ_BROWSER_FALLBACK_MAX_COUNT: z.coerce.number().int().min(1).max(20).default(3),
+  PRACUJ_BROWSER_FALLBACK_BUDGET_MS: z.coerce.number().int().min(1000).max(180000).default(30000),
   PRACUJ_DETAIL_CACHE_HOURS: z.coerce.number().int().min(0).max(720).default(24),
   PRACUJ_LISTING_ONLY: booleanSchema.default(false),
   PRACUJ_DETAIL_HOST: z.string().optional(),
