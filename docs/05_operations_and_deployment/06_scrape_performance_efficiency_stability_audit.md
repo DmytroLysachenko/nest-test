@@ -1,6 +1,6 @@
 # Scrape Performance Efficiency Stability Audit
 
-Last updated: 2026-04-16
+Last updated: 2026-05-04
 
 ## Purpose
 
@@ -76,10 +76,11 @@ Implemented on 2026-04-16:
 14. Worker incremental offer delivery now uses the batch endpoint instead of serial per-offer callbacks.
 15. Ops metrics now surface callback dead letters, incremental ingest dead letters, source degradation, stale-run, and scheduler-enqueue alert flags.
 16. Focused coverage was added for env deadline validation, callback hash stability, batch incremental ingest payloads, extended task metadata, and adapter-specific pipeline stages.
+17. Active worker-task lease ownership now persists in `worker_task_executions`, and worker ingress claims that row atomically instead of deriving duplicate protection only from `scrape_execution_events`.
 
 Remaining follow-up work:
 
-1. Move active lease ownership from event-derived state to an atomic task-execution table if high-concurrency duplicate prevention becomes necessary.
+1. Completed: active lease ownership now lives in the atomic `worker_task_executions` table instead of event-derived state.
 2. Wire the new ops alert flags into the production alerting provider and notification channels.
 3. Add smoke/e2e coverage that exercises Cloud Tasks dispatch, batch incremental ingest, terminal callback, and dead-letter replay together.
 4. Continue with the lower-priority throughput work: bounded HTTP detail concurrency, browser fallback budgets, and production artifact storage policy.
@@ -157,9 +158,15 @@ Proposed solution:
 
 Suggested implementation slice:
 
-1. Add `worker_task_executions` table or extend existing scrape execution events with a deterministic task id.
-2. Record `accepted`, `started`, `heartbeat`, `completed`, `failed`, and `timed_out`.
-3. Refuse duplicate active execution for the same `sourceRunId` unless the existing lease is expired.
+1. Completed: added `worker_task_executions` as the durable lease owner for worker ingress.
+2. Completed for current lifecycle needs: worker task execution now records `accepted`, `started`, `completed`, `failed`, and `timed_out`.
+3. Completed: duplicate active execution for the same `sourceRunId` is now refused from the atomic task-execution row unless the existing lease is expired or terminal.
+
+Implementation note:
+
+- `scrape_execution_events` remains the forensic event ledger.
+- `worker_task_executions` is now the concurrency-control and current-lease source of truth.
+- This split keeps event history append-only while giving worker ingress one durable row to claim/update per `sourceRunId`.
 
 ## 2. Task Dispatch Deadlines Are Not Explicitly Aligned
 

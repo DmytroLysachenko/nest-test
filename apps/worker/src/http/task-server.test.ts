@@ -8,6 +8,7 @@ import { createTaskServer } from './task-server';
 import type { AddressInfo } from 'node:net';
 import type { Logger } from 'pino';
 import type { WorkerEnv } from '../config/env';
+import type { TaskEnvelope } from '../queue/task-types';
 
 type VerifyIdTokenResult = Awaited<ReturnType<OAuth2Client['verifyIdToken']>>;
 
@@ -243,6 +244,62 @@ test('reports worker queue and concurrency policy on health', async () => {
     assert.equal(body.policy.detailDelayMs, 1500);
     assert.equal(body.policy.browserFallbackCooldownMs, 4500);
   } finally {
+    await closeServer(server);
+  }
+});
+
+test('returns duplicate when a durable worker task execution lease is already active', async () => {
+  const originalVerifyIdToken = OAuth2Client.prototype.verifyIdToken;
+  OAuth2Client.prototype.verifyIdToken = (async () =>
+    ({
+      getPayload: () => ({
+        iss: 'https://accounts.google.com',
+        email: 'expected-caller@example.iam.gserviceaccount.com',
+        email_verified: true,
+      }),
+    }) as unknown as VerifyIdTokenResult) as unknown as OAuth2Client['verifyIdToken'];
+
+  const server = createTaskServer(buildEnv({ WORKER_SMOKE_ACCEPT_ONLY: true }), logger, {
+    claimWorkerTaskExecution: async () =>
+      ({
+        outcome: 'duplicate',
+        execution: {
+          taskId: 'task-active-1',
+          leaseExpiresAt: new Date('2026-05-04T10:00:00.000Z'),
+          status: 'accepted',
+        },
+      }) as const,
+  });
+  await new Promise<void>((resolve) => {
+    server.listen(0, () => resolve());
+  });
+  const port = (server.address() as AddressInfo).port;
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/tasks`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer fake-id-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: 'scrape:source',
+        payload: {
+          taskSchemaVersion: '1',
+          source: 'pracuj-pl',
+          sourceRunId: '2f149bf9-65fd-48b5-aec7-8dc86abfca78',
+          taskId: 'task-new-1',
+          listingUrl: 'https://it.pracuj.pl/praca',
+        } satisfies TaskEnvelope['payload'],
+      }),
+    });
+
+    assert.equal(response.status, 202);
+    const body = (await response.json()) as { reason?: string; activeTaskId?: string };
+    assert.equal(body.reason, 'active-task-execution');
+    assert.equal(body.activeTaskId, 'task-active-1');
+  } finally {
+    OAuth2Client.prototype.verifyIdToken = originalVerifyIdToken;
     await closeServer(server);
   }
 });

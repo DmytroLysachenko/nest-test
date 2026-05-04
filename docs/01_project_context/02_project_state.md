@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-05-03
+Last updated: 2026-05-04
 
 ## Purpose
 
@@ -152,6 +152,7 @@ That framing should guide future implementation more than raw source count.
   - scrape enqueue responses now return explicit catalog-rematch and DB-reuse diagnostics so fresh-result gating is visible instead of silently falling through to worker dispatch
 - Worker
   - scrape lifecycle visibility is materially stronger
+  - duplicate active scrape execution protection now uses a durable `worker_task_executions` lease row instead of relying only on event-history reads
   - diagnostics now distinguish degraded/empty/blocked/partial outcomes
   - diagnostics now also expose artifact manifests, stage metrics, and silent-failure classification so completed-but-useless runs are not treated as healthy success
   - stage metrics now distinguish unique discovered offers, full-detail offers, partial-detail offers, and listing-salvaged offers
@@ -235,6 +236,7 @@ That framing should guide future implementation more than raw source count.
 - No v1/v2 dual-read path; schema replaced in-place pre-production.
 - Worker scraping is service-oriented (API enqueues, worker callbacks).
 - In-memory worker queue with controlled concurrency.
+- Durable worker ingress lease ownership via `worker_task_executions`, while the in-process queue remains a local execution/runtime limitation.
 - Callback idempotency and optional callback signature validation.
 - Callback retry uses exponential backoff + jitter with env-driven caps.
 - Scraper ignores recommended offers and relaxes strict filters when zero results.

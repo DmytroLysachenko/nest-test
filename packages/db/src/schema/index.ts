@@ -39,6 +39,7 @@ import * as rolePermissions from './role-permissions';
 import * as roles from './roles';
 import * as scrapeOutcomes from './scrape-outcomes';
 import * as scrapeExecutionEvents from './scrape-execution-events';
+import * as workerTaskExecutions from './worker-task-executions';
 import * as seniorityLevels from './seniority-levels';
 import * as technologies from './technologies';
 import * as userJobOffers from './user-job-offers';
@@ -87,6 +88,7 @@ export * from './role-permissions';
 export * from './roles';
 export * from './scrape-outcomes';
 export * from './scrape-execution-events';
+export * from './worker-task-executions';
 export * from './seniority-levels';
 export * from './technologies';
 export * from './user-job-offers';
@@ -142,6 +144,7 @@ const schema = {
   ...roles,
   ...scrapeOutcomes,
   ...scrapeExecutionEvents,
+  ...workerTaskExecutions,
   ...seniorityLevels,
   ...technologies,
   ...userJobOffers,

@@ -1,6 +1,6 @@
 # Implementation History
 
-Last updated: 2026-04-26
+Last updated: 2026-05-04
 
 ## Purpose
 
@@ -9,6 +9,27 @@ This document tracks major implementation shifts in chronological order.
 It is not a full changelog. It exists to preserve the architectural story of the product so future work can build on deliberate decisions instead of rediscovering them.
 
 ## History
+
+### `014` Durable worker task execution lease ownership
+
+Summary:
+
+- introduced `worker_task_executions` as the durable worker-ingress lease owner
+- moved duplicate active execution protection off event-derived reads and onto one atomic row per `sourceRunId`
+- kept `scrape_execution_events` as the append-only forensic lifecycle ledger
+
+Primary code areas:
+
+- `packages/db/src/schema/worker-task-executions.ts`
+- `apps/worker/src/db/worker-task-executions.ts`
+- `apps/worker/src/http/task-server.ts`
+- `apps/worker/src/queue/task-runner.ts`
+
+Related docs:
+
+- `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
+- `docs/01_project_context/02_project_state.md`
+- `docs/04_architecture_and_data/01_decisions.md`
 
 ### `001` Core scrape run and shared offer foundation
 

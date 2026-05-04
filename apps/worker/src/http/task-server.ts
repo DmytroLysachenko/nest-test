@@ -4,7 +4,8 @@ import { createServer } from 'http';
 import { OAuth2Client } from 'google-auth-library';
 
 import { replayDeadLetters } from '../jobs/callback-dead-letter';
-import { appendScrapeExecutionEvent, findActiveScrapeExecutionLease } from '../db/scrape-execution-events';
+import { appendScrapeExecutionEvent } from '../db/scrape-execution-events';
+import { claimWorkerTaskExecution, updateWorkerTaskExecution } from '../db/worker-task-executions';
 import { TaskRunner } from '../queue/task-runner';
 import { taskEnvelopeSchema } from '../queue/task-types';
 
@@ -13,6 +14,13 @@ import type { Logger } from 'pino';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { TaskEnvelope } from '../queue/task-types';
 import type { ScrapeSourceJob } from '../types/jobs';
+
+type WorkerTaskExecutionClaimResult = Awaited<ReturnType<typeof claimWorkerTaskExecution>>;
+type TaskServerDeps = {
+  claimWorkerTaskExecution?: typeof claimWorkerTaskExecution;
+  updateWorkerTaskExecution?: typeof updateWorkerTaskExecution;
+  appendScrapeExecutionEvent?: typeof appendScrapeExecutionEvent;
+};
 
 type CorsHeaders = {
   'Access-Control-Allow-Origin'?: string;
@@ -184,7 +192,10 @@ const resolveRequestId = (req: IncomingMessage) => {
   return header || randomUUID();
 };
 
-export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
+export const createTaskServer = (env: WorkerEnv, logger: Logger, deps: TaskServerDeps = {}) => {
+  const claimExecution = deps.claimWorkerTaskExecution ?? claimWorkerTaskExecution;
+  const persistExecution = deps.updateWorkerTaskExecution ?? updateWorkerTaskExecution;
+  const appendExecutionEvent = deps.appendScrapeExecutionEvent ?? appendScrapeExecutionEvent;
   const runner = new TaskRunner(
     logger,
     {
@@ -220,6 +231,78 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
     env.WORKER_MAX_CONCURRENT_TASKS,
     env.WORKER_MAX_QUEUE_SIZE,
     env.WORKER_TASK_TIMEOUT_MS,
+    {
+      onStateChange: async (task, status, error) => {
+        const sourceRunId = task.payload.sourceRunId;
+        if (!sourceRunId) {
+          return;
+        }
+
+        const requestId = task.payload.requestId;
+        const leaseExpiresAt =
+          status === 'started' && task.payload.leaseExpiresAt
+            ? new Date(task.payload.leaseExpiresAt)
+            : status === 'completed' || status === 'failed' || status === 'timed_out'
+              ? null
+              : undefined;
+
+        await persistExecution(env.DATABASE_URL, {
+          sourceRunId,
+          status,
+          leaseExpiresAt,
+          error: error instanceof Error ? error.message : error ? String(error) : null,
+          meta:
+            status === 'timed_out'
+              ? {
+                  taskTimeoutMs: env.WORKER_TASK_TIMEOUT_MS,
+                }
+              : undefined,
+        }).catch((persistError) => {
+          logger.warn(
+            { requestId, sourceRunId, error: formatError(persistError) },
+            'Failed to persist task execution state',
+          );
+        });
+
+        await appendExecutionEvent(env.DATABASE_URL, {
+          sourceRunId,
+          traceId: task.payload.traceId,
+          requestId,
+          taskId: task.payload.taskId,
+          dedupeKey: task.payload.dedupeKey,
+          leaseExpiresAt: leaseExpiresAt ?? undefined,
+          executionStatus: status,
+          stage: 'task_execution',
+          status: status === 'completed' ? 'success' : status === 'started' ? 'info' : 'failed',
+          code:
+            status === 'started'
+              ? 'WORKER_TASK_STARTED'
+              : status === 'completed'
+                ? 'WORKER_TASK_COMPLETED'
+                : status === 'timed_out'
+                  ? 'WORKER_TASK_TIMED_OUT'
+                  : 'WORKER_TASK_FAILED',
+          message:
+            status === 'started'
+              ? 'Worker task execution started'
+              : status === 'completed'
+                ? 'Worker task execution completed'
+                : status === 'timed_out'
+                  ? 'Worker task execution timed out'
+                  : 'Worker task execution failed',
+          meta: error
+            ? {
+                error: error instanceof Error ? error.message : String(error),
+              }
+            : null,
+        }).catch((appendError) => {
+          logger.warn(
+            { requestId, sourceRunId, error: formatError(appendError) },
+            'Failed to persist task execution lifecycle event',
+          );
+        });
+      },
+    },
   );
 
   return createServer(async (req, res) => {
@@ -300,37 +383,48 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger) => {
         task.payload.requestId = requestId;
       }
 
-      const activeLease = await findActiveScrapeExecutionLease(env.DATABASE_URL, {
+      const executionClaim = await claimExecution(env.DATABASE_URL, {
         sourceRunId: task.payload.sourceRunId,
+        taskId: task.payload.taskId,
+        traceId: task.payload.traceId,
+        requestId,
+        dedupeKey: task.payload.dedupeKey,
+        queueProvider: env.QUEUE_PROVIDER,
+        leaseExpiresAt: task.payload.leaseExpiresAt ? new Date(task.payload.leaseExpiresAt) : undefined,
+        meta: {
+          taskName: task.name,
+          taskTimeoutMs: task.payload.taskTimeoutMs ?? null,
+          dispatchDeadlineMs: task.payload.dispatchDeadlineMs ?? null,
+        },
       }).catch((error) => {
-        logger.warn({ requestId, error: formatError(error) }, 'Failed to check active scrape execution lease');
-        return null;
+        logger.warn({ requestId, error: formatError(error) }, 'Failed to claim worker task execution lease');
+        return { outcome: 'skipped' } as WorkerTaskExecutionClaimResult;
       });
-      if (activeLease) {
+      if (executionClaim.outcome === 'duplicate') {
         logger.warn(
           {
             requestId,
             sourceRunId: task.payload.sourceRunId ?? null,
-            activeTaskId: activeLease.taskId ?? null,
-            activeLeaseExpiresAt: activeLease.leaseExpiresAt?.toISOString?.() ?? null,
+            activeTaskId: executionClaim.execution?.taskId ?? null,
+            activeLeaseExpiresAt: executionClaim.execution?.leaseExpiresAt?.toISOString?.() ?? null,
           },
-          'Task skipped because an active scrape execution lease exists',
+          'Task skipped because an active worker task execution lease exists',
         );
         sendJson(res, 202, {
           ok: true,
           status: 'duplicate',
-          reason: 'active-execution-lease',
+          reason: 'active-task-execution',
           queueProvider: env.QUEUE_PROVIDER,
           requestId,
           runId: task.payload.runId ?? null,
           sourceRunId: task.payload.sourceRunId ?? null,
-          activeTaskId: activeLease.taskId ?? null,
-          leaseExpiresAt: activeLease.leaseExpiresAt?.toISOString?.() ?? null,
+          activeTaskId: executionClaim.execution?.taskId ?? null,
+          leaseExpiresAt: executionClaim.execution?.leaseExpiresAt?.toISOString?.() ?? null,
         });
         return;
       }
 
-      await appendScrapeExecutionEvent(env.DATABASE_URL, {
+      await appendExecutionEvent(env.DATABASE_URL, {
         sourceRunId: task.payload.sourceRunId,
         traceId: task.payload.traceId,
         requestId,
