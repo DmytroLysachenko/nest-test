@@ -28,7 +28,7 @@ Primary code areas:
 Related docs:
 
 - `docs/05_operations_and_deployment/01_runbook.md`
-- `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
+- `docs/99_archive_legacy/06_scrape_performance_efficiency_stability_audit_completed.md`
 - `docs/01_project_context/02_project_state.md`
 
 ### `017` Production-safe worker artifact policy
@@ -49,7 +49,7 @@ Primary code areas:
 Related docs:
 
 - `docs/05_operations_and_deployment/01_runbook.md`
-- `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
+- `docs/99_archive_legacy/06_scrape_performance_efficiency_stability_audit_completed.md`
 - `docs/01_project_context/02_project_state.md`
 
 ### `016` Scrape smoke coverage for batch ingest and dead-letter replay
@@ -68,7 +68,7 @@ Related docs:
 
 - `docs/05_operations_and_deployment/01_runbook.md`
 - `docs/05_operations_and_deployment/02_e2e_debugging.md`
-- `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
+- `docs/99_archive_legacy/06_scrape_performance_efficiency_stability_audit_completed.md`
 
 ### `015` Proactive ops alert dispatch and delivery ledger
 
@@ -87,7 +87,7 @@ Primary code areas:
 
 Related docs:
 
-- `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
+- `docs/99_archive_legacy/06_scrape_performance_efficiency_stability_audit_completed.md`
 - `docs/05_operations_and_deployment/01_runbook.md`
 - `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md`
 
@@ -108,7 +108,7 @@ Primary code areas:
 
 Related docs:
 
-- `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
+- `docs/99_archive_legacy/06_scrape_performance_efficiency_stability_audit_completed.md`
 - `docs/01_project_context/02_project_state.md`
 - `docs/04_architecture_and_data/01_decisions.md`
 
