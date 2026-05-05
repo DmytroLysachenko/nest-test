@@ -73,7 +73,6 @@ Runtime operations, debugging, deploy guidance, and env/deploy contracts.
 - `03_prod_deploy_guide.md`
 - `04_gcp_deploy_matrix.md`
 - `05_env_matrix.md`
-- `06_scrape_performance_efficiency_stability_audit.md`
 
 ### `06_engineering_standards`
 
@@ -97,6 +96,7 @@ Superseded or low-priority docs kept only for historical reference.
 - `03_product_surface_and_role_boundary_audit_plan_completed.md`
 - `05_catalog_standardization_implementation_plan.md`
 - `06_scrape_reliability_and_catalog_audit_plan.md`
+- `06_scrape_performance_efficiency_stability_audit_completed.md`
 - `07_rate_limit_matching_data_quality_plan.md`
 - `09_performance_scalability_audit_plan.md`
 - `11_information_architecture_and_workflow_ownership_audit_plan_completed.md`

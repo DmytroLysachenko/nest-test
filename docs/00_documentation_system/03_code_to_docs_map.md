@@ -19,7 +19,6 @@ Responsible docs:
 - `docs/05_operations_and_deployment/01_runbook.md`
 - `docs/05_operations_and_deployment/02_e2e_debugging.md`
 - `docs/07_debugging_and_quality/01_debugging_playbook.md`
-- `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
 - `docs/02_product_workflows/01_scrape_catalog_evolution_plan.md` when catalog/company direction changes
 
 ### `apps/api/src/features/job-offers`
@@ -55,7 +54,6 @@ Responsible docs:
 - `docs/05_operations_and_deployment/01_runbook.md`
 - `docs/05_operations_and_deployment/02_e2e_debugging.md`
 - `docs/07_debugging_and_quality/01_debugging_playbook.md`
-- `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
 - `docs/01_project_context/02_project_state.md`
 - `docs/06_engineering_standards/02_backend_and_repo_standards.md`
 
