@@ -84,7 +84,11 @@ type CallbackPayload = {
       callbackDispatchFailures: number;
     };
     detailAttemptedCount?: number;
+    detailBatchCount?: number;
     detailBudget?: number | null;
+    detailConcurrencyRequested?: number;
+    detailConcurrencyEffective?: number;
+    browserFallbackConcurrency?: 'serial';
     browserFallbackCount?: number;
     browserFallbackBudgetMs?: number | null;
     browserFallbackBudgetUsedMs?: number;
@@ -102,6 +106,10 @@ type CallbackPayload = {
         browserFallbackBudgetUsedMs?: number;
         browserFallbackBudgetRemainingMs?: number | null;
         detailAttemptedCount: number;
+        detailBatchCount: number;
+        detailConcurrencyRequested: number;
+        detailConcurrencyEffective: number;
+        browserFallbackConcurrency: 'serial';
       };
       parse: {
         acceptedOfferCount: number;
@@ -1168,6 +1176,9 @@ export const runScrapeJob = async (
     let adaptiveDetailDelayMs = effectiveTiming.detailDelayMs;
     let adaptiveDelayApplied = 0;
     let lastBrowserFallbackCount = 0;
+    let lastDetailBatchCount = 0;
+    let lastDetailConcurrencyRequested = options.detailConcurrency ?? 1;
+    let lastDetailConcurrencyEffective = 0;
     let lastBrowserFallbackBudgetMs: number | null = options.browserFallbackBudgetMs ?? null;
     let lastBrowserFallbackBudgetUsedMs = 0;
     let lastBrowserFallbackBudgetRemainingMs: number | null = options.browserFallbackBudgetMs ?? null;
@@ -1659,8 +1670,11 @@ export const runScrapeJob = async (
       listingData = crawlResult.listingData;
       listingSummaries = crawlResult.listingSummaries;
       totalDetailAttemptedCount += crawlResult.detailAttemptedCount;
+      lastDetailBatchCount = crawlResult.detailBatchCount;
       lastDetailBudget = crawlResult.detailBudget;
       lastDetailStopReason = crawlResult.detailStopReason;
+      lastDetailConcurrencyRequested = crawlResult.detailConcurrencyRequested;
+      lastDetailConcurrencyEffective = crawlResult.detailConcurrencyEffective;
       lastBrowserFallbackCount = crawlResult.browserFallbackCount;
       lastBrowserFallbackBudgetMs = crawlResult.browserFallbackBudgetMs;
       lastBrowserFallbackBudgetUsedMs = crawlResult.browserFallbackBudgetUsedMs;
@@ -1829,6 +1843,10 @@ export const runScrapeJob = async (
         browserFallbackBudgetUsedMs: lastBrowserFallbackBudgetUsedMs,
         browserFallbackBudgetRemainingMs: lastBrowserFallbackBudgetRemainingMs,
         detailAttemptedCount: totalDetailAttemptedCount,
+        detailBatchCount: lastDetailBatchCount,
+        detailConcurrencyRequested: lastDetailConcurrencyRequested,
+        detailConcurrencyEffective: lastDetailConcurrencyEffective,
+        browserFallbackConcurrency: 'serial',
       },
       parse: {
         acceptedOfferCount: assessedJobs.acceptedOfferCount,
@@ -1886,7 +1904,11 @@ export const runScrapeJob = async (
           skippedFreshUrls: aggregatedSkippedUrls.size,
           blockedPages: aggregatedBlockedUrls.length,
           detailAttemptedCount: totalDetailAttemptedCount,
+          detailBatchCount: lastDetailBatchCount,
           detailBudget: lastDetailBudget,
+          detailConcurrencyRequested: lastDetailConcurrencyRequested,
+          detailConcurrencyEffective: lastDetailConcurrencyEffective,
+          browserFallbackConcurrency: 'serial',
           browserFallbackCount: lastBrowserFallbackCount,
           browserFallbackBudgetMs: lastBrowserFallbackBudgetMs,
           browserFallbackBudgetUsedMs: lastBrowserFallbackBudgetUsedMs,
@@ -2092,6 +2114,10 @@ export const runScrapeJob = async (
               blockedPages: 0,
               browserFallbacks: 0,
               detailAttemptedCount: 0,
+              detailBatchCount: 0,
+              detailConcurrencyRequested: 0,
+              detailConcurrencyEffective: 0,
+              browserFallbackConcurrency: 'serial',
             },
             parse: {
               acceptedOfferCount: 0,

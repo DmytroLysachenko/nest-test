@@ -157,6 +157,7 @@ That framing should guide future implementation more than raw source count.
   - diagnostics now distinguish degraded/empty/blocked/partial outcomes
   - diagnostics now also expose artifact manifests, stage metrics, and silent-failure classification so completed-but-useless runs are not treated as healthy success
   - production worker boot now defaults debug artifact output to `minimal`, rejects `full` artifact mode unless explicitly allowed, and exposes filesystem-ephemeral artifact policy in diagnostics metadata
+  - worker health and scrape diagnostics now also expose requested/effective detail concurrency, detail batch counts, and the explicit rule that browser fallback remains serial even when HTTP detail fetches are concurrent
   - stage metrics now distinguish unique discovered offers, full-detail offers, partial-detail offers, and listing-salvaged offers
   - run diagnostics now expose a dedicated usefulness read model for listing, candidate, match, notebook-linking, strict-hidden, and degraded-output impact
   - source-specific alias normalization is now deterministic for contract type, work mode, and seniority fields

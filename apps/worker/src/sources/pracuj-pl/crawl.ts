@@ -1174,7 +1174,11 @@ export const crawlPracujPl = async (
   listingSummaries: ListingJobSummary[];
   detailDiagnostics: DetailFetchDiagnostics[];
   detailAttemptedCount: number;
+  detailBatchCount: number;
   detailBudget: number | null;
+  detailConcurrencyRequested: number;
+  detailConcurrencyEffective: number;
+  browserFallbackConcurrency: 'serial';
   browserFallbackCount: number;
   browserFallbackBudgetMs: number | null;
   browserFallbackBudgetUsedMs: number;
@@ -1361,6 +1365,7 @@ export const crawlPracujPl = async (
     );
     const detailBudget = options?.detailBudget ? Math.max(1, options.detailBudget) : null;
     const detailTargets = detailBudget ? detailTargetsAll.slice(0, detailBudget) : detailTargetsAll;
+    const detailConcurrencyEffective = detailTargets.length > 0 ? Math.min(detailConcurrency, detailTargets.length) : 0;
     if (skipUrls.size) {
       logger?.info(
         { skipped: skipUrls.size, total: normalizedLinks.length },
@@ -1386,7 +1391,11 @@ export const crawlPracujPl = async (
         listingSummaries,
         detailDiagnostics,
         detailAttemptedCount: 0,
+        detailBatchCount: 0,
         detailBudget,
+        detailConcurrencyRequested: detailConcurrency,
+        detailConcurrencyEffective: 0,
+        browserFallbackConcurrency: 'serial',
         browserFallbackCount,
         browserFallbackBudgetMs,
         browserFallbackBudgetUsedMs,
@@ -1405,6 +1414,7 @@ export const crawlPracujPl = async (
     let detailSourceDegraded = false;
     let detailBrowserTimeouts = 0;
     let detailBrowserFailures = 0;
+    let detailBatchCount = 0;
     const canUseBrowserFallback = (url: string) => {
       const nextCount = browserFallbackCount + 1;
       if (nextCount > browserFallbackMaxCount) {
@@ -1711,6 +1721,7 @@ export const crawlPracujPl = async (
         break;
       }
       const batch = detailTargets.slice(index, index + detailConcurrency);
+      detailBatchCount += 1;
       await Promise.all(batch.map((url) => processDetailTarget(url)));
     }
 
@@ -1733,7 +1744,11 @@ export const crawlPracujPl = async (
       listingSummaries,
       detailDiagnostics,
       detailAttemptedCount: detailTargets.length,
+      detailBatchCount,
       detailBudget,
+      detailConcurrencyRequested: detailConcurrency,
+      detailConcurrencyEffective,
+      browserFallbackConcurrency: 'serial',
       browserFallbackCount,
       browserFallbackBudgetMs,
       browserFallbackBudgetUsedMs,

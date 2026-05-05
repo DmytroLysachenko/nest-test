@@ -10,6 +10,27 @@ It is not a full changelog. It exists to preserve the architectural story of the
 
 ## History
 
+### `018` Explicit detail-concurrency policy in worker diagnostics
+
+Summary:
+
+- surfaced requested and effective HTTP detail concurrency into scrape diagnostics
+- added detail batch counts so throughput behavior can be explained without reading worker logs
+- made serial browser fallback an explicit worker-health and diagnostics contract instead of an implicit code detail
+
+Primary code areas:
+
+- `apps/worker/src/sources/pracuj-pl/crawl.ts`
+- `apps/worker/src/jobs/scrape-job.ts`
+- `apps/worker/src/http/task-server.ts`
+- `apps/api/src/features/job-sources/job-sources.service.ts`
+
+Related docs:
+
+- `docs/05_operations_and_deployment/01_runbook.md`
+- `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
+- `docs/01_project_context/02_project_state.md`
+
 ### `017` Production-safe worker artifact policy
 
 Summary:

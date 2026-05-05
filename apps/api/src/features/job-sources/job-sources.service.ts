@@ -3078,6 +3078,11 @@ export class JobSourcesService {
             ? null
             : Number(fetch.browserFallbackBudgetRemainingMs),
         detailAttemptedCount: Number(fetch?.detailAttemptedCount ?? 0),
+        detailBatchCount: Number(fetch?.detailBatchCount ?? 0),
+        detailConcurrencyRequested: Number(fetch?.detailConcurrencyRequested ?? 0),
+        detailConcurrencyEffective: Number(fetch?.detailConcurrencyEffective ?? 0),
+        browserFallbackConcurrency:
+          normalizeString(String(fetch?.browserFallbackConcurrency ?? '')) === 'serial' ? 'serial' : 'serial',
       },
       parse: {
         acceptedOfferCount: Number(parse?.acceptedOfferCount ?? 0),

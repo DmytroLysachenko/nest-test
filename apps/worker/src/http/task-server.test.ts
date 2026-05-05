@@ -245,6 +245,7 @@ test('reports worker queue and concurrency policy on health', async () => {
       policy: {
         detailConcurrency: number;
         detailDelayMs: number;
+        browserFallbackConcurrency: string;
         browserFallbackCooldownMs: number;
         browserFallbackMaxCount: number;
         browserFallbackBudgetMs: number;
@@ -260,6 +261,7 @@ test('reports worker queue and concurrency policy on health', async () => {
     assert.equal(body.queue.taskTimeoutMs, 120000);
     assert.equal(body.policy.detailConcurrency, 3);
     assert.equal(body.policy.detailDelayMs, 1500);
+    assert.equal(body.policy.browserFallbackConcurrency, 'serial');
     assert.equal(body.policy.browserFallbackCooldownMs, 4500);
     assert.equal(body.policy.browserFallbackMaxCount, 4);
     assert.equal(body.policy.browserFallbackBudgetMs, 18000);

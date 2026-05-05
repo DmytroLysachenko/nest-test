@@ -297,6 +297,10 @@ class ScrapeRunDiagnosticsDto {
       browserFallbackBudgetUsedMs?: number;
       browserFallbackBudgetRemainingMs?: number | null;
       detailAttemptedCount: number;
+      detailBatchCount: number;
+      detailConcurrencyRequested: number;
+      detailConcurrencyEffective: number;
+      browserFallbackConcurrency: 'serial';
     };
     parse: {
       acceptedOfferCount: number;

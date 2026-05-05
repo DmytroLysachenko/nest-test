@@ -147,6 +147,22 @@ Canonical environment inventory:
    - they should not be treated as durable evidence storage
    - long-term incident evidence should still be copied into explicit incident notes or external artifact storage when needed
 
+## Worker Detail-Fetch Throughput Policy
+
+1. HTTP detail fetches use bounded batch concurrency from `PRACUJ_DETAIL_CONCURRENCY`.
+2. Browser fallback remains serial even when HTTP detail fetches are concurrent.
+3. Worker health and scrape diagnostics now expose:
+   - requested detail concurrency
+   - effective detail concurrency for the current run
+   - detail batch count
+   - explicit `browserFallbackConcurrency=serial`
+4. When diagnosing slow or degraded runs, prefer these fields before changing source pacing blindly:
+   - `policy.detailConcurrency`
+   - `policy.browserFallbackConcurrency`
+   - `diagnostics.stageMetrics.fetch.detailConcurrencyRequested`
+   - `diagnostics.stageMetrics.fetch.detailConcurrencyEffective`
+   - `diagnostics.stageMetrics.fetch.detailBatchCount`
+
 ## Core Commands
 
 1. Install dependencies:

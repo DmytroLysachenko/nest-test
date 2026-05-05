@@ -334,6 +334,7 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger, deps: TaskServe
           taskTimeoutMs: env.WORKER_TASK_TIMEOUT_MS,
           detailConcurrency: env.PRACUJ_DETAIL_CONCURRENCY,
           detailDelayMs: env.PRACUJ_DETAIL_DELAY_MS,
+          browserFallbackConcurrency: 'serial',
           browserFallbackCooldownMs: env.PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS,
           browserFallbackMaxCount: env.PRACUJ_BROWSER_FALLBACK_MAX_COUNT,
           browserFallbackBudgetMs: env.PRACUJ_BROWSER_FALLBACK_BUDGET_MS,
