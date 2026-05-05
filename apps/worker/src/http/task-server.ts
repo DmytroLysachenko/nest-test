@@ -215,7 +215,9 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger, deps: TaskServe
       detailHumanize: env.PRACUJ_DETAIL_HUMANIZE,
       requireDetail: env.PRACUJ_REQUIRE_DETAIL,
       profileDir: env.PRACUJ_PROFILE_DIR,
+      outputStorageBackend: env.WORKER_OUTPUT_STORAGE_BACKEND,
       outputMode: env.WORKER_OUTPUT_MODE,
+      outputRawSampleLimit: env.WORKER_OUTPUT_RAW_SAMPLE_LIMIT,
       outputRetentionHours: env.WORKER_OUTPUT_RETENTION_HOURS,
       callbackUrl: env.WORKER_CALLBACK_URL,
       callbackToken: env.WORKER_CALLBACK_TOKEN,
@@ -335,6 +337,9 @@ export const createTaskServer = (env: WorkerEnv, logger: Logger, deps: TaskServe
           browserFallbackCooldownMs: env.PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS,
           browserFallbackMaxCount: env.PRACUJ_BROWSER_FALLBACK_MAX_COUNT,
           browserFallbackBudgetMs: env.PRACUJ_BROWSER_FALLBACK_BUDGET_MS,
+          outputStorageBackend: env.WORKER_OUTPUT_STORAGE_BACKEND,
+          outputMode: env.WORKER_OUTPUT_MODE,
+          outputRawSampleLimit: env.WORKER_OUTPUT_RAW_SAMPLE_LIMIT,
         },
       });
       return;

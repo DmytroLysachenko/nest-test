@@ -117,13 +117,35 @@ Canonical environment inventory:
   - `PRACUJ_BROWSER_FALLBACK_MAX_COUNT`
   - `PRACUJ_BROWSER_FALLBACK_BUDGET_MS`
   - `PRACUJ_DETAIL_CACHE_HOURS`
+  - `WORKER_OUTPUT_STORAGE_BACKEND` (currently `filesystem`)
   - `WORKER_OUTPUT_MODE`
+  - `WORKER_OUTPUT_ALLOW_FULL_IN_PROD` (must be `true` to permit `WORKER_OUTPUT_MODE=full` in production)
+  - `WORKER_OUTPUT_RAW_SAMPLE_LIMIT` (caps how many raw page sample paths are exposed in artifact manifests)
   - `WORKER_OUTPUT_RETENTION_HOURS`
   - `QUEUE_PROVIDER` (`local` or `cloud-tasks`)
   - `TASKS_AUTH_TOKEN` (optional if OIDC is used)
   - `TASKS_SERVICE_ACCOUNT_EMAIL` (required when using Cloud Tasks OIDC)
   - `TASKS_OIDC_AUDIENCE` (optional explicit ID token audience; defaults to `TASKS_URL`)
   - `WORKER_CALLBACK_OIDC_AUDIENCE` (optional OIDC audience used for worker -> API callbacks)
+
+## Worker Artifact Policy
+
+1. Worker debug artifacts are filesystem-backed and ephemeral.
+2. Artifact manifests now expose:
+   - `artifactMode`
+   - `storageBackend`
+   - `availability`
+   - `debugEnabled`
+3. Production-safe default:
+   - if `WORKER_OUTPUT_MODE` is not explicitly set in production, worker boot forces `minimal`
+4. Production guardrail:
+   - `WORKER_OUTPUT_MODE=full` is rejected in production unless `WORKER_OUTPUT_ALLOW_FULL_IN_PROD=true`
+5. Manifest exposure is intentionally bounded:
+   - `WORKER_OUTPUT_RAW_SAMPLE_LIMIT` caps how many raw sample paths are returned in diagnostics
+6. Current storage policy:
+   - filesystem artifacts are useful for short-lived debugging and local/support inspection
+   - they should not be treated as durable evidence storage
+   - long-term incident evidence should still be copied into explicit incident notes or external artifact storage when needed
 
 ## Core Commands
 
@@ -216,6 +238,9 @@ Interpretation rule:
 2. `COMPLETED` alone is not enough. Check `classifiedOutcome`, `story`, `silentFailure`, and notebook visibility.
 3. Prefer artifact-backed diagnostics before guessing:
    - `diagnostics.artifacts.outputPath`
+   - `diagnostics.artifacts.artifactMode`
+   - `diagnostics.artifacts.storageBackend`
+   - `diagnostics.artifacts.availability`
    - `diagnostics.artifacts.listing.htmlPath`
    - `diagnostics.artifacts.listing.dataPath`
    - `diagnostics.artifacts.rawPages.samplePaths`

@@ -21,6 +21,10 @@ type OutputPayload = {
 
 export type OutputArtifactManifest = {
   outputPath: string;
+  artifactMode: 'full' | 'minimal';
+  storageBackend: 'filesystem';
+  availability: 'ephemeral';
+  debugEnabled: boolean;
   retentionExpiresAt: string | null;
   rawPages: {
     count: number;
@@ -113,6 +117,7 @@ export const saveOutput = async (
   outputDir?: string,
   mode: 'full' | 'minimal' = 'full',
   retentionHours?: number,
+  rawSampleLimit = 5,
 ) => {
   const baseDir = resolveOutputDir(outputDir);
   await mkdir(baseDir, { recursive: true });
@@ -164,11 +169,15 @@ export const saveOutput = async (
     path,
     artifacts: {
       outputPath: path,
+      artifactMode: mode,
+      storageBackend: 'filesystem',
+      availability: 'ephemeral',
+      debugEnabled: mode === 'full',
       retentionExpiresAt,
       rawPages: {
         count: rawPages?.paths.length ?? 0,
         directory: rawPages?.rawDir ?? null,
-        samplePaths: rawPages?.paths.slice(0, 5).map((item) => item.htmlPath) ?? [],
+        samplePaths: rawPages?.paths.slice(0, Math.max(0, rawSampleLimit)).map((item) => item.htmlPath) ?? [],
       },
       listing: {
         htmlPath: listingData.htmlPath ?? null,

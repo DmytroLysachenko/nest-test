@@ -10,6 +10,27 @@ It is not a full changelog. It exists to preserve the architectural story of the
 
 ## History
 
+### `017` Production-safe worker artifact policy
+
+Summary:
+
+- made worker artifact output default to `minimal` in production unless explicitly overridden
+- rejected `WORKER_OUTPUT_MODE=full` in production unless an explicit allow flag is set
+- extended artifact manifests and diagnostics to describe mode, storage backend, availability, debug intent, and bounded raw sample exposure
+
+Primary code areas:
+
+- `apps/worker/src/config/env.ts`
+- `apps/worker/src/output/save-output.ts`
+- `apps/worker/src/http/task-server.ts`
+- `apps/api/src/features/job-sources/job-sources.service.ts`
+
+Related docs:
+
+- `docs/05_operations_and_deployment/01_runbook.md`
+- `docs/05_operations_and_deployment/06_scrape_performance_efficiency_stability_audit.md`
+- `docs/01_project_context/02_project_state.md`
+
 ### `016` Scrape smoke coverage for batch ingest and dead-letter replay
 
 Summary:

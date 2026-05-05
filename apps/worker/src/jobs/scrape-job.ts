@@ -1105,7 +1105,9 @@ export const runScrapeJob = async (
     detailHumanize?: boolean;
     requireDetail?: boolean;
     profileDir?: string;
+    outputStorageBackend?: 'filesystem';
     outputMode?: 'full' | 'minimal';
+    outputRawSampleLimit?: number;
     outputRetentionHours?: number;
     callbackUrl?: string;
     callbackToken?: string;
@@ -1813,6 +1815,7 @@ export const runScrapeJob = async (
       options.outputDir,
       options.outputMode,
       options.outputMode === 'full' ? (options.outputRetentionHours ?? 72) : undefined,
+      options.outputRawSampleLimit ?? 5,
     );
     const outputPath = output.path;
     const browserFallbackCount = lastBrowserFallbackCount;

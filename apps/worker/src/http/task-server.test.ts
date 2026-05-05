@@ -60,7 +60,10 @@ const buildEnv = (overrides: Partial<WorkerEnv> = {}): WorkerEnv =>
     PRACUJ_DETAIL_HUMANIZE: false,
     PRACUJ_REQUIRE_DETAIL: false,
     PRACUJ_PROFILE_DIR: undefined,
+    WORKER_OUTPUT_STORAGE_BACKEND: 'filesystem',
     WORKER_OUTPUT_MODE: 'minimal',
+    WORKER_OUTPUT_ALLOW_FULL_IN_PROD: false,
+    WORKER_OUTPUT_RAW_SAMPLE_LIMIT: 5,
     WORKER_MAX_CONCURRENT_TASKS: 1,
     WORKER_MAX_QUEUE_SIZE: 100,
     WORKER_TASK_TIMEOUT_MS: 180000,
@@ -223,6 +226,8 @@ test('reports worker queue and concurrency policy on health', async () => {
       PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS: 4500,
       PRACUJ_BROWSER_FALLBACK_MAX_COUNT: 4,
       PRACUJ_BROWSER_FALLBACK_BUDGET_MS: 18000,
+      WORKER_OUTPUT_MODE: 'full',
+      WORKER_OUTPUT_RAW_SAMPLE_LIMIT: 3,
     }),
     logger,
   );
@@ -243,6 +248,9 @@ test('reports worker queue and concurrency policy on health', async () => {
         browserFallbackCooldownMs: number;
         browserFallbackMaxCount: number;
         browserFallbackBudgetMs: number;
+        outputStorageBackend: string;
+        outputMode: string;
+        outputRawSampleLimit: number;
       };
     };
 
@@ -255,6 +263,9 @@ test('reports worker queue and concurrency policy on health', async () => {
     assert.equal(body.policy.browserFallbackCooldownMs, 4500);
     assert.equal(body.policy.browserFallbackMaxCount, 4);
     assert.equal(body.policy.browserFallbackBudgetMs, 18000);
+    assert.equal(body.policy.outputStorageBackend, 'filesystem');
+    assert.equal(body.policy.outputMode, 'full');
+    assert.equal(body.policy.outputRawSampleLimit, 3);
   } finally {
     await closeServer(server);
   }

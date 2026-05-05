@@ -89,9 +89,10 @@ Remaining follow-up work:
 Progress note on item 4:
 
 - browser fallback now has explicit worker env budgets for max fallback count and total fallback time, and the resulting usage/remaining budget is exposed in worker health plus scrape diagnostics.
+- worker artifact output now defaults to `minimal` in production unless explicitly overridden, rejects `full` artifact mode without an explicit allow flag, caps raw sample-path exposure, and tags manifests as filesystem-backed ephemeral debug output.
 - remaining work under item 4 is still:
   - final concurrency-policy cleanup for HTTP detail throughput
-  - explicit production artifact storage/retention policy beyond local filesystem manifests
+  - decide whether production incident retention should stay filesystem-plus-runbook or move to an external durable artifact store
 
 ## Current Strengths
 

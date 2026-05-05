@@ -69,6 +69,10 @@ class ScrapeRunDiagnosticsPayloadResponse {
   @ApiProperty({ nullable: true, type: Object })
   artifacts!: {
     outputPath: string | null;
+    artifactMode: string | null;
+    storageBackend: string | null;
+    availability: string | null;
+    debugEnabled: boolean;
     retentionExpiresAt: string | null;
     rawPages: {
       count: number;

@@ -3037,6 +3037,10 @@ export class JobSourcesService {
 
     return {
       outputPath: normalizeString(String(artifacts.outputPath ?? '')) ?? null,
+      artifactMode: normalizeString(String(artifacts.artifactMode ?? '')) ?? null,
+      storageBackend: normalizeString(String(artifacts.storageBackend ?? '')) ?? null,
+      availability: normalizeString(String(artifacts.availability ?? '')) ?? null,
+      debugEnabled: Boolean(artifacts.debugEnabled),
       retentionExpiresAt: normalizeString(String(artifacts.retentionExpiresAt ?? '')) ?? null,
       rawPages: {
         count: Number(rawPages?.count ?? 0),

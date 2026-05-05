@@ -268,6 +268,10 @@ class ScrapeRunDiagnosticsDto {
   @IsObject()
   artifacts?: {
     outputPath: string;
+    artifactMode: string | null;
+    storageBackend: string | null;
+    availability: string | null;
+    debugEnabled: boolean;
     retentionExpiresAt: string | null;
     rawPages: {
       count: number;
