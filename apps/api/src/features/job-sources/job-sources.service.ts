@@ -3037,6 +3037,10 @@ export class JobSourcesService {
 
     return {
       outputPath: normalizeString(String(artifacts.outputPath ?? '')) ?? null,
+      artifactMode: normalizeString(String(artifacts.artifactMode ?? '')) ?? null,
+      storageBackend: normalizeString(String(artifacts.storageBackend ?? '')) ?? null,
+      availability: normalizeString(String(artifacts.availability ?? '')) ?? null,
+      debugEnabled: Boolean(artifacts.debugEnabled),
       retentionExpiresAt: normalizeString(String(artifacts.retentionExpiresAt ?? '')) ?? null,
       rawPages: {
         count: Number(rawPages?.count ?? 0),
@@ -3064,7 +3068,21 @@ export class JobSourcesService {
         jobLinksDiscovered: Number(fetch?.jobLinksDiscovered ?? 0),
         blockedPages: Number(fetch?.blockedPages ?? 0),
         browserFallbacks: Number(fetch?.browserFallbacks ?? 0),
+        browserFallbackBudgetMs:
+          fetch?.browserFallbackBudgetMs === null || fetch?.browserFallbackBudgetMs === undefined
+            ? null
+            : Number(fetch.browserFallbackBudgetMs),
+        browserFallbackBudgetUsedMs: Number(fetch?.browserFallbackBudgetUsedMs ?? 0),
+        browserFallbackBudgetRemainingMs:
+          fetch?.browserFallbackBudgetRemainingMs === null || fetch?.browserFallbackBudgetRemainingMs === undefined
+            ? null
+            : Number(fetch.browserFallbackBudgetRemainingMs),
         detailAttemptedCount: Number(fetch?.detailAttemptedCount ?? 0),
+        detailBatchCount: Number(fetch?.detailBatchCount ?? 0),
+        detailConcurrencyRequested: Number(fetch?.detailConcurrencyRequested ?? 0),
+        detailConcurrencyEffective: Number(fetch?.detailConcurrencyEffective ?? 0),
+        browserFallbackConcurrency:
+          normalizeString(String(fetch?.browserFallbackConcurrency ?? '')) === 'serial' ? 'serial' : 'serial',
       },
       parse: {
         acceptedOfferCount: Number(parse?.acceptedOfferCount ?? 0),

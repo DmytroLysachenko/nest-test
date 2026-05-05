@@ -31,6 +31,7 @@ import { SupportCorrelationResponse } from './dto/support-correlation.response';
 import { SupportOverviewResponse } from './dto/support-overview.response';
 import { SupportScrapeIncidentResponse } from './dto/support-scrape-incident.response';
 import { SupportUserIncidentResponse } from './dto/support-user-incident.response';
+import { OpsAlertsService } from './ops-alerts.service';
 import { OpsService } from './ops.service';
 
 import type { Env } from '@/config/env';
@@ -43,6 +44,7 @@ import type { Env } from '@/config/env';
 export class OpsController {
   constructor(
     private readonly opsService: OpsService,
+    private readonly opsAlertsService: OpsAlertsService,
     private readonly jobSourcesService: JobSourcesService,
     private readonly configService: ConfigService<Env, true>,
   ) {}
@@ -279,6 +281,22 @@ export class OpsController {
     @Req() req: Request,
     @Query('windowHours', new ParseIntPipe({ optional: true })) windowHours?: number,
   ) {
+    this.assertInternalOpsToken(req);
+    return this.opsService.reconcileStaleRuns(windowHours);
+  }
+
+  @Post('dispatch-alerts')
+  @Public()
+  @ApiOperation({ summary: 'Internal ops alert dispatch trigger' })
+  async dispatchAlerts(
+    @Req() req: Request,
+    @Query('windowHours', new ParseIntPipe({ optional: true })) windowHours?: number,
+  ) {
+    this.assertInternalOpsToken(req);
+    return this.opsAlertsService.dispatchActiveAlerts(windowHours);
+  }
+
+  private assertInternalOpsToken(req: Request) {
     const internalToken = this.configService.get('OPS_INTERNAL_TOKEN', { infer: true });
     if (!internalToken) {
       throw new ForbiddenException('OPS_INTERNAL_TOKEN is not configured');
@@ -287,6 +305,5 @@ export class OpsController {
     if (!providedToken || providedToken !== internalToken) {
       throw new ForbiddenException('Invalid internal ops token');
     }
-    return this.opsService.reconcileStaleRuns(windowHours);
   }
 }

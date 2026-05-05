@@ -13,7 +13,7 @@ import {
   listJobOffers,
 } from '@/features/job-offers/api/job-offers-api';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
-import { QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
+import { mutableRouteQueryPreset } from '@/shared/lib/query/query-option-presets';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
 import type { ListJobOffersParams } from '@/features/job-offers/api/job-offers-api';
@@ -37,7 +37,7 @@ export const useNotebookQueries = ({
       token,
       queryKey: queryKeys.jobOffers.list(token, listParams),
       queryFn: (authToken) => listJobOffers(authToken, listParams),
-      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      ...mutableRouteQueryPreset(),
     }),
   );
 
@@ -52,7 +52,7 @@ export const useNotebookQueries = ({
       queryKey: queryKeys.jobOffers.history(token, selectedOffer?.id ?? null),
       queryFn: (authToken) => getJobOfferHistory(authToken, selectedOffer!.id),
       enabled: Boolean(selectedOffer?.id),
-      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      ...mutableRouteQueryPreset(),
     }),
   );
 
@@ -61,7 +61,7 @@ export const useNotebookQueries = ({
       token,
       queryKey: queryKeys.jobOffers.preferences(token),
       queryFn: getNotebookPreferences,
-      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      ...mutableRouteQueryPreset(),
     }),
   );
 
@@ -71,7 +71,7 @@ export const useNotebookQueries = ({
       queryKey: queryKeys.jobOffers.summary(token),
       queryFn: getNotebookSummary,
       enabled: sharedNotebookSummary === undefined,
-      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      ...mutableRouteQueryPreset(),
     }),
   );
 
@@ -80,7 +80,7 @@ export const useNotebookQueries = ({
       token,
       queryKey: queryKeys.jobOffers.actionPlan(token),
       queryFn: getJobOfferActionPlan,
-      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      ...mutableRouteQueryPreset(),
     }),
   );
 
@@ -89,7 +89,7 @@ export const useNotebookQueries = ({
       token,
       queryKey: queryKeys.jobOffers.reminderPreview(token),
       queryFn: getJobOfferReminderPreview,
-      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      ...mutableRouteQueryPreset(),
     }),
   );
 
@@ -99,7 +99,7 @@ export const useNotebookQueries = ({
       queryKey: queryKeys.jobOffers.prepPacket(token, selectedOffer?.id ?? null),
       queryFn: (authToken) => getJobOfferPrepPacket(authToken, selectedOffer!.id),
       enabled: Boolean(selectedOffer?.id),
-      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      ...mutableRouteQueryPreset(),
     }),
   );
 

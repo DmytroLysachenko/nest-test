@@ -83,6 +83,10 @@ export const EnvSchema = z.object({
   SCHEDULER_AUTH_TOKEN: z.string().optional(),
   SCHEDULER_TRIGGER_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(20),
   OPS_INTERNAL_TOKEN: z.string().optional(),
+  OPS_ALERTS_WEBHOOK_URL: z.string().url().optional(),
+  OPS_ALERTS_WEBHOOK_BEARER_TOKEN: z.string().optional(),
+  OPS_ALERTS_WINDOW_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+  OPS_ALERTS_COOLDOWN_MINUTES: z.coerce.number().int().min(1).max(1440).default(60),
   AUTO_SCORE_ON_INGEST: z.coerce.boolean().default(true),
   AUTO_SCORE_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(1),
   AUTO_SCORE_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(0),
@@ -135,6 +139,12 @@ export const validateEnv = (env: Record<string, unknown>): Env => {
     const callbackUrl = new URL(parsed.data.WORKER_CALLBACK_URL);
     if (callbackUrl.protocol !== 'https:') {
       throw new Error('WORKER_CALLBACK_URL must use https in production mode');
+    }
+    if (parsed.data.OPS_ALERTS_WEBHOOK_URL) {
+      const opsAlertsWebhookUrl = new URL(parsed.data.OPS_ALERTS_WEBHOOK_URL);
+      if (opsAlertsWebhookUrl.protocol !== 'https:') {
+        throw new Error('OPS_ALERTS_WEBHOOK_URL must use https in production mode');
+      }
     }
   }
 

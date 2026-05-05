@@ -189,9 +189,9 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(70%_70%_at_50%_0%,color-mix(in_oklab,var(--primary)_8%,transparent),transparent_72%)]"
         />
-        <header className="sticky top-0 z-20 px-4 pt-4 md:px-6 md:pt-5">
-          <div className="bg-surface-ghost rounded-[1.9rem] px-4 py-3 shadow-[0_16px_38px_-24px_color-mix(in_oklab,var(--text-strong)_12%,transparent)] backdrop-blur-xl md:px-5">
-            <div className="flex flex-wrap items-center gap-3">
+        <header className="app-shell-header sticky top-0 z-20">
+          <div className="px-4 md:px-6 xl:px-9">
+            <div className="flex min-h-[4.75rem] flex-wrap items-center gap-3 py-3 md:min-h-[5rem]">
               {!hideSidebar && (
                 <Button
                   type="button"
@@ -204,34 +204,32 @@ export const AppShell = ({ children, userEmail, userRole, onSignOut, hideSidebar
                 </Button>
               )}
 
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  {!hideSidebar && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="h-9 w-9 px-0"
-                      aria-label="Go back"
-                      onClick={() => router.back()}
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                    </Button>
-                  )}
-                  <div>
-                    <p className="text-text-strong text-lg font-semibold leading-tight tracking-[-0.02em]">
-                      {activePage}
-                    </p>
-                    <p className="text-text-soft text-xs">
-                      {workspaceReady
-                        ? 'Use the main product routes to review jobs, track applications, and keep the profile current.'
-                        : 'Finish setup to unlock the rest of the workspace.'}
-                    </p>
-                  </div>
+              <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
+                {!hideSidebar && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-9 w-9 shrink-0 px-0"
+                    aria-label="Go back"
+                    onClick={() => router.back()}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                )}
+                <div className="min-w-0">
+                  <p className="text-text-strong truncate text-lg font-semibold leading-tight tracking-[-0.02em]">
+                    {activePage}
+                  </p>
+                  <p className="text-text-soft text-xs">
+                    {workspaceReady
+                      ? 'Use the main product routes to review jobs, track applications, and keep the profile current.'
+                      : 'Finish setup to unlock the rest of the workspace.'}
+                  </p>
                 </div>
               </div>
 
               <div className="ml-auto flex items-center gap-2">
-                <div className="bg-surface-elevated/92 hidden rounded-[1.1rem] px-3.5 py-2 md:block">
+                <div className="border-border/45 bg-surface-elevated/75 hidden rounded-full border px-3.5 py-2 md:block">
                   <p className="text-text-soft text-[11px] uppercase tracking-[0.14em]">Workspace</p>
                   <p className="text-text-strong max-w-48 truncate text-sm font-medium">{userEmail ?? 'anonymous'}</p>
                 </div>

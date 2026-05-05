@@ -54,9 +54,15 @@ export const useDataSync = (token: string | null) => {
    */
   const syncJobOffers = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['job-offers'] });
+    queryClient.invalidateQueries({ queryKey: ['job-offers', token] });
+    queryClient.invalidateQueries({ queryKey: ['job-offers', 'history', token] });
+    queryClient.invalidateQueries({ queryKey: ['job-offers', 'prep-packet', token] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.preferences(token), exact: true });
     queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.summary(token), exact: true });
     queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.discoverySummary(token), exact: true });
     queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.focus(token), exact: true });
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.actionPlan(token), exact: true });
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.reminderPreview(token), exact: true });
     syncWorkspace();
   }, [queryClient, token, syncWorkspace]);
 

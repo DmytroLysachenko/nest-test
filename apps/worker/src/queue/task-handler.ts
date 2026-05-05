@@ -14,6 +14,8 @@ export const handleTask = async (
     detailDelayMs?: number;
     detailConcurrency?: number;
     browserFallbackCooldownMs?: number;
+    browserFallbackMaxCount?: number;
+    browserFallbackBudgetMs?: number;
     detailCacheHours?: number;
     listingOnly?: boolean;
     detailHost?: string;
@@ -21,7 +23,9 @@ export const handleTask = async (
     detailHumanize?: boolean;
     requireDetail?: boolean;
     profileDir?: string;
+    outputStorageBackend?: 'filesystem';
     outputMode?: 'full' | 'minimal';
+    outputRawSampleLimit?: number;
     outputRetentionHours?: number;
     callbackUrl?: string;
     callbackToken?: string;
@@ -48,6 +52,8 @@ export const handleTask = async (
         detailDelayMs: options.detailDelayMs,
         detailConcurrency: options.detailConcurrency,
         browserFallbackCooldownMs: options.browserFallbackCooldownMs,
+        browserFallbackMaxCount: options.browserFallbackMaxCount,
+        browserFallbackBudgetMs: options.browserFallbackBudgetMs,
         detailCacheHours: options.detailCacheHours,
         listingOnly: options.listingOnly,
         detailHost: options.detailHost,
@@ -55,7 +61,9 @@ export const handleTask = async (
         detailHumanize: options.detailHumanize,
         requireDetail: options.requireDetail,
         profileDir: options.profileDir,
+        outputStorageBackend: options.outputStorageBackend,
         outputMode: options.outputMode,
+        outputRawSampleLimit: options.outputRawSampleLimit,
         outputRetentionHours: options.outputRetentionHours,
         callbackUrl: options.callbackUrl,
         callbackToken: options.callbackToken,

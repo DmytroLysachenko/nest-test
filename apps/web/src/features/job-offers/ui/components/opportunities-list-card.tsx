@@ -26,6 +26,8 @@ type OpportunitiesListCardProps = {
   hasScore: 'all' | 'yes' | 'no';
   search: string;
   tag: string;
+  page: number;
+  perPage: number;
   selectedId: string | null;
   offset: number;
   limit: number;
@@ -37,6 +39,8 @@ type OpportunitiesListCardProps = {
   onHasScoreChange: (value: 'all' | 'yes' | 'no') => void;
   onSearchChange: (value: string) => void;
   onTagChange: (value: string) => void;
+  onPageChange: (page: number) => void;
+  onPerPageChange: (value: number) => void;
   onResetFilters: () => void;
   onPrev: () => void;
   onNext: () => void;
@@ -53,6 +57,8 @@ export const OpportunitiesListCard = ({
   hasScore,
   search,
   tag,
+  page,
+  perPage,
   selectedId,
   offset,
   limit,
@@ -64,6 +70,8 @@ export const OpportunitiesListCard = ({
   onHasScoreChange,
   onSearchChange,
   onTagChange,
+  onPageChange,
+  onPerPageChange,
   onResetFilters,
   onPrev,
   onNext,
@@ -71,7 +79,8 @@ export const OpportunitiesListCard = ({
   onMarkSeen,
   onDismiss,
 }: OpportunitiesListCardProps) => {
-  const currentPage = total === 0 ? 0 : Math.floor(offset / limit) + 1;
+  const currentPage = total === 0 ? 0 : page;
+  const totalPages = total === 0 ? 0 : Math.max(1, Math.ceil(total / limit));
   const startItem = total === 0 ? 0 : offset + 1;
   const endItem = Math.min(offset + limit, total);
 
@@ -170,131 +179,176 @@ export const OpportunitiesListCard = ({
       title="Opportunity queue"
       description="Review matched roles, decide quickly, and only push keepers into the active pipeline."
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div className="app-field-group">
-            <Label htmlFor="opportunity-mode" className="app-inline-label">
-              Review mode
-            </Label>
-            <select
-              id="opportunity-mode"
-              className="app-select"
-              value={mode}
-              onChange={(event) => onModeChange(event.target.value as 'strict' | 'approx' | 'explore')}
-            >
-              <option value="strict">{REVIEW_MODE_LABELS.strict}</option>
-              <option value="approx">{REVIEW_MODE_LABELS.approx}</option>
-              <option value="explore">{REVIEW_MODE_LABELS.explore}</option>
-            </select>
+      <div className="space-y-5">
+        <section className="app-tonal-section space-y-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="space-y-2">
+              <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Current queue</p>
+              <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
+                <p className="text-text-strong text-3xl font-semibold tracking-[-0.04em]">{total}</p>
+                <div className="space-y-1">
+                  <p className="text-text-soft text-sm">
+                    {formatCountLabel(total, 'matched opportunity')} available for review
+                  </p>
+                  <p className="text-text-soft text-xs">
+                    View: {REVIEW_MODE_LABELS[mode]} | Page {currentPage || 1}
+                    {totalPages ? ` of ${totalPages}` : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="app-badge">Per page {perPage}</span>
+              <Button type="button" variant="secondary" onClick={onResetFilters} className="h-9 px-4">
+                Reset filters
+              </Button>
+            </div>
           </div>
-          <div className="app-field-group">
-            <Label htmlFor="opportunity-score" className="app-inline-label">
-              Scoring
-            </Label>
-            <select
-              id="opportunity-score"
-              className="app-select"
-              value={hasScore}
-              onChange={(event) => onHasScoreChange(event.target.value as 'all' | 'yes' | 'no')}
-            >
-              <option value="all">All</option>
-              <option value="yes">Scored only</option>
-              <option value="no">Unscored only</option>
-            </select>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(220px,0.7fr)_minmax(180px,0.45fr)]">
+            <div className="app-field-group">
+              <Label htmlFor="opportunity-search" className="app-inline-label">
+                Search
+              </Label>
+              <Input
+                id="opportunity-search"
+                value={search}
+                placeholder="Search title, company, notes, or tags"
+                onChange={(event) => onSearchChange(event.target.value)}
+              />
+            </div>
+            <div className="app-field-group">
+              <Label htmlFor="opportunity-tag" className="app-inline-label">
+                Tag
+              </Label>
+              <Input
+                id="opportunity-tag"
+                value={tag}
+                placeholder="backend"
+                onChange={(event) => onTagChange(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="app-field-group">
+                <Label htmlFor="opportunity-mode" className="app-inline-label">
+                  Review mode
+                </Label>
+                <select
+                  id="opportunity-mode"
+                  className="app-select"
+                  value={mode}
+                  onChange={(event) => onModeChange(event.target.value as 'strict' | 'approx' | 'explore')}
+                >
+                  <option value="strict">{REVIEW_MODE_LABELS.strict}</option>
+                  <option value="approx">{REVIEW_MODE_LABELS.approx}</option>
+                  <option value="explore">{REVIEW_MODE_LABELS.explore}</option>
+                </select>
+              </div>
+              <div className="app-field-group">
+                <Label htmlFor="opportunity-score" className="app-inline-label">
+                  Scoring
+                </Label>
+                <select
+                  id="opportunity-score"
+                  className="app-select"
+                  value={hasScore}
+                  onChange={(event) => onHasScoreChange(event.target.value as 'all' | 'yes' | 'no')}
+                >
+                  <option value="all">All</option>
+                  <option value="yes">Scored only</option>
+                  <option value="no">Unscored only</option>
+                </select>
+              </div>
+            </div>
+            <div className="app-field-group">
+              <Label htmlFor="opportunity-per-page" className="app-inline-label">
+                Per page
+              </Label>
+              <select
+                id="opportunity-per-page"
+                className="app-select"
+                value={perPage}
+                onChange={(event) => onPerPageChange(Number(event.target.value))}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={30}>30</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
           </div>
-          <div className="app-field-group">
-            <Label htmlFor="opportunity-tag" className="app-inline-label">
-              Tag
-            </Label>
-            <Input
-              id="opportunity-tag"
-              value={tag}
-              placeholder="backend"
-              onChange={(event) => onTagChange(event.target.value)}
-            />
-          </div>
-          <div className="app-field-group md:col-span-2 lg:col-span-3">
-            <Label htmlFor="opportunity-search" className="app-inline-label">
-              Search
-            </Label>
-            <Input
-              id="opportunity-search"
-              value={search}
-              placeholder="Search title, company, notes, or tags"
-              onChange={(event) => onSearchChange(event.target.value)}
-            />
-          </div>
+        </section>
+
+        <div className="space-y-5">
+          {offers.length ? (
+            groups.map((group) => (
+              <section key={group.key} className="space-y-3">
+                <div className="border-border/45 flex flex-wrap items-end justify-between gap-3 border-b pb-3">
+                  <div className="space-y-1">
+                    <p className="text-text-strong text-sm font-semibold">{group.title}</p>
+                    <p className="text-text-soft text-xs">{group.description}</p>
+                  </div>
+                  <span className="app-badge">{group.items.length}</span>
+                </div>
+                <div className="space-y-3">{group.items.map(renderOffer)}</div>
+              </section>
+            ))
+          ) : (
+            <div className="space-y-3">
+              <EmptyState
+                icon={<Compass className="h-8 w-8" />}
+                title={collectionState?.title ?? 'No opportunities in this slice'}
+                description={
+                  collectionState?.description ??
+                  'Widen the review mode or reset filters before assuming the matched catalog is empty.'
+                }
+              />
+              {collectionState ? (
+                <WorkflowInlineNotice
+                  title={collectionState.actionLabel}
+                  description={
+                    collectionState.href
+                      ? `Recommended path: ${collectionState.href}`
+                      : 'Adjust the review slice before assuming the market is empty.'
+                  }
+                  tone="info"
+                />
+              ) : null}
+            </div>
+          )}
         </div>
 
-        <div className="bg-surface-muted/44 space-y-4 rounded-[1.6rem] p-5">
-          <div className="app-muted-panel">
-            <p className="text-text-soft text-[11px] uppercase tracking-[0.18em]">Current queue</p>
-            <p className="text-text-strong mt-2 text-2xl font-semibold tracking-[-0.03em]">{total}</p>
-            <p className="text-text-soft mt-1 text-sm">
-              {formatCountLabel(total, 'matched opportunity')} available for review
+        <section className="app-open-section border-border/45 flex flex-col gap-3 border-t pt-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-muted-foreground text-xs">
+              Page {currentPage || 1}
+              {totalPages ? ` of ${totalPages}` : ''}
             </p>
-            <p className="text-text-soft mt-2 text-xs">View: {REVIEW_MODE_LABELS[mode]}</p>
+            <p className="text-muted-foreground text-xs">
+              Showing {startItem}-{endItem} of {total} opportunities
+            </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={onResetFilters} className="h-9 px-4">
-              Reset filters
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="secondary" disabled={!canPrev} onClick={onPrev}>
+              Previous
+            </Button>
+            <Label htmlFor="opportunity-page" className="sr-only">
+              Page number
+            </Label>
+            <Input
+              id="opportunity-page"
+              type="number"
+              min={1}
+              max={Math.max(totalPages, 1)}
+              value={currentPage || 1}
+              className="h-9 w-20 text-center"
+              onChange={(event) => onPageChange(Math.max(1, Number(event.target.value) || 1))}
+            />
+            <Button type="button" variant="secondary" disabled={!canNext} onClick={onNext}>
+              Next
             </Button>
           </div>
-        </div>
-      </div>
-
-      <div className="mt-5 space-y-5">
-        {offers.length ? (
-          groups.map((group) => (
-            <section key={group.key} className="space-y-3">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <p className="text-text-strong text-sm font-semibold">{group.title}</p>
-                  <p className="text-text-soft text-xs">{group.description}</p>
-                </div>
-                <span className="app-badge">{group.items.length}</span>
-              </div>
-              <div className="space-y-3">{group.items.map(renderOffer)}</div>
-            </section>
-          ))
-        ) : (
-          <div className="space-y-3">
-            <EmptyState
-              icon={<Compass className="h-8 w-8" />}
-              title={collectionState?.title ?? 'No opportunities in this slice'}
-              description={
-                collectionState?.description ??
-                'Widen the review mode or reset filters before assuming the matched catalog is empty.'
-              }
-            />
-            {collectionState ? (
-              <WorkflowInlineNotice
-                title={collectionState.actionLabel}
-                description={
-                  collectionState.href
-                    ? `Recommended path: ${collectionState.href}`
-                    : 'Adjust the review slice before assuming the market is empty.'
-                }
-                tone="info"
-              />
-            ) : null}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <Button type="button" variant="secondary" disabled={!canPrev} onClick={onPrev}>
-          Previous
-        </Button>
-        <div className="text-center">
-          <p className="text-muted-foreground text-xs">Page {currentPage}</p>
-          <p className="text-muted-foreground text-xs">
-            Showing {startItem}-{endItem} of {total} opportunities
-          </p>
-        </div>
-        <Button type="button" variant="secondary" disabled={!canNext} onClick={onNext}>
-          Next
-        </Button>
+        </section>
       </div>
     </Card>
   );

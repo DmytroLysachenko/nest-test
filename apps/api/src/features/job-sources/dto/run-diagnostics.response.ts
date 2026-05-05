@@ -69,6 +69,10 @@ class ScrapeRunDiagnosticsPayloadResponse {
   @ApiProperty({ nullable: true, type: Object })
   artifacts!: {
     outputPath: string | null;
+    artifactMode: string | null;
+    storageBackend: string | null;
+    availability: string | null;
+    debugEnabled: boolean;
     retentionExpiresAt: string | null;
     rawPages: {
       count: number;
@@ -88,7 +92,14 @@ class ScrapeRunDiagnosticsPayloadResponse {
       jobLinksDiscovered: number;
       blockedPages: number;
       browserFallbacks: number;
+      browserFallbackBudgetMs?: number | null;
+      browserFallbackBudgetUsedMs?: number;
+      browserFallbackBudgetRemainingMs?: number | null;
       detailAttemptedCount: number;
+      detailBatchCount: number;
+      detailConcurrencyRequested: number;
+      detailConcurrencyEffective: number;
+      browserFallbackConcurrency: 'serial';
     };
     parse: {
       acceptedOfferCount: number;

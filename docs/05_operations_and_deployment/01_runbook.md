@@ -100,6 +100,10 @@ Canonical environment inventory:
    - `WORKER_TASKS_OIDC_AUDIENCE` (optional explicit worker OIDC audience)
    - `SCHEDULER_AUTH_TOKEN` (internal scheduler auth for `/api/job-sources/schedule/trigger`)
    - `OPS_INTERNAL_TOKEN` (internal scheduler auth for `/api/ops/reconcile-stale-runs`)
+   - `OPS_ALERTS_WEBHOOK_URL` (optional production webhook target for proactive ops alerts)
+   - `OPS_ALERTS_WEBHOOK_BEARER_TOKEN` (optional bearer token for the ops alerts webhook)
+   - `OPS_ALERTS_WINDOW_HOURS` (metrics window used for alert payload evaluation)
+   - `OPS_ALERTS_COOLDOWN_MINUTES` (dedupe cooldown before the same alert payload can be re-sent)
 2. Worker:
   - `WORKER_MAX_BODY_BYTES` (example: `262144`)
   - `WORKER_ALLOWED_ORIGINS` (explicit CORS allowlist; no `*` in production; defaults to the public web origin when deploy input is unset)
@@ -110,14 +114,54 @@ Canonical environment inventory:
   - `PRACUJ_LISTING_COOLDOWN_MS`
   - `PRACUJ_DETAIL_DELAY_MS`
   - `PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS`
+  - `PRACUJ_BROWSER_FALLBACK_MAX_COUNT`
+  - `PRACUJ_BROWSER_FALLBACK_BUDGET_MS`
   - `PRACUJ_DETAIL_CACHE_HOURS`
+  - `WORKER_OUTPUT_STORAGE_BACKEND` (currently `filesystem`)
   - `WORKER_OUTPUT_MODE`
+  - `WORKER_OUTPUT_ALLOW_FULL_IN_PROD` (must be `true` to permit `WORKER_OUTPUT_MODE=full` in production)
+  - `WORKER_OUTPUT_RAW_SAMPLE_LIMIT` (caps how many raw page sample paths are exposed in artifact manifests)
   - `WORKER_OUTPUT_RETENTION_HOURS`
   - `QUEUE_PROVIDER` (`local` or `cloud-tasks`)
   - `TASKS_AUTH_TOKEN` (optional if OIDC is used)
   - `TASKS_SERVICE_ACCOUNT_EMAIL` (required when using Cloud Tasks OIDC)
   - `TASKS_OIDC_AUDIENCE` (optional explicit ID token audience; defaults to `TASKS_URL`)
   - `WORKER_CALLBACK_OIDC_AUDIENCE` (optional OIDC audience used for worker -> API callbacks)
+
+## Worker Artifact Policy
+
+1. Worker debug artifacts are filesystem-backed and ephemeral.
+2. Artifact manifests now expose:
+   - `artifactMode`
+   - `storageBackend`
+   - `availability`
+   - `debugEnabled`
+3. Production-safe default:
+   - if `WORKER_OUTPUT_MODE` is not explicitly set in production, worker boot forces `minimal`
+4. Production guardrail:
+   - `WORKER_OUTPUT_MODE=full` is rejected in production unless `WORKER_OUTPUT_ALLOW_FULL_IN_PROD=true`
+5. Manifest exposure is intentionally bounded:
+   - `WORKER_OUTPUT_RAW_SAMPLE_LIMIT` caps how many raw sample paths are returned in diagnostics
+6. Current storage policy:
+   - filesystem artifacts are useful for short-lived debugging and local/support inspection
+   - they should not be treated as durable evidence storage
+   - long-term incident evidence should still be copied into explicit incident notes or external artifact storage when needed
+
+## Worker Detail-Fetch Throughput Policy
+
+1. HTTP detail fetches use bounded batch concurrency from `PRACUJ_DETAIL_CONCURRENCY`.
+2. Browser fallback remains serial even when HTTP detail fetches are concurrent.
+3. Worker health and scrape diagnostics now expose:
+   - requested detail concurrency
+   - effective detail concurrency for the current run
+   - detail batch count
+   - explicit `browserFallbackConcurrency=serial`
+4. When diagnosing slow or degraded runs, prefer these fields before changing source pacing blindly:
+   - `policy.detailConcurrency`
+   - `policy.browserFallbackConcurrency`
+   - `diagnostics.stageMetrics.fetch.detailConcurrencyRequested`
+   - `diagnostics.stageMetrics.fetch.detailConcurrencyEffective`
+   - `diagnostics.stageMetrics.fetch.detailBatchCount`
 
 ## Core Commands
 
@@ -156,6 +200,11 @@ Canonical environment inventory:
    - Optional deterministic mode for CI/external-source instability: `SMOKE_FORCE_CALLBACK=true pnpm smoke:e2e`
    - Optional worker no-op accept mode (useful in CI): `WORKER_SMOKE_ACCEPT_ONLY=true`
    - Smoke now starts dedicated local API/worker/web processes on fallback ports and resets stale fixture scrape runs during seed.
+   - The scrape smoke path now explicitly exercises:
+     - terminal worker completion callback
+     - failed-terminal run after `POST /api/job-sources/runs/:id/offers/batch`
+     - admin `POST /api/ops/scrape/callbacks/replay` recovery for a worker dead-letter callback file
+   - Local replay coverage relies on matching `WORKER_AUTH_TOKEN` and `TASKS_AUTH_TOKEN` values so the API can call worker `/callbacks/replay`.
 
 ## Local Git Gates
 
@@ -205,6 +254,9 @@ Interpretation rule:
 2. `COMPLETED` alone is not enough. Check `classifiedOutcome`, `story`, `silentFailure`, and notebook visibility.
 3. Prefer artifact-backed diagnostics before guessing:
    - `diagnostics.artifacts.outputPath`
+   - `diagnostics.artifacts.artifactMode`
+   - `diagnostics.artifacts.storageBackend`
+   - `diagnostics.artifacts.availability`
    - `diagnostics.artifacts.listing.htmlPath`
    - `diagnostics.artifacts.listing.dataPath`
    - `diagnostics.artifacts.rawPages.samplePaths`
@@ -416,6 +468,7 @@ For exact variable-level mapping and secret sources, use:
 9. Admin dead-letter replay trigger: `POST /api/ops/scrape/callbacks/replay`
 10. Admin stale-run reconcile: `POST /api/ops/scrape/runs/:id/reconcile`
 11. Internal bulk stale-run reconcile: `POST /api/ops/reconcile-stale-runs`
+12. Internal ops alert dispatch: `POST /api/ops/dispatch-alerts`
 12. Admin support overview: `GET /api/ops/support/overview`
 13. Admin scrape incident bundle: `GET /api/ops/support/scrape-runs/:id`
 14. Admin user incident bundle: `GET /api/ops/support/users/:id`

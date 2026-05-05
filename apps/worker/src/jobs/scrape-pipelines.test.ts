@@ -24,6 +24,10 @@ const createAdapter = (events: string[]): TestPipeline => ({
       hasZeroOffers: false,
       detailAttemptedCount: 0,
       detailBudget: null,
+      browserFallbackCount: 0,
+      browserFallbackBudgetMs: null,
+      browserFallbackBudgetUsedMs: 0,
+      browserFallbackBudgetRemainingMs: null,
       detailStopReason: 'completed',
     };
   },

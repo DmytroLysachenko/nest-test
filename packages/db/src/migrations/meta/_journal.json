@@ -302,6 +302,20 @@
       "when": 1776873600000,
       "tag": "0042_user_job_offer_reminder_delivery_state",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1777240800000,
+      "tag": "0043_worker_task_executions",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1777327200000,
+      "tag": "0044_ops_alert_events",
+      "breakpoints": true
     }
   ]
 }

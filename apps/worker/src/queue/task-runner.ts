@@ -4,6 +4,7 @@ import type { Logger } from 'pino';
 import type { TaskEnvelope } from './task-types';
 
 type TaskOptions = Parameters<typeof handleTask>[2];
+type TaskLifecycleStatus = 'started' | 'completed' | 'failed' | 'timed_out';
 type QueueItem = {
   task: TaskEnvelope;
   enqueuedAt: number;
@@ -11,6 +12,9 @@ type QueueItem = {
     resolve: (value: unknown) => void;
     reject: (reason?: unknown) => void;
   };
+};
+type TaskLifecycleHooks = {
+  onStateChange?: (task: TaskEnvelope, status: TaskLifecycleStatus, error?: unknown) => Promise<void> | void;
 };
 
 export class TaskRunner {
@@ -23,6 +27,7 @@ export class TaskRunner {
     private readonly maxConcurrent: number,
     private readonly maxQueueSize: number,
     private readonly taskTimeoutMs: number,
+    private readonly hooks: TaskLifecycleHooks = {},
   ) {}
 
   enqueue(task: TaskEnvelope) {
@@ -113,6 +118,7 @@ export class TaskRunner {
     const controller = new AbortController();
     let timeoutRef: NodeJS.Timeout | null = null;
     try {
+      await this.hooks.onStateChange?.(task, 'started');
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutRef = setTimeout(() => {
           controller.abort();
@@ -138,7 +144,13 @@ export class TaskRunner {
         },
         'Task completed',
       );
+      await this.hooks.onStateChange?.(task, 'completed');
       return result;
+    } catch (error) {
+      const status =
+        error instanceof Error && error.message.startsWith('Task timed out after ') ? 'timed_out' : 'failed';
+      await this.hooks.onStateChange?.(task, status, error);
+      throw error;
     } finally {
       if (timeoutRef) {
         clearTimeout(timeoutRef);

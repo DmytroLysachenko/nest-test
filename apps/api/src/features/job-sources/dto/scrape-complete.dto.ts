@@ -194,6 +194,30 @@ class ScrapeRunDiagnosticsDto {
   @Min(0)
   detailBudget?: number;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  browserFallbackCount?: number;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  browserFallbackBudgetMs?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  browserFallbackBudgetUsedMs?: number;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  browserFallbackBudgetRemainingMs?: number;
+
   @ApiPropertyOptional({ enum: ['completed', 'budget_reached', 'source_degraded'] })
   @IsOptional()
   @IsIn(['completed', 'budget_reached', 'source_degraded'])
@@ -244,6 +268,10 @@ class ScrapeRunDiagnosticsDto {
   @IsObject()
   artifacts?: {
     outputPath: string;
+    artifactMode: string | null;
+    storageBackend: string | null;
+    availability: string | null;
+    debugEnabled: boolean;
     retentionExpiresAt: string | null;
     rawPages: {
       count: number;
@@ -265,7 +293,14 @@ class ScrapeRunDiagnosticsDto {
       jobLinksDiscovered: number;
       blockedPages: number;
       browserFallbacks: number;
+      browserFallbackBudgetMs?: number | null;
+      browserFallbackBudgetUsedMs?: number;
+      browserFallbackBudgetRemainingMs?: number | null;
       detailAttemptedCount: number;
+      detailBatchCount: number;
+      detailConcurrencyRequested: number;
+      detailConcurrencyEffective: number;
+      browserFallbackConcurrency: 'serial';
     };
     parse: {
       acceptedOfferCount: number;

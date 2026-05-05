@@ -4,8 +4,6 @@ describe('useAppUiStore', () => {
   beforeEach(() => {
     useAppUiStore.setState({
       notebook: {
-        selectedOfferId: null,
-        selectedOfferIds: [],
         filters: {
           status: 'ALL',
           mode: 'strict',
@@ -17,30 +15,49 @@ describe('useAppUiStore', () => {
           attention: 'all',
         },
         savedPreset: null,
-        lastInteractionAt: null,
         hydratedFromServer: false,
-        pagination: {
-          offset: 0,
-          limit: 20,
-        },
       },
     });
   });
 
-  it('updates notebook filter and resets offset', () => {
-    useAppUiStore.getState().setNotebookOffset(40);
+  it('updates notebook filter without mutating durable preset state', () => {
     useAppUiStore.getState().setNotebookFilter('search', 'react');
 
     const state = useAppUiStore.getState();
     expect(state.notebook.filters.search).toBe('react');
-    expect(state.notebook.pagination.offset).toBe(0);
+    expect(state.notebook.savedPreset).toBeNull();
+    expect(state.notebook.hydratedFromServer).toBe(false);
   });
 
-  it('sets selected offer id', () => {
-    useAppUiStore.getState().setNotebookSelectedOffer('offer-1');
+  it('hydrates notebook preferences from the server payload', () => {
+    useAppUiStore.getState().hydrateNotebookPreferences(
+      {
+        status: 'SAVED',
+        mode: 'approx',
+        view: 'LIST',
+        search: 'react',
+        tag: 'frontend',
+        hasScore: 'yes',
+        followUp: 'due',
+        attention: 'all',
+      },
+      {
+        status: 'APPLIED',
+        mode: 'strict',
+        view: 'LIST',
+        search: 'node',
+        tag: '',
+        hasScore: 'all',
+        followUp: 'all',
+        attention: 'stalePipeline',
+      },
+    );
 
-    expect(useAppUiStore.getState().notebook.selectedOfferId).toBe('offer-1');
-    expect(useAppUiStore.getState().notebook.selectedOfferIds).toEqual(['offer-1']);
+    const state = useAppUiStore.getState().notebook;
+    expect(state.filters.search).toBe('react');
+    expect(state.filters.followUp).toBe('due');
+    expect(state.savedPreset?.status).toBe('APPLIED');
+    expect(state.hydratedFromServer).toBe(true);
   });
 
   it('resets filters', () => {
@@ -56,6 +73,7 @@ describe('useAppUiStore', () => {
     expect(filters.followUp).toBe('all');
     expect(filters.attention).toBe('all');
     expect(filters.mode).toBe('strict');
+    expect(useAppUiStore.getState().notebook.hydratedFromServer).toBe(true);
   });
 
   it('saves and applies notebook filter preset', () => {
@@ -70,13 +88,14 @@ describe('useAppUiStore', () => {
     const filters = useAppUiStore.getState().notebook.filters;
     expect(filters.status).toBe('SAVED');
     expect(filters.search).toBe('react');
+    expect(useAppUiStore.getState().notebook.savedPreset?.search).toBe('react');
   });
 
-  it('toggles selected offer ids', () => {
-    useAppUiStore.getState().toggleNotebookSelectedOfferId('offer-1');
-    useAppUiStore.getState().toggleNotebookSelectedOfferId('offer-2');
-    useAppUiStore.getState().toggleNotebookSelectedOfferId('offer-1');
+  it('does not apply a preset when no saved preset exists', () => {
+    useAppUiStore.getState().setNotebookFilter('status', 'INTERVIEWING');
+    useAppUiStore.getState().applyNotebookFilterPreset();
 
-    expect(useAppUiStore.getState().notebook.selectedOfferIds).toEqual(['offer-2']);
+    expect(useAppUiStore.getState().notebook.filters.status).toBe('INTERVIEWING');
+    expect(useAppUiStore.getState().notebook.savedPreset).toBeNull();
   });
 });

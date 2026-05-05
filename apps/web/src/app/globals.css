@@ -114,7 +114,11 @@ body {
   }
 
   .app-shell-content {
-    @apply relative min-w-0 flex-1;
+    @apply relative min-h-screen min-w-0 flex-1;
+  }
+
+  .app-shell-header {
+    @apply border-border/50 bg-[color-mix(in_oklab,var(--background)_76%,white)] border-b backdrop-blur-xl;
   }
 
   .app-shell-sidebar-link {
@@ -130,7 +134,7 @@ body {
   }
 
   .app-page-header {
-    @apply bg-surface-ghost/70 rounded-[1.75rem] p-2 md:p-3;
+    @apply border-border/30 bg-surface-ghost/42 rounded-[1.35rem] border px-3 py-2.5 md:px-4 md:py-3;
   }
 
   .app-title {
@@ -146,11 +150,11 @@ body {
   }
 
   .app-muted-panel {
-    @apply bg-surface-muted/62 rounded-2xl p-4;
+    @apply bg-surface-muted/42 rounded-[1.25rem] px-4 py-3.5;
   }
 
   .app-badge {
-    @apply bg-surface-muted/92 text-text-soft inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium backdrop-blur-sm;
+    @apply bg-surface-muted/72 text-text-soft inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium;
   }
 
   .app-code {
@@ -174,7 +178,7 @@ body {
   }
 
   .app-hero {
-    @apply relative overflow-hidden rounded-[2rem] bg-[linear-gradient(180deg,color-mix(in_oklab,var(--surface-elevated)_88%,transparent),color-mix(in_oklab,var(--surface-muted)_52%,transparent))] p-5 shadow-[0_18px_44px_-34px_color-mix(in_oklab,var(--text-strong)_12%,transparent)] md:p-6;
+    @apply relative overflow-hidden rounded-[1.8rem] bg-[linear-gradient(180deg,color-mix(in_oklab,var(--surface-elevated)_76%,transparent),color-mix(in_oklab,var(--surface-muted)_40%,transparent))] p-5 ring-1 ring-border/28 shadow-[0_16px_32px_-28px_color-mix(in_oklab,var(--text-strong)_10%,transparent)] md:p-6;
   }
 
   .app-hero::before {
@@ -183,11 +187,11 @@ body {
   }
 
   .app-surface {
-    @apply bg-surface-elevated/94 rounded-[1.75rem] ring-1 ring-border/50 shadow-[0_12px_28px_-24px_color-mix(in_oklab,var(--text-strong)_8%,transparent)];
+    @apply bg-surface-elevated/88 rounded-[1.45rem] ring-1 ring-border/34 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--text-strong)_6%,transparent)];
   }
 
   .app-surface-elevated {
-    @apply bg-surface-elevated/98 rounded-[1.75rem] ring-1 ring-border/45 shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--text-strong)_9%,transparent)];
+    @apply bg-surface-elevated/94 rounded-[1.45rem] ring-1 ring-border/30 shadow-[0_12px_26px_-24px_color-mix(in_oklab,var(--text-strong)_7%,transparent)];
   }
 
   .app-kpi {
@@ -204,7 +208,7 @@ body {
   }
 
   .app-toolbar {
-    @apply bg-surface-muted/44 rounded-2xl px-3 py-3 ring-1 ring-border/35 shadow-[0_8px_18px_-16px_color-mix(in_oklab,var(--text-strong)_10%,transparent)] backdrop-blur-sm;
+    @apply bg-surface-muted/30 rounded-[1.25rem] px-3 py-3 ring-1 ring-border/24;
   }
 
   .app-grid-cards {
@@ -233,11 +237,19 @@ body {
   }
 
   .app-utility-rail {
-    @apply bg-surface-muted/48 rounded-[1.6rem] p-5 ring-1 ring-border/35;
+    @apply bg-surface-muted/34 rounded-[1.4rem] p-5 ring-1 ring-border/24;
   }
 
   .app-inset-stack {
-    @apply bg-surface-muted/52 rounded-2xl p-3 md:p-4;
+    @apply bg-surface-muted/34 rounded-[1.15rem] px-3 py-3 md:px-4 md:py-3.5;
+  }
+
+  .app-open-section {
+    @apply space-y-4;
+  }
+
+  .app-tonal-section {
+    @apply bg-surface-muted/22 rounded-[1.25rem] px-4 py-4;
   }
 }
 

@@ -19,6 +19,47 @@ type CompanyDetailPageProps = {
   companyId: string;
 };
 
+const CompanyDetailSkeleton = () => (
+  <main className="app-page space-y-6">
+    <section className="space-y-3">
+      <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Company detail</p>
+      <div className="bg-surface-muted h-4 w-24 animate-pulse rounded-full" />
+      <div className="bg-surface-muted h-10 w-2/3 animate-pulse rounded-full" />
+      <div className="bg-surface-muted h-4 w-full animate-pulse rounded-full" />
+      <div className="bg-surface-muted h-4 w-4/5 animate-pulse rounded-full" />
+      <div className="flex flex-wrap gap-2">
+        <div className="bg-surface-muted h-8 w-28 animate-pulse rounded-full" />
+        <div className="bg-surface-muted h-8 w-28 animate-pulse rounded-full" />
+        <div className="bg-surface-muted h-8 w-36 animate-pulse rounded-full" />
+      </div>
+    </section>
+
+    <section className="app-tonal-section grid gap-4 md:grid-cols-3">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={index} className="space-y-2">
+          <div className="bg-surface-muted h-3 w-20 animate-pulse rounded-full" />
+          <div className="bg-surface-muted h-5 w-32 animate-pulse rounded-full" />
+          <div className="bg-surface-muted h-4 w-24 animate-pulse rounded-full" />
+        </div>
+      ))}
+    </section>
+
+    <section className="space-y-3">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={index} className="app-tonal-section space-y-4">
+          <div className="bg-surface-muted h-5 w-1/2 animate-pulse rounded-full" />
+          <div className="bg-surface-muted h-4 w-full animate-pulse rounded-full" />
+          <div className="bg-surface-muted h-4 w-2/3 animate-pulse rounded-full" />
+          <div className="flex flex-wrap gap-2">
+            <div className="bg-surface-muted h-8 w-28 animate-pulse rounded-full" />
+            <div className="bg-surface-muted h-8 w-36 animate-pulse rounded-full" />
+          </div>
+        </div>
+      ))}
+    </section>
+  </main>
+);
+
 export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) => {
   const companyQuery = useQuery({
     queryKey: queryKeys.companies.detail(token, companyId),
@@ -27,7 +68,7 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
   });
 
   if (companyQuery.isLoading) {
-    return <SectionLoadingState title="Company" description="Loading company detail..." rows={5} />;
+    return <CompanyDetailSkeleton />;
   }
 
   if (companyQuery.error) {
@@ -72,6 +113,7 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
   return (
     <main className="app-page space-y-6">
       <HeroHeader
+        eyebrow="Company"
         title={company.canonicalName}
         subtitle={company.description ?? 'This employer is linked to offers already present in your workspace catalog.'}
         meta={
@@ -113,35 +155,51 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
         }
       />
 
-      <Card
-        title="Company context"
-        description="Use this page to understand the employer and jump into recent linked offers."
-      >
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="app-muted-panel space-y-2">
-            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Headquarters</p>
-            <p className="text-text-strong text-sm font-semibold">{company.hqLocation ?? 'Not specified'}</p>
+      <section className="app-tonal-section space-y-4">
+        <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
+          <div className="space-y-1">
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Company context</p>
+            <p className="text-text-strong text-lg font-semibold">
+              Use this page before deciding which linked role deserves active work.
+            </p>
+            <p className="text-text-soft text-sm">
+              Keep employer research here, then jump back into opportunities or notebook when you want to act.
+            </p>
           </div>
-          <div className="app-muted-panel space-y-2">
-            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Last seen</p>
-            <p className="text-text-strong text-sm font-semibold">{formatDateTime(company.lastSeenAt)}</p>
-            <p className="text-text-soft text-xs">{formatRelativeTime(company.lastSeenAt)}</p>
+          <div className="flex flex-wrap gap-2">
+            <span className="app-badge">{company.activeOfferCount} active roles</span>
+            <span className="app-badge">{company.totalOfferCount} total linked roles</span>
           </div>
         </div>
-      </Card>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="app-open-section border-border/35 border-t pt-3">
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Headquarters</p>
+            <p className="text-text-strong mt-2 text-sm font-semibold">{company.hqLocation ?? 'Not specified'}</p>
+          </div>
+          <div className="app-open-section border-border/35 border-t pt-3">
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Last seen</p>
+            <p className="text-text-strong mt-2 text-sm font-semibold">{formatDateTime(company.lastSeenAt)}</p>
+            <p className="text-text-soft mt-1 text-xs">{formatRelativeTime(company.lastSeenAt)}</p>
+          </div>
+          <div className="app-open-section border-border/35 border-t pt-3">
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Best use</p>
+            <p className="text-text-soft mt-2 text-sm">
+              Review company context here first, then open a specific role once the employer looks worth deeper effort.
+            </p>
+          </div>
+        </div>
+      </section>
 
       <Card title="Recent offers" description="The latest offers linked to this company in your workspace catalog.">
         {company.recentOffers.length ? (
           <div className="space-y-3">
             {company.recentOffers.map((offer) => (
-              <div
-                key={offer.id}
-                className="border-border/60 bg-surface-muted/35 space-y-3 rounded-2xl border px-4 py-4"
-              >
+              <article key={offer.id} className="app-tonal-section space-y-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <p className="text-text-strong text-sm font-semibold">{offer.title}</p>
-                    <p className="text-text-soft text-sm">
+                    <p className="text-text-strong text-base font-semibold">{offer.title}</p>
+                    <p className="text-text-soft text-sm leading-6">
                       {offer.location ?? 'Location not specified'}
                       {offer.salary ? ` | ${offer.salary}` : ''}
                     </p>
@@ -159,6 +217,25 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
                     ) : null}
                   </div>
                 </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="app-open-section border-border/35 border-t pt-3">
+                    <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Offer status</p>
+                    <p className="text-text-soft mt-2 text-sm">
+                      {offer.isExpired
+                        ? 'This listing is no longer active, but it remains useful for employer context.'
+                        : 'This listing is still active and can be used to understand current employer demand.'}
+                    </p>
+                  </div>
+                  <div className="app-open-section border-border/35 border-t pt-3">
+                    <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Next jump</p>
+                    <p className="text-text-soft mt-2 text-sm">
+                      Open the source listing for details or pivot back to the filtered company list for nearby
+                      employers.
+                    </p>
+                  </div>
+                </div>
+
                 <div className="flex flex-wrap gap-2">
                   <Link href={offer.url} target="_blank" rel="noreferrer">
                     <Button type="button" size="sm">
@@ -174,7 +251,7 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
                     </Link>
                   ) : null}
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         ) : (

@@ -14,14 +14,36 @@ type OpportunitiesPageProps = {
   token: string;
   initialQuickAction?: DiscoveryQuickActionKey | null;
   initialOfferId?: string | null;
+  initialMode?: 'strict' | 'approx' | 'explore';
+  initialHasScore?: 'all' | 'yes' | 'no';
+  initialSearch?: string;
+  initialTag?: string;
+  initialPage?: number;
+  initialPerPage?: number;
 };
 
 export const OpportunitiesPage = ({
   token,
   initialQuickAction = null,
   initialOfferId = null,
+  initialMode = 'strict',
+  initialHasScore = 'all',
+  initialSearch = '',
+  initialTag = '',
+  initialPage = 1,
+  initialPerPage = 20,
 }: OpportunitiesPageProps) => {
-  const opportunities = useOpportunitiesPage({ token, initialQuickAction, initialOfferId });
+  const opportunities = useOpportunitiesPage({
+    token,
+    initialQuickAction,
+    initialOfferId,
+    initialMode,
+    initialHasScore,
+    initialSearch,
+    initialTag,
+    initialPage,
+    initialPerPage,
+  });
   const [showRail, setShowRail] = useState(false);
   const mobileDetailsRef = useRef<HTMLElement | null>(null);
 
@@ -80,9 +102,11 @@ export const OpportunitiesPage = ({
               hasScore={opportunities.hasScore}
               search={opportunities.search}
               tag={opportunities.tag}
+              page={opportunities.page}
+              perPage={opportunities.perPage}
               selectedId={opportunities.selectedId}
               offset={opportunities.offset}
-              limit={20}
+              limit={opportunities.perPage}
               canPrev={opportunities.canPrev}
               canNext={opportunities.canNext}
               isBusy={opportunities.isBusy}
@@ -91,9 +115,11 @@ export const OpportunitiesPage = ({
               onHasScoreChange={opportunities.setHasScore}
               onSearchChange={opportunities.setSearch}
               onTagChange={opportunities.setTag}
+              onPageChange={opportunities.setPage}
+              onPerPageChange={opportunities.setPerPage}
               onResetFilters={opportunities.resetFilters}
-              onPrev={() => opportunities.setOffset(opportunities.offset - 20)}
-              onNext={() => opportunities.setOffset(opportunities.offset + 20)}
+              onPrev={() => opportunities.setPage(opportunities.page - 1)}
+              onNext={() => opportunities.setPage(opportunities.page + 1)}
               onSave={opportunities.saveOpportunity}
               onMarkSeen={opportunities.markSeen}
               onDismiss={opportunities.dismiss}

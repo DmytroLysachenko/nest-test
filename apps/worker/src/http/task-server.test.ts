@@ -8,6 +8,7 @@ import { createTaskServer } from './task-server';
 import type { AddressInfo } from 'node:net';
 import type { Logger } from 'pino';
 import type { WorkerEnv } from '../config/env';
+import type { TaskEnvelope } from '../queue/task-types';
 
 type VerifyIdTokenResult = Awaited<ReturnType<OAuth2Client['verifyIdToken']>>;
 
@@ -50,6 +51,8 @@ const buildEnv = (overrides: Partial<WorkerEnv> = {}): WorkerEnv =>
     PRACUJ_LISTING_DELAY_MS: 1500,
     PRACUJ_LISTING_COOLDOWN_MS: 0,
     PRACUJ_DETAIL_DELAY_MS: 2000,
+    PRACUJ_BROWSER_FALLBACK_MAX_COUNT: 3,
+    PRACUJ_BROWSER_FALLBACK_BUDGET_MS: 30000,
     PRACUJ_DETAIL_CACHE_HOURS: 24,
     PRACUJ_LISTING_ONLY: false,
     PRACUJ_DETAIL_HOST: undefined,
@@ -57,7 +60,10 @@ const buildEnv = (overrides: Partial<WorkerEnv> = {}): WorkerEnv =>
     PRACUJ_DETAIL_HUMANIZE: false,
     PRACUJ_REQUIRE_DETAIL: false,
     PRACUJ_PROFILE_DIR: undefined,
+    WORKER_OUTPUT_STORAGE_BACKEND: 'filesystem',
     WORKER_OUTPUT_MODE: 'minimal',
+    WORKER_OUTPUT_ALLOW_FULL_IN_PROD: false,
+    WORKER_OUTPUT_RAW_SAMPLE_LIMIT: 5,
     WORKER_MAX_CONCURRENT_TASKS: 1,
     WORKER_MAX_QUEUE_SIZE: 100,
     WORKER_TASK_TIMEOUT_MS: 180000,
@@ -218,6 +224,10 @@ test('reports worker queue and concurrency policy on health', async () => {
       PRACUJ_DETAIL_CONCURRENCY: 3,
       PRACUJ_DETAIL_DELAY_MS: 1500,
       PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS: 4500,
+      PRACUJ_BROWSER_FALLBACK_MAX_COUNT: 4,
+      PRACUJ_BROWSER_FALLBACK_BUDGET_MS: 18000,
+      WORKER_OUTPUT_MODE: 'full',
+      WORKER_OUTPUT_RAW_SAMPLE_LIMIT: 3,
     }),
     logger,
   );
@@ -232,7 +242,17 @@ test('reports worker queue and concurrency policy on health', async () => {
     const body = (await response.json()) as {
       ok: boolean;
       queue: { maxConcurrent: number; maxQueueSize: number; taskTimeoutMs: number };
-      policy: { detailConcurrency: number; detailDelayMs: number; browserFallbackCooldownMs: number };
+      policy: {
+        detailConcurrency: number;
+        detailDelayMs: number;
+        browserFallbackConcurrency: string;
+        browserFallbackCooldownMs: number;
+        browserFallbackMaxCount: number;
+        browserFallbackBudgetMs: number;
+        outputStorageBackend: string;
+        outputMode: string;
+        outputRawSampleLimit: number;
+      };
     };
 
     assert.equal(body.ok, true);
@@ -241,8 +261,70 @@ test('reports worker queue and concurrency policy on health', async () => {
     assert.equal(body.queue.taskTimeoutMs, 120000);
     assert.equal(body.policy.detailConcurrency, 3);
     assert.equal(body.policy.detailDelayMs, 1500);
+    assert.equal(body.policy.browserFallbackConcurrency, 'serial');
     assert.equal(body.policy.browserFallbackCooldownMs, 4500);
+    assert.equal(body.policy.browserFallbackMaxCount, 4);
+    assert.equal(body.policy.browserFallbackBudgetMs, 18000);
+    assert.equal(body.policy.outputStorageBackend, 'filesystem');
+    assert.equal(body.policy.outputMode, 'full');
+    assert.equal(body.policy.outputRawSampleLimit, 3);
   } finally {
+    await closeServer(server);
+  }
+});
+
+test('returns duplicate when a durable worker task execution lease is already active', async () => {
+  const originalVerifyIdToken = OAuth2Client.prototype.verifyIdToken;
+  OAuth2Client.prototype.verifyIdToken = (async () =>
+    ({
+      getPayload: () => ({
+        iss: 'https://accounts.google.com',
+        email: 'expected-caller@example.iam.gserviceaccount.com',
+        email_verified: true,
+      }),
+    }) as unknown as VerifyIdTokenResult) as unknown as OAuth2Client['verifyIdToken'];
+
+  const server = createTaskServer(buildEnv({ WORKER_SMOKE_ACCEPT_ONLY: true }), logger, {
+    claimWorkerTaskExecution: async () =>
+      ({
+        outcome: 'duplicate',
+        execution: {
+          taskId: 'task-active-1',
+          leaseExpiresAt: new Date('2026-05-04T10:00:00.000Z'),
+          status: 'accepted',
+        },
+      }) as const,
+  });
+  await new Promise<void>((resolve) => {
+    server.listen(0, () => resolve());
+  });
+  const port = (server.address() as AddressInfo).port;
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/tasks`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer fake-id-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: 'scrape:source',
+        payload: {
+          taskSchemaVersion: '1',
+          source: 'pracuj-pl',
+          sourceRunId: '2f149bf9-65fd-48b5-aec7-8dc86abfca78',
+          taskId: 'task-new-1',
+          listingUrl: 'https://it.pracuj.pl/praca',
+        } satisfies TaskEnvelope['payload'],
+      }),
+    });
+
+    assert.equal(response.status, 202);
+    const body = (await response.json()) as { reason?: string; activeTaskId?: string };
+    assert.equal(body.reason, 'active-task-execution');
+    assert.equal(body.activeTaskId, 'task-active-1');
+  } finally {
+    OAuth2Client.prototype.verifyIdToken = originalVerifyIdToken;
     await closeServer(server);
   }
 });

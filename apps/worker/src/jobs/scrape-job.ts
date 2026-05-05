@@ -84,7 +84,15 @@ type CallbackPayload = {
       callbackDispatchFailures: number;
     };
     detailAttemptedCount?: number;
+    detailBatchCount?: number;
     detailBudget?: number | null;
+    detailConcurrencyRequested?: number;
+    detailConcurrencyEffective?: number;
+    browserFallbackConcurrency?: 'serial';
+    browserFallbackCount?: number;
+    browserFallbackBudgetMs?: number | null;
+    browserFallbackBudgetUsedMs?: number;
+    browserFallbackBudgetRemainingMs?: number | null;
     detailStopReason?: 'completed' | 'budget_reached' | 'source_degraded';
     silentFailure?: boolean;
     artifacts?: OutputArtifactManifest | null;
@@ -94,7 +102,14 @@ type CallbackPayload = {
         jobLinksDiscovered: number;
         blockedPages: number;
         browserFallbacks: number;
+        browserFallbackBudgetMs?: number | null;
+        browserFallbackBudgetUsedMs?: number;
+        browserFallbackBudgetRemainingMs?: number | null;
         detailAttemptedCount: number;
+        detailBatchCount: number;
+        detailConcurrencyRequested: number;
+        detailConcurrencyEffective: number;
+        browserFallbackConcurrency: 'serial';
       };
       parse: {
         acceptedOfferCount: number;
@@ -1089,6 +1104,8 @@ export const runScrapeJob = async (
     detailDelayMs?: number;
     detailConcurrency?: number;
     browserFallbackCooldownMs?: number;
+    browserFallbackMaxCount?: number;
+    browserFallbackBudgetMs?: number;
     detailCacheHours?: number;
     listingOnly?: boolean;
     detailHost?: string;
@@ -1096,7 +1113,9 @@ export const runScrapeJob = async (
     detailHumanize?: boolean;
     requireDetail?: boolean;
     profileDir?: string;
+    outputStorageBackend?: 'filesystem';
     outputMode?: 'full' | 'minimal';
+    outputRawSampleLimit?: number;
     outputRetentionHours?: number;
     callbackUrl?: string;
     callbackToken?: string;
@@ -1156,6 +1175,13 @@ export const runScrapeJob = async (
     let attemptsExecuted = 0;
     let adaptiveDetailDelayMs = effectiveTiming.detailDelayMs;
     let adaptiveDelayApplied = 0;
+    let lastBrowserFallbackCount = 0;
+    let lastDetailBatchCount = 0;
+    let lastDetailConcurrencyRequested = options.detailConcurrency ?? 1;
+    let lastDetailConcurrencyEffective = 0;
+    let lastBrowserFallbackBudgetMs: number | null = options.browserFallbackBudgetMs ?? null;
+    let lastBrowserFallbackBudgetUsedMs = 0;
+    let lastBrowserFallbackBudgetRemainingMs: number | null = options.browserFallbackBudgetMs ?? null;
     const emitExecutionEvent = async (
       stage: string,
       status: 'info' | 'success' | 'warning' | 'failed',
@@ -1520,6 +1546,8 @@ export const runScrapeJob = async (
           detailDelayMs: adaptiveDetailDelayMs,
           detailConcurrency: options.detailConcurrency,
           browserFallbackCooldownMs: effectiveTiming.browserFallbackCooldownMs,
+          browserFallbackMaxCount: options.browserFallbackMaxCount,
+          browserFallbackBudgetMs: options.browserFallbackBudgetMs,
           listingOnly: options.listingOnly,
           detailHost: options.detailHost,
           detailCookiesPath: options.detailCookiesPath,
@@ -1642,8 +1670,15 @@ export const runScrapeJob = async (
       listingData = crawlResult.listingData;
       listingSummaries = crawlResult.listingSummaries;
       totalDetailAttemptedCount += crawlResult.detailAttemptedCount;
+      lastDetailBatchCount = crawlResult.detailBatchCount;
       lastDetailBudget = crawlResult.detailBudget;
       lastDetailStopReason = crawlResult.detailStopReason;
+      lastDetailConcurrencyRequested = crawlResult.detailConcurrencyRequested;
+      lastDetailConcurrencyEffective = crawlResult.detailConcurrencyEffective;
+      lastBrowserFallbackCount = crawlResult.browserFallbackCount;
+      lastBrowserFallbackBudgetMs = crawlResult.browserFallbackBudgetMs;
+      lastBrowserFallbackBudgetUsedMs = crawlResult.browserFallbackBudgetUsedMs;
+      lastBrowserFallbackBudgetRemainingMs = crawlResult.browserFallbackBudgetRemainingMs;
       crawlResult.jobLinks.forEach((url) => aggregatedJobLinks.add(url));
       crawlResult.skippedUrls.forEach((url) => aggregatedSkippedUrls.add(url));
       crawlResult.recommendedJobLinks.forEach((url) => aggregatedRecommendedLinks.add(url));
@@ -1794,16 +1829,24 @@ export const runScrapeJob = async (
       options.outputDir,
       options.outputMode,
       options.outputMode === 'full' ? (options.outputRetentionHours ?? 72) : undefined,
+      options.outputRawSampleLimit ?? 5,
     );
     const outputPath = output.path;
-    const browserFallbackCount = aggregatedDiagnostics.filter((item) => item.transport === 'browser').length;
+    const browserFallbackCount = lastBrowserFallbackCount;
     const stageMetrics = {
       fetch: {
         pagesVisited: aggregatedPages.length,
         jobLinksDiscovered: aggregatedJobLinks.size,
         blockedPages: aggregatedBlockedUrls.length,
         browserFallbacks: browserFallbackCount,
+        browserFallbackBudgetMs: lastBrowserFallbackBudgetMs,
+        browserFallbackBudgetUsedMs: lastBrowserFallbackBudgetUsedMs,
+        browserFallbackBudgetRemainingMs: lastBrowserFallbackBudgetRemainingMs,
         detailAttemptedCount: totalDetailAttemptedCount,
+        detailBatchCount: lastDetailBatchCount,
+        detailConcurrencyRequested: lastDetailConcurrencyRequested,
+        detailConcurrencyEffective: lastDetailConcurrencyEffective,
+        browserFallbackConcurrency: 'serial',
       },
       parse: {
         acceptedOfferCount: assessedJobs.acceptedOfferCount,
@@ -1861,7 +1904,15 @@ export const runScrapeJob = async (
           skippedFreshUrls: aggregatedSkippedUrls.size,
           blockedPages: aggregatedBlockedUrls.length,
           detailAttemptedCount: totalDetailAttemptedCount,
+          detailBatchCount: lastDetailBatchCount,
           detailBudget: lastDetailBudget,
+          detailConcurrencyRequested: lastDetailConcurrencyRequested,
+          detailConcurrencyEffective: lastDetailConcurrencyEffective,
+          browserFallbackConcurrency: 'serial',
+          browserFallbackCount: lastBrowserFallbackCount,
+          browserFallbackBudgetMs: lastBrowserFallbackBudgetMs,
+          browserFallbackBudgetUsedMs: lastBrowserFallbackBudgetUsedMs,
+          browserFallbackBudgetRemainingMs: lastBrowserFallbackBudgetRemainingMs,
           detailStopReason: lastDetailStopReason,
           silentFailure,
           artifacts: output.artifacts,
@@ -2063,6 +2114,10 @@ export const runScrapeJob = async (
               blockedPages: 0,
               browserFallbacks: 0,
               detailAttemptedCount: 0,
+              detailBatchCount: 0,
+              detailConcurrencyRequested: 0,
+              detailConcurrencyEffective: 0,
+              browserFallbackConcurrency: 'serial',
             },
             parse: {
               acceptedOfferCount: 0,

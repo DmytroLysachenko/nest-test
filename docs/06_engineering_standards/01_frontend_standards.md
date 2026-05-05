@@ -1,6 +1,6 @@
 # Frontend Standards
 
-Last updated: 2026-04-29
+Last updated: 2026-05-03
 
 ## Purpose
 
@@ -152,6 +152,7 @@ Notifications:
 - Use `sonner` via `shared/lib/ui/toast.ts` only.
 - Success/error feedback for mutations should be shown through shared toast wrappers.
 - Keep toasts concise and action-oriented.
+- Prefer light, integrated action affordances over heavy filled blocks for inline toast actions such as undo.
 
 Forms:
 
@@ -167,6 +168,73 @@ Forms:
 - Do not persist long-lived auth tokens in `localStorage` when the API already supports httpOnly cookie session recovery.
 - Current preferred model is: API owns httpOnly auth cookies, the client may keep short-lived access tokens in memory only, and server bootstrap may resolve session state by forwarding cookies to the API.
 - If the frontend needs a session placeholder for query gating, it must be a non-secret sentinel value, not a mirrored credential.
+
+## Route Query And Filter Rules
+
+- Route-level filter state that matters to navigation, sharing, reload, or back/forward behavior must live in the URL query, not only in local component state.
+- Prefer human-readable query params that mirror the product language of the route (`page`, `perPage`, `search`, `tag`, `mode`, `location`).
+- Free-text server filters must debounce before they update route query or trigger a new request.
+- Default debounce target for free-text server filters is `350-400ms` unless the route has a stronger user-experience reason to differ.
+- Immediate controls such as toggles, tabs, and select inputs may update the route query synchronously when the request budget is low and the user intent is explicit.
+- When debounced filters change the result set, reset pagination to the first page unless the route has a documented reason not to.
+- Prefer shared query/path shaping helpers from `shared/lib/utils/*` instead of route-local string concatenation for URL updates.
+
+## Query Freshness Rules
+
+- Route controllers must invalidate every affected read model after workflow mutations; do not assume one list invalidation is enough.
+- Mutable workflow routes such as discovery, notebook, company research, and dashboard workflow summaries may opt into targeted mount refetch behavior when stale or invalidated.
+- Prefer narrow `refetchOnMount` or explicit invalidation on mutable routes instead of making global query defaults chatty.
+- When a route-to-route workflow handoff is user-visible, verify freshness behavior with regression tests before considering the slice done.
+
+## Workspace Surface Composition Rules
+
+- Start route composition by deciding what is:
+  - primary page content
+  - support utility
+  - dense factual widget
+  - destructive or exceptional state
+- Keep primary page content open on the canvas whenever possible.
+- Use enclosed surfaces for:
+  - widgets
+  - utility rails
+  - compact metrics
+  - action clusters that need explicit separation
+  - destructive or exceptional messaging
+- Do not wrap a page header, page body, and inner section in three visually similar bordered surfaces just to create hierarchy.
+- If an inner box does not add new information architecture, remove it and rely on spacing, typography, or tonal background instead.
+- Default nesting depth should stay at `1` or less across workspace routes.
+- Shared surface primitives must encourage this behavior:
+  - `app-surface` for meaningful containers
+  - `app-tonal-section` or equivalent for open grouped content
+  - `app-utility-rail` for side guidance
+  - `app-inset-stack` only when truly dense grouping is required
+- Workspace routes should feel related:
+  - shell
+  - dashboard
+  - planning
+  - opportunities
+  - notebook
+  - companies
+  - profile
+- A route should not look calmer only because it has less data; composition quality must scale with real content density.
+
+## Regression Coverage Rules
+
+- Add hook tests when changing:
+  - debounced route filters
+  - URL hydration/writeback behavior
+  - pagination state ownership
+  - mutation invalidation and refetch wiring
+- Add component tests when visual or interaction affordances change in meaningful user-visible ways, especially for:
+  - loaders
+  - empty states
+  - selected-workspace/detail rails
+  - toast actions
+- Prefer route-controller tests for URL/query/state choreography instead of only testing leaf inputs.
+- When a route depends on debounced values, assert both halves:
+  - no early URL/request change before debounce settles
+  - expected URL/request/state after debounce settles
+- When a mutation should affect another route, add at least one regression test proving the affected read model is invalidated or refetched.
 
 ## TypeScript Rules
 
@@ -220,6 +288,7 @@ Forms:
 
 - Default workspace direction is light-first and desktop-first.
 - Prefer tonal layering, spacing, and typographic hierarchy over heavy border grids.
+- Treat the shell header as workspace chrome, not as another floating content card.
 - Use shared page composition primitives before inventing route-local layouts:
   - shell
   - editorial sections
@@ -227,6 +296,8 @@ Forms:
   - inset stacks
   - metric tiles
 - Prefer open sectioning, tonal grouping, and whitespace before adding another bordered card. Borders should communicate separation, not act as default layout filler.
+- Main route content should usually stay open on the page canvas; enclosed cards are for widgets, utilities, destructive settings, or dense factual clusters.
+- Avoid box-inside-box composition unless the inner surface adds real information value. As a default rule, keep visual nesting depth at `1` or less.
 - Treat dashboard, planning, notebook, activity, and profile as one connected workspace family.
 - Preserve route structure and functionality during visual redesigns; improve composition before adding new interactions.
 - Empty, hidden, degraded, and blocked states must feel intentional and informative, not like raw placeholder boxes.

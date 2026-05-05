@@ -1,6 +1,6 @@
 # Implementation History
 
-Last updated: 2026-04-26
+Last updated: 2026-05-04
 
 ## Purpose
 
@@ -9,6 +9,108 @@ This document tracks major implementation shifts in chronological order.
 It is not a full changelog. It exists to preserve the architectural story of the product so future work can build on deliberate decisions instead of rediscovering them.
 
 ## History
+
+### `018` Explicit detail-concurrency policy in worker diagnostics
+
+Summary:
+
+- surfaced requested and effective HTTP detail concurrency into scrape diagnostics
+- added detail batch counts so throughput behavior can be explained without reading worker logs
+- made serial browser fallback an explicit worker-health and diagnostics contract instead of an implicit code detail
+
+Primary code areas:
+
+- `apps/worker/src/sources/pracuj-pl/crawl.ts`
+- `apps/worker/src/jobs/scrape-job.ts`
+- `apps/worker/src/http/task-server.ts`
+- `apps/api/src/features/job-sources/job-sources.service.ts`
+
+Related docs:
+
+- `docs/05_operations_and_deployment/01_runbook.md`
+- `docs/99_archive_legacy/06_scrape_performance_efficiency_stability_audit_completed.md`
+- `docs/01_project_context/02_project_state.md`
+
+### `017` Production-safe worker artifact policy
+
+Summary:
+
+- made worker artifact output default to `minimal` in production unless explicitly overridden
+- rejected `WORKER_OUTPUT_MODE=full` in production unless an explicit allow flag is set
+- extended artifact manifests and diagnostics to describe mode, storage backend, availability, debug intent, and bounded raw sample exposure
+
+Primary code areas:
+
+- `apps/worker/src/config/env.ts`
+- `apps/worker/src/output/save-output.ts`
+- `apps/worker/src/http/task-server.ts`
+- `apps/api/src/features/job-sources/job-sources.service.ts`
+
+Related docs:
+
+- `docs/05_operations_and_deployment/01_runbook.md`
+- `docs/99_archive_legacy/06_scrape_performance_efficiency_stability_audit_completed.md`
+- `docs/01_project_context/02_project_state.md`
+
+### `016` Scrape smoke coverage for batch ingest and dead-letter replay
+
+Summary:
+
+- extended `scripts/smoke-e2e.ps1` so one scrape recovery flow now covers deterministic completion, batch incremental ingest before a failed terminal callback, and admin-triggered dead-letter callback replay
+- taught local smoke autostart to share worker replay auth between API and worker
+- fixed replay-fixture writing to use BOM-free UTF-8 because worker replay reads files with plain `JSON.parse`
+
+Primary code areas:
+
+- `scripts/smoke-e2e.ps1`
+
+Related docs:
+
+- `docs/05_operations_and_deployment/01_runbook.md`
+- `docs/05_operations_and_deployment/02_e2e_debugging.md`
+- `docs/99_archive_legacy/06_scrape_performance_efficiency_stability_audit_completed.md`
+
+### `015` Proactive ops alert dispatch and delivery ledger
+
+Summary:
+
+- introduced `ops_alert_events` as a durable delivery history for proactive ops notifications
+- added webhook-based alert dispatch behind a token-protected internal ops endpoint
+- wired production deploy automation so Cloud Scheduler can trigger `/api/ops/dispatch-alerts` when a webhook target is configured
+
+Primary code areas:
+
+- `packages/db/src/schema/ops-alert-events.ts`
+- `apps/api/src/features/ops/ops-alerts.service.ts`
+- `apps/api/src/features/ops/ops.controller.ts`
+- `scripts/deploy-cloud-run-prod.sh`
+
+Related docs:
+
+- `docs/99_archive_legacy/06_scrape_performance_efficiency_stability_audit_completed.md`
+- `docs/05_operations_and_deployment/01_runbook.md`
+- `docs/05_operations_and_deployment/04_gcp_deploy_matrix.md`
+
+### `014` Durable worker task execution lease ownership
+
+Summary:
+
+- introduced `worker_task_executions` as the durable worker-ingress lease owner
+- moved duplicate active execution protection off event-derived reads and onto one atomic row per `sourceRunId`
+- kept `scrape_execution_events` as the append-only forensic lifecycle ledger
+
+Primary code areas:
+
+- `packages/db/src/schema/worker-task-executions.ts`
+- `apps/worker/src/db/worker-task-executions.ts`
+- `apps/worker/src/http/task-server.ts`
+- `apps/worker/src/queue/task-runner.ts`
+
+Related docs:
+
+- `docs/99_archive_legacy/06_scrape_performance_efficiency_stability_audit_completed.md`
+- `docs/01_project_context/02_project_state.md`
+- `docs/04_architecture_and_data/01_decisions.md`
 
 ### `001` Core scrape run and shared offer foundation
 
@@ -323,8 +425,33 @@ Summary:
 Primary code areas:
 
 - `docs/99_archive_legacy/12_notebook_workflow_throughput_and_reminder_delivery_audit_plan_completed.md`
-- `docs/03_plans_and_roadmaps/13_frontend_ui_ux_design_and_trust_hardening_audit_plan.md`
+- `docs/99_archive_legacy/13_frontend_ui_ux_design_and_trust_hardening_audit_plan_completed.md`
 
 Related docs:
 
 - `docs/03_plans_and_roadmaps/01_roadmap.md`
+
+### `017` Frontend UX/query trust tranche closure and archive
+
+Summary:
+
+- completed the frontend UI/UX and query-trust tranche that flattened the core workspace surfaces
+- locked route-query hygiene and workflow-freshness regressions with targeted web tests
+- synced roadmap, sprint plan, project state, and frontend standards to the new baseline
+- archived the completed frontend audit so active planning docs no longer point at finished tranche work
+
+Primary code areas:
+
+- `docs/01_project_context/02_project_state.md`
+- `docs/03_plans_and_roadmaps/01_roadmap.md`
+- `docs/03_plans_and_roadmaps/02_sprint_plan.md`
+- `docs/06_engineering_standards/01_frontend_standards.md`
+- `docs/99_archive_legacy/13_frontend_ui_ux_design_and_trust_hardening_audit_plan_completed.md`
+
+Related docs:
+
+- `apps/web/src/shared/ui/app-shell.tsx`
+- `apps/web/src/features/workspace/ui/workspace-planning-page.tsx`
+- `apps/web/src/features/job-offers`
+- `apps/web/src/features/companies`
+- `apps/web/src/features/profile-management`

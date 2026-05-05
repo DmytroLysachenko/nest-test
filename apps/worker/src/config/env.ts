@@ -53,6 +53,8 @@ const envSchema = z.object({
   PRACUJ_DETAIL_DELAY_MS: z.coerce.number().int().min(0).max(30000).default(2000),
   PRACUJ_DETAIL_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(2),
   PRACUJ_BROWSER_FALLBACK_COOLDOWN_MS: z.coerce.number().int().min(0).max(60000).default(4000),
+  PRACUJ_BROWSER_FALLBACK_MAX_COUNT: z.coerce.number().int().min(1).max(20).default(3),
+  PRACUJ_BROWSER_FALLBACK_BUDGET_MS: z.coerce.number().int().min(1000).max(180000).default(30000),
   PRACUJ_DETAIL_CACHE_HOURS: z.coerce.number().int().min(0).max(720).default(24),
   PRACUJ_LISTING_ONLY: booleanSchema.default(false),
   PRACUJ_DETAIL_HOST: z.string().optional(),
@@ -61,7 +63,10 @@ const envSchema = z.object({
   PRACUJ_REQUIRE_DETAIL: booleanSchema.default(false),
   PRACUJ_PROFILE_DIR: z.string().optional(),
   WORKER_BROWSER_PROBE_ON_START: booleanSchema.default(false),
+  WORKER_OUTPUT_STORAGE_BACKEND: z.enum(['filesystem']).default('filesystem'),
   WORKER_OUTPUT_MODE: z.enum(['full', 'minimal']).default('full'),
+  WORKER_OUTPUT_ALLOW_FULL_IN_PROD: booleanSchema.default(false),
+  WORKER_OUTPUT_RAW_SAMPLE_LIMIT: z.coerce.number().int().min(0).max(20).default(5),
   WORKER_OUTPUT_RETENTION_HOURS: z.coerce.number().int().min(1).max(720).default(72),
   WORKER_MAX_CONCURRENT_TASKS: z.coerce.number().int().min(1).max(5).default(1),
   WORKER_MAX_QUEUE_SIZE: z.coerce.number().int().min(1).max(1000).default(100),
@@ -82,13 +87,22 @@ export const loadEnv = () => {
   if (!parsed.success) {
     throw new Error(`Invalid worker environment: ${formatEnvError(parsed.error)}`);
   }
-  const env = parsed.data;
+  const env = { ...parsed.data };
+  const outputModeProvided =
+    typeof process.env.WORKER_OUTPUT_MODE === 'string' && process.env.WORKER_OUTPUT_MODE.trim().length > 0;
+
+  if (env.NODE_ENV === 'production' && !outputModeProvided) {
+    env.WORKER_OUTPUT_MODE = 'minimal';
+  }
 
   if (env.NODE_ENV === 'production' && env.QUEUE_PROVIDER !== 'cloud-tasks') {
     throw new Error('QUEUE_PROVIDER must be cloud-tasks in production mode');
   }
   if (env.NODE_ENV === 'production' && env.WORKER_ALLOWED_ORIGINS.trim() === '*') {
     throw new Error('WORKER_ALLOWED_ORIGINS cannot be "*" in production mode');
+  }
+  if (env.NODE_ENV === 'production' && env.WORKER_OUTPUT_MODE === 'full' && !env.WORKER_OUTPUT_ALLOW_FULL_IN_PROD) {
+    throw new Error('WORKER_OUTPUT_MODE=full requires WORKER_OUTPUT_ALLOW_FULL_IN_PROD=true in production mode');
   }
 
   if (env.QUEUE_PROVIDER === 'cloud-tasks') {

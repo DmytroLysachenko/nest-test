@@ -19,5 +19,14 @@ export default function CompaniesRoute() {
     );
   }
 
-  return <CompaniesPage token={auth.token} initialLocation={searchParams.get('location')} />;
+  const initialPageParam = Number(searchParams.get('page'));
+
+  return (
+    <CompaniesPage
+      token={auth.token}
+      initialSearch={searchParams.get('search')}
+      initialLocation={searchParams.get('location')}
+      initialPage={Number.isFinite(initialPageParam) && initialPageParam > 0 ? initialPageParam : 1}
+    />
+  );
 }

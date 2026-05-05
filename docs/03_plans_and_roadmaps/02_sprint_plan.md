@@ -1,6 +1,6 @@
 # Sprint Plan
 
-Last updated: 2026-03-21
+Last updated: 2026-05-03
 
 This document translates the current roadmap into implementation-oriented sprint slices. It is intentionally more detailed than `docs/03_plans_and_roadmaps/01_roadmap.md` and should be updated whenever priorities or dependencies shift materially.
 
@@ -18,6 +18,78 @@ This document translates the current roadmap into implementation-oriented sprint
   - faster action loops in notebook
   - stronger source reliability
   - safer startup, smoke, and deploy behavior
+
+## Completed Frontend Tranche: Workspace UX Flattening And Query Trust
+
+This web-focused execution slice is now implemented and should be treated as the new baseline before any broader frontend expansion or aesthetic redesign.
+
+Primary drivers for the tranche were:
+
+- core workflow routes felt too boxed and too panel-heavy
+- planning had sticky/layout trust issues
+- opportunities previously used request-heavy free-text filtering and unshareable pagination state
+- notebook route freshness was not trustworthy enough after cross-route mutations
+- companies and profile had mixed hierarchy quality and rough loading/query behavior
+
+Execution highlights for this tranche:
+
+1. rebuild the shell header into full-width workspace chrome
+2. fix planning sticky overlap and flatten planning route composition
+3. move opportunities to URL-driven debounced filters with shareable `page` and `perPage` pagination state
+4. tighten opportunities detail-rail spacing and reduce nested box treatment
+5. harden notebook/discovery freshness after cross-route mutations
+6. debounce and URL-sync company-route filters while improving company loading states
+7. rebalance profile hierarchy and replace raw profile-health signal labels with user-facing wording
+8. restyle undo toasts so action affordances match the lighter workspace language
+9. add regression coverage for query hygiene, route freshness, and layout stability
+
+Completed outcome summary:
+
+- core workspace routes now rely more on open sections, tonal grouping, and spacing than stacked bordered cards
+- planning no longer has the sticky overlap problem that previously broke trust in the automation surface
+- opportunities and companies no longer fetch on every free-text keystroke
+- opportunities filter and pagination state now survives reload/back/forward through URL ownership
+- notebook refresh behavior after route-to-route mutations is materially more trustworthy
+- companies and profile now read more like product routes than generic component grids
+
+Route-by-route baseline after completion:
+
+1. Shell
+   - header is now workspace chrome spanning the full content width instead of a rounded content card
+   - page identity relies more on section hierarchy below the shell, not stacked top chrome
+2. Planning
+   - automation route keeps one primary content area plus support guidance instead of layered inset panels
+   - sticky utility overlap is removed, so trust language no longer sits on broken layout behavior
+3. Opportunities
+   - `search` and `tag` debounce before route updates or API requests
+   - `mode`, `hasScore`, `page`, `perPage`, and selected offer context are URL-owned
+   - explicit page-based review remains, but pagination state is now stable across reload and back/forward navigation
+   - list controls and selected-offer rail rely on lighter grouping instead of nested card stacks
+4. Notebook
+   - route-local UI state is narrower and less coupled to the broad shared UI store
+   - post-mutation freshness is stronger for notebook, discovery, and workflow summary read models
+   - action-plan, reminder, and selected-workspace sections are flatter and easier to scan
+5. Companies
+   - `search` and `location` debounce before querying
+   - route query preserves browse state
+   - loaders and list/detail composition now match the lighter workspace family
+6. Profile
+   - profile input is the dominant source-of-truth surface again
+   - supporting sections are lighter and less wasteful with height
+   - profile health labels are now user-facing instead of DB-facing
+
+Guardrails this tranche established for later frontend work:
+
+- do not reintroduce request-per-keystroke server filters
+- do not hide route-critical filters and pagination only in local component state
+- do not solve every hierarchy problem with another bordered card
+- prefer targeted invalidation and route-level mount refetch over globally aggressive query defaults
+- keep notebook as the active-work owner and avoid route-to-route stale-state surprises
+
+Preferred commit sizing:
+
+- usually `~200-300` changed lines
+- split any `500+` line frontend slice into two smaller commits around state/model vs UI/composition boundaries
 
 ## Product Strategy Constraint
 

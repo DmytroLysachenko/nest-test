@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-04-28
+Last updated: 2026-05-04
 
 ## Purpose
 
@@ -145,6 +145,7 @@ That framing should guide future implementation more than raw source count.
   - modularization is now an active engineering concern because `job-sources` and `job-offers` service files have grown beyond easy human scanability
   - feature-local helper modules are now the preferred way to move pure derivation, shaping, and preference logic out of large Nest services before creating more service classes
   - support-facing read models now provide LLM-friendly incident bundles instead of forcing raw endpoint composition
+  - ops now has an internal webhook alert dispatch path with persisted delivery history so callback dead letters, stale runs, and other alert flags can trigger proactive notifications instead of dashboard-only review
   - job-offer read models now expose normalized company and taxonomy summaries in addition to raw listing fields
   - job-offer read models now also expose normalized multi-value relations so structured review does not depend only on legacy `details` JSON
   - notebook and discovery list responses now also expose explicit collection-state guidance so hidden/degraded/empty queues are explained by API instead of inferred only in the web layer
@@ -152,8 +153,11 @@ That framing should guide future implementation more than raw source count.
   - scrape enqueue responses now return explicit catalog-rematch and DB-reuse diagnostics so fresh-result gating is visible instead of silently falling through to worker dispatch
 - Worker
   - scrape lifecycle visibility is materially stronger
+  - duplicate active scrape execution protection now uses a durable `worker_task_executions` lease row instead of relying only on event-history reads
   - diagnostics now distinguish degraded/empty/blocked/partial outcomes
   - diagnostics now also expose artifact manifests, stage metrics, and silent-failure classification so completed-but-useless runs are not treated as healthy success
+  - production worker boot now defaults debug artifact output to `minimal`, rejects `full` artifact mode unless explicitly allowed, and exposes filesystem-ephemeral artifact policy in diagnostics metadata
+  - worker health and scrape diagnostics now also expose requested/effective detail concurrency, detail batch counts, and the explicit rule that browser fallback remains serial even when HTTP detail fetches are concurrent
   - stage metrics now distinguish unique discovered offers, full-detail offers, partial-detail offers, and listing-salvaged offers
   - run diagnostics now expose a dedicated usefulness read model for listing, candidate, match, notebook-linking, strict-hidden, and degraded-output impact
   - source-specific alias normalization is now deterministic for contract type, work mode, and seniority fields
@@ -166,13 +170,16 @@ That framing should guide future implementation more than raw source count.
 - Web
   - major move from panel-heavy internal tooling toward guided product workflow
   - opportunities now handles first-pass discovery while notebook is now a distinct active pipeline workspace
+  - workspace shell header now behaves like full-width app chrome instead of another floating card, which materially improves the sense of one connected workspace
   - notebook board cards now prioritize due work and active next-step context instead of acting like a generic status grid
   - notebook now exposes a visible bulk workflow editor for active pipeline roles instead of limiting batch edits to follow-up-only metadata
   - opportunity empty states and dashboard focus cards now show server-driven trust messaging rather than generic “no data” copy
   - dashboard, planning, shell, and discovery review surfaces are now in an active product-boundary cleanup pass that replaces raw sourcing language with user-facing automation wording
   - the end-user automation page now relies on schedule state and readiness guidance only; it no longer pulls raw update history, scheduler event feeds, or source-health diagnostics into the normal product route
+  - planning no longer has the sticky utility-rail overlap that previously broke the automation surface at common desktop widths
   - discovery detail rail now uses a controlled desktop-height layout with internal scrolling and a reachable action bar
-  - opportunity pagination now exposes page and visible-range context in user language instead of implementation-centric wording
+  - opportunity pagination and filters now survive reload/back/forward through URL ownership, including explicit `page`, `perPage`, `search`, `tag`, `mode`, and selected-offer context
+  - opportunities and companies free-text filters now debounce before route/query updates, which reduces request churn and rate-limit pressure
   - document, profile, progress, and notebook-empty-state copy has also been shifted further away from diagnostics/run jargon toward plain-language status and recovery wording
   - document technical diagnostics are now hidden by default on end-user routes and can be surfaced only when a route explicitly opts into technical detail
   - notebook refresh controls and profile search-summary copy now use product-facing language around fresh matches and profile direction instead of sourcing/indexing terminology
@@ -181,18 +188,50 @@ That framing should guide future implementation more than raw source count.
   - progress now acts as a momentum/history surface instead of a second dashboard-style orientation page
   - profile avoids acting like a general recovery hub, while notebook controls are explicitly pipeline-only and route loading states describe discovery vs active-work purpose instead of generic readiness checks
   - notebook page data now comes from notebook-owned queries plus a minimal route-level update-status handoff, and planning/progress blocker routing targets the owning route instead of falling back through notebook assumptions
+  - notebook, discovery, and workflow summary queries now refetch more reliably after offer mutations, so route-to-route handoff trust is materially better without making all queries globally chatty
+  - company browse/detail routes now use flatter loading and content composition, while profile hierarchy now better prioritizes the input source-of-truth surface over secondary support widgets
+  - undo toast actions now use lighter integrated controls rather than harsh black action blocks
   - still contains mixed maturity areas where some screens feel productized and some remain utilitarian
   - company detail route now resolves dynamic params correctly in App Router client rendering, and the empty state includes safe navigation back to companies/opportunities instead of a dead end
+
+### Current Web Baseline After The UX/Query Tranche
+
+- Workspace shell:
+  - full-width header chrome
+  - calmer transition between sidebar, header, and page content
+- Planning:
+  - no sticky overlap bug
+  - flatter automation/support composition
+- Opportunities:
+  - debounced free-text filtering
+  - URL-owned discovery and pagination state
+  - lighter queue controls and details rail
+- Notebook:
+  - narrower route-local state ownership
+  - stronger cross-route freshness after mutations
+  - flatter action-plan and selected-offer composition
+- Companies:
+  - debounced browse filters
+  - URL-restorable list state
+  - improved loaders and flatter browse/detail surfaces
+- Profile:
+  - stronger input-first hierarchy
+  - user-facing quality signal labels
+  - less visually wasteful support sections
+- Shared UX:
+  - lighter surface primitives
+  - lighter undo toast action affordances
+  - regression coverage for route query hygiene and workflow freshness
 - Database and migrations
   - schema now supports notebook preferences, callback attempt ledger, stage metrics, and richer run lifecycle fields
   - catalog ingestion now starts resolving normalized company and taxonomy references alongside raw offer snapshots
   - catalog persistence now also stores source observation history, raw payload ledgers, source-company profiles, structured compensation columns, and normalized multi-value offer relations
   - company alias persistence is now being tightened so aliases are treated as additive identity evidence instead of automatic copies of the canonical company row
 - CI/CD and smoke
-  - split verify/smoke gates exist
+- split verify/smoke gates exist
 - release candidate and manual production promotion exist
 - deployment workflows now emit machine-readable release metadata with resolved revisions/images
-- smoke now auto-starts dedicated local services, repairs stale fixture scrape runs, and tolerates rate-limit windows during polling
+- smoke now auto-starts dedicated local services, repairs stale fixture scrape runs, tolerates rate-limit windows during polling, and verifies batch incremental-ingest plus dead-letter callback replay recovery in the scrape workflow
 
 ## Key Technical Decisions Active in Code
 
@@ -200,6 +239,7 @@ That framing should guide future implementation more than raw source count.
 - No v1/v2 dual-read path; schema replaced in-place pre-production.
 - Worker scraping is service-oriented (API enqueues, worker callbacks).
 - In-memory worker queue with controlled concurrency.
+- Durable worker ingress lease ownership via `worker_task_executions`, while the in-process queue remains a local execution/runtime limitation.
 - Callback idempotency and optional callback signature validation.
 - Callback retry uses exponential backoff + jitter with env-driven caps.
 - Scraper ignores recommended offers and relaxes strict filters when zero results.
@@ -302,6 +342,7 @@ That framing should guide future implementation more than raw source count.
 - Scheduler `next_run_at` calculation now respects weekday cron expressions instead of falling back to the default daily schedule for unsupported patterns.
 - Production deploy now auto-upserts a Cloud Scheduler job for `/api/job-sources/schedule/trigger`.
 - Production deploy now auto-upserts a second Cloud Scheduler job for `/api/ops/reconcile-stale-runs`.
+- Production deploy can now also upsert a third Cloud Scheduler job for `/api/ops/dispatch-alerts` when `OPS_ALERTS_WEBHOOK_URL` is configured.
 - Production deploy now converges Cloud Tasks queue retry policy on every rollout (main queue + reserved DLQ queue provisioning).
 - Production bootstrap rejects wildcard CORS (`ALLOWED_ORIGINS=*`) in production mode.
 - Notebook filter/view preferences are now persisted server-side and restored across sessions/devices.
@@ -410,7 +451,7 @@ That framing should guide future implementation more than raw source count.
 - Reminder delivery now exists for email and is visible in product/ops surfaces, but user controls and broader notification channels are still missing.
 - Document recovery exists, and extraction/profile-generation now expose DB-visible async lifecycle state, but worker queue durability is still below production-grade background-job expectations.
 - Support surfaces are present, but alerting and long-horizon observability are still limited.
-- Frontend has improved workflow structure, but visual/design consistency is still mixed across older and newer surfaces.
+- Frontend workflow structure and query hygiene are materially stronger on the core workspace routes, but some older and secondary surfaces still need the same flatter composition discipline.
 - Product/admin role boundaries are materially cleaner on end-user routes, but long-term enforcement still depends on keeping future diagnostics work inside admin/support surfaces.
 
 ## Strategic Next Focus

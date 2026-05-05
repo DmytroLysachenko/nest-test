@@ -1,13 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Building2, ExternalLink, MapPin } from 'lucide-react';
 
-import { listCompanies } from '@/features/companies/api/companies-api';
-import { queryKeys } from '@/shared/lib/query/query-keys';
-import { toOptionalTrimmedString } from '@/shared/lib/utils/input-normalizers';
+import { useCompaniesPage } from '@/features/companies/model/use-companies-page';
 import { formatRelativeTime, formatStatusTimestamp } from '@/shared/lib/utils/date-format';
 import { PageErrorState, SectionLoadingState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
@@ -18,44 +14,61 @@ import { Input } from '@/shared/ui/input';
 
 type CompaniesPageProps = {
   token: string;
+  initialSearch?: string | null;
   initialLocation?: string | null;
+  initialPage?: number;
 };
 
-const PAGE_SIZE = 20;
+const CompaniesListSkeleton = () => (
+  <section className="grid gap-4 xl:grid-cols-2">
+    {Array.from({ length: 6 }).map((_, index) => (
+      <div key={index} className="app-tonal-section space-y-4">
+        <div className="space-y-2">
+          <div className="bg-surface-muted h-4 w-24 animate-pulse rounded-full" />
+          <div className="bg-surface-muted h-7 w-2/3 animate-pulse rounded-full" />
+          <div className="bg-surface-muted h-4 w-full animate-pulse rounded-full" />
+          <div className="bg-surface-muted h-4 w-4/5 animate-pulse rounded-full" />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <div className="bg-surface-muted h-8 w-28 animate-pulse rounded-full" />
+          <div className="bg-surface-muted h-8 w-24 animate-pulse rounded-full" />
+          <div className="bg-surface-muted h-8 w-36 animate-pulse rounded-full" />
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="app-open-section border-border/35 border-t pt-3">
+            <div className="bg-surface-muted h-3 w-20 animate-pulse rounded-full" />
+            <div className="bg-surface-muted mt-2 h-4 w-32 animate-pulse rounded-full" />
+          </div>
+          <div className="app-open-section border-border/35 border-t pt-3">
+            <div className="bg-surface-muted h-3 w-24 animate-pulse rounded-full" />
+            <div className="bg-surface-muted mt-2 h-4 w-28 animate-pulse rounded-full" />
+          </div>
+        </div>
+      </div>
+    ))}
+  </section>
+);
 
-export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPageProps) => {
-  const [search, setSearch] = useState('');
-  const [location, setLocation] = useState(initialLocation ?? '');
-  const [offset, setOffset] = useState(0);
+export const CompaniesPage = ({
+  token,
+  initialSearch = null,
+  initialLocation = null,
+  initialPage = 1,
+}: CompaniesPageProps) => {
+  const companiesPage = useCompaniesPage({ token, initialSearch, initialLocation, initialPage });
+  const companies = companiesPage.listQuery.data?.items ?? [];
 
-  const params = useMemo(
-    () => ({
-      search: toOptionalTrimmedString(search),
-      location: toOptionalTrimmedString(location),
-      limit: PAGE_SIZE,
-      offset,
-    }),
-    [location, offset, search],
-  );
-
-  const companiesQuery = useQuery({
-    queryKey: queryKeys.companies.list(token, params),
-    queryFn: () => listCompanies(token, params),
-    enabled: Boolean(token),
-  });
-
-  const companies = companiesQuery.data?.items ?? [];
-  const total = companiesQuery.data?.total ?? 0;
-  const canPrev = offset > 0;
-  const canNext = offset + PAGE_SIZE < total;
-
-  if (companiesQuery.error) {
+  if (companiesPage.listQuery.error) {
     return (
       <PageErrorState
         title="Companies unavailable"
-        message={companiesQuery.error instanceof Error ? companiesQuery.error.message : 'Unable to load companies.'}
+        message={
+          companiesPage.listQuery.error instanceof Error
+            ? companiesPage.listQuery.error.message
+            : 'Unable to load companies.'
+        }
         onRetry={() => {
-          void companiesQuery.refetch();
+          void companiesPage.listQuery.refetch();
         }}
       />
     );
@@ -67,53 +80,75 @@ export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPagePr
         eyebrow="Companies"
         title="Browse employers already in your workspace"
         subtitle="Use this view when you want to inspect employers, not just individual roles."
-        meta={<span className="app-badge">{total} companies</span>}
+        meta={<span className="app-badge">{companiesPage.total} companies</span>}
       />
 
-      <Card title="Find companies" description="Search by name, description, or location.">
+      <section className="app-tonal-section space-y-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+          <div className="space-y-1">
+            <p className="text-text-soft text-xs uppercase tracking-[0.18em]">Browse slice</p>
+            <p className="text-text-strong text-lg font-semibold">Filter employers by name, description, or location</p>
+            <p className="text-text-soft text-sm">
+              Keep this route for employer research. Role triage still belongs in opportunities.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="app-badge">Page {companiesPage.page}</span>
+            {companiesPage.location ? <span className="app-badge">Location {companiesPage.location}</span> : null}
+            <Button type="button" variant="secondary" onClick={companiesPage.resetFilters}>
+              Clear filters
+            </Button>
+          </div>
+        </div>
+
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
           <Input
-            value={search}
+            value={companiesPage.search}
             placeholder="Company name or description"
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setOffset(0);
-            }}
+            onChange={(event) => companiesPage.setSearch(event.target.value)}
           />
           <Input
-            value={location}
+            value={companiesPage.location}
             placeholder="Location"
-            onChange={(event) => {
-              setLocation(event.target.value);
-              setOffset(0);
-            }}
+            onChange={(event) => companiesPage.setLocation(event.target.value)}
           />
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              setSearch('');
-              setLocation('');
-              setOffset(0);
-            }}
-          >
-            Clear
+          <Button type="button" variant="secondary" onClick={companiesPage.resetFilters}>
+            Reset
           </Button>
         </div>
-      </Card>
+      </section>
 
-      {companiesQuery.isLoading ? (
-        <SectionLoadingState title="Companies" description="Loading company list..." rows={6} />
+      {companiesPage.listQuery.isLoading ? (
+        <CompaniesListSkeleton />
       ) : companies.length ? (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {companies.map((company) => (
-            <Card
-              key={company.id}
-              title={company.canonicalName}
-              description={company.description ?? 'No company summary saved yet for this employer.'}
-              className="h-full"
-            >
-              <div className="space-y-4 text-sm">
+        <section className="space-y-4">
+          <div className="app-open-section border-border/45 flex flex-col gap-2 border-b pb-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Current results</p>
+              <p className="text-text-soft mt-1 text-sm">
+                Showing {companies.length ? companiesPage.offset + 1 : 0}-
+                {Math.min(companiesPage.offset + companies.length, companiesPage.total)} of {companiesPage.total}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="app-badge">Company research</span>
+              <span className="app-badge">{companies.length} on this page</span>
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            {companies.map((company) => (
+              <article key={company.id} className="app-tonal-section flex h-full flex-col gap-4 text-sm">
+                <div className="space-y-2">
+                  <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Employer</p>
+                  <div className="space-y-1">
+                    <p className="text-text-strong text-xl font-semibold tracking-[-0.03em]">{company.canonicalName}</p>
+                    <p className="text-text-soft text-sm leading-6">
+                      {company.description ?? 'No company summary saved yet for this employer.'}
+                    </p>
+                  </div>
+                </div>
+
                 <div className="flex flex-wrap gap-2">
                   <span className="app-badge">{company.activeOfferCount} active roles</span>
                   <span className="app-badge">{company.totalOfferCount} roles total</span>
@@ -125,13 +160,23 @@ export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPagePr
                   ) : null}
                 </div>
 
-                <div className="app-inset-stack space-y-1">
-                  <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Last seen</p>
-                  <p className="text-text-strong text-sm font-semibold">{formatStatusTimestamp(company.lastSeenAt)}</p>
-                  <p className="text-text-soft text-xs">{formatRelativeTime(company.lastSeenAt)}</p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="app-open-section border-border/35 border-t pt-3">
+                    <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Last seen</p>
+                    <p className="text-text-strong mt-2 text-sm font-semibold">
+                      {formatStatusTimestamp(company.lastSeenAt)}
+                    </p>
+                    <p className="text-text-soft mt-1 text-xs">{formatRelativeTime(company.lastSeenAt)}</p>
+                  </div>
+                  <div className="app-open-section border-border/35 border-t pt-3">
+                    <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Best use</p>
+                    <p className="text-text-soft mt-2 text-sm">
+                      Open this employer when you want context before picking which linked role deserves active work.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="mt-auto flex flex-wrap gap-2">
                   <Link href={`/companies/${company.id}`}>
                     <Button type="button" size="sm">
                       Open details
@@ -154,10 +199,10 @@ export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPagePr
                     </Link>
                   ) : null}
                 </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+              </article>
+            ))}
+          </div>
+        </section>
       ) : (
         <Card title="Companies" description="No companies matched the current filters.">
           <EmptyState
@@ -168,29 +213,30 @@ export const CompaniesPage = ({ token, initialLocation = null }: CompaniesPagePr
         </Card>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <section className="app-open-section border-border/45 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
         <p className="text-text-soft text-sm">
-          Showing {companies.length ? offset + 1 : 0}-{Math.min(offset + companies.length, total)} of {total}
+          Page {companiesPage.page} | Showing {companies.length ? companiesPage.offset + 1 : 0}-
+          {Math.min(companiesPage.offset + companies.length, companiesPage.total)} of {companiesPage.total}
         </p>
         <div className="flex gap-2">
           <Button
             type="button"
             variant="secondary"
-            disabled={!canPrev}
-            onClick={() => setOffset((value) => value - PAGE_SIZE)}
+            disabled={!companiesPage.canPrev}
+            onClick={() => companiesPage.setPage(companiesPage.page - 1)}
           >
             Previous
           </Button>
           <Button
             type="button"
             variant="secondary"
-            disabled={!canNext}
-            onClick={() => setOffset((value) => value + PAGE_SIZE)}
+            disabled={!companiesPage.canNext}
+            onClick={() => companiesPage.setPage(companiesPage.page + 1)}
           >
             Next
           </Button>
         </div>
-      </div>
+      </section>
     </main>
   );
 };

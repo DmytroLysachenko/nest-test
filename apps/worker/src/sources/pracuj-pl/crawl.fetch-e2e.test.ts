@@ -408,6 +408,10 @@ test('crawlPracujPl honors bounded detail concurrency for HTTP fetches', async (
 
     assert.equal(result.pages.length, 3);
     assert.equal(maxInFlight, 2);
+    assert.equal(result.detailConcurrencyRequested, 2);
+    assert.equal(result.detailConcurrencyEffective, 2);
+    assert.equal(result.detailBatchCount, 2);
+    assert.equal(result.browserFallbackConcurrency, 'serial');
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
   }

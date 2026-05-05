@@ -57,52 +57,60 @@ export const OpportunityDetailsRail = ({
       contentClassName="flex flex-col gap-4 xl:min-h-0 xl:flex-1 xl:gap-0"
     >
       <div className="space-y-4 text-sm xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:space-y-0">
-        <div className="app-muted-panel space-y-2 xl:shrink-0">
+        <header className="border-border/45 space-y-3 border-b pb-4 xl:shrink-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="app-badge">{getUserFacingOfferStatus(offer.status)}</span>
             {typeof offer.matchScore === 'number' ? <span className="app-badge">Match {offer.matchScore}</span> : null}
             {offer.isInPipeline ? <span className="app-badge">In pipeline</span> : null}
             {offer.isExpired ? <span className="app-badge">Expired</span> : null}
           </div>
-          <p className="text-secondary-foreground font-medium">
-            {offer.company ?? 'Unknown company'}
-            {offer.location ? ` | ${offer.location}` : ''}
-          </p>
-          <p className="text-text-strong text-sm font-semibold">{offer.fitSummary ?? 'Review this role manually.'}</p>
-          {offer.expiresAt ? (
-            <p className="text-text-soft text-xs">
-              {offer.isExpired ? 'Offer expired' : 'Offer valid until'} {formatDateTime(offer.expiresAt)}
+          <div className="space-y-2">
+            <p className="text-secondary-foreground font-medium">
+              {offer.company ?? 'Unknown company'}
+              {offer.location ? ` | ${offer.location}` : ''}
             </p>
-          ) : null}
-        </div>
+            <p className="text-text-strong text-sm font-semibold">{offer.fitSummary ?? 'Review this role manually.'}</p>
+            {offer.expiresAt ? (
+              <p className="text-text-soft text-xs">
+                {offer.isExpired ? 'Offer expired' : 'Offer valid until'} {formatDateTime(offer.expiresAt)}
+              </p>
+            ) : null}
+          </div>
+        </header>
 
-        <div className="space-y-4 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
+        <div className="space-y-5 pt-1 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1 xl:pt-5">
           <OfferReliabilityNotice reliabilityContext={offer.reliabilityContext} />
 
           {offer.fitHighlights.length ? (
-            <div className="app-inset-stack space-y-2">
+            <section className="space-y-3">
               <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Why it may fit</p>
-              {offer.fitHighlights.map((highlight) => (
-                <p key={highlight} className="text-text-soft text-sm leading-6">
-                  {highlight}
-                </p>
-              ))}
-            </div>
+              <div className="app-tonal-section space-y-2">
+                {offer.fitHighlights.map((highlight) => (
+                  <p key={highlight} className="text-text-soft text-sm leading-6">
+                    {highlight}
+                  </p>
+                ))}
+              </div>
+            </section>
           ) : null}
 
           <OfferStructuredDetailsPanel structuredDetails={offer.structuredDetails} />
 
-          <div className="app-muted-panel space-y-2">
-            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Role summary</p>
-            <p className="text-text-soft text-sm leading-6">
-              {toTrimmedString(offer.description) || 'Open the source listing if you need the full job description.'}
-            </p>
-            <OfferSourceLinks offer={offer} includeLocationSearch />
-          </div>
+          <section className="border-border/45 space-y-3 border-t pt-5">
+            <div className="space-y-1.5">
+              <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Role summary</p>
+              <p className="text-text-soft text-sm leading-6">
+                {toTrimmedString(offer.description) || 'Open the source listing if you need the full job description.'}
+              </p>
+            </div>
+            <div className="app-open-section border-border/35 border-t pt-3">
+              <OfferSourceLinks offer={offer} includeLocationSearch />
+            </div>
+          </section>
         </div>
 
-        <div className="bg-surface/95 xl:border-border/45 xl:sticky xl:bottom-0 xl:mt-4 xl:shrink-0 xl:border-t xl:pt-4">
-          <div className="flex flex-wrap gap-2">
+        <div className="bg-surface/95 xl:border-border/45 xl:mt-5 xl:shrink-0 xl:border-t xl:pt-4">
+          <div className="app-tonal-section flex flex-wrap gap-2">
             <Button type="button" disabled={isBusy} onClick={() => onSave(offer.id)}>
               Save to pipeline
             </Button>

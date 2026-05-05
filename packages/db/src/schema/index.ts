@@ -9,6 +9,7 @@ import * as notebookPreferences from './notebook-preferences';
 import * as documents from './documents';
 import * as documentEvents from './document-events';
 import * as apiRequestEvents from './api-request-events';
+import * as opsAlertEvents from './ops-alert-events';
 import * as authorizationEvents from './authorization-events';
 import * as documentStageMetrics from './document-stage-metrics';
 import * as careerProfiles from './career-profiles';
@@ -39,6 +40,7 @@ import * as rolePermissions from './role-permissions';
 import * as roles from './roles';
 import * as scrapeOutcomes from './scrape-outcomes';
 import * as scrapeExecutionEvents from './scrape-execution-events';
+import * as workerTaskExecutions from './worker-task-executions';
 import * as seniorityLevels from './seniority-levels';
 import * as technologies from './technologies';
 import * as userJobOffers from './user-job-offers';
@@ -57,6 +59,7 @@ export * from './notebook-preferences';
 export * from './documents';
 export * from './document-events';
 export * from './api-request-events';
+export * from './ops-alert-events';
 export * from './authorization-events';
 export * from './document-stage-metrics';
 export * from './career-profiles';
@@ -87,6 +90,7 @@ export * from './role-permissions';
 export * from './roles';
 export * from './scrape-outcomes';
 export * from './scrape-execution-events';
+export * from './worker-task-executions';
 export * from './seniority-levels';
 export * from './technologies';
 export * from './user-job-offers';
@@ -112,6 +116,7 @@ const schema = {
   ...documents,
   ...documentEvents,
   ...apiRequestEvents,
+  ...opsAlertEvents,
   ...authorizationEvents,
   ...documentStageMetrics,
   ...careerProfiles,
@@ -142,6 +147,7 @@ const schema = {
   ...roles,
   ...scrapeOutcomes,
   ...scrapeExecutionEvents,
+  ...workerTaskExecutions,
   ...seniorityLevels,
   ...technologies,
   ...userJobOffers,

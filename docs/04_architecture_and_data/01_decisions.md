@@ -1,6 +1,6 @@
 # Decisions
 
-Last updated: 2026-04-18
+Last updated: 2026-05-04
 
 ## Purpose
 
@@ -9,6 +9,28 @@ This document records major architectural, contract, and implementation-boundary
 Use it to explain why the system is shaped a certain way, not to restate implementation details already visible in code.
 
 ADR-lite log for major architectural and contract decisions.
+
+## 2026-05-04: Worker Task Lease Ownership Uses A Dedicated Durable Table
+
+- Decision:
+  - Keep `scrape_execution_events` as the append-only worker forensic ledger.
+  - Move active worker task ownership and duplicate-execution control to a dedicated `worker_task_executions` table keyed by `source_run_id`.
+  - Record durable worker task lifecycle states there: `accepted`, `started`, `completed`, `failed`, and `timed_out`.
+- Why:
+  - Event-history reads are useful for forensics, but they are a weak primitive for atomic duplicate-prevention under higher concurrency.
+  - Worker ingress needs one durable row it can claim/update deterministically when Cloud Tasks retries, late callbacks, or overlapping deliveries occur.
+  - Separating current lease ownership from historical event append keeps concurrency control simple without losing audit depth.
+
+## 2026-05-04: Ops Alert Dispatch Uses A Dedicated Delivery Ledger
+
+- Decision:
+  - Keep ops metrics and alert-flag derivation read-only in `OpsService`.
+  - Dispatch proactive notifications through a dedicated `ops_alert_events` ledger plus a token-protected internal `/api/ops/dispatch-alerts` endpoint.
+  - Use cooldown dedupe against the last delivered payload hash before re-sending the same alert state.
+- Why:
+  - Raw metrics flags alone still require manual dashboard review.
+  - Delivery history must be durable enough to explain whether alerts were sent, skipped by cooldown, or failed at the webhook boundary.
+  - Keeping alert dispatch separate from metrics shaping avoids turning one large service into both a read model and an outbound integration owner.
 
 ## 2026-03-22: Scraping Is Acquisition Infrastructure, Not The Product
 

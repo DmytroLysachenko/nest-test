@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { liveQueryPreset, mutableQueryPreset, staticQueryPreset } from '@/shared/lib/query/query-option-presets';
+import {
+  liveQueryPreset,
+  mutableQueryPreset,
+  mutableRouteQueryPreset,
+  staticQueryPreset,
+} from '@/shared/lib/query/query-option-presets';
 import { QUERY_GC_TIME, QUERY_STALE_TIME } from '@/shared/lib/query/query-constants';
 
 describe('query option presets', () => {
@@ -14,6 +19,13 @@ describe('query option presets', () => {
   it('returns workflow caching for mutable data', () => {
     expect(mutableQueryPreset()).toEqual({
       staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+    });
+  });
+
+  it('returns route-level workflow caching with remount refetch', () => {
+    expect(mutableRouteQueryPreset()).toEqual({
+      staleTime: QUERY_STALE_TIME.WORKFLOW_DATA,
+      refetchOnMount: true,
     });
   });
 

@@ -75,6 +75,7 @@ test('cloud-tasks TASKS_URL must use https in production', async () => {
       TASKS_URL: 'http://example.com/tasks',
       TASKS_AUTH_TOKEN: 'token',
       WORKER_ALLOWED_ORIGINS: 'https://web.example.com',
+      WORKER_OUTPUT_ALLOW_FULL_IN_PROD: 'true',
     },
     () => {
       assert.throws(() => loadEnv(), /must use https in production mode/);
@@ -94,6 +95,7 @@ test('WORKER_CALLBACK_OIDC_AUDIENCE must use https in production', async () => {
       TASKS_AUTH_TOKEN: 'token',
       WORKER_CALLBACK_OIDC_AUDIENCE: 'http://api.example.com',
       WORKER_ALLOWED_ORIGINS: 'https://web.example.com',
+      WORKER_OUTPUT_ALLOW_FULL_IN_PROD: 'true',
     },
     () => {
       assert.throws(() => loadEnv(), /WORKER_CALLBACK_OIDC_AUDIENCE must use https in production mode/);
@@ -138,6 +140,64 @@ test('WORKER_ALLOWED_ORIGINS cannot be wildcard in production', async () => {
     },
     () => {
       assert.throws(() => loadEnv(), /WORKER_ALLOWED_ORIGINS cannot be "\*" in production mode/);
+    },
+  );
+});
+
+test('browser fallback budget env overrides are parsed', async () => {
+  await withEnv(
+    {
+      PRACUJ_BROWSER_FALLBACK_MAX_COUNT: '5',
+      PRACUJ_BROWSER_FALLBACK_BUDGET_MS: '18000',
+    },
+    () => {
+      const env = loadEnv();
+      assert.equal(env.PRACUJ_BROWSER_FALLBACK_MAX_COUNT, 5);
+      assert.equal(env.PRACUJ_BROWSER_FALLBACK_BUDGET_MS, 18000);
+    },
+  );
+});
+
+test('production defaults worker artifacts to minimal mode when output mode is not explicitly set', async () => {
+  await withEnv(
+    {
+      NODE_ENV: 'production',
+      QUEUE_PROVIDER: 'cloud-tasks',
+      TASKS_PROJECT_ID: 'project',
+      TASKS_LOCATION: 'us-central1',
+      TASKS_QUEUE: 'queue',
+      TASKS_URL: 'https://example.com/tasks',
+      TASKS_AUTH_TOKEN: 'token',
+      WORKER_CALLBACK_URL: 'https://api.example.com/api/job-sources/complete',
+      WORKER_ALLOWED_ORIGINS: 'https://web.example.com',
+      WORKER_OUTPUT_MODE: undefined,
+    },
+    () => {
+      const env = loadEnv();
+      assert.equal(env.WORKER_OUTPUT_MODE, 'minimal');
+    },
+  );
+});
+
+test('production rejects full worker artifact mode without explicit allow flag', async () => {
+  await withEnv(
+    {
+      NODE_ENV: 'production',
+      QUEUE_PROVIDER: 'cloud-tasks',
+      TASKS_PROJECT_ID: 'project',
+      TASKS_LOCATION: 'us-central1',
+      TASKS_QUEUE: 'queue',
+      TASKS_URL: 'https://example.com/tasks',
+      TASKS_AUTH_TOKEN: 'token',
+      WORKER_ALLOWED_ORIGINS: 'https://web.example.com',
+      WORKER_OUTPUT_MODE: 'full',
+      WORKER_OUTPUT_ALLOW_FULL_IN_PROD: 'false',
+    },
+    () => {
+      assert.throws(
+        () => loadEnv(),
+        /WORKER_OUTPUT_MODE=full requires WORKER_OUTPUT_ALLOW_FULL_IN_PROD=true in production mode/,
+      );
     },
   );
 });
