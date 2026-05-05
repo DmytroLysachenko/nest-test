@@ -1,5 +1,6 @@
-import { ServiceUnavailableException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+
+import { ServiceUnavailableException } from '@nestjs/common';
 
 import { OpsAlertsService } from './ops-alerts.service';
 

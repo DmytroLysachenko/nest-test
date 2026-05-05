@@ -1,10 +1,11 @@
+import { createHash } from 'node:crypto';
+
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, desc, eq } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Logger } from 'nestjs-pino';
 import { opsAlertEventsTable } from '@repo/db';
-import { createHash } from 'node:crypto';
 
 import { Drizzle } from '@/common/decorators';
 
