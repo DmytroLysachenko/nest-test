@@ -113,10 +113,12 @@ Implementation status on 2026-05-06:
    - offers with explicit expiry dates
    - active offers still missing expiry dates
    - expired rows
-4. This closes the most immediate stale-active-row risk after reset even before a dedicated scheduler-driven expiry job exists.
-5. Remaining follow-up:
+4. Null-expiry offers now also age out after a configured stale window based on `last_seen_at`.
+5. Default null-expiry stale window is `336` hours (`14` days) via `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS`.
+6. This closes the most immediate stale-active-row risk after reset even before a dedicated scheduler-driven expiry job exists.
+7. Remaining follow-up:
    - decide whether to keep this read-path reconcile permanently or move it behind a scheduled internal job once that slice is implemented
-   - decide whether null-expiry offers should remain indefinitely active or move to a later stale-age demotion rule
+   - tune the null-expiry stale window if source cadence proves a safer default
 
 ### 2. Define fallback behavior for offers without source expiry dates
 
@@ -141,6 +143,17 @@ Acceptance criteria:
 1. There is a documented and implemented rule for null-expiry offers.
 2. Operators can quantify expiry coverage by source.
 3. Post-reset offer aging does not depend on silent assumptions.
+
+Implementation status on 2026-05-06:
+
+1. Canonical rule is now explicit in code:
+   - if `expires_at` exists and is in the past, expire the offer
+   - if `expires_at` is null and `last_seen_at` is older than the configured stale window, expire the offer
+2. Current default stale window for null-expiry offers is `336` hours (`14` days).
+3. The stale window is configurable through `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS`.
+4. Existing expiry coverage reporting remains the verification surface for active-without-expiry drift.
+5. Remaining follow-up:
+   - tune the stale window if real scrape cadence shows the default is too aggressive or too lenient
 
 ### 3. Reconcile schedule status with terminal run outcome
 

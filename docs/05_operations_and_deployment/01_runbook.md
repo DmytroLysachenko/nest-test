@@ -80,6 +80,7 @@ Canonical environment inventory:
    - API CORS allowlist must not be `*` in production mode and should be derived from `GCP_WEB_BASE_URL`
    - `WORKSPACE_SUMMARY_CACHE_TTL_SEC` (cache ttl for workspace summary read model)
    - `JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS` (default summary window)
+   - `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS` (null-expiry offers age out after this many hours since `last_seen_at`; default `336`)
    - `SCRAPE_STALE_PENDING_MINUTES` (stale pending run timeout threshold)
    - `SCRAPE_STALE_RUNNING_MINUTES` (stale running run timeout threshold)
    - `SCRAPE_MIN_FRESH_CANDIDATES` (minimum fresh user-linkable offers required before cache/catalog reuse should satisfy a scrape)
@@ -247,6 +248,22 @@ Canonical environment inventory:
 ## Scrape Incident Matrix
 
 Use run diagnostics and events before reading raw service logs.
+
+## Offer Freshness Checks
+
+Use these rules before deciding whether a stale-looking catalog row is a bug or expected behavior:
+
+1. `expires_at < now` means the offer should be expired even without a new scrape.
+2. `expires_at is null` does not guarantee the offer stays active forever.
+3. Null-expiry offers now age out from `last_seen_at` using `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS`.
+4. Default null-expiry stale window is `336` hours (`14` days).
+5. If an operator thinks a still-live offer disappeared too early, first inspect:
+   - source cadence
+   - `last_seen_at`
+   - current `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS`
+6. If a source routinely omits expiry but refreshes slower than the current cutoff, adjust the cutoff deliberately and document the reason.
+7. If a test reset is planned, verify this cutoff before bulk cleanup so post-reset offer aging matches the expected source refresh rhythm.
+8. If active inventory looks too large after reset, check null-expiry stale-window drift before assuming the scraper failed to mark offers expired.
 
 Interpretation rule:
 

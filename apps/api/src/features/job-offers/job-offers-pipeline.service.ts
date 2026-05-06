@@ -41,7 +41,7 @@ import {
   getPipelineMetaRecord,
   type FollowUpFields,
 } from './job-offer-follow-up';
-import { reconcileExpiredJobOffers } from './job-offers-expiry';
+import { getJobOfferExpiryReconcileOptions, reconcileExpiredJobOffers } from './job-offers-expiry';
 
 import type { Env } from '@/config/env';
 
@@ -194,7 +194,7 @@ export class JobOffersPipelineService {
   }
 
   async getPrepPacket(userId: string, id: string) {
-    await reconcileExpiredJobOffers(this.db);
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
 
     const [offer] = await this.db
       .select({

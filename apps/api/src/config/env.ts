@@ -104,6 +104,7 @@ export const EnvSchema = z.object({
   AUTH_OTP_THROTTLE_LIMIT: z.coerce.number().int().min(1).max(50).optional(),
   WORKSPACE_SUMMARY_CACHE_TTL_SEC: z.coerce.number().int().min(0).max(300).default(0),
   JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS: z.coerce.number().int().min(1).max(720).default(72),
+  JOB_OFFERS_NULL_EXPIRY_STALE_HOURS: z.coerce.number().int().min(1).max(2160).default(336),
   SCRAPE_STALE_PENDING_MINUTES: z.coerce.number().int().min(1).max(240).default(15),
   SCRAPE_STALE_RUNNING_MINUTES: z.coerce.number().int().min(1).max(1440).default(60),
   DOCUMENT_DIAGNOSTICS_WINDOW_HOURS: z.coerce.number().int().min(1).max(720).default(168),

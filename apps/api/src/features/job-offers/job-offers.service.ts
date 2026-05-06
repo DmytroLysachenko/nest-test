@@ -68,7 +68,7 @@ import {
   hasMissingNextStep,
   resolveFollowUpState,
 } from './job-offer-follow-up';
-import { reconcileExpiredJobOffers } from './job-offers-expiry';
+import { getJobOfferExpiryReconcileOptions, reconcileExpiredJobOffers } from './job-offers-expiry';
 
 import type { Env } from '@/config/env';
 import type { JobOfferStatus, JobSource } from '@repo/db';
@@ -237,7 +237,7 @@ export class JobOffersService {
   }
 
   async list(userId: string, query: ListJobOffersQuery) {
-    await reconcileExpiredJobOffers(this.db);
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
 
     const limit = query.limit ? Number(query.limit) : 20;
     const offset = query.offset ? Number(query.offset) : 0;
@@ -543,7 +543,7 @@ export class JobOffersService {
   }
 
   async listPreview(userId: string, query: ListJobOffersQuery) {
-    await reconcileExpiredJobOffers(this.db);
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
 
     const limit = Math.min(query.limit ?? 8, 20);
     const offset = query.offset ?? 0;
@@ -585,7 +585,7 @@ export class JobOffersService {
   }
 
   async getDiscovery(userId: string, query: ListJobOffersQuery) {
-    await reconcileExpiredJobOffers(this.db);
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
 
     const limit = query.limit ? Number(query.limit) : 20;
     const offset = query.offset ? Number(query.offset) : 0;
@@ -818,7 +818,7 @@ export class JobOffersService {
   }
 
   async getDiscoverySummary(userId: string) {
-    await reconcileExpiredJobOffers(this.db);
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
 
     const items = await this.db
       .select({
@@ -849,7 +849,7 @@ export class JobOffersService {
   }
 
   async getNotebookSummary(userId: string) {
-    await reconcileExpiredJobOffers(this.db);
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
 
     const items = await this.db
       .select({
@@ -1045,7 +1045,7 @@ export class JobOffersService {
   }
 
   async getFocusQueue(userId: string) {
-    await reconcileExpiredJobOffers(this.db);
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
 
     const items = await this.db
       .select({
@@ -1345,7 +1345,7 @@ export class JobOffersService {
   }
 
   async getActionPlan(userId: string) {
-    await reconcileExpiredJobOffers(this.db);
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
 
     const items = await this.db
       .select({
@@ -1510,7 +1510,7 @@ export class JobOffersService {
   }
 
   async getReminderPreview(userId: string) {
-    await reconcileExpiredJobOffers(this.db);
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
 
     const items = await this.db
       .select({

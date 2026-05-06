@@ -23,7 +23,7 @@ import {
 
 import { Drizzle } from '@/common/decorators';
 import { buildJobOfferExpiryCoverageSummary } from '@/features/job-offers/job-offers-expiry-coverage';
-import { reconcileExpiredJobOffers } from '@/features/job-offers/job-offers-expiry';
+import { getJobOfferExpiryReconcileOptions, reconcileExpiredJobOffers } from '@/features/job-offers/job-offers-expiry';
 
 import type { Env } from '@/config/env';
 
@@ -65,7 +65,7 @@ export class OpsService {
     const now = new Date();
     const cutoff = new Date(now.getTime() - windowHours * 60 * 60 * 1000);
     try {
-      await reconcileExpiredJobOffers(this.db, now);
+      await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService, now));
 
       const [activeRunsRow] = await this.db
         .select({ value: count() })
@@ -806,7 +806,7 @@ export class OpsService {
     const windowHours = Math.min(Math.max(windowHoursInput ?? 72, 1), 720);
     const now = new Date();
     const cutoff = new Date(now.getTime() - windowHours * 60 * 60 * 1000);
-    await reconcileExpiredJobOffers(this.db, now);
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService, now));
 
     const [totalCatalogOffersRow] = await this.db.select({ value: count() }).from(jobOffersTable);
     const [freshAcceptedOffersRow] = await this.db

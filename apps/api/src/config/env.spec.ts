@@ -190,6 +190,24 @@ describe('validateEnv', () => {
     ).not.toThrow();
   });
 
+  it('accepts explicit null-expiry stale window config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        JOB_OFFERS_NULL_EXPIRY_STALE_HOURS: '168',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects invalid null-expiry stale window config', () => {
+    expect(() =>
+      validateEnv({
+        ...baseEnv(),
+        JOB_OFFERS_NULL_EXPIRY_STALE_HOURS: '0',
+      }),
+    ).toThrow();
+  });
+
   it('accepts legacy auth throttle config as optional fallback during migration', () => {
     expect(() =>
       validateEnv({

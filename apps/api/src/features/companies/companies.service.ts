@@ -1,20 +1,25 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { and, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { companiesTable, jobOffersTable } from '@repo/db';
 
 import { Drizzle } from '@/common/decorators';
-import { reconcileExpiredJobOffers } from '@/features/job-offers/job-offers-expiry';
+import { getJobOfferExpiryReconcileOptions, reconcileExpiredJobOffers } from '@/features/job-offers/job-offers-expiry';
 
+import type { Env } from '@/config/env';
 import type { ListCompaniesQuery } from './dto/list-companies.query';
 import type { SQL } from 'drizzle-orm';
 
 @Injectable()
 export class CompaniesService {
-  constructor(@Drizzle() private readonly db: NodePgDatabase) {}
+  constructor(
+    @Drizzle() private readonly db: NodePgDatabase,
+    private readonly configService: ConfigService<Env, true>,
+  ) {}
 
   async list(query: ListCompaniesQuery) {
-    await reconcileExpiredJobOffers(this.db);
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
 
     const limit = query.limit ? Number(query.limit) : 20;
     const offset = query.offset ? Number(query.offset) : 0;
@@ -84,7 +89,7 @@ export class CompaniesService {
   }
 
   async getById(id: string) {
-    await reconcileExpiredJobOffers(this.db);
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
 
     const company = await this.db
       .select()
