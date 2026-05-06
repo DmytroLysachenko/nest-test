@@ -45,6 +45,7 @@
     "migrate": "drizzle-kit migrate",
     "prepare": "pnpm build",
     "repair:scrape-catalog": "tsx src/seeds/repair-scrape-catalog.ts",
+    "reset:test-data": "tsx src/seeds/reset-test-data.ts",
     "repair:taxonomy-dimensions": "tsx src/seeds/repair-taxonomy-dimensions.ts",
     "seed": "tsx src/seeds/index.ts",
     "seed:e2e": "tsx src/seeds/e2e-fixtures.ts",

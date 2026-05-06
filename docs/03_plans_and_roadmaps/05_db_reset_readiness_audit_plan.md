@@ -313,6 +313,26 @@ This decision should be explicit before execution:
 2. user + shared offer reset
 3. full environment rebuild
 
+Implementation status on 2026-05-06:
+
+1. `pnpm --filter @repo/db reset:test-data` now provides a committed targeted cleanup script.
+2. Script safety rules:
+   - explicit target users only
+   - preview mode by default
+   - apply mode requires `APPLY_CHANGES=true`
+   - destructive execution also requires `RESET_CONFIRM=RESET_TEST_DATA`
+3. Current supported scopes:
+   - `user-only`
+   - `user-and-shared-offers`
+4. Optional workflow restart flag:
+   - `RESET_INCLUDE_PROFILE_WORKFLOW=true`
+5. Shared-offer cleanup is conservative:
+   - it preserves offers protected by non-target user links
+   - it preserves offers protected by non-target observations
+   - it preserves offers whose current run belongs to non-target users
+6. Remaining follow-up:
+   - dry-run the script against the intended reset accounts and capture before/after verifier output
+
 ### 2. Add a reset verification script or checklist
 
 After reset, operators should not manually inspect random tables.

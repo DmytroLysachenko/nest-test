@@ -322,6 +322,58 @@ Interpretation:
 4. `fail`
    - reset readiness or post-reset validation is not complete
 
+## Targeted Test Reset
+
+Use scoped cleanup, not full-schema destruction.
+
+Preview first:
+
+1. User-only workflow reset:
+   - `RESET_USER_EMAILS=test1@example.com,test2@example.com pnpm --filter @repo/db reset:test-data`
+2. User + shared offer reset:
+   - `RESET_USER_EMAILS=test1@example.com RESET_SCOPE=user-and-shared-offers pnpm --filter @repo/db reset:test-data`
+3. Include profile/document workflow restart:
+   - `RESET_USER_EMAILS=test1@example.com RESET_INCLUDE_PROFILE_WORKFLOW=true pnpm --filter @repo/db reset:test-data`
+
+Apply only with explicit confirmation:
+
+1. `RESET_USER_EMAILS=test1@example.com APPLY_CHANGES=true RESET_CONFIRM=RESET_TEST_DATA pnpm --filter @repo/db reset:test-data`
+
+Important rules:
+
+1. script requires explicit `RESET_USER_IDS` and/or `RESET_USER_EMAILS`
+2. no wildcard delete mode exists
+3. `APPLY_CHANGES=true` without `RESET_CONFIRM=RESET_TEST_DATA` is rejected
+4. `RESET_SCOPE=user-and-shared-offers` deletes only target-linked offers that are not protected by:
+   - non-target user links
+   - non-target source observations
+   - non-target current run ownership
+
+Scope meaning:
+
+1. `user-only`
+   - deletes notebook/workflow/run/schedule state for target users
+   - keeps shared canonical `job_offers`
+2. `user-and-shared-offers`
+   - does `user-only`
+   - also deletes safe target-linked shared offers
+3. `RESET_INCLUDE_PROFILE_WORKFLOW=true`
+   - also deletes:
+   - `profile_inputs`
+   - cascaded `career_profiles`
+   - `documents`
+   - `notebook_preferences`
+   - `onboarding_drafts`
+
+Recommended sequence:
+
+1. run preview cleanup
+2. run `pnpm --filter @repo/db audit:reset-readiness`
+3. apply targeted reset
+4. run manual scrape
+5. run scheduled scrape
+6. run `RESET_VERIFY_PHASE=post-reset pnpm --filter @repo/db audit:reset-readiness`
+
 Interpretation rule:
 
 1. A scrape run is healthy only when it produces useful offers or an intentionally empty outcome that is explained.
