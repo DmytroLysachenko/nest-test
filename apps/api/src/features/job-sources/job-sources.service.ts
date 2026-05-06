@@ -5993,11 +5993,88 @@ export class JobSourcesService {
       ).returning({
         id: jobSourceRunsTable.id,
       });
+      if (rows.length > 0 && (toStatus === 'COMPLETED' || toStatus === 'FAILED')) {
+        await this.syncScheduleRunTerminalState({
+          sourceRunId: runId,
+          status: toStatus,
+          finalizedAt: fields.finalizedAt ?? fields.completedAt ?? new Date(),
+          error: fields.error ?? null,
+          classifiedOutcome: fields.classifiedOutcome ?? null,
+        });
+      }
       return rows.length > 0;
     }
 
     await result;
+    if (toStatus === 'COMPLETED' || toStatus === 'FAILED') {
+      await this.syncScheduleRunTerminalState({
+        sourceRunId: runId,
+        status: toStatus,
+        finalizedAt: fields.finalizedAt ?? fields.completedAt ?? new Date(),
+        error: fields.error ?? null,
+        classifiedOutcome: fields.classifiedOutcome ?? null,
+      });
+    }
     return true;
+  }
+
+  private async syncScheduleRunTerminalState(input: {
+    sourceRunId: string;
+    status: 'COMPLETED' | 'FAILED';
+    finalizedAt: Date;
+    error: string | null;
+    classifiedOutcome: string | null;
+  }) {
+    const scheduleEvent = await this.db
+      .select({
+        scheduleId: scrapeScheduleEventsTable.scheduleId,
+        userId: scrapeScheduleEventsTable.userId,
+        traceId: scrapeScheduleEventsTable.traceId,
+        requestId: scrapeScheduleEventsTable.requestId,
+      })
+      .from(scrapeScheduleEventsTable)
+      .where(
+        and(
+          eq(scrapeScheduleEventsTable.sourceRunId, input.sourceRunId),
+          eq(scrapeScheduleEventsTable.eventType, 'schedule_enqueue_succeeded'),
+        ),
+      )
+      .orderBy(desc(scrapeScheduleEventsTable.createdAt))
+      .limit(1)
+      .then(([item]) => item ?? null);
+
+    if (!scheduleEvent) {
+      return;
+    }
+
+    await this.db
+      .update(scrapeSchedulesTable)
+      .set({
+        lastRunStatus: input.status,
+        updatedAt: input.finalizedAt,
+      })
+      .where(eq(scrapeSchedulesTable.id, scheduleEvent.scheduleId));
+
+    await this.appendScheduleEvent({
+      scheduleId: scheduleEvent.scheduleId,
+      userId: scheduleEvent.userId,
+      sourceRunId: input.sourceRunId,
+      traceId: scheduleEvent.traceId ?? null,
+      requestId: scheduleEvent.requestId ?? null,
+      eventType: input.status === 'COMPLETED' ? 'schedule_run_completed' : 'schedule_run_failed',
+      severity: input.status === 'FAILED' ? 'error' : 'info',
+      code: input.status,
+      message:
+        input.status === 'COMPLETED'
+          ? 'Scheduled scrape run reached a completed terminal state.'
+          : 'Scheduled scrape run reached a failed terminal state.',
+      meta: {
+        finalizedAt: input.finalizedAt.toISOString(),
+        classifiedOutcome: input.classifiedOutcome,
+        error: input.error,
+      },
+      createdAt: input.finalizedAt,
+    });
   }
 
   private async markRunFailed(runId: string, error: string) {

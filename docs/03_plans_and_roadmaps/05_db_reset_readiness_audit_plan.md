@@ -120,7 +120,7 @@ Implementation status on 2026-05-06:
 
 ### 2. Define fallback behavior for offers without source expiry dates
 
-Status: blocking
+Status: in progress
 
 Problem:
 
@@ -165,6 +165,17 @@ Acceptance criteria:
 1. A successful scheduled scrape no longer leaves the schedule row looking unfinished.
 2. A failed scheduled scrape leaves an explicit terminal reason visible in support/ops views.
 3. Support investigation no longer requires correlating raw run rows just to answer "did the last scheduled run really work?"
+
+Implementation status on 2026-05-06:
+
+1. Terminal scrape run transitions now reconcile the owning schedule row when the run originated from `schedule_enqueue_succeeded`.
+2. `scrape_schedules.last_run_status` now moves from enqueue-time markers to terminal `COMPLETED` or `FAILED`.
+3. Schedule event history now records:
+   - `schedule_run_completed`
+   - `schedule_run_failed`
+4. Remaining follow-up:
+   - decide whether manual-trigger terminal states should keep distinct labels beyond enqueue-time differentiation
+   - expose the latest terminal timestamp directly on the schedule row if support needs a simpler denormalized field later
 
 ### 4. Verify clean handling for failed, stale, and partial scrape outcomes
 
