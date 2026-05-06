@@ -157,7 +157,7 @@ Implementation status on 2026-05-06:
 
 ### 3. Reconcile schedule status with terminal run outcome
 
-Status: blocking
+Status: in progress
 
 Problem:
 
@@ -245,6 +245,33 @@ Acceptance criteria:
 
 1. Newly scraped offers populate matching-critical normalized fields at acceptable coverage.
 2. Matching after reset is based on intended current data shape, not legacy sparse rows.
+
+Implementation status on 2026-05-06:
+
+1. Pracuj category normalization no longer depends only on a single narrow filter context.
+2. Shared catalog normalization now falls back to deterministic content-based category inference when:
+   - general category filters are absent or broad
+   - IT specialization filters are absent or broad
+3. Current fallback signals are taken from:
+   - normalized offer title
+   - listing URL
+   - normalized technology stack
+4. The fallback is intentionally conservative:
+   - only a unique highest-signal category is accepted
+   - ties remain unresolved instead of forcing a noisy category
+5. The fallback currently covers the highest-impact categories for the reset path:
+   - software development
+   - IT administration
+   - research and development
+   - operations
+   - marketing
+   - customer support
+6. The same shared inference path now benefits both:
+   - fresh scrape persistence
+   - catalog backfill for legacy rows
+7. Remaining follow-up:
+   - run a post-fix audit query against newly scraped rows to confirm category coverage is materially improved
+   - decide whether any still-unresolved role families need additional conservative signals before reset
 
 ## High-Priority Non-Blocking Work
 

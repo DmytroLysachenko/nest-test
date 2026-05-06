@@ -16,6 +16,11 @@ const normalizeAscii = (value: string) =>
     .toLowerCase();
 
 const normalizeKey = (value: string) => normalizeAscii(value).replace(/[^a-z0-9]+/g, '');
+const normalizeSearchText = (value: string) =>
+  normalizeAscii(value)
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim();
 
 export const splitCanonicalValues = (value?: string | null) => {
@@ -317,6 +322,131 @@ const PRACUJ_IT_SPECIALIZATION_BY_SLUG: Record<string, string> = {
   'ai-ml': 'research-and-development',
 };
 
+type PracujCategoryInferenceInput = {
+  title?: string | null;
+  listingUrl?: string | null;
+  technologies?: {
+    required?: string[] | null;
+    niceToHave?: string[] | null;
+    all?: string[] | null;
+  } | null;
+};
+
+const PRACUJ_CONTENT_CATEGORY_KEYWORDS: Array<{ slug: string; phrases: string[] }> = [
+  {
+    slug: 'software-development',
+    phrases: [
+      'frontend',
+      'backend',
+      'fullstack',
+      'full stack',
+      'software developer',
+      'software engineer',
+      'application developer',
+      'web developer',
+      'mobile developer',
+      'android',
+      'ios',
+      'qa automation',
+      'test automation',
+      'automation tester',
+      'embedded',
+      'game developer',
+      'unity',
+      'react',
+      'angular',
+      'vue',
+      'javascript',
+      'typescript',
+      'node',
+      'java',
+      'python',
+      'php',
+      'ruby',
+      'golang',
+      'kotlin',
+      'swift',
+      'dotnet',
+      'developer',
+      'programmer',
+    ],
+  },
+  {
+    slug: 'it-administration',
+    phrases: [
+      'devops',
+      'sre',
+      'site reliability',
+      'platform engineer',
+      'platform administrator',
+      'cloud engineer',
+      'cloud architect',
+      'infrastructure',
+      'system administrator',
+      'systems administrator',
+      'network administrator',
+      'security engineer',
+      'security analyst',
+      'cybersecurity',
+      'soc analyst',
+      'iam engineer',
+      'it administrator',
+      'sysadmin',
+    ],
+  },
+  {
+    slug: 'research-and-development',
+    phrases: [
+      'data scientist',
+      'machine learning',
+      'ml engineer',
+      'ai engineer',
+      'ai ml',
+      'data engineer',
+      'analytics engineer',
+      'bi developer',
+      'business intelligence',
+      'power bi',
+      'tableau',
+      'spark',
+      'hadoop',
+      'tensorflow',
+      'pytorch',
+      'computer vision',
+      'nlp',
+      'research engineer',
+    ],
+  },
+  {
+    slug: 'operations',
+    phrases: [
+      'product manager',
+      'project manager',
+      'delivery manager',
+      'scrum master',
+      'agile coach',
+      'business analyst',
+      'system analyst',
+      'systems analyst',
+      'sap consultant',
+      'sap analyst',
+      'erp consultant',
+      'erp analyst',
+      'product owner',
+    ],
+  },
+  {
+    slug: 'marketing',
+    phrases: ['ux designer', 'ui designer', 'ux ui', 'product designer', 'graphic designer'],
+  },
+  {
+    slug: 'customer-support',
+    phrases: ['helpdesk', 'service desk', 'technical support', 'support specialist', 'support consultant'],
+  },
+];
+
+const containsPhrase = (haystack: string, phrase: string) => haystack.includes(` ${normalizeSearchText(phrase)} `);
+
 export const resolvePracujCategoryDefinition = (value?: string | null, source?: 'it' | 'general') => {
   const normalized = normalizeText(value);
   if (!normalized) {
@@ -333,6 +463,41 @@ export const resolvePracujCategoryDefinition = (value?: string | null, source?: 
   }
 
   return CANONICAL_JOB_CATEGORIES.find((item) => item.slug === mappedSlug) ?? { slug: mappedSlug, label: mappedSlug };
+};
+
+export const inferPracujCategoryDefinitionFromContent = (input?: PracujCategoryInferenceInput | null) => {
+  const normalizedTitle = normalizeSearchText(input?.title ?? '');
+  const normalizedListingUrl = normalizeSearchText(input?.listingUrl ?? '');
+  const normalizedTechnologies = [
+    ...(input?.technologies?.required ?? []),
+    ...(input?.technologies?.niceToHave ?? []),
+    ...(input?.technologies?.all ?? []),
+  ]
+    .map((value) => normalizeSearchText(value))
+    .filter(Boolean);
+  const searchCorpus = ` ${[normalizedTitle, normalizedListingUrl, ...normalizedTechnologies].filter(Boolean).join(' ')} `;
+
+  if (!searchCorpus.trim()) {
+    return null;
+  }
+
+  const matches = PRACUJ_CONTENT_CATEGORY_KEYWORDS.map((definition) => ({
+    slug: definition.slug,
+    score: definition.phrases.reduce((score, phrase) => score + (containsPhrase(searchCorpus, phrase) ? 1 : 0), 0),
+  }))
+    .filter((definition) => definition.score > 0)
+    .sort((left, right) => right.score - left.score);
+
+  const topMatch = matches[0];
+  if (!topMatch) {
+    return null;
+  }
+
+  if (matches[1]?.score === topMatch.score) {
+    return null;
+  }
+
+  return CANONICAL_JOB_CATEGORIES.find((item) => item.slug === topMatch.slug) ?? null;
 };
 
 export type ParsedSalary = {
