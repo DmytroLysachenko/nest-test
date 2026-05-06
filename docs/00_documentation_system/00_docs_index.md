@@ -74,6 +74,7 @@ Runtime operations, debugging, deploy guidance, and env/deploy contracts.
 - `03_prod_deploy_guide.md`
 - `04_gcp_deploy_matrix.md`
 - `05_env_matrix.md`
+- `06_targeted_reset_guide.md`
 
 ### `06_engineering_standards`
 
