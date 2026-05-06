@@ -1,6 +1,12 @@
 # DB Reset Readiness Audit Plan
 
-Last updated: 2026-05-05
+Archived status: completed and superseded by implemented reset tooling on 2026-05-06.
+
+Primary follow-up runtime guide:
+
+1. `docs/05_operations_and_deployment/06_targeted_reset_guide.md`
+
+Last updated: 2026-05-06
 
 ## Purpose
 
