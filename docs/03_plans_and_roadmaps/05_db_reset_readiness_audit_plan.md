@@ -73,7 +73,7 @@ The system is reset-ready only if all of the following are true:
 
 ### 1. Add deterministic expiry reconciliation after scrape-time
 
-Status: blocking
+Status: in progress
 
 Problem:
 
@@ -98,6 +98,25 @@ Acceptance criteria:
 2. Notebook/discovery/company views stop showing those offers by default.
 3. Matching and user-offer read models treat reconciled expired offers as inactive.
 4. Ops metrics expose expired-offer counts that reflect reality, not only scrape-time state.
+
+Implementation status on 2026-05-06:
+
+1. API now performs an idempotent expiry reconciliation before the main active-offer read paths:
+   - notebook and opportunity lists
+   - discovery summaries and focus queues
+   - company offer views
+   - prep packet reads
+   - catalog candidate loading used by matching/rematch flows
+2. Ops metrics and catalog summary now reconcile expiry before counting active vs expired inventory.
+3. Catalog support views now expose expiry coverage by source, including:
+   - total offers
+   - offers with explicit expiry dates
+   - active offers still missing expiry dates
+   - expired rows
+4. This closes the most immediate stale-active-row risk after reset even before a dedicated scheduler-driven expiry job exists.
+5. Remaining follow-up:
+   - decide whether to keep this read-path reconcile permanently or move it behind a scheduled internal job once that slice is implemented
+   - decide whether null-expiry offers should remain indefinitely active or move to a later stale-age demotion rule
 
 ### 2. Define fallback behavior for offers without source expiry dates
 

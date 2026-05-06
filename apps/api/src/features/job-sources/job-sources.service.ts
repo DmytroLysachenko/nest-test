@@ -51,6 +51,7 @@ import {
 
 import { Drizzle } from '@/common/decorators';
 import { JobOffersService } from '@/features/job-offers/job-offers.service';
+import { reconcileExpiredJobOffers } from '@/features/job-offers/job-offers-expiry';
 import { MailService } from '@/features/auth/mail.service';
 import {
   parseCandidateProfile,
@@ -5077,6 +5078,8 @@ export class JobSourcesService {
     specificOfferIds?: string[],
     explicitLimit?: number,
   ): Promise<CatalogOfferRow[]> {
+    await reconcileExpiredJobOffers(this.db);
+
     const rematchHours =
       this.configService.get('CATALOG_REMATCH_HOURS', { infer: true }) ?? DEFAULT_CATALOG_REMATCH_HOURS;
     const cutoff = new Date(Date.now() - rematchHours * 60 * 60 * 1000);

@@ -22,6 +22,8 @@ import {
 } from '@repo/db';
 
 import { Drizzle } from '@/common/decorators';
+import { buildJobOfferExpiryCoverageSummary } from '@/features/job-offers/job-offers-expiry-coverage';
+import { reconcileExpiredJobOffers } from '@/features/job-offers/job-offers-expiry';
 
 import type { Env } from '@/config/env';
 
@@ -63,6 +65,8 @@ export class OpsService {
     const now = new Date();
     const cutoff = new Date(now.getTime() - windowHours * 60 * 60 * 1000);
     try {
+      await reconcileExpiredJobOffers(this.db, now);
+
       const [activeRunsRow] = await this.db
         .select({ value: count() })
         .from(jobSourceRunsTable)
@@ -162,6 +166,18 @@ export class OpsService {
             gte(jobOffersTable.lastSeenAt, cutoff),
           ),
         );
+      const [expiredOffersRow] = await this.db
+        .select({ value: count() })
+        .from(jobOffersTable)
+        .where(eq(jobOffersTable.isExpired, true));
+      const [offersWithExpiryRow] = await this.db
+        .select({ value: count() })
+        .from(jobOffersTable)
+        .where(isNotNull(jobOffersTable.expiresAt));
+      const [activeOffersWithoutExpiryRow] = await this.db
+        .select({ value: count() })
+        .from(jobOffersTable)
+        .where(and(eq(jobOffersTable.isExpired, false), isNull(jobOffersTable.expiresAt)));
       const [catalogMatchedRecentlyRow] = await this.db
         .select({ value: count() })
         .from(jobOffersTable)
@@ -320,6 +336,9 @@ export class OpsService {
         },
         catalog: {
           freshAcceptedOffers: Number(freshCatalogOffersRow?.value ?? 0),
+          expiredOffers: Number(expiredOffersRow?.value ?? 0),
+          offersWithExpiry: Number(offersWithExpiryRow?.value ?? 0),
+          activeOffersWithoutExpiry: Number(activeOffersWithoutExpiryRow?.value ?? 0),
           matchedRecently: Number(catalogMatchedRecentlyRow?.value ?? 0),
           offersWithoutCategory: Number(offersWithoutCategoryRow?.value ?? 0),
           offersWithoutEmploymentType: Number(offersWithoutEmploymentTypeRow?.value ?? 0),
@@ -785,7 +804,10 @@ export class OpsService {
 
   async getCatalogSummary(windowHoursInput?: number) {
     const windowHours = Math.min(Math.max(windowHoursInput ?? 72, 1), 720);
-    const cutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - windowHours * 60 * 60 * 1000);
+    await reconcileExpiredJobOffers(this.db, now);
+
     const [totalCatalogOffersRow] = await this.db.select({ value: count() }).from(jobOffersTable);
     const [freshAcceptedOffersRow] = await this.db
       .select({ value: count() })
@@ -801,10 +823,29 @@ export class OpsService {
       .select({ value: count() })
       .from(jobOffersTable)
       .where(eq(jobOffersTable.isExpired, true));
+    const [offersWithExpiryRow] = await this.db
+      .select({ value: count() })
+      .from(jobOffersTable)
+      .where(isNotNull(jobOffersTable.expiresAt));
+    const [activeOffersWithoutExpiryRow] = await this.db
+      .select({ value: count() })
+      .from(jobOffersTable)
+      .where(and(eq(jobOffersTable.isExpired, false), isNull(jobOffersTable.expiresAt)));
     const [matchedRecentlyRow] = await this.db
       .select({ value: count() })
       .from(jobOffersTable)
       .where(gte(jobOffersTable.lastMatchedAt, cutoff));
+    const expiryCoverageBySourceRows = await this.db
+      .select({
+        source: jobOffersTable.source,
+        total: sql<number>`count(*)::int`,
+        withExpiry: sql<number>`count(*) filter (where ${jobOffersTable.expiresAt} is not null)::int`,
+        activeWithoutExpiry: sql<number>`count(*) filter (where ${jobOffersTable.isExpired} = false and ${jobOffersTable.expiresAt} is null)::int`,
+        expired: sql<number>`count(*) filter (where ${jobOffersTable.isExpired} = true)::int`,
+      })
+      .from(jobOffersTable)
+      .groupBy(jobOffersTable.source)
+      .orderBy(jobOffersTable.source);
     const offersByQuality = await this.db
       .select({
         qualityState: jobOffersTable.qualityState,
@@ -821,6 +862,7 @@ export class OpsService {
       .from(userJobOffersTable)
       .groupBy(userJobOffersTable.origin)
       .orderBy(desc(sql<number>`count(*)::int`));
+    const expiryCoverage = buildJobOfferExpiryCoverageSummary(expiryCoverageBySourceRows);
 
     return {
       generatedAt: new Date().toISOString(),
@@ -828,7 +870,10 @@ export class OpsService {
       totalCatalogOffers: Number(totalCatalogOffersRow?.value ?? 0),
       freshAcceptedOffers: Number(freshAcceptedOffersRow?.value ?? 0),
       expiredOffers: Number(expiredOffersRow?.value ?? 0),
+      offersWithExpiry: Number(offersWithExpiryRow?.value ?? 0),
+      activeOffersWithoutExpiry: Number(activeOffersWithoutExpiryRow?.value ?? 0),
       matchedRecently: Number(matchedRecentlyRow?.value ?? 0),
+      expiryCoverage,
       offersByQuality,
       userOfferOrigins,
     };
