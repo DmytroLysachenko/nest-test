@@ -265,6 +265,63 @@ Use these rules before deciding whether a stale-looking catalog row is a bug or 
 7. If a test reset is planned, verify this cutoff before bulk cleanup so post-reset offer aging matches the expected source refresh rhythm.
 8. If active inventory looks too large after reset, check null-expiry stale-window drift before assuming the scraper failed to mark offers expired.
 
+## Reset Readiness Audit
+
+Use the reset verifier before destructive cleanup and again after reseeding or validation runs.
+
+Command:
+
+1. Pre-reset baseline:
+   - `pnpm --filter @repo/db audit:reset-readiness`
+2. Post-reset verification:
+   - `RESET_VERIFY_PHASE=post-reset pnpm --filter @repo/db audit:reset-readiness`
+3. CI/strict failure on hard gate:
+   - `RESET_VERIFY_PHASE=post-reset RESET_VERIFY_STRICT=true pnpm --filter @repo/db audit:reset-readiness`
+
+Useful knobs:
+
+1. `RESET_VERIFY_WINDOW_HOURS`
+   - default `72`
+   - controls how far back scrape/schedule verification looks
+2. `RESET_VERIFY_MIN_CATEGORY_COVERAGE`
+   - default `0.8`
+   - minimum acceptable Pracuj category coverage before warning
+3. `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS`
+   - reused by the verifier to decide when null-expiry active offers are stale
+
+Current verifier gates:
+
+1. schema state
+   - migrations ledger present
+   - required runtime tables present
+2. seed/admin state
+   - at least one active admin user exists
+3. schedule terminal state
+   - enabled schedules exist
+   - no stale `ENQUEUED*` schedules older than two hours
+4. offer integrity
+   - no active offers with past `expires_at`
+   - no active null-expiry offers beyond the stale cutoff
+   - Pracuj category coverage reported
+5. user link integrity
+   - no orphaned `user_job_offers`
+   - no duplicate user/offer links
+6. workflow verification
+   - recent scheduled success evidence
+   - recent manual/direct success evidence
+   - degraded and recovered-failure counts surfaced for review
+
+Interpretation:
+
+1. `pre-reset`
+   - missing fresh manual/scheduled runs is a warning, not a blocker yet
+2. `post-reset`
+   - missing either scheduled or manual/direct success is a hard fail
+3. `warn`
+   - environment may still be usable, but reset sign-off should wait for review
+4. `fail`
+   - reset readiness or post-reset validation is not complete
+
 Interpretation rule:
 
 1. A scrape run is healthy only when it produces useful offers or an intentionally empty outcome that is explained.

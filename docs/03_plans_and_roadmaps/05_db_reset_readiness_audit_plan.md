@@ -328,6 +328,23 @@ Required verification bundle:
 7. expired-offer reconciliation works
 8. notebook and matching consume the new rows correctly
 
+Implementation status on 2026-05-06:
+
+1. `pnpm --filter @repo/db audit:reset-readiness` now provides a committed reset-readiness verifier instead of ad hoc SQL.
+2. The verifier supports both:
+   - `pre-reset`
+   - `post-reset`
+3. Current gates cover:
+   - schema state
+   - seed/admin state
+   - schedule terminal state
+   - offer integrity
+   - user-link integrity
+   - recent workflow verification
+4. Post-reset mode now fails hard when either scheduled or manual/direct successful scrape evidence is missing.
+5. Remaining follow-up:
+   - add notebook/matching-specific read-model assertions once we choose whether those belong in DB audit, smoke, or API support bundle layers
+
 ### 3. Refresh support tooling for post-reset investigation
 
 Current support tooling is useful, but the local cached API admin token is stale.
