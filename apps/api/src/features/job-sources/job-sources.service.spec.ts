@@ -1304,6 +1304,61 @@ describe('JobSourcesService', () => {
     expect(updatePayloads.at(-1)?.status).toBe('FAILED');
   });
 
+  it('marks failed callbacks with recovered offers as partial success instead of total failure', async () => {
+    const updatePayloads: Array<Record<string, unknown>> = [];
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-failed-partial-1',
+                      source: 'PRACUJ_PL',
+                      userId: 'user-failed-partial-1',
+                      careerProfileId: 'profile-failed-partial-1',
+                      status: 'RUNNING',
+                      totalFound: null,
+                      scrapedCount: null,
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockImplementation((values: Record<string, unknown>) => {
+          updatePayloads.push(values);
+          return { where: jest.fn().mockResolvedValue(undefined) };
+        }),
+      }),
+      insert: jest.fn(),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const result = await service.completeScrape({
+      sourceRunId: 'run-failed-partial-1',
+      status: 'FAILED',
+      error: 'browser crash after partial ingest',
+      scrapedCount: 2,
+      totalFound: 5,
+    });
+
+    expect(result).toMatchObject({ ok: true, status: 'FAILED', inserted: 0 });
+    expect(updatePayloads.at(-1)).toEqual(
+      expect.objectContaining({
+        status: 'FAILED',
+        scrapedCount: 2,
+        totalFound: 5,
+        classifiedOutcome: 'partial_success',
+        sourceQuality: 'degraded',
+      }),
+    );
+  });
+
   it('short-circuits repeated completed callback idempotently', async () => {
     const db = {
       select: jest.fn().mockReturnValue({
@@ -1616,6 +1671,28 @@ describe('JobSourcesService', () => {
       careerProfileId: 'profile-5',
       profile: candidateProfileFixture,
     });
+    jest.spyOn(repoDb, 'resolveCatalogNormalizationRefs').mockResolvedValue([
+      {
+        companyId: null,
+        jobCategoryId: 'category-frontend',
+        employmentTypeId: null,
+        contractTypeId: null,
+        workModeId: null,
+        contractTypeIds: [],
+        workModeIds: [],
+        workScheduleIds: [],
+        seniorityLevelIds: [],
+        technologies: [],
+        parsedSalary: {
+          salaryMin: null,
+          salaryMax: null,
+          salaryCurrency: null,
+          salaryPeriod: null,
+          salaryKind: null,
+        },
+        sourceCompanyProfileUrl: null,
+      },
+    ]);
     jest.spyOn(service as any, 'linkCatalogOffersToUser').mockResolvedValue({
       insertedCount: 1,
       totalCandidateCount: 1,
@@ -3298,6 +3375,27 @@ describe('JobSourcesService', () => {
       pauseReason: 'network_cluster',
       failureMix: { network: 1 },
       recommendedAction: 'wait',
+    });
+  });
+
+  it('builds partial run story for failed runs that still recovered offers', () => {
+    const service = new JobSourcesService(createConfigService(), createLogger(), {} as any);
+
+    const story = (service as any).buildRunStory({
+      status: 'FAILED',
+      totalFound: 5,
+      scrapedCount: 2,
+      classifiedOutcome: 'partial_success',
+      sourceQuality: 'degraded',
+      failureType: 'timeout',
+      error: '[timeout] worker timed out after partial callback',
+      silentFailure: false,
+    });
+
+    expect(story).toMatchObject({
+      phase: 'partial',
+      userVisibility: 'warning',
+      recommendedAction: 'Review the recovered offers, then inspect the terminal failure before retrying.',
     });
   });
 

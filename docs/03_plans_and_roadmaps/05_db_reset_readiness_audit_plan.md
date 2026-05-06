@@ -226,6 +226,20 @@ Acceptance criteria:
 2. Partial success is distinguishable from total failure in both DB and support views.
 3. Reconciled stale runs cannot leave notebook state inconsistent with run outcome.
 
+Implementation status on 2026-05-06:
+
+1. Terminal worker callbacks that fail after already recovering usable offers now persist as:
+   - `status = FAILED`
+   - `classified_outcome = partial_success`
+   - `source_quality = degraded`
+2. This closes the previous ambiguity where a late or failed callback with recovered offers looked identical to a total failed run.
+3. Run-story read models now describe this path as partial and incomplete instead of pure failure, so support can distinguish:
+   - failed with zero useful recovery
+   - failed after partial useful recovery
+4. Remaining follow-up:
+   - audit whether failed runs with recovered offers should also surface a dedicated count in higher-level ops and support summary aggregates
+   - add one production-like dry-run check proving user-link state stays coherent when a run fails after incremental ingest
+
 ### 5. Close category and normalization gaps that would poison the new baseline
 
 Status: blocking

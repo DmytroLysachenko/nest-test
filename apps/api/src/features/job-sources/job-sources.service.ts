@@ -429,16 +429,20 @@ const buildRunUsefulness = (input: {
   classifiedOutcome: string | null;
 }) => {
   const notebook = input.notebookVisibility;
+  const supportsRecoveredOffers =
+    input.status === 'COMPLETED' ||
+    input.classifiedOutcome === 'partial_success' ||
+    (input.status === 'FAILED' && input.degradedAcceptedOffers > 0);
   const status =
-    input.status === 'COMPLETED' && notebook.userInsertedOffers > 0
+    supportsRecoveredOffers && notebook.userInsertedOffers > 0
       ? 'useful'
-      : input.status === 'COMPLETED' && notebook.matchedOffers > notebook.userInsertedOffers
+      : supportsRecoveredOffers && notebook.matchedOffers > notebook.userInsertedOffers
         ? 'hidden'
         : input.silentFailure
           ? 'blocked'
-          : input.status === 'COMPLETED' && notebook.candidateOffers === 0
+          : supportsRecoveredOffers && notebook.candidateOffers === 0
             ? 'empty'
-            : input.status === 'COMPLETED' && input.degradedAcceptedOffers > 0
+            : supportsRecoveredOffers && input.degradedAcceptedOffers > 0
               ? 'degraded'
               : input.status === 'FAILED'
                 ? 'failed'
@@ -2143,7 +2147,9 @@ export class JobSourcesService {
         scrapedCount,
       });
       const emptyReason = normalizeScrapeEmptyReason(dto.diagnostics?.emptyReason ?? null);
-      const sourceQuality = normalizeScrapeSourceQuality(dto.diagnostics?.sourceQuality ?? null) ?? 'failed';
+      const sourceQuality =
+        normalizeScrapeSourceQuality(dto.diagnostics?.sourceQuality ?? null) ??
+        (scrapedCount > 0 ? ('degraded' as const) : ('failed' as const));
       await this.registerRunAttempt(run.id, scrapeAttemptNo, {
         status: 'FAILED',
         payloadHash: callbackPayloadHash,
@@ -3135,6 +3141,15 @@ export class JobSourcesService {
         summary: 'Run is in progress. Listing fetch and detail extraction are still underway.',
         recommendedAction: 'Wait for completion before judging notebook impact.',
         userVisibility: 'neutral' as RunStoryVisibility,
+      };
+    }
+
+    if (classifiedOutcome === 'partial_success' || (status === 'FAILED' && scrapedCount > 0)) {
+      return {
+        phase: 'partial' as RunStoryPhase,
+        summary: `Run ended with failure after recovering ${scrapedCount} usable offer${scrapedCount === 1 ? '' : 's'}, so notebook state is usable but incomplete.`,
+        recommendedAction: 'Review the recovered offers, then inspect the terminal failure before retrying.',
+        userVisibility: 'warning' as RunStoryVisibility,
       };
     }
 
@@ -6025,56 +6040,67 @@ export class JobSourcesService {
     error: string | null;
     classifiedOutcome: string | null;
   }) {
-    const scheduleEvent = await this.db
-      .select({
-        scheduleId: scrapeScheduleEventsTable.scheduleId,
-        userId: scrapeScheduleEventsTable.userId,
-        traceId: scrapeScheduleEventsTable.traceId,
-        requestId: scrapeScheduleEventsTable.requestId,
-      })
-      .from(scrapeScheduleEventsTable)
-      .where(
-        and(
-          eq(scrapeScheduleEventsTable.sourceRunId, input.sourceRunId),
-          eq(scrapeScheduleEventsTable.eventType, 'schedule_enqueue_succeeded'),
-        ),
-      )
-      .orderBy(desc(scrapeScheduleEventsTable.createdAt))
-      .limit(1)
-      .then(([item]) => item ?? null);
+    try {
+      const scheduleEvent = await this.db
+        .select({
+          scheduleId: scrapeScheduleEventsTable.scheduleId,
+          userId: scrapeScheduleEventsTable.userId,
+          traceId: scrapeScheduleEventsTable.traceId,
+          requestId: scrapeScheduleEventsTable.requestId,
+        })
+        .from(scrapeScheduleEventsTable)
+        .where(
+          and(
+            eq(scrapeScheduleEventsTable.sourceRunId, input.sourceRunId),
+            eq(scrapeScheduleEventsTable.eventType, 'schedule_enqueue_succeeded'),
+          ),
+        )
+        .orderBy(desc(scrapeScheduleEventsTable.createdAt))
+        .limit(1)
+        .then(([item]) => item ?? null);
 
-    if (!scheduleEvent) {
-      return;
+      if (!scheduleEvent) {
+        return;
+      }
+
+      await this.db
+        .update(scrapeSchedulesTable)
+        .set({
+          lastRunStatus: input.status,
+          updatedAt: input.finalizedAt,
+        })
+        .where(eq(scrapeSchedulesTable.id, scheduleEvent.scheduleId));
+
+      await this.appendScheduleEvent({
+        scheduleId: scheduleEvent.scheduleId,
+        userId: scheduleEvent.userId,
+        sourceRunId: input.sourceRunId,
+        traceId: scheduleEvent.traceId ?? null,
+        requestId: scheduleEvent.requestId ?? null,
+        eventType: input.status === 'COMPLETED' ? 'schedule_run_completed' : 'schedule_run_failed',
+        severity: input.status === 'FAILED' ? 'error' : 'info',
+        code: input.status,
+        message:
+          input.status === 'COMPLETED'
+            ? 'Scheduled scrape run reached a completed terminal state.'
+            : 'Scheduled scrape run reached a failed terminal state.',
+        meta: {
+          finalizedAt: input.finalizedAt.toISOString(),
+          classifiedOutcome: input.classifiedOutcome,
+          error: input.error,
+        },
+        createdAt: input.finalizedAt,
+      });
+    } catch (error) {
+      this.logger.warn(
+        {
+          sourceRunId: input.sourceRunId,
+          status: input.status,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to reconcile schedule terminal status after scrape finalization',
+      );
     }
-
-    await this.db
-      .update(scrapeSchedulesTable)
-      .set({
-        lastRunStatus: input.status,
-        updatedAt: input.finalizedAt,
-      })
-      .where(eq(scrapeSchedulesTable.id, scheduleEvent.scheduleId));
-
-    await this.appendScheduleEvent({
-      scheduleId: scheduleEvent.scheduleId,
-      userId: scheduleEvent.userId,
-      sourceRunId: input.sourceRunId,
-      traceId: scheduleEvent.traceId ?? null,
-      requestId: scheduleEvent.requestId ?? null,
-      eventType: input.status === 'COMPLETED' ? 'schedule_run_completed' : 'schedule_run_failed',
-      severity: input.status === 'FAILED' ? 'error' : 'info',
-      code: input.status,
-      message:
-        input.status === 'COMPLETED'
-          ? 'Scheduled scrape run reached a completed terminal state.'
-          : 'Scheduled scrape run reached a failed terminal state.',
-      meta: {
-        finalizedAt: input.finalizedAt.toISOString(),
-        classifiedOutcome: input.classifiedOutcome,
-        error: input.error,
-      },
-      createdAt: input.finalizedAt,
-    });
   }
 
   private async markRunFailed(runId: string, error: string) {
