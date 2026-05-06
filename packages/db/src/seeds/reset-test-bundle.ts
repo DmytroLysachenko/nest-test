@@ -1,6 +1,7 @@
-import { config } from 'dotenv';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+
+import { config } from 'dotenv';
 
 import { resolveResetBundleOptions } from './reset-test-bundle-core';
 
