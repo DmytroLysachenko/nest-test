@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsInt,
   IsObject,
   IsOptional,
@@ -74,6 +75,11 @@ class ScrapeOfferIngestJobDto {
   @ApiProperty()
   @IsString()
   description!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isExpired?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()

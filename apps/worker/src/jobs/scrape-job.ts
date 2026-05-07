@@ -270,6 +270,54 @@ export const computeCallbackPayloadHash = (payload: Record<string, unknown>) => 
   } = payload;
   return createHash('sha256').update(stableJson(stablePayload)).digest('hex');
 };
+
+const sanitizeCallbackDiagnostics = (diagnostics: CallbackPayload['diagnostics']) => {
+  if (!diagnostics) {
+    return undefined;
+  }
+
+  return {
+    relaxationTrail: diagnostics.relaxationTrail,
+    blockedUrls: diagnostics.blockedUrls,
+    pagesVisited: diagnostics.pagesVisited,
+    jobLinksDiscovered: diagnostics.jobLinksDiscovered,
+    ignoredRecommendedLinks: diagnostics.ignoredRecommendedLinks,
+    dedupedInRunCount: diagnostics.dedupedInRunCount,
+    uniqueDiscoveredOfferCount: diagnostics.uniqueDiscoveredOfferCount,
+    skippedFreshUrls: diagnostics.skippedFreshUrls,
+    blockedPages: diagnostics.blockedPages,
+    detailAttemptedCount: diagnostics.detailAttemptedCount,
+    detailBudget: diagnostics.detailBudget,
+    browserFallbackCount: diagnostics.browserFallbackCount,
+    browserFallbackBudgetMs: diagnostics.browserFallbackBudgetMs,
+    browserFallbackBudgetUsedMs: diagnostics.browserFallbackBudgetUsedMs,
+    browserFallbackBudgetRemainingMs: diagnostics.browserFallbackBudgetRemainingMs,
+    detailStopReason: diagnostics.detailStopReason,
+    silentFailure: diagnostics.silentFailure,
+    acceptedOfferCount: diagnostics.acceptedOfferCount,
+    rejectedOfferCount: diagnostics.rejectedOfferCount,
+    rejectedOfferReasons: diagnostics.rejectedOfferReasons,
+    fullDetailOfferCount: diagnostics.fullDetailOfferCount,
+    partialDetailOfferCount: diagnostics.partialDetailOfferCount,
+    salvagedOfferCount: diagnostics.salvagedOfferCount,
+    artifacts: diagnostics.artifacts,
+    stageMetrics: diagnostics.stageMetrics,
+    hadZeroOffersStep: diagnostics.hadZeroOffersStep,
+    attemptCount: diagnostics.attemptCount,
+    adaptiveDelayApplied: diagnostics.adaptiveDelayApplied,
+    blockedRate: diagnostics.blockedRate,
+    finalPolicy: diagnostics.finalPolicy,
+    stopReason: diagnostics.stopReason,
+    resultKind: diagnostics.resultKind,
+    emptyReason: diagnostics.emptyReason,
+    sourceQuality: diagnostics.sourceQuality,
+    classifiedOutcome: diagnostics.classifiedOutcome,
+    failureReason: diagnostics.failureReason,
+    queryPlan: diagnostics.queryPlan,
+    scarcity: diagnostics.scarcity,
+    stageRetryCounts: diagnostics.stageRetryCounts,
+  } satisfies NonNullable<CallbackPayload['diagnostics']>;
+};
 export const computeNormalizedJobContentHash = (
   job: Pick<
     NormalizedJob,
@@ -455,6 +503,36 @@ const canonicalOfferKey = (job: Pick<NormalizedJob, 'sourceId' | 'url'>) => {
 const isPracujSource = (source: string): source is PracujSourceKind =>
   source === 'pracuj-pl' || source === 'pracuj-pl-it' || source === 'pracuj-pl-general';
 
+const sanitizeOutboundJob = (job: NormalizedJob) => {
+  const url = normalizeString(job.url);
+  const title = normalizeString(job.title);
+  const description = normalizeString(job.description);
+  if (!url || !title || !description) {
+    return null;
+  }
+
+  return {
+    source: normalizeString(job.source) ?? 'unknown',
+    sourceId: normalizeString(job.sourceId),
+    title,
+    company: normalizeString(job.company),
+    location: normalizeString(job.location),
+    description,
+    url,
+    tags: sanitizeStringArray(job.tags),
+    salary: normalizeString(job.salary),
+    employmentType: normalizeString(job.employmentType),
+    applyUrl: normalizeString(job.applyUrl),
+    postedAt: normalizeString(job.postedAt),
+    expiresAt: normalizeString(job.expiresAt),
+    sourceCompanyProfileUrl: normalizeString(job.sourceCompanyProfileUrl),
+    requirements: sanitizeStringArray(job.requirements),
+    details: job.details,
+    isExpired: typeof job.isExpired === 'boolean' ? job.isExpired : undefined,
+    rawPayload: job.rawPayload,
+  } satisfies NormalizedJob;
+};
+
 export const sanitizeCallbackJobs = (jobs: NormalizedJob[] | undefined) => {
   if (!jobs?.length) {
     return [];
@@ -462,43 +540,21 @@ export const sanitizeCallbackJobs = (jobs: NormalizedJob[] | undefined) => {
 
   const dedupByCanonical = new Map<string, NormalizedJob>();
   for (const job of jobs) {
-    const url = normalizeString(job.url);
-    const title = normalizeString(job.title);
-    const description = normalizeString(job.description);
-    if (!url || !title || !description) {
+    const sanitized = sanitizeOutboundJob(job);
+    if (!sanitized) {
       continue;
     }
 
     const dedupeKey =
       canonicalOfferKey({
-        sourceId: job.sourceId,
-        url,
-      }) ?? url.toLowerCase();
+        sourceId: sanitized.sourceId,
+        url: sanitized.url,
+      }) ?? sanitized.url.toLowerCase();
     if (dedupByCanonical.has(dedupeKey)) {
       continue;
     }
 
-    dedupByCanonical.set(dedupeKey, {
-      ...job,
-      source: normalizeString(job.source) ?? 'unknown',
-      sourceId: normalizeString(job.sourceId),
-      title,
-      company: normalizeString(job.company),
-      location: normalizeString(job.location),
-      description,
-      url,
-      tags: sanitizeStringArray(job.tags),
-      salary: normalizeString(job.salary),
-      employmentType: normalizeString(job.employmentType),
-      applyUrl: normalizeString(job.applyUrl),
-      postedAt: normalizeString(job.postedAt),
-      expiresAt: normalizeString(job.expiresAt),
-      sourceCompanyProfileUrl: normalizeString(job.sourceCompanyProfileUrl),
-      requirements: sanitizeStringArray(job.requirements),
-      details: job.details,
-      isExpired: job.isExpired,
-      rawPayload: job.rawPayload,
-    });
+    dedupByCanonical.set(dedupeKey, sanitized);
   }
 
   return Array.from(dedupByCanonical.values());
@@ -674,7 +730,7 @@ export const buildScrapeOfferIngestPayload = (input: OfferIngestPayload) => ({
   attemptNo: input.attemptNo,
   emittedAt: input.emittedAt,
   payloadHash: input.payloadHash,
-  job: input.job,
+  job: sanitizeOutboundJob(input.job) ?? input.job,
 });
 
 export const buildScrapeOfferBatchIngestPayload = (input: OfferBatchIngestPayload) => ({
@@ -690,7 +746,7 @@ export const buildScrapeOfferBatchIngestPayload = (input: OfferBatchIngestPayloa
   attemptNo: input.attemptNo,
   emittedAt: input.emittedAt,
   payloadHash: input.payloadHash,
-  jobs: input.jobs,
+  jobs: sanitizeCallbackJobs(input.jobs),
 });
 
 const resolveOfferBatchIngestUrl = (url: string) => (url.endsWith('/batch') ? url : `${url.replace(/\/+$/, '')}/batch`);
@@ -1039,12 +1095,12 @@ export const buildScrapeCallbackPayload = (input: CallbackPayload) => ({
   totalFound: input.totalFound,
   jobCount: input.jobCount,
   jobLinkCount: input.jobLinkCount,
-  jobs: input.jobs,
+  jobs: sanitizeCallbackJobs(input.jobs),
   outputPath: input.outputPath,
   error: input.error,
   failureType: input.failureType,
   failureCode: input.failureCode,
-  diagnostics: input.diagnostics,
+  diagnostics: sanitizeCallbackDiagnostics(input.diagnostics),
 });
 
 export const resolveScrapeStopReason = (input: {
