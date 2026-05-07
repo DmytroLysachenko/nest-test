@@ -1,6 +1,6 @@
 # Scrape Data Integrity And Matching Robustness Audit Plan
 
-Last updated: 2026-05-06
+Last updated: 2026-05-07
 
 ## Purpose
 
@@ -15,7 +15,124 @@ The trigger for this plan is not a hypothetical risk. It is a confirmed producti
 
 The goal is to make the system robust when source pages are incomplete, noisy, partially structured, or changed by the upstream site.
 
-This plan is based on current code inspection plus live database inspection on 2026-05-06.
+This plan is based on current code inspection plus live database inspection on 2026-05-06 and 2026-05-07.
+
+## Operational Incident Addendum 2026-05-07
+
+This audit now includes a live debugging addendum for the current user-facing scrape outage reported on 2026-05-07.
+
+Reported symptoms:
+
+1. weekday scheduled scrape expected at `08:00 Europe/Warsaw` appeared to do nothing
+2. manual scrape started on 2026-05-06 also produced no visible opportunities
+3. user account notebook/opportunities remained empty
+4. concern existed that matching was broken, or that worker and callback paths regressed again
+
+### Confirmed incident facts
+
+User:
+
+1. `dlysachenko98@gmail.com`
+2. user id `6bbd254d-f18f-45b6-94cd-f2bd046a9727`
+3. current `user_job_offers` count: `0`
+
+Schedule state:
+
+1. active schedule id `d56a3e86-1a97-4c69-bf02-e46f3a5c6ee5`
+2. cron `0 8 * * 1-5`
+3. timezone `Europe/Warsaw`
+4. due time stored as `2026-05-07T06:00:00.000Z`, which correctly maps to `08:00` local time
+5. scheduler did trigger on `2026-05-07T10:00:18.496Z`
+6. `scrape_schedule_events` contain:
+   - `schedule_trigger_received`
+   - `schedule_enqueue_started`
+   - `schedule_enqueue_succeeded`
+7. `last_run_status` still shows `ENQUEUED`, which remains misleading but is not the core failure
+
+Recent runs:
+
+1. manual run `15c48ab6-97dd-4fc1-b636-7b52b5150a83`
+   - created `2026-05-06T20:13:25Z`
+   - final DB status `FAILED`
+   - error `[timeout] reconcile endpoint stale run: heartbeat-stopped-or-callback-missing`
+2. scheduled run `c51d63e7-55c9-4087-ba6f-d7aa0af446b3`
+   - created `2026-05-07T10:00:19Z`
+   - current DB status still `RUNNING`
+   - worker-side execution already reached `SCRAPE_COMPLETED` and `WORKER_TASK_COMPLETED`
+
+Worker ledger facts for both runs:
+
+1. worker task was accepted
+2. listing fetch succeeded after browser fallback
+3. detail fetches completed for a bounded subset
+4. normalization completed with `20` accepted offers
+5. no callback event rows were ever registered in `job_source_callback_events`
+6. both runs show incremental-ingest dead-lettering and callback rejection with `400 VALIDATION_ERROR`
+
+Most important conclusion:
+
+The current user-facing outage is not primarily “scheduler not firing” and not yet proven to be “matching broken”.
+
+The stronger current hypothesis is:
+
+1. scheduler enqueues correctly
+2. worker executes correctly enough to finish scrape and normalization
+3. API rejects both incremental-ingest payloads and final completion callbacks with validation `400`
+4. callback finalization never lands
+5. run stays `RUNNING` or is later reconciled to timeout/failure
+6. notebook receives no linked offers because callback-side completion and linking never happen
+
+### Highest-confidence current contract-drift hypothesis
+
+Based on current code inspection, the most likely validation break is worker-to-API payload drift.
+
+Observed local code mismatch candidate:
+
+1. worker callback diagnostics include top-level fields such as:
+   - `detailBatchCount`
+   - `detailConcurrencyRequested`
+   - `detailConcurrencyEffective`
+   - `browserFallbackConcurrency`
+2. API `ScrapeRunDiagnosticsDto` defines those inside `stageMetrics.fetch`, but not as top-level diagnostics properties
+3. if API validation uses whitelist plus forbid-non-whitelisted, this shape drift would produce `400 VALIDATION_ERROR`
+4. that symptom is consistent with:
+   - worker `SCRAPE_COMPLETED`
+   - no `job_source_callback_events`
+   - callback retries
+   - callback dead-lettering
+   - manual and scheduled runs both breaking the same way
+
+This is still a hypothesis until exact rejected properties are captured from the API validation body or dead-letter payload, but it is now the lead debugging path.
+
+### Matching status for this incident
+
+Matching remains part of this audit, but current empty-notebook evidence does not yet prove matching is the first broken stage.
+
+For this user on 2026-05-07:
+
+1. notebook link count is `0`
+2. current runs do not finalize cleanly
+3. callback/ingest validation failure occurs before user-visible linking is expected
+
+Therefore:
+
+1. matching may still have independent problems
+2. but matching is not yet the first root cause for the empty account symptom
+3. callback and ingest contract repair must happen before matching effectiveness can be judged from this user journey
+
+### Production branch parity note
+
+Current branch state checked locally:
+
+1. `origin/master...origin/dev = 0 10`
+2. production branch is missing `10` commits that currently exist on `dev`
+
+This does not itself explain the current failure, because the current failing runs are already happening against the live deployed environment now.
+
+But it matters operationally:
+
+1. production debug work must explicitly track whether the fix is only on `dev`
+2. merge/promotion readiness should be part of the incident exit criteria
 
 ## Incident Snapshot
 
@@ -73,6 +190,7 @@ This does not prove matching is broken, but it does prove matching quality shoul
 3. accepted/review/rejected quality-state logic does not currently demote these rows
 4. company detail UI shows stored salary without a confidence guard
 5. catalog persistence can preserve bad salary text across refreshes if new structured salary stays absent
+6. current live scrape pipeline can complete worker execution but still fail at incremental-ingest and callback validation, leaving users with zero linked opportunities
 
 ### Not yet proven broken, but at risk
 
@@ -139,6 +257,17 @@ Audit where scoring relies on fields that may be absent or noisy:
 3. competency fit derived from requirements and details
 4. work mode and employment-type hard constraints
 5. seniority detection from title/text
+6. callback-finalized insertion path versus pure scoring path
+
+### 5. Worker/API contract boundaries
+
+Audit every worker-to-API payload surface, because current live evidence shows this boundary may be the first runtime failure stage:
+
+1. incremental offer batch ingest payload
+2. final scrape-complete callback payload
+3. callback retry and dead-letter replay path
+4. DTO compatibility for diagnostics fields
+5. whitelist / forbid-non-whitelisted validation behavior
 
 ## Evidence We Still Need
 
@@ -198,6 +327,8 @@ The fix must survive:
 3. confidence level per extracted field is not persisted
 4. source selector / extraction-path diagnostics are not persisted
 5. current quality-state logic is too coarse to demote noisy-but-nonempty values
+6. current API validation response does not expose the exact rejected field names in the DB ledgers we inspected
+7. callback dead-letter payloads are not directly queryable from Neon for fast root-cause confirmation
 
 ## Required Hardening Work
 
@@ -257,7 +388,26 @@ Guard outcomes:
 3. offer may stay accepted if the rest of the row is strong
 4. offer moves to `REVIEW` if too many critical fields are low-confidence
 
-### Workstream 4. Strengthen quality-state semantics
+### Workstream 4. Repair worker/API callback contract drift
+
+This is now an immediate operational blocker.
+
+Required tasks:
+
+1. capture exact `400 VALIDATION_ERROR` body for:
+   - batch ingest
+   - final callback
+2. compare worker payload builders against:
+   - `ScrapeOfferBatchIngestDto`
+   - `ScrapeCompleteDto`
+3. identify all fields present in worker payloads but absent or differently typed in API DTOs
+4. decide one canonical contract direction:
+   - remove unsupported worker fields
+   - or extend DTOs intentionally
+5. add regression tests covering the exact worker payload shape accepted by API
+6. replay dead-letter payloads after the contract fix to verify finalization and linking
+
+### Workstream 5. Strengthen quality-state semantics
 
 Current state is too permissive because polluted rows still land as `ACCEPTED`.
 
@@ -280,7 +430,7 @@ Quality reasons should include:
 6. `listing_salvage`
 7. `missing_structured_core`
 
-### Workstream 5. Repair polluted historical rows
+### Workstream 6. Repair polluted historical rows
 
 We need a one-time repair pass, not only forward fixes.
 
@@ -292,7 +442,7 @@ Repair strategy:
 4. for unrecoverable rows, null salary and mark degraded quality
 5. rerun any derived salary-structured fields if reparsed salary becomes trustworthy
 
-### Workstream 6. Make UI quality-aware
+### Workstream 7. Make UI quality-aware
 
 UI should not present suspicious fields with the same confidence as clean fields.
 
@@ -303,7 +453,7 @@ Required behavior:
 3. company and notebook pages must not concatenate unrelated values by presentation logic
 4. support views should expose quality reasons directly
 
-### Workstream 7. Audit and harden deterministic matching
+### Workstream 8. Audit and harden deterministic matching
 
 Matching should be resilient to missing or suspicious source fields.
 
@@ -321,6 +471,7 @@ Matching hardening goals:
 3. missing requirements should reduce evidence, not create false negatives through noisy text
 4. low-confidence offers should be eligible for review state rather than silently mixed with strong offers
 5. linked-offer insertion thresholds should be revisited if current average linked score remains very low
+6. matching should be re-evaluated only after callback/linking is operational again for the live failing user path
 
 ## Matching Audit Scope
 
@@ -358,6 +509,7 @@ Pull at least:
 3. query `job_offer_raw_payloads`
 4. sample polluted and non-polluted rows side by side
 5. compare stored row against `source-raw` and `normalized-job`
+6. query `job_source_runs`, `scrape_schedule_events`, `scrape_execution_events`, `job_source_run_events`, and `job_source_callback_events` for latest failing runs
 
 ### Short-term instrumentation to add
 
@@ -365,6 +517,8 @@ Pull at least:
 2. optionally save compressed raw HTML for sampled debug runs only
 3. save exact parser branch used for each key field
 4. save contamination flags raised during normalization
+5. persist exact API validation failure details for callback and ingest rejection paths
+6. expose dead-letter replay payload summaries through an ops/support path
 
 ### Where to store it
 
@@ -382,8 +536,21 @@ Preferred order:
 2. add field-level provenance diagnostics
 3. add contamination counters to ops/support surfaces
 4. measure affected rows beyond salary
+5. capture exact callback and ingest validation rejection bodies from a live failing run
+6. compare `origin/master` and `origin/dev` runtime-relevant commit delta before production sign-off
 
-### Phase 2. Parser hardening
+### Phase 2. Callback contract repair
+
+1. reproduce worker payload against API DTO locally or in tests
+2. fix worker/API DTO drift for batch ingest
+3. fix worker/API DTO drift for final callback
+4. replay dead letters or rerun manual scrape to prove:
+   - callback accepted
+   - run finalized
+   - linked offers created
+5. only after this, continue judging matching from live user behavior
+
+### Phase 3. Parser hardening
 
 1. remove whole-body salary fallback
 2. replace with trusted-selector fallback only
@@ -395,33 +562,42 @@ Preferred order:
    - sparse page
    - multilingual variants
 
-### Phase 3. Persistence and quality-state hardening
+### Phase 4. Persistence and quality-state hardening
 
 1. persist confidence/provenance
 2. revise `quality_state` / `quality_reason`
 3. prevent low-confidence fields from overwriting trusted historical fields
 4. ensure missing optional data becomes `null`, not garbage
 
-### Phase 4. Historical repair
+### Phase 5. Historical repair
 
 1. build repair query for suspect salaries
 2. reparse recoverable rows from stored `source-raw`
 3. null unrecoverable salary rows
 4. rerun category inference/backfill where needed
 
-### Phase 5. Matching audit and threshold tuning
+### Phase 6. Matching audit and threshold tuning
 
 1. inspect low-score inserted rows
 2. validate salary unknown behavior
 3. validate category-missing behavior
 4. validate sparse requirements behavior
 5. adjust score thresholds or insert rules only after evidence review
+6. verify that current empty-notebook user case disappears once callback finalization is fixed
+7. decide whether matching should stay inline with callback finalization or move to a more decoupled post-persist pipeline
 
-### Phase 6. Read-model and UI hardening
+### Phase 7. Read-model and UI hardening
 
 1. hide or downgrade low-confidence fields
 2. expose support diagnostics for suspicious offers
 3. verify company, notebook, and opportunities surfaces against repaired rows
+
+### Phase 8. Schedule proof and production rollout
+
+1. make scheduled scrape proof visible in support and, if needed, user-facing surfaces
+2. verify one weekday `08:00 Europe/Warsaw` schedule end to end
+3. confirm master/dev branch parity for runtime fixes before deploy
+4. promote only after live manual and scheduled scrapes both finalize and link offers
 
 ## Acceptance Gates
 
@@ -434,6 +610,12 @@ This audit is complete only when all of the following are true:
 5. matching behavior is audited with real score-distribution evidence
 6. missing optional source fields degrade to `null` or review state, not noisy strings
 7. company and notebook UI no longer display contaminated compensation data
+8. manual scrape produces accepted callback, finalized run, and nonzero linked offers for a valid profile/user path
+9. scheduled scrape at `08:00 Europe/Warsaw` produces persisted proof across:
+   - `scrape_schedule_events`
+   - `job_source_runs`
+   - callback acceptance
+   - user-visible linked opportunities
 
 ## Non-Goals
 
