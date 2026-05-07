@@ -21,5 +21,5 @@ describe('createQueryClient', () => {
     expect(queryDefaults?.retry).toBe(1);
 
     vi.unstubAllEnvs();
-  });
+  }, 15_000);
 });

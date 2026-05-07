@@ -78,6 +78,18 @@ const createSimpleWhereQuery = (items: Array<Record<string, unknown>>) => ({
   }),
 });
 
+const createReadOnlyServiceDb = (select: jest.Mock) =>
+  ({
+    select,
+    update: jest.fn().mockReturnValue({
+      set: jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnValue({
+          returning: jest.fn().mockResolvedValue([]),
+        }),
+      }),
+    }),
+  }) as any;
+
 const createBulkFollowUpTransaction = (rows: Array<Record<string, unknown>>, setMock: jest.Mock) => ({
   select: jest.fn().mockReturnValue({
     from: jest.fn().mockReturnValue({
@@ -404,7 +416,7 @@ describe('JobOffersService', () => {
         },
       ]),
     );
-    const db = { select } as any;
+    const db = createReadOnlyServiceDb(select);
     const service = new JobOffersService(
       db,
       { generateText: jest.fn() } as any,
@@ -496,7 +508,7 @@ describe('JobOffersService', () => {
     );
 
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       {
         get: jest.fn((key: string) => {
@@ -570,7 +582,7 @@ describe('JobOffersService', () => {
     );
 
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       {
         get: jest.fn((key: string) => {
@@ -626,7 +638,7 @@ describe('JobOffersService', () => {
     );
 
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       { get: jest.fn((key: string) => (key === 'GEMINI_MODEL' ? 'gemini-1.5-flash-test' : undefined)) } as any,
     );
@@ -850,7 +862,7 @@ describe('JobOffersService', () => {
       ]),
     );
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       {
         get: jest.fn((key: string) => {
@@ -944,7 +956,7 @@ describe('JobOffersService', () => {
       ]),
     );
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       {
         get: jest.fn((key: string) => {
@@ -1003,7 +1015,7 @@ describe('JobOffersService', () => {
       ]),
     );
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       {
         get: jest.fn((key: string) => {
@@ -1061,7 +1073,7 @@ describe('JobOffersService', () => {
       ]),
     );
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       {
         get: jest.fn((key: string) => {
@@ -1123,7 +1135,7 @@ describe('JobOffersService', () => {
       ]),
     );
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       {
         get: jest.fn((key: string) => {
@@ -1219,7 +1231,7 @@ describe('JobOffersService', () => {
       ]),
     );
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       {
         get: jest.fn((key: string) => {
@@ -1268,7 +1280,7 @@ describe('JobOffersService', () => {
       }),
     });
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       {
         get: jest.fn((key: string) => {
@@ -1311,7 +1323,7 @@ describe('JobOffersService', () => {
       }),
     });
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       {
         get: jest.fn((key: string) => {
@@ -1347,7 +1359,7 @@ describe('JobOffersService', () => {
       }),
     });
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       {
         get: jest.fn((key: string) => {
@@ -1392,7 +1404,7 @@ describe('JobOffersService', () => {
       }),
     });
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       {
         get: jest.fn((key: string) => {
@@ -1439,7 +1451,7 @@ describe('JobOffersService', () => {
       }),
     });
     const service = new JobOffersService(
-      { select } as any,
+      createReadOnlyServiceDb(select),
       { generateText: jest.fn() } as any,
       {
         get: jest.fn((key: string) => {

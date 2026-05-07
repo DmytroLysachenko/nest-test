@@ -1567,6 +1567,9 @@ describe('JobSourcesService', () => {
     } as any;
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'appendRunEvent').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'syncScheduleRunTerminalState').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'countLinkedOffersForRun').mockResolvedValue(1);
     jest.spyOn(service as any, 'getCareerProfileContext').mockResolvedValue({
       careerProfileId: 'profile-3',
       profile: candidateProfileFixture,
@@ -1667,6 +1670,9 @@ describe('JobSourcesService', () => {
     } as any;
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'appendRunEvent').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'syncScheduleRunTerminalState').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'countLinkedOffersForRun').mockResolvedValue(1);
     jest.spyOn(service as any, 'getCareerProfileContext').mockResolvedValue({
       careerProfileId: 'profile-5',
       profile: candidateProfileFixture,
@@ -2764,7 +2770,7 @@ describe('JobSourcesService', () => {
       totalOffers: 0,
       idempotent: true,
     });
-    expect(db.update).toHaveBeenCalledTimes(2);
+    expect(db.update).toHaveBeenCalledTimes(3);
   });
 
   it('builds valid postgres excluded column references for offer upserts', async () => {
@@ -2834,6 +2840,9 @@ describe('JobSourcesService', () => {
     } as any;
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'appendRunEvent').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'syncScheduleRunTerminalState').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'countLinkedOffersForRun').mockResolvedValue(1);
     jest.spyOn(repoDb, 'resolveCatalogNormalizationRefs').mockResolvedValue([
       {
         companyId: null,
@@ -3357,6 +3366,7 @@ describe('JobSourcesService', () => {
     } as any;
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'syncScheduleRunTerminalState').mockResolvedValue(undefined);
     await service.listRuns('user-13', {});
 
     expect(db.update).toHaveBeenCalledTimes(2);
@@ -3411,6 +3421,7 @@ describe('JobSourcesService', () => {
     } as any;
 
     const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    jest.spyOn(service as any, 'syncScheduleRunTerminalState').mockResolvedValue(undefined);
     const recoverySpy = jest.spyOn(service as any, 'recoverPersistedOffersForStaleRun').mockResolvedValue(undefined);
 
     await service.listRuns('user-13', {});
