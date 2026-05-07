@@ -2902,6 +2902,178 @@ describe('JobSourcesService', () => {
     expect(expiresAtQuery.sql).toContain('excluded."expires_at"');
   });
 
+  it('keeps completed scrape finalized when notebook linking fails after catalog persistence', async () => {
+    const updatePayloads: Array<Record<string, unknown>> = [];
+    const db = {
+      select: jest
+        .fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                then: (cb: (rows: unknown[]) => unknown) =>
+                  Promise.resolve(
+                    cb([
+                      {
+                        id: 'run-link-deferred-1',
+                        traceId: 'trace-link-deferred-1',
+                        source: 'PRACUJ_PL',
+                        userId: 'user-link-deferred-1',
+                        careerProfileId: 'profile-link-deferred-1',
+                        status: 'RUNNING',
+                        totalFound: null,
+                        scrapedCount: null,
+                        progress: {},
+                      },
+                    ]),
+                  ),
+              }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([{ id: 'offer-link-deferred-1' }]),
+          }),
+        }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockImplementation((values: Record<string, unknown>) => {
+          updatePayloads.push(values);
+          return {
+            where: jest.fn().mockResolvedValue(undefined),
+          };
+        }),
+      }),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const appendRunEvent = jest.spyOn(service as any, 'appendRunEvent').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'registerRunAttempt').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'syncScheduleRunTerminalState').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'getCareerProfileContext').mockResolvedValue({
+      careerProfileId: 'profile-link-deferred-1',
+      profile: candidateProfileFixture,
+    });
+    jest.spyOn(service as any, 'linkCatalogOffersToUser').mockRejectedValue(new Error('match engine offline'));
+
+    const result = await service.completeScrape({
+      sourceRunId: 'run-link-deferred-1',
+      status: 'COMPLETED',
+      scrapedCount: 1,
+      totalFound: 1,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'COMPLETED',
+      inserted: 0,
+      totalOffers: 1,
+      warning: 'Notebook linking failed after catalog persistence; rematch/retry required',
+    });
+    expect(updatePayloads.at(-1)?.progress).toEqual(
+      expect.objectContaining({
+        candidateOffers: 1,
+        callbackAcceptedAt: expect.any(String),
+        matchingState: 'deferred',
+        matchingLastError: 'match engine offline',
+      }),
+    );
+    expect(appendRunEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'user_link_failed',
+        code: 'USER_LINK_DEFERRED',
+      }),
+    );
+  });
+
+  it('accepts incremental batch ingest even when notebook linking fails', async () => {
+    const updatePayloads: Array<Record<string, unknown>> = [];
+    const db = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              then: (cb: (rows: unknown[]) => unknown) =>
+                Promise.resolve(
+                  cb([
+                    {
+                      id: 'run-ingest-link-deferred-1',
+                      traceId: 'trace-ingest-link-deferred-1',
+                      source: 'PRACUJ_PL',
+                      userId: 'user-ingest-link-deferred-1',
+                      careerProfileId: 'profile-ingest-link-deferred-1',
+                      status: 'RUNNING',
+                      listingUrl: 'https://it.pracuj.pl/praca',
+                      filters: null,
+                      progress: {},
+                    },
+                  ]),
+                ),
+            }),
+          }),
+        }),
+      }),
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockImplementation((values: Record<string, unknown>) => {
+          updatePayloads.push(values);
+          return {
+            where: jest.fn().mockResolvedValue(undefined),
+          };
+        }),
+      }),
+    } as any;
+
+    const service = new JobSourcesService(createConfigService(), createLogger(), db);
+    const appendRunEvent = jest.spyOn(service as any, 'appendRunEvent').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'persistAcceptedJobsForRun').mockResolvedValue({
+      offerIds: ['offer-ingest-link-deferred-1'],
+      offerIdentityKeys: ['source:offer-ingest-link-deferred-1'],
+    });
+    jest.spyOn(service as any, 'getCareerProfileContext').mockResolvedValue({
+      careerProfileId: 'profile-ingest-link-deferred-1',
+      profile: candidateProfileFixture,
+    });
+    jest.spyOn(service as any, 'linkCatalogOffersToUser').mockRejectedValue(new Error('match engine offline'));
+
+    const result = await service.ingestScrapeOfferBatch('run-ingest-link-deferred-1', {
+      sourceRunId: 'run-ingest-link-deferred-1',
+      source: 'pracuj-pl',
+      eventId: 'event-batch-1',
+      jobs: [
+        {
+          source: 'pracuj-pl-it',
+          sourceId: 'offer-ingest-link-deferred-1',
+          title: 'Backend Engineer',
+          company: 'ACME',
+          location: 'Remote',
+          description: 'Build services.',
+          url: 'https://it.pracuj.pl/praca/backend,oferta,123',
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'RUNNING',
+      ingested: 1,
+      linked: 0,
+      deferred: true,
+    });
+    expect(updatePayloads.at(-1)?.progress).toEqual(
+      expect.objectContaining({
+        candidateOffers: 1,
+        matchingState: 'deferred',
+        matchingLastError: 'match engine offline',
+      }),
+    );
+    expect(appendRunEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'user_link_failed',
+        code: 'USER_LINK_DEFERRED',
+      }),
+    );
+  });
+
   it('links freshly scraped offers into the notebook even when rematch threshold would reject them', async () => {
     const db = {
       select: jest.fn().mockReturnValueOnce({

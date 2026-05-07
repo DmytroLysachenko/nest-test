@@ -21,13 +21,13 @@ Does not own notebook status workflow or follow-up planning.
 1. User requests opportunities manually or via schedule.
 2. API decides between catalog rematch and fresh scrape.
 3. Worker fetches, parses, and normalizes source data.
-4. API upserts `job_offers`, matches offers, and updates `user_job_offers`.
+4. API upserts `job_offers`, finalizes scrape state, then performs notebook linking as best-effort post-persist work.
 5. Frontend surfaces the result in opportunities or notebook views.
 
 ## Responsibilities
 
 - API:
-  - preflight, enqueue, completion, rematch, persistence, diagnostics
+  - preflight, enqueue, completion, rematch, catalog persistence, post-persist notebook linking, diagnostics
 - Worker:
   - fetch, parse, normalize, incremental offer delivery, callback delivery
 - Web:
@@ -84,6 +84,8 @@ Current enqueue contract direction:
 - accepted offers can now be persisted incrementally during a running scrape instead of waiting only for terminal callback completion
 - terminal scrape failure now preserves already-ingested offers and links them into `user_job_offers` when possible instead of dropping the run output
 - worker offer payloads now carry both `isExpired` and `expiresAt`; `isExpired` supports quick filtering while `expiresAt` preserves the source-derived validity date for audits and later UX
+- scrape completion is now intentionally more separate from matching: shared catalog persistence and terminal run finalization no longer fail just because notebook linking or matching throws later in the path
+- when post-persist notebook linking fails, the run keeps its persisted catalog output and records deferred linking state in run progress/events so rematch or recovery can happen separately
 - schedule cron handling now supports weekday expressions such as `0 6 * * 1-5` without collapsing to a daily default
 - stale watchdog failures now distinguish `worker-not-started` from `heartbeat-stopped-or-callback-missing` in the stored run error
 - worker pipeline orchestration now uses a source-adapter contract so future sites can reuse fetch/parse/normalize stages without copying the Pracuj orchestration path
