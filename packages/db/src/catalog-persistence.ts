@@ -15,6 +15,7 @@ import {
   resolveCanonicalSeniorityLevel,
   resolveCanonicalWorkMode,
   resolveCanonicalWorkSchedule,
+  inferPracujCategoryDefinitionFromContent,
   resolvePracujCategoryDefinition,
   splitCanonicalValues,
   type ParsedSalary,
@@ -56,6 +57,7 @@ type CatalogNormalizationDetails = {
 
 export type CatalogNormalizationJobInput = {
   sourceId?: string | null;
+  title?: string | null;
   company?: string | null;
   employmentType?: string | null;
   salary?: string | null;
@@ -164,23 +166,28 @@ const upsertDimensionRows = async (
   return new Map(rows.map((row) => [row.slug, row.id]));
 };
 
-const inferPracujCategoryDefinition = (context?: CatalogNormalizationContext | null) => {
+const inferPracujCategoryDefinition = (
+  job: CatalogNormalizationJobInput,
+  context?: CatalogNormalizationContext | null,
+) => {
   const filters = context?.filters ?? null;
-  if (!filters) {
-    return null;
+  if (filters) {
+    const generalCategories = toStringArray(filters.categories);
+    if (generalCategories.length === 1) {
+      return resolvePracujCategoryDefinition(generalCategories[0], 'general');
+    }
+
+    const itSpecializations = toStringArray(filters.specializations);
+    if (itSpecializations.length === 1) {
+      return resolvePracujCategoryDefinition(itSpecializations[0], 'it');
+    }
   }
 
-  const generalCategories = toStringArray(filters.categories);
-  if (generalCategories.length === 1) {
-    return resolvePracujCategoryDefinition(generalCategories[0], 'general');
-  }
-
-  const itSpecializations = toStringArray(filters.specializations);
-  if (itSpecializations.length === 1) {
-    return resolvePracujCategoryDefinition(itSpecializations[0], 'it');
-  }
-
-  return null;
+  return inferPracujCategoryDefinitionFromContent({
+    title: job.title,
+    listingUrl: context?.listingUrl,
+    technologies: job.details?.technologies,
+  });
 };
 
 const normalizePostedAt = (value?: Date | string | null) => {
@@ -200,9 +207,9 @@ export const resolveCatalogNormalizationRefs = async (
   context?: CatalogNormalizationContext | null,
 ): Promise<CatalogNormalizationRefs[]> => {
   const now = new Date();
-  const inferredCategory = inferPracujCategoryDefinition(context);
 
   const preparedJobs = jobs.map((job) => {
+    const inferredCategory = inferPracujCategoryDefinition(job, context);
     const normalizedCompany = normalizeCompanyName(job.company);
     const contractTypeSlugs = uniqueStrings([
       ...flattenSourceValues([job.employmentType]).map((item) => canonicalizeContractType(item)),
@@ -350,10 +357,15 @@ export const resolveCatalogNormalizationRefs = async (
       })),
     ),
   );
-  const jobCategoryDefinitions =
-    inferredCategory && inferredCategory.slug
-      ? [{ slug: inferredCategory.slug, label: inferredCategory.label, description: null }]
-      : [];
+  const jobCategoryDefinitions = mapDefinitions(
+    preparedJobs
+      .filter((job) => job.categorySlug && job.categoryLabel)
+      .map((job) => ({
+        slug: job.categorySlug!,
+        label: job.categoryLabel!,
+        description: null,
+      })),
+  );
 
   const [
     companyRows,

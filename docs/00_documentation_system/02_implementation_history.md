@@ -1,6 +1,6 @@
 # Implementation History
 
-Last updated: 2026-05-04
+Last updated: 2026-05-06
 
 ## Purpose
 
@@ -9,6 +9,26 @@ This document tracks major implementation shifts in chronological order.
 It is not a full changelog. It exists to preserve the architectural story of the product so future work can build on deliberate decisions instead of rediscovering them.
 
 ## History
+
+### `019` Reset-readiness and targeted reset operator toolchain
+
+Summary:
+
+- added a reset-readiness verifier that turns reset sign-off into explicit pass/warn/fail gates
+- added a targeted test-data reset script with preview-first safety and explicit destructive confirmation
+- added a reset bundle script that runs pre-audit, cleanup, and optional post-audit as one operator artifact
+
+Primary code areas:
+
+- `packages/db/src/seeds/audit-reset-readiness.ts`
+- `packages/db/src/seeds/reset-test-data.ts`
+- `packages/db/src/seeds/reset-test-bundle.ts`
+
+Related docs:
+
+- `docs/03_plans_and_roadmaps/05_db_reset_readiness_audit_plan.md`
+- `docs/05_operations_and_deployment/01_runbook.md`
+- `docs/05_operations_and_deployment/06_targeted_reset_guide.md`
 
 ### `018` Explicit detail-concurrency policy in worker diagnostics
 

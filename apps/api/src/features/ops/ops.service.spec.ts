@@ -10,6 +10,15 @@ const createLogger = () =>
     warn: jest.fn(),
   }) as any;
 
+const createNoopExpiryReconcileUpdate = () =>
+  jest.fn().mockReturnValue({
+    set: jest.fn().mockReturnValue({
+      where: jest.fn().mockReturnValue({
+        returning: jest.fn().mockResolvedValue([]),
+      }),
+    }),
+  });
+
 describe('OpsService', () => {
   it('returns aggregated queue/scrape/offer/lifecycle metrics', async () => {
     const runWhere = jest
@@ -56,6 +65,15 @@ describe('OpsService', () => {
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 6 }]) }),
         }) // fresh catalog offers
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 8 }]) }),
+        }) // expired offers
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 24 }]) }),
+        }) // offers with expiry
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 16 }]) }),
+        }) // active offers without expiry
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([{ value: 5 }]) }),
         }) // catalog matched recently
@@ -122,6 +140,7 @@ describe('OpsService', () => {
             ]),
           }),
         }),
+      update: createNoopExpiryReconcileUpdate(),
     } as any;
 
     const service = new OpsService(

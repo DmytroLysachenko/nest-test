@@ -80,6 +80,7 @@ Canonical environment inventory:
    - API CORS allowlist must not be `*` in production mode and should be derived from `GCP_WEB_BASE_URL`
    - `WORKSPACE_SUMMARY_CACHE_TTL_SEC` (cache ttl for workspace summary read model)
    - `JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS` (default summary window)
+   - `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS` (null-expiry offers age out after this many hours since `last_seen_at`; default `336`)
    - `SCRAPE_STALE_PENDING_MINUTES` (stale pending run timeout threshold)
    - `SCRAPE_STALE_RUNNING_MINUTES` (stale running run timeout threshold)
    - `SCRAPE_MIN_FRESH_CANDIDATES` (minimum fresh user-linkable offers required before cache/catalog reuse should satisfy a scrape)
@@ -247,6 +248,131 @@ Canonical environment inventory:
 ## Scrape Incident Matrix
 
 Use run diagnostics and events before reading raw service logs.
+
+## Offer Freshness Checks
+
+Use these rules before deciding whether a stale-looking catalog row is a bug or expected behavior:
+
+1. `expires_at < now` means the offer should be expired even without a new scrape.
+2. `expires_at is null` does not guarantee the offer stays active forever.
+3. Null-expiry offers now age out from `last_seen_at` using `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS`.
+4. Default null-expiry stale window is `336` hours (`14` days).
+5. If an operator thinks a still-live offer disappeared too early, first inspect:
+   - source cadence
+   - `last_seen_at`
+   - current `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS`
+6. If a source routinely omits expiry but refreshes slower than the current cutoff, adjust the cutoff deliberately and document the reason.
+7. If a test reset is planned, verify this cutoff before bulk cleanup so post-reset offer aging matches the expected source refresh rhythm.
+8. If active inventory looks too large after reset, check null-expiry stale-window drift before assuming the scraper failed to mark offers expired.
+
+## Reset Readiness Audit
+
+Use the reset verifier before destructive cleanup and again after reseeding or validation runs.
+
+Command:
+
+1. Pre-reset baseline:
+   - `pnpm --filter @repo/db audit:reset-readiness`
+2. Post-reset verification:
+   - `RESET_VERIFY_PHASE=post-reset pnpm --filter @repo/db audit:reset-readiness`
+3. CI/strict failure on hard gate:
+   - `RESET_VERIFY_PHASE=post-reset RESET_VERIFY_STRICT=true pnpm --filter @repo/db audit:reset-readiness`
+
+Useful knobs:
+
+1. `RESET_VERIFY_WINDOW_HOURS`
+   - default `72`
+   - controls how far back scrape/schedule verification looks
+2. `RESET_VERIFY_MIN_CATEGORY_COVERAGE`
+   - default `0.8`
+   - minimum acceptable Pracuj category coverage before warning
+3. `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS`
+   - reused by the verifier to decide when null-expiry active offers are stale
+
+Current verifier gates:
+
+1. schema state
+   - migrations ledger present
+   - required runtime tables present
+2. seed/admin state
+   - at least one active admin user exists
+3. schedule terminal state
+   - enabled schedules exist
+   - no stale `ENQUEUED*` schedules older than two hours
+4. offer integrity
+   - no active offers with past `expires_at`
+   - no active null-expiry offers beyond the stale cutoff
+   - Pracuj category coverage reported
+5. user link integrity
+   - no orphaned `user_job_offers`
+   - no duplicate user/offer links
+6. workflow verification
+   - recent scheduled success evidence
+   - recent manual/direct success evidence
+   - degraded and recovered-failure counts surfaced for review
+
+Interpretation:
+
+1. `pre-reset`
+   - missing fresh manual/scheduled runs is a warning, not a blocker yet
+2. `post-reset`
+   - missing either scheduled or manual/direct success is a hard fail
+3. `warn`
+   - environment may still be usable, but reset sign-off should wait for review
+4. `fail`
+   - reset readiness or post-reset validation is not complete
+
+## Targeted Test Reset
+
+Use scoped cleanup, not full-schema destruction.
+
+Preview first:
+
+1. User-only workflow reset:
+   - `RESET_USER_EMAILS=test1@example.com,test2@example.com pnpm --filter @repo/db reset:test-data`
+2. User + shared offer reset:
+   - `RESET_USER_EMAILS=test1@example.com RESET_SCOPE=user-and-shared-offers pnpm --filter @repo/db reset:test-data`
+3. Include profile/document workflow restart:
+   - `RESET_USER_EMAILS=test1@example.com RESET_INCLUDE_PROFILE_WORKFLOW=true pnpm --filter @repo/db reset:test-data`
+
+Apply only with explicit confirmation:
+
+1. `RESET_USER_EMAILS=test1@example.com APPLY_CHANGES=true RESET_CONFIRM=RESET_TEST_DATA pnpm --filter @repo/db reset:test-data`
+
+Important rules:
+
+1. script requires explicit `RESET_USER_IDS` and/or `RESET_USER_EMAILS`
+2. no wildcard delete mode exists
+3. `APPLY_CHANGES=true` without `RESET_CONFIRM=RESET_TEST_DATA` is rejected
+4. `RESET_SCOPE=user-and-shared-offers` deletes only target-linked offers that are not protected by:
+   - non-target user links
+   - non-target source observations
+   - non-target current run ownership
+
+Scope meaning:
+
+1. `user-only`
+   - deletes notebook/workflow/run/schedule state for target users
+   - keeps shared canonical `job_offers`
+2. `user-and-shared-offers`
+   - does `user-only`
+   - also deletes safe target-linked shared offers
+3. `RESET_INCLUDE_PROFILE_WORKFLOW=true`
+   - also deletes:
+   - `profile_inputs`
+   - cascaded `career_profiles`
+   - `documents`
+   - `notebook_preferences`
+   - `onboarding_drafts`
+
+Recommended sequence:
+
+1. run preview cleanup
+2. run `pnpm --filter @repo/db audit:reset-readiness`
+3. apply targeted reset
+4. run manual scrape
+5. run scheduled scrape
+6. run `RESET_VERIFY_PHASE=post-reset pnpm --filter @repo/db audit:reset-readiness`
 
 Interpretation rule:
 

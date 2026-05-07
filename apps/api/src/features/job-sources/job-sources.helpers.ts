@@ -234,3 +234,10 @@ export const resolveCompletedCallbackOutcome = (input: {
     sourceQuality,
   };
 };
+
+export const resolveFailedCallbackSourceQuality = (input: {
+  diagnostics: Record<string, unknown> | null;
+  scrapedCount: number;
+}) =>
+  normalizeScrapeSourceQuality(String(input.diagnostics?.sourceQuality ?? '')) ??
+  (input.scrapedCount > 0 ? ('degraded' as const) : ('failed' as const));

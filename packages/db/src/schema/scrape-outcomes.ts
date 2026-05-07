@@ -96,6 +96,10 @@ export const classifyScrapeOutcome = (input: {
     return 'listing_empty';
   }
 
+  if (scrapedCount > 0) {
+    return 'partial_success';
+  }
+
   if (input.failureType === 'callback') {
     return 'callback_rejected';
   }

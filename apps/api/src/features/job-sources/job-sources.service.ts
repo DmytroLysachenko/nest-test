@@ -51,6 +51,7 @@ import {
 
 import { Drizzle } from '@/common/decorators';
 import { JobOffersService } from '@/features/job-offers/job-offers.service';
+import { getJobOfferExpiryReconcileOptions, reconcileExpiredJobOffers } from '@/features/job-offers/job-offers-expiry';
 import { MailService } from '@/features/auth/mail.service';
 import {
   parseCandidateProfile,
@@ -142,6 +143,17 @@ type CallbackEventRegisterResult =
       accepted: false;
       reasonCode: 'DUPLICATE_EVENT_ID' | 'CONFLICTING_EVENT_PAYLOAD' | 'STALE_ATTEMPT' | 'ATTEMPT_ORDER_VIOLATION';
     };
+
+type RunProgressPatch = Record<string, unknown>;
+
+type PostPersistLinkResult = {
+  insertedCount: number;
+  matchedCount: number;
+  totalCandidateCount: number;
+  linkedCount: number;
+  deferred: boolean;
+  warning?: string;
+};
 
 type CatalogOfferRow = {
   id: string;
@@ -428,16 +440,20 @@ const buildRunUsefulness = (input: {
   classifiedOutcome: string | null;
 }) => {
   const notebook = input.notebookVisibility;
+  const supportsRecoveredOffers =
+    input.status === 'COMPLETED' ||
+    input.classifiedOutcome === 'partial_success' ||
+    (input.status === 'FAILED' && input.degradedAcceptedOffers > 0);
   const status =
-    input.status === 'COMPLETED' && notebook.userInsertedOffers > 0
+    supportsRecoveredOffers && notebook.userInsertedOffers > 0
       ? 'useful'
-      : input.status === 'COMPLETED' && notebook.matchedOffers > notebook.userInsertedOffers
+      : supportsRecoveredOffers && notebook.matchedOffers > notebook.userInsertedOffers
         ? 'hidden'
         : input.silentFailure
           ? 'blocked'
-          : input.status === 'COMPLETED' && notebook.candidateOffers === 0
+          : supportsRecoveredOffers && notebook.candidateOffers === 0
             ? 'empty'
-            : input.status === 'COMPLETED' && input.degradedAcceptedOffers > 0
+            : supportsRecoveredOffers && input.degradedAcceptedOffers > 0
               ? 'degraded'
               : input.status === 'FAILED'
                 ? 'failed'
@@ -2142,7 +2158,9 @@ export class JobSourcesService {
         scrapedCount,
       });
       const emptyReason = normalizeScrapeEmptyReason(dto.diagnostics?.emptyReason ?? null);
-      const sourceQuality = normalizeScrapeSourceQuality(dto.diagnostics?.sourceQuality ?? null) ?? 'failed';
+      const sourceQuality =
+        normalizeScrapeSourceQuality(dto.diagnostics?.sourceQuality ?? null) ??
+        (scrapedCount > 0 ? ('degraded' as const) : ('failed' as const));
       await this.registerRunAttempt(run.id, scrapeAttemptNo, {
         status: 'FAILED',
         payloadHash: callbackPayloadHash,
@@ -2207,27 +2225,28 @@ export class JobSourcesService {
           .select({ id: jobOffersTable.id })
           .from(jobOffersTable)
           .where(eq(jobOffersTable.runId, run.id));
-        const linked = await this.linkPersistedOffersForRun(
-          run,
-          existingOffers.map((offer) => offer.id),
-        );
-        const linkedCount = await this.countLinkedOffersForRun(run.id);
         const persistedCount = existingOffers.length;
-        await this.db
-          .update(jobSourceRunsTable)
-          .set({
-            progress: {
-              ...(runProgress ?? {}),
-              totalFound: totalFound ?? persistedCount,
-              scrapedCount: Math.max(scrapedCount, persistedCount),
-              candidateOffers: persistedCount,
-              matchedOffers: Math.max(linked.matchedCount, linkedCount),
-              userInsertedOffers: linkedCount,
-              callbackAcceptedAt: completedAt.toISOString(),
-              updatedAt: completedAt.toISOString(),
-            },
-          })
-          .where(eq(jobSourceRunsTable.id, run.id));
+        const failureRecoveryProgress = await this.updateRunProgress(run.id, run.progress, {
+          totalFound: totalFound ?? persistedCount,
+          scrapedCount: Math.max(scrapedCount, persistedCount),
+          candidateOffers: persistedCount,
+          callbackAcceptedAt: completedAt.toISOString(),
+          matchingState: 'pending',
+          matchingUpdatedAt: completedAt.toISOString(),
+          updatedAt: completedAt.toISOString(),
+        });
+        await this.attemptPostPersistLinking({
+          run: {
+            ...run,
+            progress: failureRecoveryProgress,
+          },
+          offerIds: existingOffers.map((offer) => offer.id),
+          candidateOfferCount: persistedCount,
+          origin: 'SCRAPE',
+          requestId,
+          attemptNo: callbackAttemptNo,
+          updatedAt: completedAt,
+        });
       }
 
       return {
@@ -2312,25 +2331,6 @@ export class JobSourcesService {
       completedAt: finalizedAt,
     });
 
-    if (!run.userId || !run.careerProfileId) {
-      await this.appendRunEvent({
-        sourceRunId: run.id,
-        traceId: run.traceId,
-        eventType: 'user_link_skipped',
-        requestId,
-        attemptNo: callbackAttemptNo,
-        severity: 'warning',
-        message: 'Notebook linking skipped because the run is missing user or career profile context.',
-      });
-      return {
-        ok: true,
-        status: 'COMPLETED',
-        inserted: 0,
-        idempotent: true,
-        warning: 'Job source run is missing user context',
-      };
-    }
-
     const offers = await this.db
       .select({ id: jobOffersTable.id })
       .from(jobOffersTable)
@@ -2350,6 +2350,16 @@ export class JobSourcesService {
           scrapedCount,
         },
       });
+      await this.updateRunProgress(run.id, run.progress, {
+        totalFound,
+        scrapedCount,
+        candidateOffers: 0,
+        callbackAcceptedAt: finalizedAt.toISOString(),
+        matchingState: 'completed',
+        matchingLastError: null,
+        matchingUpdatedAt: finalizedAt.toISOString(),
+        updatedAt: finalizedAt.toISOString(),
+      });
       return {
         ok: true,
         status: 'COMPLETED',
@@ -2359,49 +2369,29 @@ export class JobSourcesService {
       };
     }
 
-    const profileContext = await this.getCareerProfileContext(run.userId, run.careerProfileId);
-    await this.appendRunEvent({
-      sourceRunId: run.id,
-      traceId: run.traceId,
-      eventType: 'user_link_started',
+    const callbackProgress = await this.updateRunProgress(run.id, run.progress, {
+      totalFound,
+      scrapedCount,
+      candidateOffers: offers.length,
+      callbackAcceptedAt: finalizedAt.toISOString(),
+      matchingState: 'pending',
+      matchingLastError: null,
+      matchingUpdatedAt: finalizedAt.toISOString(),
+      updatedAt: finalizedAt.toISOString(),
+    });
+
+    const inserted = await this.attemptPostPersistLinking({
+      run: {
+        ...run,
+        progress: callbackProgress,
+      },
+      offerIds: offers.map((offer) => offer.id),
+      candidateOfferCount: offers.length,
+      origin: 'SCRAPE',
       requestId,
       attemptNo: callbackAttemptNo,
-      message: 'Linking persisted catalog offers into the user notebook.',
-      meta: {
-        candidateOffers: offers.length,
-        origin: 'SCRAPE',
-      },
+      updatedAt: finalizedAt,
     });
-    const inserted = profileContext.profile
-      ? await this.linkCatalogOffersToUser({
-          userId: run.userId,
-          careerProfileId: run.careerProfileId,
-          sourceRunId: run.id,
-          source: run.source,
-          profile: profileContext.profile,
-          specificOfferIds: offers.map((offer) => offer.id),
-          origin: 'SCRAPE',
-        })
-      : {
-          insertedCount: 0,
-          totalCandidateCount: offers.length,
-          matchedCount: 0,
-        };
-    await this.db
-      .update(jobSourceRunsTable)
-      .set({
-        progress: {
-          ...(((run.progress as Record<string, unknown> | null) ?? {}) as Record<string, unknown>),
-          totalFound,
-          scrapedCount,
-          candidateOffers: offers.length,
-          matchedOffers: inserted.matchedCount,
-          userInsertedOffers: inserted.insertedCount,
-          callbackAcceptedAt: finalizedAt.toISOString(),
-          updatedAt: finalizedAt.toISOString(),
-        },
-      })
-      .where(eq(jobSourceRunsTable.id, run.id));
 
     this.logger.log(
       {
@@ -2413,6 +2403,7 @@ export class JobSourcesService {
         totalFound,
         scrapedCount,
         offersInserted: inserted.insertedCount,
+        linkingDeferred: inserted.deferred,
       },
       'Scrape run finalized as COMPLETED',
     );
@@ -2429,20 +2420,7 @@ export class JobSourcesService {
         totalFound,
         scrapedCount,
         offersInserted: inserted.insertedCount,
-      },
-    });
-    await this.appendRunEvent({
-      sourceRunId: run.id,
-      traceId: run.traceId,
-      eventType: 'user_link_completed',
-      requestId,
-      attemptNo: callbackAttemptNo,
-      message: 'Catalog offers were linked to the user notebook.',
-      meta: {
-        candidateOffers: offers.length,
-        matchedOffers: inserted.matchedCount,
-        insertedOffers: inserted.insertedCount,
-        origin: 'SCRAPE',
+        linkingDeferred: inserted.deferred,
       },
     });
 
@@ -2451,7 +2429,8 @@ export class JobSourcesService {
       status: 'COMPLETED',
       inserted: inserted.insertedCount,
       totalOffers: offers.length,
-      idempotent: inserted.insertedCount === 0,
+      idempotent: inserted.insertedCount === 0 && !inserted.deferred,
+      warning: inserted.warning,
     };
   }
 
@@ -2513,8 +2492,6 @@ export class JobSourcesService {
     const attemptNo = Math.max(1, dto.pipelineAttemptNo ?? dto.attemptNo ?? 1);
     const callbackAttemptNo = Math.max(1, dto.callbackAttemptNo ?? 1);
     const persisted = await this.persistAcceptedJobsForRun(run, sanitizedJobs);
-    const linked = await this.linkPersistedOffersForRun(run, persisted.offerIds);
-    const linkedCount = await this.countLinkedOffersForRun(run.id);
     const now = new Date();
     const nextProgress = {
       ...(((run.progress as Record<string, unknown> | null) ?? {}) as Record<string, unknown>),
@@ -2524,7 +2501,6 @@ export class JobSourcesService {
             ? ((run.progress as Record<string, unknown>).candidateOffers ?? 0)
             : 0,
         ) + persisted.offerIds.length,
-      userInsertedOffers: linkedCount,
       incrementalOfferIngestedAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
@@ -2537,6 +2513,19 @@ export class JobSourcesService {
         progress: nextProgress,
       })
       .where(eq(jobSourceRunsTable.id, run.id));
+
+    const linked = await this.attemptPostPersistLinking({
+      run: {
+        ...run,
+        progress: nextProgress,
+      },
+      offerIds: persisted.offerIds,
+      candidateOfferCount: Number(nextProgress.candidateOffers ?? persisted.offerIds.length),
+      origin: 'SCRAPE',
+      requestId,
+      attemptNo,
+      updatedAt: now,
+    });
 
     await this.appendRunEvent({
       sourceRunId: run.id,
@@ -2552,6 +2541,7 @@ export class JobSourcesService {
         dedupeKey: normalizeString(dto.dedupeKey),
         offerIdentityKey: persisted.offerIdentityKeys[0] ?? null,
         insertedOffers: linked.insertedCount,
+        linkingDeferred: linked.deferred,
       },
     });
 
@@ -2560,6 +2550,7 @@ export class JobSourcesService {
       status: run.status === 'PENDING' ? 'RUNNING' : run.status,
       ingested: persisted.offerIds.length,
       linked: linked.insertedCount,
+      deferred: linked.deferred,
     };
   }
 
@@ -2621,8 +2612,6 @@ export class JobSourcesService {
     const attemptNo = Math.max(1, dto.pipelineAttemptNo ?? dto.attemptNo ?? 1);
     const callbackAttemptNo = Math.max(1, dto.callbackAttemptNo ?? 1);
     const persisted = await this.persistAcceptedJobsForRun(run, sanitizedJobs);
-    const linked = await this.linkPersistedOffersForRun(run, persisted.offerIds);
-    const linkedCount = await this.countLinkedOffersForRun(run.id);
     const now = new Date();
     const nextProgress = {
       ...(((run.progress as Record<string, unknown> | null) ?? {}) as Record<string, unknown>),
@@ -2632,7 +2621,6 @@ export class JobSourcesService {
             ? ((run.progress as Record<string, unknown>).candidateOffers ?? 0)
             : 0,
         ) + persisted.offerIds.length,
-      userInsertedOffers: linkedCount,
       incrementalOfferIngestedAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
@@ -2645,6 +2633,19 @@ export class JobSourcesService {
         progress: nextProgress,
       })
       .where(eq(jobSourceRunsTable.id, run.id));
+
+    const linked = await this.attemptPostPersistLinking({
+      run: {
+        ...run,
+        progress: nextProgress,
+      },
+      offerIds: persisted.offerIds,
+      candidateOfferCount: Number(nextProgress.candidateOffers ?? persisted.offerIds.length),
+      origin: 'SCRAPE',
+      requestId,
+      attemptNo,
+      updatedAt: now,
+    });
 
     await this.appendRunEvent({
       sourceRunId: run.id,
@@ -2661,6 +2662,7 @@ export class JobSourcesService {
         offeredJobs: dto.jobs.length,
         persistedOffers: persisted.offerIds.length,
         insertedOffers: linked.insertedCount,
+        linkingDeferred: linked.deferred,
       },
     });
 
@@ -2669,6 +2671,7 @@ export class JobSourcesService {
       status: run.status === 'PENDING' ? 'RUNNING' : run.status,
       ingested: persisted.offerIds.length,
       linked: linked.insertedCount,
+      deferred: linked.deferred,
     };
   }
 
@@ -3134,6 +3137,15 @@ export class JobSourcesService {
         summary: 'Run is in progress. Listing fetch and detail extraction are still underway.',
         recommendedAction: 'Wait for completion before judging notebook impact.',
         userVisibility: 'neutral' as RunStoryVisibility,
+      };
+    }
+
+    if (classifiedOutcome === 'partial_success' || (status === 'FAILED' && scrapedCount > 0)) {
+      return {
+        phase: 'partial' as RunStoryPhase,
+        summary: `Run ended with failure after recovering ${scrapedCount} usable offer${scrapedCount === 1 ? '' : 's'}, so notebook state is usable but incomplete.`,
+        recommendedAction: 'Review the recovered offers, then inspect the terminal failure before retrying.',
+        userVisibility: 'warning' as RunStoryVisibility,
       };
     }
 
@@ -3635,6 +3647,225 @@ export class JobSourcesService {
       .where(eq(userJobOffersTable.sourceRunId, runId));
 
     return Number(result?.value ?? 0);
+  }
+
+  private toRunProgressRecord(progress: unknown): Record<string, unknown> {
+    return progress && typeof progress === 'object' ? { ...(progress as Record<string, unknown>) } : {};
+  }
+
+  private async updateRunProgress(runId: string, currentProgress: unknown, patch: RunProgressPatch) {
+    const nextProgress = {
+      ...this.toRunProgressRecord(currentProgress),
+      ...patch,
+    };
+
+    await this.db
+      .update(jobSourceRunsTable)
+      .set({
+        progress: nextProgress,
+      })
+      .where(eq(jobSourceRunsTable.id, runId));
+
+    return nextProgress;
+  }
+
+  private async attemptPostPersistLinking(input: {
+    run: {
+      id: string;
+      traceId: string;
+      userId: string | null;
+      careerProfileId: string | null;
+      source: 'PRACUJ_PL';
+      progress: unknown;
+    };
+    offerIds: string[];
+    candidateOfferCount: number;
+    origin: 'SCRAPE';
+    requestId?: string;
+    attemptNo?: number;
+    updatedAt: Date;
+  }): Promise<PostPersistLinkResult> {
+    const offerIds = Array.from(new Set(input.offerIds));
+    const updatedAtIso = input.updatedAt.toISOString();
+    const currentProgress = this.toRunProgressRecord(input.run.progress);
+
+    if (!offerIds.length) {
+      await this.updateRunProgress(input.run.id, currentProgress, {
+        candidateOffers: Math.max(Number(currentProgress.candidateOffers ?? 0), input.candidateOfferCount),
+        matchingState: 'completed',
+        matchingLastError: null,
+        matchingUpdatedAt: updatedAtIso,
+        updatedAt: updatedAtIso,
+      });
+      return {
+        insertedCount: 0,
+        matchedCount: Number(currentProgress.matchedOffers ?? 0),
+        totalCandidateCount: 0,
+        linkedCount: Number(currentProgress.userInsertedOffers ?? 0),
+        deferred: false,
+      };
+    }
+
+    if (!input.run.userId || !input.run.careerProfileId) {
+      await this.appendRunEvent({
+        sourceRunId: input.run.id,
+        traceId: input.run.traceId,
+        eventType: 'user_link_skipped',
+        requestId: input.requestId,
+        attemptNo: input.attemptNo,
+        severity: 'warning',
+        message: 'Notebook linking skipped because the run is missing user or career profile context.',
+      });
+      await this.updateRunProgress(input.run.id, currentProgress, {
+        candidateOffers: Math.max(Number(currentProgress.candidateOffers ?? 0), input.candidateOfferCount),
+        matchingState: 'skipped',
+        matchingLastError: null,
+        matchingUpdatedAt: updatedAtIso,
+        updatedAt: updatedAtIso,
+      });
+      return {
+        insertedCount: 0,
+        matchedCount: 0,
+        totalCandidateCount: input.candidateOfferCount,
+        linkedCount: 0,
+        deferred: false,
+        warning: 'Job source run is missing user context',
+      };
+    }
+
+    const profileContext = await this.getCareerProfileContext(input.run.userId, input.run.careerProfileId);
+    if (!profileContext.profile) {
+      await this.appendRunEvent({
+        sourceRunId: input.run.id,
+        traceId: input.run.traceId,
+        eventType: 'user_link_skipped',
+        requestId: input.requestId,
+        attemptNo: input.attemptNo,
+        severity: 'warning',
+        message: 'Notebook linking skipped because the active career profile was unavailable.',
+      });
+      await this.updateRunProgress(input.run.id, currentProgress, {
+        candidateOffers: Math.max(Number(currentProgress.candidateOffers ?? 0), input.candidateOfferCount),
+        matchingState: 'skipped',
+        matchingLastError: null,
+        matchingUpdatedAt: updatedAtIso,
+        updatedAt: updatedAtIso,
+      });
+      return {
+        insertedCount: 0,
+        matchedCount: 0,
+        totalCandidateCount: input.candidateOfferCount,
+        linkedCount: 0,
+        deferred: false,
+        warning: 'Active career profile unavailable for notebook linking',
+      };
+    }
+
+    await this.appendRunEvent({
+      sourceRunId: input.run.id,
+      traceId: input.run.traceId,
+      eventType: 'user_link_started',
+      requestId: input.requestId,
+      attemptNo: input.attemptNo,
+      message: 'Linking persisted catalog offers into the user notebook.',
+      meta: {
+        candidateOffers: input.candidateOfferCount,
+        origin: input.origin,
+      },
+    });
+
+    try {
+      const linked = await this.linkCatalogOffersToUser({
+        userId: input.run.userId,
+        careerProfileId: input.run.careerProfileId,
+        sourceRunId: input.run.id,
+        source: input.run.source,
+        profile: profileContext.profile,
+        specificOfferIds: offerIds,
+        origin: input.origin,
+      });
+      const linkedCount = await this.countLinkedOffersForRun(input.run.id);
+      const matchedCount = Math.max(Number(currentProgress.matchedOffers ?? 0), linked.matchedCount, linkedCount);
+
+      await this.updateRunProgress(input.run.id, currentProgress, {
+        candidateOffers: Math.max(Number(currentProgress.candidateOffers ?? 0), input.candidateOfferCount),
+        matchedOffers: matchedCount,
+        userInsertedOffers: linkedCount,
+        matchingState: 'completed',
+        matchingLastError: null,
+        matchingUpdatedAt: updatedAtIso,
+        updatedAt: updatedAtIso,
+      });
+
+      await this.appendRunEvent({
+        sourceRunId: input.run.id,
+        traceId: input.run.traceId,
+        eventType: 'user_link_completed',
+        requestId: input.requestId,
+        attemptNo: input.attemptNo,
+        message: 'Catalog offers were linked to the user notebook.',
+        meta: {
+          candidateOffers: input.candidateOfferCount,
+          matchedOffers: matchedCount,
+          insertedOffers: linked.insertedCount,
+          origin: input.origin,
+        },
+      });
+
+      return {
+        insertedCount: linked.insertedCount,
+        matchedCount,
+        totalCandidateCount: input.candidateOfferCount,
+        linkedCount,
+        deferred: false,
+      };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        {
+          sourceRunId: input.run.id,
+          traceId: input.run.traceId,
+          requestId: input.requestId,
+          attemptNo: input.attemptNo,
+          candidateOffers: input.candidateOfferCount,
+          error: reason,
+        },
+        'Post-persist notebook linking failed; scrape result kept in shared catalog',
+      );
+
+      await this.updateRunProgress(input.run.id, currentProgress, {
+        candidateOffers: Math.max(Number(currentProgress.candidateOffers ?? 0), input.candidateOfferCount),
+        matchingState: 'deferred',
+        matchingLastError: reason,
+        matchingUpdatedAt: updatedAtIso,
+        updatedAt: updatedAtIso,
+      });
+
+      await this.appendRunEvent({
+        sourceRunId: input.run.id,
+        traceId: input.run.traceId,
+        eventType: 'user_link_failed',
+        requestId: input.requestId,
+        attemptNo: input.attemptNo,
+        severity: 'warning',
+        code: 'USER_LINK_DEFERRED',
+        message: 'Catalog persistence succeeded but notebook linking failed and must be retried separately.',
+        meta: {
+          candidateOffers: input.candidateOfferCount,
+          origin: input.origin,
+          error: reason,
+        },
+      });
+
+      return {
+        insertedCount: 0,
+        matchedCount: Number(currentProgress.matchedOffers ?? 0),
+        totalCandidateCount: input.candidateOfferCount,
+        linkedCount: Number(currentProgress.userInsertedOffers ?? 0),
+        deferred: true,
+        warning: 'Notebook linking failed after catalog persistence; rematch/retry required',
+      };
+    }
   }
 
   private async appendRunEvent(input: RunEventInput) {
@@ -5077,6 +5308,8 @@ export class JobSourcesService {
     specificOfferIds?: string[],
     explicitLimit?: number,
   ): Promise<CatalogOfferRow[]> {
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
+
     const rematchHours =
       this.configService.get('CATALOG_REMATCH_HOURS', { infer: true }) ?? DEFAULT_CATALOG_REMATCH_HOURS;
     const cutoff = new Date(Date.now() - rematchHours * 60 * 60 * 1000);
@@ -5990,11 +6223,99 @@ export class JobSourcesService {
       ).returning({
         id: jobSourceRunsTable.id,
       });
+      if (rows.length > 0 && (toStatus === 'COMPLETED' || toStatus === 'FAILED')) {
+        await this.syncScheduleRunTerminalState({
+          sourceRunId: runId,
+          status: toStatus,
+          finalizedAt: fields.finalizedAt ?? fields.completedAt ?? new Date(),
+          error: fields.error ?? null,
+          classifiedOutcome: fields.classifiedOutcome ?? null,
+        });
+      }
       return rows.length > 0;
     }
 
     await result;
+    if (toStatus === 'COMPLETED' || toStatus === 'FAILED') {
+      await this.syncScheduleRunTerminalState({
+        sourceRunId: runId,
+        status: toStatus,
+        finalizedAt: fields.finalizedAt ?? fields.completedAt ?? new Date(),
+        error: fields.error ?? null,
+        classifiedOutcome: fields.classifiedOutcome ?? null,
+      });
+    }
     return true;
+  }
+
+  private async syncScheduleRunTerminalState(input: {
+    sourceRunId: string;
+    status: 'COMPLETED' | 'FAILED';
+    finalizedAt: Date;
+    error: string | null;
+    classifiedOutcome: string | null;
+  }) {
+    try {
+      const scheduleEvent = await this.db
+        .select({
+          scheduleId: scrapeScheduleEventsTable.scheduleId,
+          userId: scrapeScheduleEventsTable.userId,
+          traceId: scrapeScheduleEventsTable.traceId,
+          requestId: scrapeScheduleEventsTable.requestId,
+        })
+        .from(scrapeScheduleEventsTable)
+        .where(
+          and(
+            eq(scrapeScheduleEventsTable.sourceRunId, input.sourceRunId),
+            eq(scrapeScheduleEventsTable.eventType, 'schedule_enqueue_succeeded'),
+          ),
+        )
+        .orderBy(desc(scrapeScheduleEventsTable.createdAt))
+        .limit(1)
+        .then(([item]) => item ?? null);
+
+      if (!scheduleEvent) {
+        return;
+      }
+
+      await this.db
+        .update(scrapeSchedulesTable)
+        .set({
+          lastRunStatus: input.status,
+          updatedAt: input.finalizedAt,
+        })
+        .where(eq(scrapeSchedulesTable.id, scheduleEvent.scheduleId));
+
+      await this.appendScheduleEvent({
+        scheduleId: scheduleEvent.scheduleId,
+        userId: scheduleEvent.userId,
+        sourceRunId: input.sourceRunId,
+        traceId: scheduleEvent.traceId ?? null,
+        requestId: scheduleEvent.requestId ?? null,
+        eventType: input.status === 'COMPLETED' ? 'schedule_run_completed' : 'schedule_run_failed',
+        severity: input.status === 'FAILED' ? 'error' : 'info',
+        code: input.status,
+        message:
+          input.status === 'COMPLETED'
+            ? 'Scheduled scrape run reached a completed terminal state.'
+            : 'Scheduled scrape run reached a failed terminal state.',
+        meta: {
+          finalizedAt: input.finalizedAt.toISOString(),
+          classifiedOutcome: input.classifiedOutcome,
+          error: input.error,
+        },
+        createdAt: input.finalizedAt,
+      });
+    } catch (error) {
+      this.logger.warn(
+        {
+          sourceRunId: input.sourceRunId,
+          status: input.status,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to reconcile schedule terminal status after scrape finalization',
+      );
+    }
   }
 
   private async markRunFailed(runId: string, error: string) {
@@ -6133,30 +6454,29 @@ export class JobSourcesService {
       return;
     }
 
-    const linked = await this.linkPersistedOffersForRun(
-      run,
-      existingOffers.map((offer) => offer.id),
-    );
-    const linkedCount = await this.countLinkedOffersForRun(run.id);
-    const runProgress =
-      run.progress && typeof run.progress === 'object' ? (run.progress as Record<string, unknown>) : {};
+    const runProgress = this.toRunProgressRecord(run.progress);
 
-    await this.db
-      .update(jobSourceRunsTable)
-      .set({
-        progress: {
-          ...runProgress,
-          totalFound: Number(runProgress.totalFound ?? existingOffers.length),
-          scrapedCount: Math.max(Number(runProgress.scrapedCount ?? 0), existingOffers.length),
-          candidateOffers: Math.max(Number(runProgress.candidateOffers ?? 0), existingOffers.length),
-          matchedOffers: Math.max(Number(runProgress.matchedOffers ?? 0), linked.matchedCount),
-          userInsertedOffers: linkedCount,
-          callbackAcceptedAt: recoveredAt.toISOString(),
-          recoveredFromStaleAt: recoveredAt.toISOString(),
-          updatedAt: recoveredAt.toISOString(),
-        },
-      })
-      .where(eq(jobSourceRunsTable.id, run.id));
+    const recoveredProgress = await this.updateRunProgress(run.id, run.progress, {
+      totalFound: Number(runProgress.totalFound ?? existingOffers.length),
+      scrapedCount: Math.max(Number(runProgress.scrapedCount ?? 0), existingOffers.length),
+      candidateOffers: Math.max(Number(runProgress.candidateOffers ?? 0), existingOffers.length),
+      callbackAcceptedAt: recoveredAt.toISOString(),
+      recoveredFromStaleAt: recoveredAt.toISOString(),
+      matchingState: 'pending',
+      matchingUpdatedAt: recoveredAt.toISOString(),
+      updatedAt: recoveredAt.toISOString(),
+    });
+
+    const linked = await this.attemptPostPersistLinking({
+      run: {
+        ...run,
+        progress: recoveredProgress,
+      },
+      offerIds: existingOffers.map((offer) => offer.id),
+      candidateOfferCount: existingOffers.length,
+      origin: 'SCRAPE',
+      updatedAt: recoveredAt,
+    });
 
     await this.appendRunEvent({
       sourceRunId: run.id,
@@ -6169,7 +6489,8 @@ export class JobSourcesService {
         error,
         candidateOffers: existingOffers.length,
         matchedOffers: linked.matchedCount,
-        insertedOffers: linkedCount,
+        insertedOffers: linked.linkedCount,
+        linkingDeferred: linked.deferred,
       },
     });
   }

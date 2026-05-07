@@ -3,11 +3,27 @@ import { PgDialect } from 'drizzle-orm/pg-core';
 import { CompaniesService } from './companies.service';
 
 describe('CompaniesService', () => {
+  const configService = {
+    get: jest.fn((key: string) => {
+      if (key === 'JOB_OFFERS_NULL_EXPIRY_STALE_HOURS') {
+        return 336;
+      }
+      return undefined;
+    }),
+  } as any;
+
   it('filters the list by search and location and returns normalized counters', async () => {
     let listWhere: unknown;
     let countWhere: unknown;
 
     const db = {
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            returning: jest.fn().mockResolvedValue([]),
+          }),
+        }),
+      }),
       select: jest
         .fn()
         .mockReturnValueOnce({
@@ -51,7 +67,7 @@ describe('CompaniesService', () => {
         }),
     } as any;
 
-    const service = new CompaniesService(db);
+    const service = new CompaniesService(db, configService);
     const result = await service.list({
       search: 'Acme',
       location: 'Warsaw',
@@ -88,6 +104,13 @@ describe('CompaniesService', () => {
 
   it('returns company detail with linked offers ordered by freshness and mapped expiry fields', async () => {
     const db = {
+      update: jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            returning: jest.fn().mockResolvedValue([]),
+          }),
+        }),
+      }),
       select: jest
         .fn()
         .mockReturnValueOnce({
@@ -160,7 +183,7 @@ describe('CompaniesService', () => {
         }),
     } as any;
 
-    const service = new CompaniesService(db);
+    const service = new CompaniesService(db, configService);
     const result = await service.getById('company-1');
 
     expect(result).toEqual({

@@ -92,6 +92,11 @@ Current scrape smoke coverage now verifies one combined recovery story:
 - admin-triggered `POST /api/ops/scrape/callbacks/replay` against a worker dead-letter callback file
 - completed run + notebook visibility after replay recovery
 
+Local smoke readiness note:
+
+- local smoke startup now waits on `GET /health/test` for the API service, not `GET /health`
+- this avoids false negatives from workstation-only dependency checks like disk threshold failures while still proving the Nest app is up and routable
+
 For local smoke autostart, replay coverage depends on a shared local worker auth token:
 
 - API local smoke process gets `WORKER_AUTH_TOKEN`
@@ -450,12 +455,14 @@ Observed on March 16, 2026:
 4. Confirm API saw the callback request id.
 5. If API did not see it, inspect callback URL generation and deployed service env.
 6. If API did see it, inspect `api_request_events` and API request logs.
-7. If the failure involves browser fallback, run `pnpm --filter worker browser:probe` in the closest Linux/containerized environment before changing scraper logic.
-8. Check whether fresh accepted catalog inventory already covers the user need before triggering another scrape.
-9. If the notebook is empty, inspect strict-mode visibility:
+7. If worker logs show `SCRAPE_COMPLETED` but the notebook is still empty, check for `OFFER_BATCH_INGEST_DEAD_LETTERED` and `CALLBACK_REJECTED` before blaming scheduler, parser, or matching.
+8. When those events exist, compare worker outbound payload builders in `apps/worker/src/jobs/scrape-job.ts` against API DTOs in `apps/api/src/features/job-sources/dto/*`; the API rejects unknown fields because global validation uses `whitelist` plus `forbidNonWhitelisted`.
+9. If the failure involves browser fallback, run `pnpm --filter worker browser:probe` in the closest Linux/containerized environment before changing scraper logic.
+10. Check whether fresh accepted catalog inventory already covers the user need before triggering another scrape.
+11. If the notebook is empty, inspect strict-mode visibility:
    - `hiddenByModeCount > 0` means offers were ingested but filtered by notebook mode
    - `progress.userInsertedOffers` confirms whether the callback linked notebook rows
-10. Only then decide between rematch, replay, retry, reconcile, or redeploy.
+12. Only then decide between rematch, replay, retry, reconcile, or redeploy.
 
 ## Safe Recovery Actions
 

@@ -33,6 +33,7 @@ import {
   hasMissingNextStep,
   buildPipelineMetaWithFollowUp,
 } from './job-offer-follow-up';
+import { getJobOfferExpiryReconcileOptions, reconcileExpiredJobOffers } from './job-offers-expiry';
 
 import type { Env } from '@/config/env';
 
@@ -56,6 +57,8 @@ export class JobOffersNotebookService {
   }
 
   async list(userId: string, query: ListJobOffersQuery) {
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
+
     const limit = query.limit ? Number(query.limit) : 20;
     const offset = query.offset ? Number(query.offset) : 0;
     const mode: NotebookRankingMode = query.mode ?? 'strict';
@@ -224,6 +227,8 @@ export class JobOffersNotebookService {
   }
 
   async getNotebookSummary(userId: string) {
+    await reconcileExpiredJobOffers(this.db, getJobOfferExpiryReconcileOptions(this.configService));
+
     const items = await this.db
       .select({
         id: userJobOffersTable.id,

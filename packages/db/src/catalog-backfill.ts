@@ -233,6 +233,7 @@ export const backfillCatalogNormalization = async (
         resolveCatalogNormalizationRefs(
           db,
           group.rows.map((row) => ({
+            title: row.title,
             company: row.company,
             employmentType: row.employmentType,
             salary: row.salary,

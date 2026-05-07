@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { normalizeCompanyName, resolvePracujCategoryDefinition } from '@repo/db';
+import {
+  inferPracujCategoryDefinitionFromContent,
+  normalizeCompanyName,
+  resolvePracujCategoryDefinition,
+} from '@repo/db';
 
 import { normalizePracujPl } from './normalize';
 
@@ -163,4 +167,89 @@ test('shared catalog normalization resolves company names and pracuj categories 
     label: 'IT administration',
     aliases: ['it - administracja', 'system administration', 'security'],
   });
+});
+
+test('shared category inference falls back to title and technologies when filters are broad', () => {
+  assert.deepEqual(
+    inferPracujCategoryDefinitionFromContent({
+      title: 'Senior Backend Developer',
+      listingUrl: 'https://it.pracuj.pl/praca/backend,oferta,1',
+      technologies: {
+        required: ['Node.js', 'TypeScript', 'PostgreSQL'],
+      },
+    }),
+    {
+      slug: 'software-development',
+      label: 'Software development',
+      aliases: ['it - rozwoj oprogramowania', 'software engineering', 'development'],
+    },
+  );
+
+  assert.deepEqual(
+    inferPracujCategoryDefinitionFromContent({
+      title: 'DevOps Platform Engineer',
+      technologies: {
+        required: ['AWS', 'Terraform', 'Kubernetes'],
+      },
+    }),
+    {
+      slug: 'it-administration',
+      label: 'IT administration',
+      aliases: ['it - administracja', 'system administration', 'security'],
+    },
+  );
+
+  assert.deepEqual(
+    inferPracujCategoryDefinitionFromContent({
+      title: 'Data Scientist / ML Engineer',
+      technologies: {
+        required: ['Python', 'TensorFlow', 'Spark'],
+      },
+    }),
+    {
+      slug: 'research-and-development',
+      label: 'Research and development',
+      aliases: ['badania i rozwoj'],
+    },
+  );
+
+  assert.deepEqual(
+    inferPracujCategoryDefinitionFromContent({
+      title: 'Business Analyst SAP',
+      technologies: {
+        required: ['SAP'],
+      },
+    }),
+    {
+      slug: 'operations',
+      label: 'Operations',
+      aliases: ['logistyka', 'transport', 'spedycja'],
+    },
+  );
+
+  assert.deepEqual(
+    inferPracujCategoryDefinitionFromContent({
+      title: 'UX/UI Product Designer',
+      technologies: {
+        required: ['Figma'],
+      },
+    }),
+    {
+      slug: 'marketing',
+      label: 'Marketing',
+      aliases: ['public relations', 'reklama', 'ux ui'],
+    },
+  );
+});
+
+test('shared category inference stays conservative on ambiguous mixed signals', () => {
+  assert.equal(
+    inferPracujCategoryDefinitionFromContent({
+      title: 'DevOps Product Manager',
+      technologies: {
+        required: ['Jira'],
+      },
+    }),
+    null,
+  );
 });

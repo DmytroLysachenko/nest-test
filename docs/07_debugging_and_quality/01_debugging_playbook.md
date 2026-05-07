@@ -84,6 +84,7 @@ Common failure classes:
 - polling loops ignoring `429` backoff windows
 - diagnostics assertions expecting fields that only exist on richer worker paths
 - local repo-owned dev processes holding ports or lockfiles used by smoke and Playwright boot
+- health probes accidentally throttled by global API rate limiting instead of being treated as smoke-safe infrastructure routes
 
 Required mindset:
 
@@ -91,6 +92,7 @@ Required mindset:
 - debug the exact stage first
 - confirm whether the path was `reused`, `accepted`, or `catalog-rematched`
 - check process and lock interference before assuming an application regression
+- if smoke dies in `health-checks`, verify `/health` is truly bypassing throttling at guard level and not only by controller decorator intent
 
 ### 1.1 Local Process and Lock Interference
 
@@ -175,6 +177,9 @@ Frequent traps:
 - callback hitting the wrong implementation path
 - duplicate callback ids becoming idempotent no-ops
 - terminal run already finalized before a later callback arrives
+- worker/API DTO drift under `ValidationPipe` whitelist enforcement
+- incremental batch ingest rejecting fields that final catalog persistence expects to keep
+- worker diagnostics exposing top-level fields that only exist in nested `stageMetrics.fetch`
 
 Check first:
 
@@ -183,6 +188,19 @@ Check first:
 - run status transition in DB
 - `job_source_callback_events`
 - `job_source_run_events`
+
+High-signal incident signature:
+
+- worker execution reaches `SCRAPE_COMPLETED`
+- `scrape_execution_events` show `OFFER_BATCH_INGEST_DEAD_LETTERED` and `CALLBACK_REJECTED`
+- `job_source_callback_events` remain empty
+- notebook stays empty because API never accepted the callback envelope
+
+Fast contract check:
+
+- compare worker payload builders in `apps/worker/src/jobs/scrape-job.ts`
+- compare API DTOs in `apps/api/src/features/job-sources/dto/*`
+- validate suspected payloads with the same `whitelist` and `forbidNonWhitelisted` settings used by `apps/api/src/bootstrap.ts`
 
 ### 4. Notebook Visibility vs Data Persistence
 

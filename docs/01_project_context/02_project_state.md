@@ -142,6 +142,7 @@ That framing should guide future implementation more than raw source count.
   - owns all user workflow read models and recovery decisions
   - explicit DTO coverage has improved for notebook, ops, schedule, and workspace summary
   - contract surface is now broad enough to support a product UI instead of internal-tool panels
+  - scrape terminal success is now separated from notebook-link side effects: catalog persistence and run finalization complete first, while notebook linking/matching is treated as best-effort follow-up work with deferred recovery signals when it fails
   - modularization is now an active engineering concern because `job-sources` and `job-offers` service files have grown beyond easy human scanability
   - feature-local helper modules are now the preferred way to move pure derivation, shaping, and preference logic out of large Nest services before creating more service classes
   - support-facing read models now provide LLM-friendly incident bundles instead of forcing raw endpoint composition
@@ -155,6 +156,7 @@ That framing should guide future implementation more than raw source count.
   - scrape lifecycle visibility is materially stronger
   - duplicate active scrape execution protection now uses a durable `worker_task_executions` lease row instead of relying only on event-history reads
   - diagnostics now distinguish degraded/empty/blocked/partial outcomes
+  - outbound worker payloads are now scrubbed to the API DTO contract before incremental ingest or terminal callback delivery, which reduces `400 VALIDATION_ERROR` regressions from drifted diagnostics fields
   - diagnostics now also expose artifact manifests, stage metrics, and silent-failure classification so completed-but-useless runs are not treated as healthy success
   - production worker boot now defaults debug artifact output to `minimal`, rejects `full` artifact mode unless explicitly allowed, and exposes filesystem-ephemeral artifact policy in diagnostics metadata
   - worker health and scrape diagnostics now also expose requested/effective detail concurrency, detail batch counts, and the explicit rule that browser fallback remains serial even when HTTP detail fetches are concurrent

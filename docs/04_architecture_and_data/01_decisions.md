@@ -1,6 +1,6 @@
 # Decisions
 
-Last updated: 2026-05-04
+Last updated: 2026-05-06
 
 ## Purpose
 
@@ -9,6 +9,17 @@ This document records major architectural, contract, and implementation-boundary
 Use it to explain why the system is shaped a certain way, not to restate implementation details already visible in code.
 
 ADR-lite log for major architectural and contract decisions.
+
+## 2026-05-06: Catalog Category Assignment Must Fall Back To Conservative Content Signals
+
+- Decision:
+  - Keep Pracuj category assignment filter-aware first, but add a shared fallback that infers category from normalized title, listing URL, and technology signals when source filters are broad or absent.
+  - Keep the fallback conservative by accepting only a unique highest-signal category and leaving ties unresolved.
+  - Reuse the same inference path for both fresh scrape persistence and legacy catalog backfill.
+- Why:
+  - Depending only on scrape filter context left `job_category_id` empty for broad acquisition runs, which weakens matching quality and makes a DB reset pointless.
+  - Title and technology cues recover much of the missing category coverage without turning category assignment into a fuzzy opaque classifier.
+  - Using one shared inference path avoids fresh-scrape vs backfill drift.
 
 ## 2026-05-04: Worker Task Lease Ownership Uses A Dedicated Durable Table
 

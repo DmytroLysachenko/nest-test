@@ -462,7 +462,7 @@ function Ensure-LocalSmokeServices {
     @{
       Name = 'api'
       BaseUrl = $ApiBaseUrl
-      HealthPath = '/health'
+      HealthPath = '/health/test'
       FallbackPort = 3100
       CommandTemplate = {
         param([int]$Port, [string]$CallbackToken, [string]$TaskAuthToken, [string]$DeadLetterDir)
@@ -600,7 +600,7 @@ Ensure-EmptyDirectory -Path $workerDeadLetterDir
 
 Write-Host '2) Checking service health endpoints...'
 $stage = 'health-checks'
-$apiHealth = Wait-ForHealthyEndpoint -Uri "$apiBaseUrl/health" -Context 'API health'
+$apiHealth = Wait-ForHealthyEndpoint -Uri "$apiBaseUrl/health/test" -Context 'API health'
 $workerHealth = Wait-ForHealthyEndpoint -Uri "$workerBaseUrl/health" -Context 'Worker health'
 $webHome = Wait-ForHealthyEndpoint -Uri "$webBaseUrl/health" -Context 'Web health'
 

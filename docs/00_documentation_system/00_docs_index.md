@@ -1,6 +1,6 @@
 # Docs Index
 
-Last updated: 2026-05-05
+Last updated: 2026-05-06
 
 ## Purpose
 
@@ -55,8 +55,7 @@ Future-facing planning documents.
 - `02_sprint_plan.md`
 - `03_year_plan.md`
 - `04_feature_evolution_plan.md`
-- `05_db_reset_readiness_audit_plan.md`
-- `12_notebook_workflow_throughput_and_reminder_delivery_audit_plan.md`
+- `05_scrape_data_integrity_and_matching_robustness_audit_plan.md`
 
 ### `04_architecture_and_data`
 
@@ -74,6 +73,7 @@ Runtime operations, debugging, deploy guidance, and env/deploy contracts.
 - `03_prod_deploy_guide.md`
 - `04_gcp_deploy_matrix.md`
 - `05_env_matrix.md`
+- `06_targeted_reset_guide.md`
 
 ### `06_engineering_standards`
 
@@ -99,8 +99,12 @@ Superseded or low-priority docs kept only for historical reference.
 - `06_scrape_reliability_and_catalog_audit_plan.md`
 - `06_scrape_performance_efficiency_stability_audit_completed.md`
 - `07_rate_limit_matching_data_quality_plan.md`
+- `08_web_ui_ux_audit_plan.md`
 - `09_performance_scalability_audit_plan.md`
 - `11_information_architecture_and_workflow_ownership_audit_plan_completed.md`
+- `12_notebook_workflow_throughput_and_reminder_delivery_audit_plan_completed.md`
+- `13_frontend_ui_ux_design_and_trust_hardening_audit_plan_completed.md`
+- `14_db_reset_readiness_audit_plan_completed.md`
 
 ## Ordering rules
 

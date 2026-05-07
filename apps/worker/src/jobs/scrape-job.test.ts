@@ -110,6 +110,8 @@ test('computeCallbackPayloadHash is deterministic for canonical payload shape', 
     totalFound: payload.totalFound,
     jobCount: payload.jobCount,
     jobLinkCount: payload.jobLinkCount,
+    jobs: payload.jobs,
+    diagnostics: payload.diagnostics,
   };
 
   assert.equal(computeCallbackPayloadHash(payload as Record<string, unknown>), computeCallbackPayloadHash(reordered));
@@ -404,6 +406,135 @@ test('buildScrapeOfferBatchIngestPayload emits batch incremental offer fields', 
   assert.equal(payload.taskId, 'task-1');
   assert.equal(payload.pipelineAttemptNo, 2);
   assert.equal(payload.jobs.length, 1);
+});
+
+test('buildScrapeOfferBatchIngestPayload strips invalid batch drift fields and passes API DTO validation', () => {
+  const payload = buildScrapeOfferBatchIngestPayload({
+    eventId: 'event-ingest-batch-2',
+    source: 'pracuj-pl',
+    runId: 'run-1',
+    sourceRunId: '00000000-0000-4000-8000-000000000001',
+    taskId: 'task-1',
+    dedupeKey: 'dedupe-1',
+    pipelineAttemptNo: 2,
+    callbackAttemptNo: 1,
+    attemptNo: 2,
+    emittedAt: '2026-04-04T08:00:00.000Z',
+    jobs: [
+      {
+        source: 'pracuj-pl-it',
+        sourceId: '123',
+        title: 'Backend Engineer',
+        company: 'ACME',
+        location: 'Remote',
+        description: 'Build services.',
+        url: 'https://it.pracuj.pl/praca/backend,oferta,123',
+        tags: [' backend '],
+        salary: null,
+        employmentType: 'B2B',
+        requirements: ['TypeScript'],
+        isExpired: false,
+        rawPayload: { some: 'value' },
+        // @ts-expect-error runtime drift probe
+        debugOnly: 'should-not-leak',
+      },
+    ],
+  });
+
+  assert.equal(payload.jobs[0]?.isExpired, false);
+  assert.equal('debugOnly' in (payload.jobs[0] ?? {}), false);
+});
+
+test('buildScrapeCallbackPayload strips unsupported top-level diagnostics drift', () => {
+  const payload = buildScrapeCallbackPayload({
+    eventId: 'event-1',
+    source: 'pracuj-pl',
+    runId: 'run-1',
+    sourceRunId: '00000000-0000-4000-8000-000000000002',
+    traceId: '00000000-0000-4000-8000-000000000003',
+    listingUrl: 'https://it.pracuj.pl/praca',
+    status: 'COMPLETED',
+    scrapedCount: 1,
+    totalFound: 5,
+    jobCount: 1,
+    jobLinkCount: 5,
+    jobs: [
+      {
+        source: 'pracuj-pl-it',
+        sourceId: '123',
+        title: 'Backend Engineer',
+        company: 'ACME',
+        location: 'Remote',
+        description: 'Build services.',
+        url: 'https://it.pracuj.pl/praca/backend,oferta,123',
+        tags: [],
+        salary: null,
+        employmentType: 'B2B',
+        requirements: ['TypeScript'],
+        isExpired: false,
+      },
+    ],
+    diagnostics: {
+      pagesVisited: 3,
+      jobLinksDiscovered: 5,
+      detailAttemptedCount: 2,
+      detailBatchCount: 9,
+      detailConcurrencyRequested: 4,
+      detailConcurrencyEffective: 2,
+      browserFallbackConcurrency: 'serial',
+      acceptedOfferCount: 1,
+      rejectedOfferCount: 0,
+      rejectedOfferReasons: {},
+      stageMetrics: {
+        fetch: {
+          pagesVisited: 3,
+          jobLinksDiscovered: 5,
+          blockedPages: 0,
+          browserFallbacks: 1,
+          detailAttemptedCount: 2,
+          detailBatchCount: 1,
+          detailConcurrencyRequested: 4,
+          detailConcurrencyEffective: 2,
+          browserFallbackConcurrency: 'serial',
+        },
+        parse: {
+          acceptedOfferCount: 1,
+          rejectedOfferCount: 0,
+          dedupedInRunCount: 0,
+          uniqueDiscoveredOfferCount: 5,
+          fullDetailOfferCount: 1,
+          partialDetailOfferCount: 0,
+          salvagedOfferCount: 0,
+        },
+        finalize: {
+          blockedRate: 0,
+          attemptCount: 1,
+          stopReason: null,
+          resultKind: 'healthy',
+        },
+      },
+      blockedRate: 0,
+      finalPolicy: 'strict',
+      stopReason: 'completed',
+      resultKind: 'healthy',
+      emptyReason: null,
+      sourceQuality: 'healthy',
+      classifiedOutcome: 'success',
+      stageRetryCounts: {
+        listingHttpRetries: 0,
+        browserLaunchRetries: 0,
+        detailFallbacks: 0,
+        callbackRetries: 0,
+        callbackDispatchFailures: 0,
+      },
+    },
+  });
+
+  assert.equal((payload.diagnostics as Record<string, unknown>)?.detailBatchCount, undefined);
+  assert.equal((payload.diagnostics as Record<string, unknown>)?.detailConcurrencyRequested, undefined);
+  assert.equal((payload.diagnostics as Record<string, unknown>)?.detailConcurrencyEffective, undefined);
+  assert.equal((payload.diagnostics as Record<string, unknown>)?.browserFallbackConcurrency, undefined);
+  assert.equal(payload.diagnostics?.stageMetrics?.fetch.detailBatchCount, 1);
 });
 
 test('computeCallbackRetryDelayMs applies exponential backoff without jitter', () => {

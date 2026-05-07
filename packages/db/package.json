@@ -34,6 +34,7 @@
   "packageManager": "pnpm@10.11.0",
   "scripts": {
     "audit:scrape-catalog": "tsx src/seeds/audit-scrape-catalog.ts",
+    "audit:reset-readiness": "tsx src/seeds/audit-reset-readiness.ts",
     "audit:matching-data-quality": "tsx src/seeds/audit-matching-data-quality.ts",
     "build": "tsup",
     "backfill:catalog-normalization": "tsx src/seeds/backfill-catalog-normalization.ts",
@@ -44,6 +45,8 @@
     "migrate": "drizzle-kit migrate",
     "prepare": "pnpm build",
     "repair:scrape-catalog": "tsx src/seeds/repair-scrape-catalog.ts",
+    "reset:test-data": "tsx src/seeds/reset-test-data.ts",
+    "reset:test-bundle": "tsx src/seeds/reset-test-bundle.ts",
     "repair:taxonomy-dimensions": "tsx src/seeds/repair-taxonomy-dimensions.ts",
     "seed": "tsx src/seeds/index.ts",
     "seed:e2e": "tsx src/seeds/e2e-fixtures.ts",

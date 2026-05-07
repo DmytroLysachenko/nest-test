@@ -1,6 +1,12 @@
 # DB Reset Readiness Audit Plan
 
-Last updated: 2026-05-05
+Archived status: completed and superseded by implemented reset tooling on 2026-05-06.
+
+Primary follow-up runtime guide:
+
+1. `docs/05_operations_and_deployment/06_targeted_reset_guide.md`
+
+Last updated: 2026-05-06
 
 ## Purpose
 
@@ -73,7 +79,7 @@ The system is reset-ready only if all of the following are true:
 
 ### 1. Add deterministic expiry reconciliation after scrape-time
 
-Status: blocking
+Status: in progress
 
 Problem:
 
@@ -99,9 +105,30 @@ Acceptance criteria:
 3. Matching and user-offer read models treat reconciled expired offers as inactive.
 4. Ops metrics expose expired-offer counts that reflect reality, not only scrape-time state.
 
+Implementation status on 2026-05-06:
+
+1. API now performs an idempotent expiry reconciliation before the main active-offer read paths:
+   - notebook and opportunity lists
+   - discovery summaries and focus queues
+   - company offer views
+   - prep packet reads
+   - catalog candidate loading used by matching/rematch flows
+2. Ops metrics and catalog summary now reconcile expiry before counting active vs expired inventory.
+3. Catalog support views now expose expiry coverage by source, including:
+   - total offers
+   - offers with explicit expiry dates
+   - active offers still missing expiry dates
+   - expired rows
+4. Null-expiry offers now also age out after a configured stale window based on `last_seen_at`.
+5. Default null-expiry stale window is `336` hours (`14` days) via `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS`.
+6. This closes the most immediate stale-active-row risk after reset even before a dedicated scheduler-driven expiry job exists.
+7. Remaining follow-up:
+   - decide whether to keep this read-path reconcile permanently or move it behind a scheduled internal job once that slice is implemented
+   - tune the null-expiry stale window if source cadence proves a safer default
+
 ### 2. Define fallback behavior for offers without source expiry dates
 
-Status: blocking
+Status: in progress
 
 Problem:
 
@@ -123,9 +150,20 @@ Acceptance criteria:
 2. Operators can quantify expiry coverage by source.
 3. Post-reset offer aging does not depend on silent assumptions.
 
+Implementation status on 2026-05-06:
+
+1. Canonical rule is now explicit in code:
+   - if `expires_at` exists and is in the past, expire the offer
+   - if `expires_at` is null and `last_seen_at` is older than the configured stale window, expire the offer
+2. Current default stale window for null-expiry offers is `336` hours (`14` days).
+3. The stale window is configurable through `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS`.
+4. Existing expiry coverage reporting remains the verification surface for active-without-expiry drift.
+5. Remaining follow-up:
+   - tune the stale window if real scrape cadence shows the default is too aggressive or too lenient
+
 ### 3. Reconcile schedule status with terminal run outcome
 
-Status: blocking
+Status: in progress
 
 Problem:
 
@@ -146,6 +184,17 @@ Acceptance criteria:
 1. A successful scheduled scrape no longer leaves the schedule row looking unfinished.
 2. A failed scheduled scrape leaves an explicit terminal reason visible in support/ops views.
 3. Support investigation no longer requires correlating raw run rows just to answer "did the last scheduled run really work?"
+
+Implementation status on 2026-05-06:
+
+1. Terminal scrape run transitions now reconcile the owning schedule row when the run originated from `schedule_enqueue_succeeded`.
+2. `scrape_schedules.last_run_status` now moves from enqueue-time markers to terminal `COMPLETED` or `FAILED`.
+3. Schedule event history now records:
+   - `schedule_run_completed`
+   - `schedule_run_failed`
+4. Remaining follow-up:
+   - decide whether manual-trigger terminal states should keep distinct labels beyond enqueue-time differentiation
+   - expose the latest terminal timestamp directly on the schedule row if support needs a simpler denormalized field later
 
 ### 4. Verify clean handling for failed, stale, and partial scrape outcomes
 
@@ -183,6 +232,20 @@ Acceptance criteria:
 2. Partial success is distinguishable from total failure in both DB and support views.
 3. Reconciled stale runs cannot leave notebook state inconsistent with run outcome.
 
+Implementation status on 2026-05-06:
+
+1. Terminal worker callbacks that fail after already recovering usable offers now persist as:
+   - `status = FAILED`
+   - `classified_outcome = partial_success`
+   - `source_quality = degraded`
+2. This closes the previous ambiguity where a late or failed callback with recovered offers looked identical to a total failed run.
+3. Run-story read models now describe this path as partial and incomplete instead of pure failure, so support can distinguish:
+   - failed with zero useful recovery
+   - failed after partial useful recovery
+4. Remaining follow-up:
+   - audit whether failed runs with recovered offers should also surface a dedicated count in higher-level ops and support summary aggregates
+   - add one production-like dry-run check proving user-link state stays coherent when a run fails after incremental ingest
+
 ### 5. Close category and normalization gaps that would poison the new baseline
 
 Status: blocking
@@ -202,6 +265,33 @@ Acceptance criteria:
 
 1. Newly scraped offers populate matching-critical normalized fields at acceptable coverage.
 2. Matching after reset is based on intended current data shape, not legacy sparse rows.
+
+Implementation status on 2026-05-06:
+
+1. Pracuj category normalization no longer depends only on a single narrow filter context.
+2. Shared catalog normalization now falls back to deterministic content-based category inference when:
+   - general category filters are absent or broad
+   - IT specialization filters are absent or broad
+3. Current fallback signals are taken from:
+   - normalized offer title
+   - listing URL
+   - normalized technology stack
+4. The fallback is intentionally conservative:
+   - only a unique highest-signal category is accepted
+   - ties remain unresolved instead of forcing a noisy category
+5. The fallback currently covers the highest-impact categories for the reset path:
+   - software development
+   - IT administration
+   - research and development
+   - operations
+   - marketing
+   - customer support
+6. The same shared inference path now benefits both:
+   - fresh scrape persistence
+   - catalog backfill for legacy rows
+7. Remaining follow-up:
+   - run a post-fix audit query against newly scraped rows to confirm category coverage is materially improved
+   - decide whether any still-unresolved role families need additional conservative signals before reset
 
 ## High-Priority Non-Blocking Work
 
@@ -229,6 +319,26 @@ This decision should be explicit before execution:
 2. user + shared offer reset
 3. full environment rebuild
 
+Implementation status on 2026-05-06:
+
+1. `pnpm --filter @repo/db reset:test-data` now provides a committed targeted cleanup script.
+2. Script safety rules:
+   - explicit target users only
+   - preview mode by default
+   - apply mode requires `APPLY_CHANGES=true`
+   - destructive execution also requires `RESET_CONFIRM=RESET_TEST_DATA`
+3. Current supported scopes:
+   - `user-only`
+   - `user-and-shared-offers`
+4. Optional workflow restart flag:
+   - `RESET_INCLUDE_PROFILE_WORKFLOW=true`
+5. Shared-offer cleanup is conservative:
+   - it preserves offers protected by non-target user links
+   - it preserves offers protected by non-target observations
+   - it preserves offers whose current run belongs to non-target users
+6. Remaining follow-up:
+   - dry-run the script against the intended reset accounts and capture before/after verifier output
+
 ### 2. Add a reset verification script or checklist
 
 After reset, operators should not manually inspect random tables.
@@ -243,6 +353,23 @@ Required verification bundle:
 6. scheduled scrape works
 7. expired-offer reconciliation works
 8. notebook and matching consume the new rows correctly
+
+Implementation status on 2026-05-06:
+
+1. `pnpm --filter @repo/db audit:reset-readiness` now provides a committed reset-readiness verifier instead of ad hoc SQL.
+2. The verifier supports both:
+   - `pre-reset`
+   - `post-reset`
+3. Current gates cover:
+   - schema state
+   - seed/admin state
+   - schedule terminal state
+   - offer integrity
+   - user-link integrity
+   - recent workflow verification
+4. Post-reset mode now fails hard when either scheduled or manual/direct successful scrape evidence is missing.
+5. Remaining follow-up:
+   - add notebook/matching-specific read-model assertions once we choose whether those belong in DB audit, smoke, or API support bundle layers
 
 ### 3. Refresh support tooling for post-reset investigation
 

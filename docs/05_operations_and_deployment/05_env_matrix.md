@@ -2,7 +2,7 @@
 
 Canonical environment-variable inventory for local development, GitHub Actions CI/CD, and Cloud Run runtime.
 
-Last updated: 2026-04-10
+Last updated: 2026-05-06
 
 ## Rules
 
@@ -78,6 +78,7 @@ Last updated: 2026-04-10
 | `NOTEBOOK_*` | optional | optional | no | Cloud Run env | notebook ranking tuning |
 | `WORKSPACE_SUMMARY_CACHE_TTL_SEC` | optional | optional | no | Cloud Run env | workspace cache tuning |
 | `JOB_SOURCE_DIAGNOSTICS_WINDOW_HOURS` | optional | optional | no | Cloud Run env | diagnostics default window |
+| `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS` | optional | optional | no | Cloud Run env | null-expiry offer stale cutoff in hours; default `336` |
 | `DOCUMENT_DIAGNOSTICS_WINDOW_HOURS` | optional | optional | no | Cloud Run env | diagnostics default window |
 | `SCHEDULER_AUTH_TOKEN` | optional local | required prod | yes | Cloud Run env from GitHub secret | schedule trigger auth |
 | `SCHEDULER_TRIGGER_BATCH_SIZE` | optional | optional | no | Cloud Run env | default `20` |
@@ -170,9 +171,38 @@ Last updated: 2026-04-10
   - `API_AUTH_THROTTLE_LIMIT`
   - `API_SENSITIVE_THROTTLE_TTL_MS`
   - `API_SENSITIVE_THROTTLE_LIMIT`
+  - `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS`
   - `WEB_QUERY_STALE_TIME_MS`
   - `WEB_QUERY_REFETCH_ON_WINDOW_FOCUS`
   - `WEB_QUERY_DIAGNOSTICS_REFETCH_MS`
+
+## Offer Expiry Contract
+
+Production behavior for catalog offer freshness is intentionally explicit:
+
+1. If `job_offers.expires_at` exists and is in the past, the offer is expired.
+2. If `job_offers.expires_at` is null, the offer is still allowed to age out.
+3. Null-expiry aging uses `job_offers.last_seen_at`, not `fetched_at`.
+4. The default null-expiry stale cutoff is `336` hours (`14` days).
+5. The cutoff is controlled by `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS`.
+
+Operator implications:
+
+1. Leaving `JOB_OFFERS_NULL_EXPIRY_STALE_HOURS` unset keeps the documented default behavior.
+2. Shortening the cutoff is stricter and reduces stale inventory faster, but increases the risk of hiding still-live offers from slower-refresh sources.
+3. Increasing the cutoff is more conservative and reduces accidental hiding, but allows stale active inventory to persist longer after reset.
+4. Expiry reconciliation currently runs on critical API read paths and ops summary paths, so the stale cutoff affects notebook, discovery, company, matching-candidate, and ops views.
+
+Reset-readiness guidance:
+
+1. Keep the default `336`-hour window unless observed scrape cadence proves a different source rhythm.
+2. If you change the cutoff in production, update this matrix and the reset-readiness plan in the same change.
+3. Do not use blank placeholders for this variable. Omit it entirely to keep the default.
+4. During reset verification, compare active-offer counts against recent `last_seen_at` values before concluding expiry logic is wrong.
+
+Quick operator rule:
+
+- `expires_at` missing plus old `last_seen_at` is now enough for expiry.
 
 ### GitHub production secrets
 
