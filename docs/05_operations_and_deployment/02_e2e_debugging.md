@@ -92,6 +92,11 @@ Current scrape smoke coverage now verifies one combined recovery story:
 - admin-triggered `POST /api/ops/scrape/callbacks/replay` against a worker dead-letter callback file
 - completed run + notebook visibility after replay recovery
 
+Local smoke readiness note:
+
+- local smoke startup now waits on `GET /health/test` for the API service, not `GET /health`
+- this avoids false negatives from workstation-only dependency checks like disk threshold failures while still proving the Nest app is up and routable
+
 For local smoke autostart, replay coverage depends on a shared local worker auth token:
 
 - API local smoke process gets `WORKER_AUTH_TOKEN`

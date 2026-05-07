@@ -24,7 +24,7 @@ import { CompaniesModule } from '@/features/companies/companies.module';
 import { OnboardingDraftsModule } from '@/features/onboarding-drafts/onboarding-drafts.module';
 import { WorkspaceModule } from '@/features/workspace/workspace.module';
 import { OpsModule } from '@/features/ops/ops.module';
-import { AuthorizationGuard } from '@/common/guards';
+import { ApiThrottlerGuard, AuthorizationGuard } from '@/common/guards';
 import { ApiRequestEventsService } from '@/common/observability/api-request-events.service';
 import { ApiWarningEventInterceptor } from '@/common/interceptor/api-warning-event.interceptor';
 import { AuthorizationModule } from '@/common/authorization/authorization.module';
@@ -101,7 +101,7 @@ import type { Env } from '@/config/env';
     },
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: ApiThrottlerGuard,
     },
     {
       provide: APP_FILTER,

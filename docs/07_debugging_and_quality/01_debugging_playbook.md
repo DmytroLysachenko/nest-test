@@ -84,6 +84,7 @@ Common failure classes:
 - polling loops ignoring `429` backoff windows
 - diagnostics assertions expecting fields that only exist on richer worker paths
 - local repo-owned dev processes holding ports or lockfiles used by smoke and Playwright boot
+- health probes accidentally throttled by global API rate limiting instead of being treated as smoke-safe infrastructure routes
 
 Required mindset:
 
@@ -91,6 +92,7 @@ Required mindset:
 - debug the exact stage first
 - confirm whether the path was `reused`, `accepted`, or `catalog-rematched`
 - check process and lock interference before assuming an application regression
+- if smoke dies in `health-checks`, verify `/health` is truly bypassing throttling at guard level and not only by controller decorator intent
 
 ### 1.1 Local Process and Lock Interference
 
