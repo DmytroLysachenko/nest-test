@@ -111,6 +111,7 @@ Current routing/read-model additions:
 - route bootstrap now matches the product default: if the URL does not explicitly request a mode, opportunities enters `approx` instead of silently falling back to `strict`
 - opportunities details now stay stacked below the queue until ultra-wide layouts, which preserves readability and navigation space on normal laptop widths instead of forcing an early two-column split
 - discovery and notebook workflow actions now invalidate only the read models they actually changed, which reduces bursty follow-up fetches and lowers the chance of user-visible `429` responses during fast queue triage
+- discovery status changes now also patch the discovery cache itself, so saving or dismissing a role removes it from the current first-pass queue immediately instead of waiting for a later refetch cycle
 
 ## Dependencies
 

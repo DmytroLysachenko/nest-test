@@ -127,6 +127,21 @@ export const useOpportunitiesPage = ({
     [listQuery.data?.items, selectedId],
   );
 
+  useEffect(() => {
+    const items = listQuery.data?.items ?? [];
+    if (!items.length) {
+      if (selectedId) {
+        setSelectedId(null);
+      }
+      return;
+    }
+
+    const selectedStillVisible = items.some((item) => item.id === selectedId);
+    if (!selectedStillVisible) {
+      setSelectedId(items[0]?.id ?? null);
+    }
+  }, [listQuery.data?.items, selectedId]);
+
   const mutations = useNotebookMutations({ token });
   const listError = listQuery.isError
     ? toUserErrorMessage(listQuery.error, 'Failed to load opportunities.', {

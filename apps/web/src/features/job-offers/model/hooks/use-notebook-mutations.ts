@@ -24,6 +24,7 @@ import { useDataSync } from '@/shared/lib/query/use-data-sync';
 import { toastError, toastInfo, toastSuccess, toastSuccessWithAction } from '@/shared/lib/ui/toast';
 
 import type {
+  DiscoveryJobOffersListDto,
   DiscoverySummaryDto,
   JobOfferStatus,
   JobOfferSummaryDto,
@@ -39,6 +40,7 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const queryClient = useQueryClient();
   const { syncJobOffers, syncJobSources } = useDataSync(token);
   const pipelineStatuses: JobOfferStatus[] = ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'];
+  const discoveryStatuses: JobOfferStatus[] = ['NEW', 'SEEN'];
 
   const statusMutation = useMutation({
     mutationFn: ({
@@ -59,9 +61,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       const snapshots = queryClient.getQueriesData<JobOffersListDto>({
         queryKey: ['job-offers', token],
       });
+      const discoverySnapshots = queryClient.getQueriesData<DiscoveryJobOffersListDto>({
+        queryKey: ['job-offers', 'discovery', token],
+      });
 
       const previousStatus =
-        snapshots.flatMap(([, data]) => data?.items ?? []).find((offer) => offer.id === id)?.status ?? null;
+        [
+          ...snapshots.flatMap(([, data]) => data?.items ?? []),
+          ...discoverySnapshots.flatMap(([, data]) => data?.items ?? []),
+        ].find((offer) => offer.id === id)?.status ?? null;
 
       queryClient.setQueriesData<JobOffersListDto>(
         {
@@ -175,13 +183,57 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
         }),
       );
 
+      queryClient.setQueriesData<DiscoveryJobOffersListDto>(
+        {
+          queryKey: ['job-offers', 'discovery', token],
+        },
+        (current) => {
+          if (!current) {
+            return current;
+          }
+
+          if (!discoveryStatuses.includes(status)) {
+            const filteredItems = current.items.filter((offer) => offer.id !== id);
+            return {
+              ...current,
+              items: filteredItems,
+              total: Math.max(0, current.total - (filteredItems.length === current.items.length ? 0 : 1)),
+            };
+          }
+
+          return {
+            ...current,
+            items: current.items.map((offer) => {
+              if (offer.id !== id) {
+                return offer;
+              }
+
+              const history = Array.isArray(offer.statusHistory) ? offer.statusHistory : [];
+              const nextHistory = [...history, { status, changedAt }];
+
+              return {
+                ...offer,
+                status,
+                isInPipeline: pipelineStatuses.includes(status),
+                lastStatusAt: changedAt,
+                statusHistory: nextHistory,
+              };
+            }),
+          };
+        },
+      );
+
       return {
         snapshots,
+        discoverySnapshots,
         previousStatus,
       };
     },
     onError: (error, _variables, context) => {
       context?.snapshots.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+      context?.discoverySnapshots.forEach(([queryKey, data]) => {
         queryClient.setQueryData(queryKey, data);
       });
       toastError(toUserErrorMessage(error, 'Failed to update status.'));

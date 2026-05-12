@@ -97,7 +97,9 @@ describe('useOpportunitiesPage', () => {
       await Promise.resolve();
     });
 
-    expect(replaceMock).toHaveBeenCalledWith('/opportunities?search=React&tag=frontend', { scroll: false });
+    expect(replaceMock).toHaveBeenCalledWith('/opportunities?search=React&tag=frontend&offerId=offer-1', {
+      scroll: false,
+    });
   });
 
   it('defaults review mode to approx and keeps the url clean for that default', () => {
@@ -147,5 +149,89 @@ describe('useOpportunitiesPage', () => {
 
     expect(result.current.page).toBe(1);
     expect(result.current.perPage).toBe(10);
+  });
+
+  it('reselects the first visible opportunity when the current one leaves discovery', () => {
+    discoveryData = {
+      items: [
+        { id: 'offer-1', status: 'NEW', isInPipeline: false, fitHighlights: [] },
+        { id: 'offer-2', status: 'NEW', isInPipeline: false, fitHighlights: [] },
+      ],
+      total: 2,
+    };
+
+    const { result, rerender } = renderHook(() =>
+      useOpportunitiesPage({
+        token: 'token',
+        initialOfferId: 'offer-1',
+      }),
+    );
+
+    expect(result.current.selectedId).toBe('offer-1');
+
+    discoveryData = {
+      items: [{ id: 'offer-2', status: 'NEW', isInPipeline: false, fitHighlights: [] }],
+      total: 1,
+    };
+
+    rerender();
+
+    expect(result.current.selectedId).toBe('offer-2');
+  });
+
+  it('clears the selected opportunity when discovery becomes empty', () => {
+    discoveryData = {
+      items: [{ id: 'offer-1', status: 'NEW', isInPipeline: false, fitHighlights: [] }],
+      total: 1,
+    };
+
+    const { result, rerender } = renderHook(() =>
+      useOpportunitiesPage({
+        token: 'token',
+        initialOfferId: 'offer-1',
+      }),
+    );
+
+    expect(result.current.selectedId).toBe('offer-1');
+
+    discoveryData = {
+      items: [],
+      total: 0,
+    };
+
+    rerender();
+
+    expect(result.current.selectedId).toBeNull();
+  });
+
+  it('keeps the current selection when it remains visible after discovery updates', () => {
+    discoveryData = {
+      items: [
+        { id: 'offer-1', status: 'NEW', isInPipeline: false, fitHighlights: [] },
+        { id: 'offer-2', status: 'SEEN', isInPipeline: false, fitHighlights: [] },
+      ],
+      total: 2,
+    };
+
+    const { result, rerender } = renderHook(() =>
+      useOpportunitiesPage({
+        token: 'token',
+        initialOfferId: 'offer-2',
+      }),
+    );
+
+    expect(result.current.selectedId).toBe('offer-2');
+
+    discoveryData = {
+      items: [
+        { id: 'offer-2', status: 'SEEN', isInPipeline: false, fitHighlights: [] },
+        { id: 'offer-3', status: 'NEW', isInPipeline: false, fitHighlights: [] },
+      ],
+      total: 2,
+    };
+
+    rerender();
+
+    expect(result.current.selectedId).toBe('offer-2');
   });
 });
