@@ -108,6 +108,7 @@ Current routing/read-model additions:
 - planning and progress route blockers now resolve against their own route ownership instead of reusing notebook-targeted fallback routing
 - opportunities now default to `approx` review mode so first-pass discovery does not begin from the narrowest strict-fit slice unless the user explicitly chooses it
 - review actions are expected to reconcile discovery counters and queue grouping immediately, so “saved to pipeline” reflects as workflow movement instead of a delayed background refresh
+- route bootstrap now matches the product default: if the URL does not explicitly request a mode, opportunities enters `approx` instead of silently falling back to `strict`
 
 ## Dependencies
 

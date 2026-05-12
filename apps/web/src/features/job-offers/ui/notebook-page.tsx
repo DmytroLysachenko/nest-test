@@ -93,7 +93,8 @@ export const NotebookPage = ({
   latestUpdateStatus = null,
 }: NotebookPageProps) => {
   const notebook = useNotebookPage({ token, initialQuickAction, initialOfferId });
-  const pipelineOffers = notebook.pipelineQuery.data?.items ?? [];
+  const pipelineOffers = notebook.fullPipelineQuery.data?.items ?? [];
+  const queueOffers = notebook.queueQuery.data?.items ?? [];
   const reminderDeliveryStats = pipelineOffers.reduce(
     (acc, offer) => {
       if (!offer.reminderDelivery) {
@@ -144,7 +145,7 @@ export const NotebookPage = ({
       history={notebook.historyQuery.data}
       prepPacket={notebook.prepPacket ?? null}
       historyError={notebook.historyError}
-      updatedAt={notebook.pipelineQuery.dataUpdatedAt}
+      updatedAt={notebook.fullPipelineQuery.dataUpdatedAt}
       isBusy={notebook.isBusy}
       onStatusChange={(status) => {
         if (!notebook.selectedOffer) {
@@ -458,9 +459,9 @@ export const NotebookPage = ({
         onApplyPreset={notebook.applyNotebookFilterPreset}
         hasSavedPreset={Boolean(notebook.savedPreset)}
         activeFilters={notebook.activeFilters}
-        total={notebook.pipelineQuery.data?.total ?? 0}
-        hiddenByModeCount={notebook.pipelineQuery.data?.hiddenByModeCount ?? 0}
-        listUpdatedAt={notebook.pipelineQuery.dataUpdatedAt}
+        total={notebook.queueQuery.data?.total ?? 0}
+        hiddenByModeCount={notebook.queueQuery.data?.hiddenByModeCount ?? 0}
+        listUpdatedAt={notebook.queueQuery.dataUpdatedAt}
         isBusy={notebook.isBusy}
         summary={notebook.notebookSummary ?? null}
         onQuickAction={notebook.applyQuickAction}
@@ -468,14 +469,14 @@ export const NotebookPage = ({
         onAutoArchive={notebook.autoArchive}
       />
 
-      {notebook.pipelineQuery.isLoading ? (
+      {notebook.fullPipelineQuery.isLoading || notebook.queueQuery.isLoading ? (
         <SectionLoadingState title="Pipeline" description="Loading notebook data..." rows={7} />
       ) : notebook.listError ? (
         <SectionErrorState
           title="Pipeline"
           message={notebook.listError}
           onRetry={() => {
-            void notebook.pipelineQuery.refetch();
+            void Promise.all([notebook.fullPipelineQuery.refetch(), notebook.queueQuery.refetch()]);
           }}
         />
       ) : (
@@ -488,10 +489,10 @@ export const NotebookPage = ({
           />
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] xl:items-start">
             <NotebookOffersListCard
-              offers={pipelineOffers}
-              hiddenByModeCount={0}
+              offers={queueOffers}
+              hiddenByModeCount={notebook.queueQuery.data?.hiddenByModeCount ?? 0}
               degradedResultCount={
-                pipelineOffers.filter((offer) =>
+                queueOffers.filter((offer) =>
                   offer.attentionSignals?.some((signal) => signal.key === 'prep_recommended'),
                 ).length
               }
@@ -506,7 +507,7 @@ export const NotebookPage = ({
               mode={notebook.filters.mode}
               onSelectOffer={notebook.setNotebookSelectedOffer}
               onToggleOfferSelection={notebook.toggleNotebookSelectedOfferId}
-              onSelectAllVisible={() => notebook.setNotebookSelectedOfferIds(pipelineOffers.map((offer) => offer.id))}
+              onSelectAllVisible={() => notebook.setNotebookSelectedOfferIds(queueOffers.map((offer) => offer.id))}
               onClearSelected={notebook.clearNotebookSelectedOfferIds}
               onBulkStatusChange={(status) => notebook.bulkUpdateStatus({ ids: notebook.selectedOfferIds, status })}
               onBulkFollowUpSave={notebook.bulkUpdateFollowUp}

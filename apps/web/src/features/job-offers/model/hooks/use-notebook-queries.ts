@@ -22,7 +22,8 @@ import type { JobOfferSummaryDto } from '@/shared/types/api';
 type UseNotebookQueriesArgs = {
   token: string;
   listParams: ListJobOffersParams;
-  pipelineParams: ListJobOffersParams;
+  queueParams: ListJobOffersParams;
+  fullPipelineParams: ListJobOffersParams;
   selectedId: string | null;
   sharedNotebookSummary?: JobOfferSummaryDto | null;
 };
@@ -30,7 +31,8 @@ type UseNotebookQueriesArgs = {
 export const useNotebookQueries = ({
   token,
   listParams,
-  pipelineParams,
+  queueParams,
+  fullPipelineParams,
   selectedId,
   sharedNotebookSummary,
 }: UseNotebookQueriesArgs) => {
@@ -43,18 +45,27 @@ export const useNotebookQueries = ({
     }),
   );
 
-  const pipelineQuery = useQuery(
+  const queueQuery = useQuery(
     buildAuthedQueryOptions({
       token,
-      queryKey: queryKeys.jobOffers.list(token, pipelineParams),
-      queryFn: (authToken) => listJobOffers(authToken, pipelineParams),
+      queryKey: queryKeys.jobOffers.list(token, queueParams),
+      queryFn: (authToken) => listJobOffers(authToken, queueParams),
+      ...mutableRouteQueryPreset(),
+    }),
+  );
+
+  const fullPipelineQuery = useQuery(
+    buildAuthedQueryOptions({
+      token,
+      queryKey: queryKeys.jobOffers.list(token, fullPipelineParams),
+      queryFn: (authToken) => listJobOffers(authToken, fullPipelineParams),
       ...mutableRouteQueryPreset(),
     }),
   );
 
   const selectedOffer = useMemo(
-    () => pipelineQuery.data?.items.find((item) => item.id === selectedId) ?? null,
-    [pipelineQuery.data?.items, selectedId],
+    () => fullPipelineQuery.data?.items.find((item) => item.id === selectedId) ?? null,
+    [fullPipelineQuery.data?.items, selectedId],
   );
 
   const historyQuery = useQuery(
@@ -116,7 +127,8 @@ export const useNotebookQueries = ({
 
   return {
     listQuery,
-    pipelineQuery,
+    queueQuery,
+    fullPipelineQuery,
     selectedOffer,
     historyQuery,
     preferencesQuery,

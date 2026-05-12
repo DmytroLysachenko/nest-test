@@ -91,7 +91,14 @@ describe('NotebookPage pipeline workspace', () => {
         dataUpdatedAt: Date.now(),
         refetch: vi.fn(),
       },
-      pipelineQuery: {
+      queueQuery: {
+        isLoading: false,
+        isError: false,
+        data: { items: [offer], total: 1, hiddenByModeCount: 0, degradedResultCount: 0, mode: 'approx' },
+        dataUpdatedAt: Date.now(),
+        refetch: vi.fn(),
+      },
+      fullPipelineQuery: {
         isLoading: false,
         isError: false,
         data: { items: [offer], total: 1, hiddenByModeCount: 0, degradedResultCount: 0, mode: 'approx' },
@@ -161,5 +168,93 @@ describe('NotebookPage pipeline workspace', () => {
     expect(screen.getByText('Keep active roles moving')).toBeInTheDocument();
     expect(screen.getByText('Selected offer workspace')).toBeInTheDocument();
     expect(await screen.findByTestId('mock-notebook-offer-details')).toBeInTheDocument();
+  });
+
+  it('keeps the pipeline board visible when the filtered queue slice is empty', () => {
+    mockedUseNotebookPage.mockReturnValue({
+      listQuery: {
+        isLoading: false,
+        isError: false,
+        data: { items: [], total: 0, hiddenByModeCount: 0, degradedResultCount: 0, mode: 'strict' },
+        dataUpdatedAt: Date.now(),
+        refetch: vi.fn(),
+      },
+      queueQuery: {
+        isLoading: false,
+        isError: false,
+        data: { items: [], total: 0, hiddenByModeCount: 0, degradedResultCount: 0, mode: 'approx' },
+        dataUpdatedAt: Date.now(),
+        refetch: vi.fn(),
+      },
+      fullPipelineQuery: {
+        isLoading: false,
+        isError: false,
+        data: { items: [offer], total: 1, hiddenByModeCount: 0, degradedResultCount: 0, mode: 'approx' },
+        dataUpdatedAt: Date.now(),
+        refetch: vi.fn(),
+      },
+      historyQuery: { data: undefined },
+      listError: null,
+      historyError: null,
+      activeFilters: [],
+      selectedOfferIds: [],
+      selectedVisibleIds: [],
+      isAllVisibleSelected: false,
+      savedPreset: null,
+      lastInteractionAt: null,
+      preferencesQuery: { isLoading: false },
+      summaryQuery: { data: notebookSummary },
+      notebookSummary,
+      selectedOffer: offer,
+      selectedId: offer.id,
+      filters: {
+        status: 'ALL',
+        mode: 'approx',
+        view: 'PIPELINE',
+        search: '',
+        tag: '',
+        hasScore: 'all',
+        followUp: 'due',
+        attention: 'all',
+      },
+      pagination: { offset: 0, limit: 20 },
+      canPrev: false,
+      canNext: false,
+      isBusy: false,
+      enqueueProfileScrapeMutation: { mutate: vi.fn(), status: 'idle' },
+      setNotebookSelectedOffer: vi.fn(),
+      toggleNotebookSelectedOfferId: vi.fn(),
+      clearNotebookSelectedOfferIds: vi.fn(),
+      setNotebookSelectedOfferIds: vi.fn(),
+      setNotebookFilter: vi.fn(),
+      resetNotebookFilters: vi.fn(),
+      saveNotebookFilterPreset: vi.fn(),
+      applyNotebookFilterPreset: vi.fn(),
+      setNotebookOffset: vi.fn(),
+      applyQuickAction: vi.fn(),
+      updateStatus: vi.fn(),
+      updateStatusAsync: vi.fn(),
+      bulkUpdateStatus: vi.fn(),
+      bulkUpdateFollowUp: vi.fn(),
+      dismissAllSeen: vi.fn(),
+      autoArchive: vi.fn(),
+      updateMeta: vi.fn(),
+      updateFeedback: vi.fn(),
+      updatePipeline: vi.fn(),
+      completeFollowUp: vi.fn(),
+      snoozeFollowUp: vi.fn(),
+      clearFollowUp: vi.fn(),
+      rescore: vi.fn(),
+      generatePrep: vi.fn(),
+      isGeneratingPrep: false,
+      isPreferencesLoading: false,
+    } as unknown as ReturnType<typeof useNotebookPage>);
+
+    render(<NotebookPage token="token" latestUpdateStatus="COMPLETED" />);
+
+    expect(screen.getByText('Pipeline board')).toBeInTheDocument();
+    expect(screen.getAllByText('Senior Backend Engineer').length).toBeGreaterThan(0);
+    expect(screen.getByText('Offer queue')).toBeInTheDocument();
+    expect(screen.getByText('No offers are in this notebook slice yet')).toBeInTheDocument();
   });
 });

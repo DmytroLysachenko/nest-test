@@ -83,6 +83,10 @@ Current workflow-facing additions:
 - notebook route rendering now depends on notebook-owned queries plus a minimal route-level update-status input for empty-state trust messaging, instead of reusing the full workspace summary inside the notebook page hook
 - notebook pipeline visibility is now contract-separated from strict-fit discovery ranking: active `SAVED` / `APPLIED` / `INTERVIEWING` / `OFFER` work must remain visible even when strict review rules would hide discovery candidates
 - notebook selected-offer workspace now resolves against the pipeline-scoped dataset rather than whichever offers survived the current discovery-style ranking mode
+- notebook now has two explicit read surfaces on the same route:
+  - a full active-pipeline dataset used by the board, reminders, signal panels, and selected-offer workspace
+  - a filtered queue dataset used for the current maintenance slice, bulk edits, and queue pagination
+- quick-action and follow-up filters are therefore allowed to empty the queue slice without making the whole notebook appear empty or losing the selected active role context
 
 Schema references:
 

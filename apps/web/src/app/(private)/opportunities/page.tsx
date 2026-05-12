@@ -88,7 +88,7 @@ export default function OpportunitiesRoute() {
       token={auth.token}
       initialQuickAction={isDiscoveryQuickActionKey(focusParam) ? focusParam : null}
       initialOfferId={offerIdParam}
-      initialMode={isReviewMode(modeParam) ? modeParam : 'strict'}
+      initialMode={isReviewMode(modeParam) ? modeParam : 'approx'}
       initialHasScore={isHasScore(hasScoreParam) ? hasScoreParam : 'all'}
       initialSearch={searchParam}
       initialTag={tagParam}
