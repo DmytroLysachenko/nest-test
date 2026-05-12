@@ -496,6 +496,7 @@ export const NotebookPage = ({
             <NotebookOffersListCard
               offers={queueOffers}
               total={notebook.queueQuery.data?.total ?? 0}
+              activePipelineCount={pipelineOffers.length}
               hiddenByModeCount={notebook.queueQuery.data?.hiddenByModeCount ?? 0}
               degradedResultCount={
                 queueOffers.filter((offer) =>
@@ -523,6 +524,7 @@ export const NotebookPage = ({
                 notebook.selectedOfferIds.forEach((id) => notebook.snoozeFollowUp({ id, durationHours }))
               }
               onBulkClearFollowUp={() => notebook.selectedOfferIds.forEach((id) => notebook.clearFollowUp({ id }))}
+              onShowActivePipeline={notebook.resetNotebookFilters}
               onPageChange={(page) => notebook.setNotebookOffset((page - 1) * notebook.pagination.limit)}
               onPrev={() => notebook.setNotebookOffset(notebook.pagination.offset - notebook.pagination.limit)}
               onNext={() => notebook.setNotebookOffset(notebook.pagination.offset + notebook.pagination.limit)}

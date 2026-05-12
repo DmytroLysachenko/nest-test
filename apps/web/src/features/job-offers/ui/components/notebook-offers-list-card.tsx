@@ -19,6 +19,7 @@ import type { JobOfferListItemDto, JobOfferStatus } from '@/shared/types/api';
 type NotebookOffersListCardProps = {
   offers: JobOfferListItemDto[];
   total: number;
+  activePipelineCount: number;
   hiddenByModeCount: number;
   degradedResultCount: number;
   lastScrapeStatus: string | null;
@@ -54,6 +55,7 @@ type NotebookOffersListCardProps = {
   onBulkClearFollowUp: () => void;
   onModeChange?: (mode: 'strict' | 'approx' | 'explore') => void;
   onOpenPlanning?: () => void;
+  onShowActivePipeline?: () => void;
   onPageChange?: (page: number) => void;
   onPrev: () => void;
   onNext: () => void;
@@ -62,6 +64,7 @@ type NotebookOffersListCardProps = {
 export const NotebookOffersListCard = ({
   offers,
   total,
+  activePipelineCount,
   hiddenByModeCount,
   degradedResultCount,
   lastScrapeStatus,
@@ -85,6 +88,7 @@ export const NotebookOffersListCard = ({
   onBulkClearFollowUp,
   onModeChange,
   onOpenPlanning,
+  onShowActivePipeline,
   onPageChange,
   onPrev,
   onNext,
@@ -147,6 +151,11 @@ export const NotebookOffersListCard = ({
   };
 
   const handlePrimaryCollectionAction = () => {
+    if (activePipelineCount > 0 && onShowActivePipeline) {
+      onShowActivePipeline();
+      return;
+    }
+
     if (collectionState.nextMode && onModeChange) {
       onModeChange(collectionState.nextMode);
       return;
@@ -388,6 +397,13 @@ export const NotebookOffersListCard = ({
       )}
 
       <div className="space-y-3">
+        {!offers.length && activePipelineCount > 0 ? (
+          <WorkflowInlineNotice
+            title="Active roles still exist outside this queue slice"
+            description={`The current filters hide the maintenance queue, but ${activePipelineCount} active pipeline role${activePipelineCount === 1 ? '' : 's'} still exist in the board and selected-workspace sections.`}
+            tone="info"
+          />
+        ) : null}
         {offers.length ? (
           offers.map((offer) => (
             <article
@@ -490,12 +506,20 @@ export const NotebookOffersListCard = ({
               tone={
                 collectionState.key === 'failed' ? 'danger' : collectionState.key === 'degraded' ? 'warning' : 'info'
               }
-              actionLabel={collectionState.actionLabel}
-              onAction={handlePrimaryCollectionAction}
+              actionLabel={activePipelineCount > 0 ? 'Show active pipeline' : collectionState.actionLabel}
+              onAction={
+                activePipelineCount > 0 && onShowActivePipeline ? onShowActivePipeline : handlePrimaryCollectionAction
+              }
             />
             <WorkflowInlineNotice
-              title={collectionState.nextStepTitle}
-              description={collectionState.nextStepDescription}
+              title={
+                activePipelineCount > 0 ? 'Reset the queue before assuming work is gone' : collectionState.nextStepTitle
+              }
+              description={
+                activePipelineCount > 0
+                  ? 'Clear strict, follow-up, or attention filters to restore the active-role queue, then continue from the board or selected workspace.'
+                  : collectionState.nextStepDescription
+              }
               tone={collectionState.key === 'failed' ? 'danger' : 'info'}
             />
           </div>

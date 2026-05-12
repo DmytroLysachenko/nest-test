@@ -48,6 +48,7 @@ describe('NotebookOffersListCard', () => {
       <NotebookOffersListCard
         offers={[baseOffer]}
         total={1}
+        activePipelineCount={1}
         hiddenByModeCount={0}
         degradedResultCount={0}
         lastScrapeStatus="COMPLETED"
@@ -88,6 +89,7 @@ describe('NotebookOffersListCard', () => {
       <NotebookOffersListCard
         offers={[]}
         total={0}
+        activePipelineCount={0}
         hiddenByModeCount={2}
         degradedResultCount={0}
         lastScrapeStatus="COMPLETED"
@@ -126,6 +128,7 @@ describe('NotebookOffersListCard', () => {
       <NotebookOffersListCard
         offers={[baseOffer]}
         total={42}
+        activePipelineCount={4}
         hiddenByModeCount={0}
         degradedResultCount={0}
         lastScrapeStatus="COMPLETED"
@@ -156,5 +159,49 @@ describe('NotebookOffersListCard', () => {
 
     expect(screen.getByDisplayValue('2')).toBeInTheDocument();
     expect(screen.getByText('Showing 21-40 of 42 notebook roles')).toBeInTheDocument();
+  });
+
+  it('offers a one-click return to the active pipeline when filters empty only the queue slice', async () => {
+    const user = userEvent.setup();
+    const handleShowActivePipeline = vi.fn();
+
+    render(
+      <NotebookOffersListCard
+        offers={[]}
+        total={0}
+        activePipelineCount={3}
+        hiddenByModeCount={0}
+        degradedResultCount={0}
+        lastScrapeStatus="COMPLETED"
+        selectedId={null}
+        selectedOfferIds={[]}
+        isBusy={false}
+        offset={0}
+        limit={20}
+        canPrev={false}
+        canNext={false}
+        isAllVisibleSelected={false}
+        mode="approx"
+        onSelectOffer={vi.fn()}
+        onToggleOfferSelection={vi.fn()}
+        onSelectAllVisible={vi.fn()}
+        onClearSelected={vi.fn()}
+        onBulkStatusChange={vi.fn()}
+        onBulkFollowUpSave={vi.fn()}
+        onBulkSnooze={vi.fn()}
+        onBulkClearFollowUp={vi.fn()}
+        onModeChange={vi.fn()}
+        onOpenPlanning={vi.fn()}
+        onShowActivePipeline={handleShowActivePipeline}
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Active roles still exist outside this queue slice')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Show active pipeline' }));
+
+    expect(handleShowActivePipeline).toHaveBeenCalledTimes(1);
   });
 });

@@ -156,7 +156,7 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
       />
 
       <section className="app-tonal-section space-y-4">
-        <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
+        <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-end 2xl:justify-between">
           <div className="space-y-1">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Company context</p>
             <p className="text-text-strong text-lg font-semibold">
@@ -192,6 +192,26 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
       </section>
 
       <Card title="Recent offers" description="The latest offers linked to this company in your workspace catalog.">
+        <div className="app-open-section border-border/45 mb-4 flex flex-col gap-2 border-b pb-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Use this next</p>
+            <p className="text-text-soft mt-1 text-sm">
+              Return to role triage or your active pipeline once this employer looks worth deeper effort.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/opportunities">
+              <Button type="button" variant="secondary" size="sm">
+                Open opportunities
+              </Button>
+            </Link>
+            <Link href="/notebook">
+              <Button type="button" variant="secondary" size="sm">
+                Open notebook
+              </Button>
+            </Link>
+          </div>
+        </div>
         {company.recentOffers.length ? (
           <div className="space-y-3">
             {company.recentOffers.map((offer) => (

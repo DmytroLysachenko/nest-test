@@ -92,6 +92,7 @@ That framing should guide future implementation more than raw source count.
   - notebook pipeline surface for active kept roles
   - notebook pipeline data is now being separated from strict-fit discovery ranking so active saved roles stay visible even when discovery slices are narrow
   - notebook now keeps full pipeline truth separate from the currently filtered maintenance queue, so action-plan or follow-up filters can narrow the queue without erasing active-role visibility
+  - notebook queue empty states now include a direct “show active pipeline” recovery path when filters hide only the queue slice, reducing false impressions that kept roles disappeared
   - notebook/discovery workflow writes now use narrower cache invalidation scopes, reducing unnecessary refetch storms after save/dismiss/follow-up actions and making high-volume review loops less likely to hit workflow throttles
   - opportunities save/dismiss flows now patch the discovery queue itself and advance selection to the next visible role, so first-pass review feels immediate instead of waiting for a delayed refresh
   - discovery now uses grouped review queues while notebook uses a Kanban-first board with a full-width active-offer workspace
@@ -129,6 +130,7 @@ That framing should guide future implementation more than raw source count.
   - schedule state now distinguishes saved cadence from proven scheduled enqueue timestamps, reducing “it should have run already” ambiguity on the product route
   - planning now also exposes a user-facing catalog rematch recovery action so “scrape finished but no opportunities appeared” can be repaired without waiting for another worker run
   - automation now also surfaces recent run-level linking proof (`pending` / `completed` / `deferred` / `skipped`) with candidate, matched, and linked counts, so users can tell whether a scrape merely ran or actually delivered visible opportunities
+  - planning and company-research routes now keep their secondary navigation and pagination controls usable on narrower layouts instead of assuming early desktop two-column space
   - enqueue responses and notebook-adjacent job-source UX now expose explicit reuse diagnostics when catalog rematch or DB reuse is skipped because fresh-candidate minimums were not met
   - scrape ingestion now persists per-run source observations and raw payload ledgers alongside the canonical offer row
   - scrape callbacks now preserve structured offer details end-to-end so catalog rematch and matching can use parsed technologies, requirements, position levels, work modes, contract types, apply links, and company profile URLs
