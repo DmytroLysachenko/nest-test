@@ -205,7 +205,7 @@ export const OpportunitiesListCard = ({
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(220px,0.7fr)_minmax(180px,0.45fr)]">
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(220px,0.7fr)_minmax(180px,0.45fr)]">
             <div className="app-field-group">
               <Label htmlFor="opportunity-search" className="app-inline-label">
                 Search
@@ -228,7 +228,7 @@ export const OpportunitiesListCard = ({
                 onChange={(event) => onTagChange(event.target.value)}
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 2xl:contents">
               <div className="app-field-group">
                 <Label htmlFor="opportunity-mode" className="app-inline-label">
                   Review mode

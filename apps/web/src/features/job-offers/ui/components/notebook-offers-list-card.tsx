@@ -18,6 +18,7 @@ import type { JobOfferListItemDto, JobOfferStatus } from '@/shared/types/api';
 
 type NotebookOffersListCardProps = {
   offers: JobOfferListItemDto[];
+  total: number;
   hiddenByModeCount: number;
   degradedResultCount: number;
   lastScrapeStatus: string | null;
@@ -25,6 +26,7 @@ type NotebookOffersListCardProps = {
   selectedOfferIds: string[];
   isBusy: boolean;
   offset: number;
+  limit: number;
   canPrev: boolean;
   canNext: boolean;
   isAllVisibleSelected: boolean;
@@ -52,12 +54,14 @@ type NotebookOffersListCardProps = {
   onBulkClearFollowUp: () => void;
   onModeChange?: (mode: 'strict' | 'approx' | 'explore') => void;
   onOpenPlanning?: () => void;
+  onPageChange?: (page: number) => void;
   onPrev: () => void;
   onNext: () => void;
 };
 
 export const NotebookOffersListCard = ({
   offers,
+  total,
   hiddenByModeCount,
   degradedResultCount,
   lastScrapeStatus,
@@ -65,6 +69,7 @@ export const NotebookOffersListCard = ({
   selectedOfferIds,
   isBusy,
   offset,
+  limit,
   canPrev,
   canNext,
   isAllVisibleSelected,
@@ -80,6 +85,7 @@ export const NotebookOffersListCard = ({
   onBulkClearFollowUp,
   onModeChange,
   onOpenPlanning,
+  onPageChange,
   onPrev,
   onNext,
 }: NotebookOffersListCardProps) => {
@@ -114,6 +120,10 @@ export const NotebookOffersListCard = ({
     degradedResultCount,
     lastScrapeStatus,
   });
+  const currentPage = total === 0 ? 0 : Math.floor(offset / limit) + 1;
+  const totalPages = total === 0 ? 0 : Math.max(1, Math.ceil(total / limit));
+  const startItem = total === 0 ? 0 : offset + 1;
+  const endItem = Math.min(offset + limit, total);
 
   useEffect(() => {
     if (!selectedOfferIds.length) {
@@ -492,15 +502,41 @@ export const NotebookOffersListCard = ({
         )}
       </div>
 
-      <div className="mt-5 flex items-center justify-between">
-        <Button type="button" variant="secondary" disabled={!canPrev} onClick={onPrev}>
-          Previous
-        </Button>
-        <p className="text-muted-foreground text-xs">Showing roles from {offset + 1}</p>
-        <Button type="button" variant="secondary" disabled={!canNext} onClick={onNext}>
-          Next
-        </Button>
-      </div>
+      <section className="border-border/40 mt-5 flex flex-col gap-3 border-t pt-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-muted-foreground text-xs">
+            Page {currentPage || 1}
+            {totalPages ? ` of ${totalPages}` : ''}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            Showing {startItem}-{endItem} of {total} notebook roles
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="secondary" disabled={!canPrev} onClick={onPrev}>
+            Previous
+          </Button>
+          {onPageChange ? (
+            <>
+              <Label htmlFor="notebook-page" className="sr-only">
+                Page number
+              </Label>
+              <Input
+                id="notebook-page"
+                type="number"
+                min={1}
+                max={Math.max(totalPages, 1)}
+                value={currentPage || 1}
+                className="h-9 w-20 text-center"
+                onChange={(event) => onPageChange(Math.max(1, Number(event.target.value) || 1))}
+              />
+            </>
+          ) : null}
+          <Button type="button" variant="secondary" disabled={!canNext} onClick={onNext}>
+            Next
+          </Button>
+        </div>
+      </section>
     </Card>
   );
 };

@@ -47,6 +47,7 @@ describe('NotebookOffersListCard', () => {
     render(
       <NotebookOffersListCard
         offers={[baseOffer]}
+        total={1}
         hiddenByModeCount={0}
         degradedResultCount={0}
         lastScrapeStatus="COMPLETED"
@@ -54,6 +55,7 @@ describe('NotebookOffersListCard', () => {
         selectedOfferIds={['offer-1']}
         isBusy={false}
         offset={0}
+        limit={20}
         canPrev={false}
         canNext={false}
         isAllVisibleSelected={false}
@@ -85,6 +87,7 @@ describe('NotebookOffersListCard', () => {
     render(
       <NotebookOffersListCard
         offers={[]}
+        total={0}
         hiddenByModeCount={2}
         degradedResultCount={0}
         lastScrapeStatus="COMPLETED"
@@ -92,6 +95,7 @@ describe('NotebookOffersListCard', () => {
         selectedOfferIds={[]}
         isBusy={false}
         offset={0}
+        limit={20}
         canPrev={false}
         canNext={false}
         isAllVisibleSelected={false}
@@ -113,5 +117,44 @@ describe('NotebookOffersListCard', () => {
 
     expect(screen.getByText('Strong leads exist, but strict mode is hiding them')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Switch to approx' })).toBeInTheDocument();
+  });
+
+  it('shows an explicit page input and range summary for the filtered queue', () => {
+    const handlePageChange = vi.fn();
+
+    render(
+      <NotebookOffersListCard
+        offers={[baseOffer]}
+        total={42}
+        hiddenByModeCount={0}
+        degradedResultCount={0}
+        lastScrapeStatus="COMPLETED"
+        selectedId={null}
+        selectedOfferIds={[]}
+        isBusy={false}
+        offset={20}
+        limit={20}
+        canPrev
+        canNext
+        isAllVisibleSelected={false}
+        mode="approx"
+        onSelectOffer={vi.fn()}
+        onToggleOfferSelection={vi.fn()}
+        onSelectAllVisible={vi.fn()}
+        onClearSelected={vi.fn()}
+        onBulkStatusChange={vi.fn()}
+        onBulkFollowUpSave={vi.fn()}
+        onBulkSnooze={vi.fn()}
+        onBulkClearFollowUp={vi.fn()}
+        onModeChange={vi.fn()}
+        onOpenPlanning={vi.fn()}
+        onPageChange={handlePageChange}
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByDisplayValue('2')).toBeInTheDocument();
+    expect(screen.getByText('Showing 21-40 of 42 notebook roles')).toBeInTheDocument();
   });
 });

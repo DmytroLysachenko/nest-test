@@ -198,9 +198,14 @@ export const NotebookPage = ({
         title="Keep active roles moving"
         subtitle="Track follow-ups, notes, prep work, and status changes for the jobs you decided to pursue."
         action={
-          <Link href="/opportunities">
-            <Button variant="secondary">Review new roles</Button>
-          </Link>
+          <>
+            <Link href="/opportunities">
+              <Button variant="secondary">Review new roles</Button>
+            </Link>
+            <Link href="/planning">
+              <Button variant="secondary">Open planning</Button>
+            </Link>
+          </>
         }
       />
 
@@ -244,7 +249,7 @@ export const NotebookPage = ({
         <UtilityRail
           title="Keep notebook singular"
           description="This route owns active application work only."
-          className="xl:sticky xl:top-24"
+          className="2xl:sticky 2xl:top-24"
         >
           <div className="space-y-3 text-sm">
             <div className="border-border/60 border-b pb-3">
@@ -270,7 +275,7 @@ export const NotebookPage = ({
       </section>
 
       {reminderBuckets.length ? (
-        <section className="grid gap-3 xl:grid-cols-2">
+        <section className="grid gap-3 2xl:grid-cols-2">
           {reminderBuckets.map((bucket) => (
             <section key={bucket.key} className="app-tonal-section space-y-3">
               <div className="flex items-start justify-between gap-3">
@@ -339,7 +344,7 @@ export const NotebookPage = ({
       ) : null}
 
       {stalePipelineOffers.length || missingNextStepOffers.length ? (
-        <section className="grid gap-3 xl:grid-cols-2">
+        <section className="grid gap-3 2xl:grid-cols-2">
           {stalePipelineOffers.length ? (
             <NotebookSignalPanel
               icon={<Clock3 className="text-app-warning h-4 w-4" />}
@@ -487,9 +492,10 @@ export const NotebookPage = ({
             onSelectOffer={notebook.setNotebookSelectedOffer}
             onUpdateStatus={notebook.updateStatus}
           />
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] xl:items-start">
+          <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] 2xl:items-start">
             <NotebookOffersListCard
               offers={queueOffers}
+              total={notebook.queueQuery.data?.total ?? 0}
               hiddenByModeCount={notebook.queueQuery.data?.hiddenByModeCount ?? 0}
               degradedResultCount={
                 queueOffers.filter((offer) =>
@@ -501,6 +507,7 @@ export const NotebookPage = ({
               selectedOfferIds={notebook.selectedOfferIds}
               isBusy={notebook.isBusy}
               offset={notebook.pagination.offset}
+              limit={notebook.pagination.limit}
               canPrev={notebook.canPrev}
               canNext={notebook.canNext}
               isAllVisibleSelected={notebook.isAllVisibleSelected}
@@ -516,10 +523,11 @@ export const NotebookPage = ({
                 notebook.selectedOfferIds.forEach((id) => notebook.snoozeFollowUp({ id, durationHours }))
               }
               onBulkClearFollowUp={() => notebook.selectedOfferIds.forEach((id) => notebook.clearFollowUp({ id }))}
+              onPageChange={(page) => notebook.setNotebookOffset((page - 1) * notebook.pagination.limit)}
               onPrev={() => notebook.setNotebookOffset(notebook.pagination.offset - notebook.pagination.limit)}
               onNext={() => notebook.setNotebookOffset(notebook.pagination.offset + notebook.pagination.limit)}
             />
-            <section ref={mobileWorkspaceRef} className="space-y-3 xl:sticky xl:top-24">
+            <section ref={mobileWorkspaceRef} className="space-y-3 2xl:sticky 2xl:top-24">
               <div className="app-open-section border-border/45 border-b pb-3">
                 <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Selected offer workspace</p>
                 <p className="text-text-soft mt-1 text-sm">

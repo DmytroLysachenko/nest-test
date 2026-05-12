@@ -219,7 +219,7 @@ export const NotebookPipelineCard = ({
         <span className="app-badge">{upcomingCount} upcoming</span>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 2xl:grid-cols-4">
         <PipelineColumn
           title="Saved"
           subtitle="Roles you want to keep, but still need a decision, follow-up plan, or first outbound move."

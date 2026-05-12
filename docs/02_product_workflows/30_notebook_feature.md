@@ -87,6 +87,7 @@ Current workflow-facing additions:
   - a full active-pipeline dataset used by the board, reminders, signal panels, and selected-offer workspace
   - a filtered queue dataset used for the current maintenance slice, bulk edits, and queue pagination
 - quick-action and follow-up filters are therefore allowed to empty the queue slice without making the whole notebook appear empty or losing the selected active role context
+- notebook board and selected-offer workspace now avoid sticky two-column compression until ultra-wide layouts, so laptop-width use keeps the route readable without hiding navigation or squeezing action controls
 
 Schema references:
 

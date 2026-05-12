@@ -192,6 +192,8 @@ That framing should guide future implementation more than raw source count.
   - document technical diagnostics are now hidden by default on end-user routes and can be surfaced only when a route explicitly opts into technical detail
   - notebook refresh controls and profile search-summary copy now use product-facing language around fresh matches and profile direction instead of sourcing/indexing terminology
   - app shell chrome, dashboard, planning, and profile pages now use a lighter hierarchy with fewer nested utility cards, and the remaining advanced diagnostics stay on admin/tester surfaces instead of normal user routes
+  - app shell now exposes a compact horizontal route strip below the header on non-sidebar widths, which reduces navigation friction when users work on laptop/tablet breakpoints
+  - shared number inputs now render without native spinner arrows, which keeps pagination and workflow controls visually cleaner across the app
   - the information-architecture and workflow-ownership cleanup is now implemented across home, planning, opportunities, notebook, progress, and profile
   - progress now acts as a momentum/history surface instead of a second dashboard-style orientation page
   - profile avoids acting like a general recovery hub, while notebook controls are explicitly pipeline-only and route loading states describe discovery vs active-work purpose instead of generic readiness checks
