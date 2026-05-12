@@ -384,6 +384,11 @@ export type JobSourceRunDto = {
   failureType?: 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown' | null;
   silentFailure?: boolean;
   usefulOfferCount?: number;
+  matchingState?: 'pending' | 'completed' | 'skipped' | 'deferred' | null;
+  matchingUpdatedAt?: string | null;
+  candidateOffers?: number;
+  matchedOffers?: number;
+  linkedNotebookOffers?: number;
   story?: {
     phase: 'completed' | 'partial' | 'blocked' | 'empty' | 'failed' | 'running' | 'queued';
     summary: string;

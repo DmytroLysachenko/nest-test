@@ -225,6 +225,15 @@ Preferred recovery order when catalog rows exist but user workflow is still empt
 - admin `POST /api/ops/catalog/rematch/users/:id`
 - only then another worker scrape if rematch also returns empty
 
+For end-user verification, prefer the automation route's recent run evidence over guessing from schedule timestamps alone:
+
+- `matchingState`
+- candidate count
+- matched count
+- linked-to-workflow count
+
+If a run is `COMPLETED` but `matchingState = deferred`, treat that as a notebook-link recovery issue, not as proof that scraping itself failed.
+
 ### 5. Frontend Auth and Route Bootstrap
 
 Frequent traps:

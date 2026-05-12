@@ -7,6 +7,7 @@ import { useJobSourcesPanel } from '@/features/job-sources/model/hooks/use-job-s
 import {
   getAutomationLastUpdateSummary,
   getAutomationPresetSummary,
+  getRunMatchingPresentation,
   getScheduleEventPresentation,
 } from '@/shared/lib/presentation/job-search-ui';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
@@ -35,6 +36,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
   } = jobSourcesPanel.scheduleForm;
   const preflight = jobSourcesPanel.preflightQuery.data;
   const scheduleEvents = jobSourcesPanel.scheduleEvents ?? [];
+  const recentRuns = jobSourcesPanel.recentRuns ?? [];
   const now = Date.now();
   const nextRunAtValue = jobSourcesPanel.scheduleResult?.nextRunAt
     ? new Date(jobSourcesPanel.scheduleResult.nextRunAt).getTime()
@@ -258,6 +260,75 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           >
             {jobSourcesPanel.isRepairingCatalog ? 'Rebuilding...' : 'Rebuild opportunities'}
           </Button>
+        </div>
+      </div>
+
+      <div className="border-border/55 bg-surface-elevated/82 mt-5 rounded-[1.25rem] border px-4 py-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-1">
+            <p className="text-text-strong text-sm font-semibold">Recent update results</p>
+            <p className="text-text-soft text-sm leading-6">
+              This proves whether a scrape only ran, or also reached your workflow as visible opportunities.
+            </p>
+          </div>
+          {recentRuns.some((run) => run.matchingState === 'deferred') ? (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={disabled || jobSourcesPanel.isRepairingCatalog}
+              onClick={() => jobSourcesPanel.rematchNow()}
+            >
+              {jobSourcesPanel.isRepairingCatalog ? 'Rebuilding...' : 'Repair deferred linking'}
+            </Button>
+          ) : null}
+        </div>
+        <div className="mt-4 space-y-3">
+          {recentRuns.length ? (
+            recentRuns.map((run) => {
+              const matching = getRunMatchingPresentation(run);
+              const toneClass =
+                matching.tone === 'positive'
+                  ? 'border-app-success-border bg-app-success-soft'
+                  : matching.tone === 'warning'
+                    ? 'border-app-warning-border bg-app-warning-soft'
+                    : 'border-border/60 bg-surface/70';
+
+              return (
+                <div key={run.id} className={`rounded-[1.2rem] border px-4 py-3 ${toneClass}`}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="text-text-strong text-sm font-semibold">{matching.label}</p>
+                      <p className="text-text-soft text-sm">{matching.summary}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-text-strong text-xs font-semibold uppercase tracking-[0.16em]">{run.status}</p>
+                      <p className="text-text-soft mt-1 text-xs">{formatDateTime(run.finalizedAt ?? run.createdAt)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <div className="app-muted-panel">
+                      <p className="text-text-soft text-[11px] uppercase tracking-[0.16em]">Candidates</p>
+                      <p className="text-text-strong mt-2 text-base font-semibold">{run.candidateOffers ?? 0}</p>
+                    </div>
+                    <div className="app-muted-panel">
+                      <p className="text-text-soft text-[11px] uppercase tracking-[0.16em]">Matched</p>
+                      <p className="text-text-strong mt-2 text-base font-semibold">{run.matchedOffers ?? 0}</p>
+                    </div>
+                    <div className="app-muted-panel">
+                      <p className="text-text-soft text-[11px] uppercase tracking-[0.16em]">Linked to workflow</p>
+                      <p className="text-text-strong mt-2 text-base font-semibold">{run.linkedNotebookOffers ?? 0}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <WorkflowInlineNotice
+              title="No recent user-visible run evidence yet"
+              description="Run one manual update to create the first scrape, matching, and workflow delivery trail."
+              tone="info"
+            />
+          )}
         </div>
       </div>
 

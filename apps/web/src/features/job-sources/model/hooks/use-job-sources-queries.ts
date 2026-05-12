@@ -6,12 +6,18 @@ import {
   getScrapePreflight,
   getScrapeSchedule,
   getScrapeScheduleEvents,
+  listJobSourceRuns,
 } from '@/features/job-sources/api/job-sources-api';
 import { buildAuthedQueryOptions } from '@/shared/lib/query/authed-query-options';
 import { mutableQueryPreset } from '@/shared/lib/query/query-option-presets';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 
-import type { ScrapePreflightDto, ScrapeScheduleDto, ScrapeScheduleEventsDto } from '@/shared/types/api';
+import type {
+  JobSourceRunsListDto,
+  ScrapePreflightDto,
+  ScrapeScheduleDto,
+  ScrapeScheduleEventsDto,
+} from '@/shared/types/api';
 
 type ScrapePreflightParams = {
   source?: 'pracuj-pl' | 'pracuj-pl-it' | 'pracuj-pl-general';
@@ -50,6 +56,7 @@ const shouldPollSchedule = (schedule: ScrapeScheduleDto | undefined) => {
 
 export const useJobSourcesQueries = (token: string, preflightParams?: ScrapePreflightParams) => {
   const scheduleEventsLimit = 6;
+  const recentRunsLimit = 4;
   const scheduleQuery = useQuery(
     buildAuthedQueryOptions<ScrapeScheduleDto>({
       token,
@@ -81,9 +88,28 @@ export const useJobSourcesQueries = (token: string, preflightParams?: ScrapePref
     }),
   );
 
+  const recentRunsQuery = useQuery(
+    buildAuthedQueryOptions<JobSourceRunsListDto>({
+      token,
+      queryKey: queryKeys.jobSources.runs(token, {
+        limit: recentRunsLimit,
+        windowHours: 168,
+        includeRetried: false,
+      }),
+      queryFn: (authToken) =>
+        listJobSourceRuns(authToken, {
+          limit: recentRunsLimit,
+          windowHours: 168,
+          includeRetried: false,
+        }),
+      ...mutableQueryPreset(),
+    }),
+  );
+
   return {
     scheduleQuery,
     scheduleEventsQuery,
     preflightQuery,
+    recentRunsQuery,
   };
 };

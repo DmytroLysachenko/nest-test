@@ -1,4 +1,4 @@
-import type { ScrapeScheduleEventDto } from '@/shared/types/api';
+import type { JobSourceRunDto, ScrapeScheduleEventDto } from '@/shared/types/api';
 
 export const formatCountLabel = (count: number, singular: string, plural = `${singular}s`) =>
   `${count} ${count === 1 ? singular : plural}`;
@@ -106,4 +106,52 @@ export const getScheduleEventPresentation = (event: ScrapeScheduleEventDto) => {
         summary: event.message,
       };
   }
+};
+
+export const getRunMatchingPresentation = (run: JobSourceRunDto) => {
+  if (run.matchingState === 'deferred') {
+    return {
+      tone: 'warning' as const,
+      label: 'Catalog saved, workflow rebuild needed',
+      summary: 'Offers were persisted, but notebook linking was deferred. Use rebuild if opportunities stayed empty.',
+    };
+  }
+
+  if (run.matchingState === 'pending') {
+    return {
+      tone: 'warning' as const,
+      label: 'Catalog saved, linking still running',
+      summary: 'Shared catalog rows are there. Matching is still finishing before notebook visibility settles.',
+    };
+  }
+
+  if (run.matchingState === 'completed' && (run.linkedNotebookOffers ?? 0) > 0) {
+    return {
+      tone: 'positive' as const,
+      label: 'Opportunities delivered',
+      summary: `${run.linkedNotebookOffers} linked to your workflow from ${run.matchedOffers ?? 0} matched candidates.`,
+    };
+  }
+
+  if (run.matchingState === 'completed') {
+    return {
+      tone: 'neutral' as const,
+      label: 'No new opportunities linked',
+      summary: 'The run finalized cleanly, but nothing new was inserted into your workflow.',
+    };
+  }
+
+  if (run.matchingState === 'skipped') {
+    return {
+      tone: 'warning' as const,
+      label: 'Linking skipped',
+      summary: 'The scrape finished, but user/profile context was missing for notebook delivery.',
+    };
+  }
+
+  return {
+    tone: 'neutral' as const,
+    label: 'Linking state unavailable',
+    summary: 'Use the run status and schedule evidence as the current trust signals.',
+  };
 };

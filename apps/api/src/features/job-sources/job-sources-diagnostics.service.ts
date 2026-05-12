@@ -66,9 +66,35 @@ export class JobSourcesDiagnosticsService {
         ...item,
         finalizedAt: item.finalizedAt ?? item.completedAt,
         failureType: toRunFailureType(item.failureType as string) ?? deriveFailureType(item.error),
+        matchingState: this.readProgressString(item.progress, 'matchingState'),
+        matchingUpdatedAt: this.readProgressString(item.progress, 'matchingUpdatedAt'),
+        candidateOffers: this.readProgressNumber(item.progress, 'candidateOffers'),
+        matchedOffers: this.readProgressNumber(item.progress, 'matchedOffers'),
+        linkedNotebookOffers: this.readProgressNumber(item.progress, 'userInsertedOffers'),
       })),
       total: Number(total ?? 0),
     };
+  }
+
+  private readProgressRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  }
+
+  private readProgressString(value: unknown, key: string) {
+    const raw = this.readProgressRecord(value)[key];
+    return typeof raw === 'string' ? normalizeString(raw) : null;
+  }
+
+  private readProgressNumber(value: unknown, key: string) {
+    const raw = this.readProgressRecord(value)[key];
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      return raw;
+    }
+    if (typeof raw === 'string') {
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
   }
 
   async getRunDiagnostics(userId: string, runId: string) {

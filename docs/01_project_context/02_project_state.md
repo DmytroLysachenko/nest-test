@@ -127,6 +127,7 @@ That framing should guide future implementation more than raw source count.
   - planning automation now surfaces recent schedule enqueue evidence directly from persisted schedule events so cadence trust can be checked without opening admin tooling
   - schedule state now distinguishes saved cadence from proven scheduled enqueue timestamps, reducing “it should have run already” ambiguity on the product route
   - planning now also exposes a user-facing catalog rematch recovery action so “scrape finished but no opportunities appeared” can be repaired without waiting for another worker run
+  - automation now also surfaces recent run-level linking proof (`pending` / `completed` / `deferred` / `skipped`) with candidate, matched, and linked counts, so users can tell whether a scrape merely ran or actually delivered visible opportunities
   - enqueue responses and notebook-adjacent job-source UX now expose explicit reuse diagnostics when catalog rematch or DB reuse is skipped because fresh-candidate minimums were not met
   - scrape ingestion now persists per-run source observations and raw payload ledgers alongside the canonical offer row
   - scrape callbacks now preserve structured offer details end-to-end so catalog rematch and matching can use parsed technologies, requirements, position levels, work modes, contract types, apply links, and company profile URLs
