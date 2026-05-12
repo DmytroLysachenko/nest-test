@@ -17,6 +17,33 @@ import { queryKeys } from '@/shared/lib/query/query-keys';
 import type { JobOfferSummaryDto, ScrapeScheduleDto } from '@/shared/types/api';
 
 const ACTIVE_DASHBOARD_POLL_INTERVAL_MS = Math.max(env.NEXT_PUBLIC_QUERY_DIAGNOSTICS_REFETCH_MS, 60_000);
+const SCHEDULE_TRUST_WINDOW_MS = 90 * 60 * 1000;
+
+const shouldRefetchSchedule = (schedule: ScrapeScheduleDto | undefined) => {
+  if (!schedule?.enabled) {
+    return false;
+  }
+
+  if (schedule.lastRunStatus === 'PENDING' || schedule.lastRunStatus === 'RUNNING') {
+    return true;
+  }
+
+  const now = Date.now();
+  const nextRunAtMs = schedule.nextRunAt ? new Date(schedule.nextRunAt).getTime() : null;
+  const lastSuccessMs = schedule.lastSuccessfulScheduledAt
+    ? new Date(schedule.lastSuccessfulScheduledAt).getTime()
+    : null;
+
+  if (typeof nextRunAtMs === 'number' && nextRunAtMs - now <= SCHEDULE_TRUST_WINDOW_MS) {
+    return true;
+  }
+
+  if (typeof nextRunAtMs === 'number' && now > nextRunAtMs && (!lastSuccessMs || lastSuccessMs < nextRunAtMs)) {
+    return true;
+  }
+
+  return !lastSuccessMs;
+};
 
 export const usePrivateNotebookSummaryQuery = (token: string | null, initialData?: JobOfferSummaryDto | null) => {
   const query = useQuery(
@@ -48,8 +75,7 @@ export const usePrivateScrapeScheduleQuery = (token: string | null, initialData?
           return false;
         }
         const schedule = current.state.data as ScrapeScheduleDto | undefined;
-        const status = schedule?.lastRunStatus;
-        return status === 'PENDING' || status === 'RUNNING' ? ACTIVE_DASHBOARD_POLL_INTERVAL_MS : false;
+        return shouldRefetchSchedule(schedule) ? ACTIVE_DASHBOARD_POLL_INTERVAL_MS : false;
       },
     }),
   );

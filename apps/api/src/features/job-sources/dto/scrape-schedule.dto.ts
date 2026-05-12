@@ -157,6 +157,15 @@ export class ScrapeScheduleResponseDto {
 
   @ApiPropertyOptional()
   lastRunStatus!: string | null;
+
+  @ApiPropertyOptional()
+  lastSuccessfulScheduledAt!: string | null;
+
+  @ApiPropertyOptional()
+  lastSuccessfulScheduledRunId!: string | null;
+
+  @ApiPropertyOptional()
+  lastFailedScheduledAt!: string | null;
 }
 
 export class ScrapePreflightResponseDto {

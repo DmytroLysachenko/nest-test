@@ -45,11 +45,14 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
   const scheduleIsDue = typeof nextRunAtValue === 'number' && nextRunAtValue <= now;
   const lastScheduleFailure = scheduleEvents.find((event) => event.severity === 'error');
   const lastScheduleSuccess = scheduleEvents.find((event) => event.eventType === 'schedule_enqueue_succeeded');
+  const provenScheduledAt = jobSourcesPanel.scheduleResult?.lastSuccessfulScheduledAt;
   const trustEvidenceLabel = lastScheduleSuccess
     ? `Last proven enqueue ${formatDateTime(lastScheduleSuccess.createdAt)}`
-    : typeof lastTriggeredAtValue === 'number'
-      ? `Last automatic trigger recorded ${formatDateTime(jobSourcesPanel.scheduleResult?.lastTriggeredAt)}`
-      : 'No successful scheduled enqueue recorded yet';
+    : provenScheduledAt
+      ? `Last proven scheduled enqueue ${formatDateTime(provenScheduledAt)}`
+      : typeof lastTriggeredAtValue === 'number'
+        ? `Last automatic trigger recorded ${formatDateTime(jobSourcesPanel.scheduleResult?.lastTriggeredAt)}`
+        : 'No successful scheduled enqueue recorded yet';
 
   const scheduleStory = !jobSourcesPanel.scheduleResult?.enabled
     ? {
@@ -64,7 +67,7 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
           description:
             'The last automatic update did not finish cleanly. Check your setup and try another refresh when you are ready.',
         }
-      : typeof lastTriggeredAtValue !== 'number' && !lastScheduleSuccess
+      : typeof lastTriggeredAtValue !== 'number' && !lastScheduleSuccess && !provenScheduledAt
         ? {
             tone: 'warning' as const,
             title: 'Automatic updates are on but not proven yet',
@@ -347,7 +350,10 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
               {getAutomationLastUpdateSummary(jobSourcesPanel.scheduleResult?.lastRunStatus)}
             </p>
             <p className="text-text-soft mt-1 text-xs">
-              {formatDateTime(jobSourcesPanel.scheduleResult?.lastTriggeredAt)}
+              {formatDateTime(
+                jobSourcesPanel.scheduleResult?.lastSuccessfulScheduledAt ??
+                  jobSourcesPanel.scheduleResult?.lastTriggeredAt,
+              )}
             </p>
           </div>
           <div className="app-muted-panel">

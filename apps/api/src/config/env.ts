@@ -54,6 +54,8 @@ export const EnvSchema = z.object({
   API_READ_THROTTLE_LIMIT: z.coerce.number().int().min(5).max(1000).default(120),
   API_WRITE_THROTTLE_TTL_MS: z.coerce.number().int().min(1000).max(600000).default(60000),
   API_WRITE_THROTTLE_LIMIT: z.coerce.number().int().min(5).max(1000).default(60),
+  API_WORKFLOW_THROTTLE_TTL_MS: z.coerce.number().int().min(1000).max(600000).default(60000),
+  API_WORKFLOW_THROTTLE_LIMIT: z.coerce.number().int().min(10).max(2000).default(180),
   API_AUTH_THROTTLE_TTL_MS: z.coerce.number().int().min(1000).max(600000).default(60000),
   API_AUTH_THROTTLE_LIMIT: z.coerce.number().int().min(1).max(200).default(10),
   API_SENSITIVE_THROTTLE_TTL_MS: z.coerce.number().int().min(1000).max(600000).default(60000),

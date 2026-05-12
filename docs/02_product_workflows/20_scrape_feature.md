@@ -1,6 +1,6 @@
 # Scrape Feature
 
-Last updated: 2026-04-11
+Last updated: 2026-05-12
 
 ## Purpose
 
@@ -76,6 +76,12 @@ Schema references:
 Representative endpoints include `/api/job-sources/preflight`, `/api/job-sources/schedule`, `/api/job-sources/schedule/trigger-now`, and `/api/job-sources/runs/:id/events`.
 
 Internal worker delivery endpoints also include `/api/job-sources/runs/:id/heartbeat`, `/api/job-sources/runs/:id/offers`, and `/api/job-sources/complete`.
+
+Current schedule-trust additions:
+
+- schedule responses now distinguish the saved schedule itself from proven scheduled enqueue evidence
+- `/api/job-sources/schedule` now also carries the latest successful scheduled enqueue timestamp and run id
+- planning/query polling should treat “next window passed with no later successful scheduled enqueue” as unresolved trust, not as silent success
 
 Current enqueue contract direction:
 

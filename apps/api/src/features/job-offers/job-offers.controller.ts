@@ -19,7 +19,7 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@/common/guards';
 import { Public } from '@/common/decorators';
-import { SensitiveRateLimit } from '@/common/rate-limits/rate-limit-groups';
+import { SensitiveRateLimit, WorkflowRateLimit } from '@/common/rate-limits/rate-limit-groups';
 import { JwtValidateUser } from '@/types/interface/jwt';
 
 import { JobOffersService } from './job-offers.service';
@@ -165,18 +165,21 @@ export class JobOffersController {
 
   @Post('dismiss-all-seen')
   @ApiOperation({ summary: 'Mark all job offers with status SEEN as DISMISSED' })
+  @WorkflowRateLimit()
   async dismissAllSeen(@CurrentUser() user: JwtValidateUser) {
     return this.jobOffersService.dismissAllSeen(user.userId);
   }
 
   @Post('auto-archive')
   @ApiOperation({ summary: 'Automatically archive old non-triaged offers' })
+  @WorkflowRateLimit()
   async autoArchive(@CurrentUser() user: JwtValidateUser) {
     return this.jobOffersService.autoArchiveOldOffers(user.userId);
   }
 
   @Patch(':id/status')
   @ApiOperation({ summary: 'Update job offer status (seen/saved/applied/interviewing/offer/rejected/dismissed)' })
+  @WorkflowRateLimit()
   async updateStatus(
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -187,6 +190,7 @@ export class JobOffersController {
 
   @Patch(':id/meta')
   @ApiOperation({ summary: 'Update job offer notes/tags' })
+  @WorkflowRateLimit()
   async updateMeta(
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -197,6 +201,7 @@ export class JobOffersController {
 
   @Patch(':id/feedback')
   @ApiOperation({ summary: 'Update user feedback for AI match' })
+  @WorkflowRateLimit()
   async updateFeedback(
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -207,6 +212,7 @@ export class JobOffersController {
 
   @Patch(':id/pipeline')
   @ApiOperation({ summary: 'Update application pipeline metadata' })
+  @WorkflowRateLimit()
   async updatePipelineMeta(
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -217,18 +223,21 @@ export class JobOffersController {
 
   @Post('pipeline/bulk-follow-up')
   @ApiOperation({ summary: 'Bulk update follow-up metadata for selected offers' })
+  @WorkflowRateLimit()
   async bulkUpdateFollowUp(@CurrentUser() user: JwtValidateUser, @Body() dto: BulkUpdateJobOfferFollowUpDto) {
     return this.jobOffersService.bulkUpdateFollowUp(user.userId, dto);
   }
 
   @Post('pipeline/bulk-workflow')
   @ApiOperation({ summary: 'Bulk update workflow metadata for selected offers' })
+  @WorkflowRateLimit()
   async bulkUpdateWorkflow(@CurrentUser() user: JwtValidateUser, @Body() dto: BulkUpdateJobOfferWorkflowDto) {
     return this.jobOffersService.bulkUpdateWorkflow(user.userId, dto);
   }
 
   @Post(':id/follow-up/complete')
   @ApiOperation({ summary: 'Mark current follow-up as completed' })
+  @WorkflowRateLimit()
   async completeFollowUp(
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -239,6 +248,7 @@ export class JobOffersController {
 
   @Post(':id/follow-up/snooze')
   @ApiOperation({ summary: 'Snooze the current follow-up' })
+  @WorkflowRateLimit()
   async snoozeFollowUp(
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
@@ -249,6 +259,7 @@ export class JobOffersController {
 
   @Post(':id/follow-up/clear')
   @ApiOperation({ summary: 'Clear follow-up scheduling and next-step fields' })
+  @WorkflowRateLimit()
   async clearFollowUp(
     @CurrentUser() user: JwtValidateUser,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,

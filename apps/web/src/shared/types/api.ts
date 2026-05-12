@@ -697,6 +697,9 @@ export type ScrapeScheduleDto = {
   lastTriggeredAt: string | null;
   nextRunAt: string | null;
   lastRunStatus: string | null;
+  lastSuccessfulScheduledAt: string | null;
+  lastSuccessfulScheduledRunId: string | null;
+  lastFailedScheduledAt: string | null;
 };
 
 export type ScrapeScheduleEventDto = {

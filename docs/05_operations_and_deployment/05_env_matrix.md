@@ -2,7 +2,7 @@
 
 Canonical environment-variable inventory for local development, GitHub Actions CI/CD, and Cloud Run runtime.
 
-Last updated: 2026-05-06
+Last updated: 2026-05-12
 
 ## Rules
 
@@ -71,6 +71,7 @@ Last updated: 2026-05-06
 | `DISK_HEALTH_THRESHOLD` | optional | optional | no | Cloud Run env | default `0.98` |
 | `API_READ_THROTTLE_*` | optional | optional | no | Cloud Run env | default/read API throttle tuning |
 | `API_WRITE_THROTTLE_*` | optional | optional | no | Cloud Run env | write API throttle tuning |
+| `API_WORKFLOW_THROTTLE_*` | optional | optional | no | Cloud Run env | high-frequency notebook/opportunity workflow action throttle tuning |
 | `API_AUTH_THROTTLE_*` | optional | optional | no | Cloud Run env | auth API throttle tuning |
 | `API_SENSITIVE_THROTTLE_*` | optional | optional | no | Cloud Run env | expensive API throttle tuning |
 | `SCRAPE_*` | optional | optional | no | Cloud Run env | scrape lifecycle tuning |
@@ -167,6 +168,8 @@ Last updated: 2026-05-06
   - `API_READ_THROTTLE_LIMIT`
   - `API_WRITE_THROTTLE_TTL_MS`
   - `API_WRITE_THROTTLE_LIMIT`
+  - `API_WORKFLOW_THROTTLE_TTL_MS`
+  - `API_WORKFLOW_THROTTLE_LIMIT`
   - `API_AUTH_THROTTLE_TTL_MS`
   - `API_AUTH_THROTTLE_LIMIT`
   - `API_SENSITIVE_THROTTLE_TTL_MS`
@@ -203,6 +206,21 @@ Reset-readiness guidance:
 Quick operator rule:
 
 - `expires_at` missing plus old `last_seen_at` is now enough for expiry.
+
+## Workflow Action Throttle Contract
+
+Production rate limiting is now intentionally split by user intent:
+
+1. Read traffic uses `API_READ_THROTTLE_*`.
+2. Generic writes use `API_WRITE_THROTTLE_*`.
+3. High-frequency notebook and opportunities actions use `API_WORKFLOW_THROTTLE_*`.
+4. Auth and sensitive endpoints keep their own stricter budgets.
+
+Operator implications:
+
+1. If users hit `429` while triaging normal offer queues, adjust `API_WORKFLOW_THROTTLE_*` first.
+2. Do not loosen `API_AUTH_THROTTLE_*` or `API_SENSITIVE_THROTTLE_*` just to make notebook usage smoother.
+3. Keep workflow throttles high enough for real review passes, but still bounded so broken polling loops remain visible.
 
 ### GitHub production secrets
 

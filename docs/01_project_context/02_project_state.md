@@ -123,6 +123,7 @@ That framing should guide future implementation more than raw source count.
   - user-managed scrape schedule
   - trigger-now for enabled schedule
   - planning automation now surfaces recent schedule enqueue evidence directly from persisted schedule events so cadence trust can be checked without opening admin tooling
+  - schedule state now distinguishes saved cadence from proven scheduled enqueue timestamps, reducing “it should have run already” ambiguity on the product route
   - enqueue responses and notebook-adjacent job-source UX now expose explicit reuse diagnostics when catalog rematch or DB reuse is skipped because fresh-candidate minimums were not met
   - scrape ingestion now persists per-run source observations and raw payload ledgers alongside the canonical offer row
   - scrape callbacks now preserve structured offer details end-to-end so catalog rematch and matching can use parsed technologies, requirements, position levels, work modes, contract types, apply links, and company profile URLs
@@ -153,6 +154,7 @@ That framing should guide future implementation more than raw source count.
   - notebook and discovery list responses now also expose explicit collection-state guidance so hidden/degraded/empty queues are explained by API instead of inferred only in the web layer
   - prep packet responses now include workflow-aware attention context and requirement highlights in addition to the existing role/profile summary
   - scrape enqueue responses now return explicit catalog-rematch and DB-reuse diagnostics so fresh-result gating is visible instead of silently falling through to worker dispatch
+  - workflow-heavy offer actions now have their own throttle budget, which reduces false `429` responses during normal review passes without loosening auth or AI-heavy endpoint protection
 - Worker
   - scrape lifecycle visibility is materially stronger
   - duplicate active scrape execution protection now uses a durable `worker_task_executions` lease row instead of relying only on event-history reads
