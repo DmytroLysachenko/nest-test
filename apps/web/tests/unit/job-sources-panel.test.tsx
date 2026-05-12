@@ -49,11 +49,13 @@ const createPanelState = (overrides: Record<string, unknown> = {}) =>
     isSubmitting: false,
     isSavingSchedule: false,
     isTriggeringSchedule: false,
+    isRepairingCatalog: false,
     selectedRunId: null,
     setSelectedRunId: vi.fn(),
     submit: vi.fn(),
     submitSchedule: vi.fn((event?: Event) => event?.preventDefault?.()),
     triggerScheduleNow: vi.fn(),
+    rematchNow: vi.fn(),
     applySchedulePreset: vi.fn(),
     ...overrides,
   }) as unknown as JobSourcesPanelState;
@@ -172,5 +174,14 @@ describe('JobSourcesPanel', () => {
     render(<JobSourcesPanel token="token" />);
 
     expect(screen.getByText('Automatic updates are working')).toBeInTheDocument();
+  });
+
+  it('exposes the catalog rebuild recovery action for empty-notebook incidents', () => {
+    mockedUseJobSourcesPanel.mockReturnValue(createPanelState());
+
+    render(<JobSourcesPanel token="token" />);
+
+    expect(screen.getByText('Rebuild opportunities from recent catalog')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Rebuild opportunities' })).toBeInTheDocument();
   });
 });

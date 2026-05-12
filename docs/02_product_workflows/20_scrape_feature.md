@@ -92,6 +92,7 @@ Current enqueue contract direction:
 - worker offer payloads now carry both `isExpired` and `expiresAt`; `isExpired` supports quick filtering while `expiresAt` preserves the source-derived validity date for audits and later UX
 - scrape completion is now intentionally more separate from matching: shared catalog persistence and terminal run finalization no longer fail just because notebook linking or matching throws later in the path
 - when post-persist notebook linking fails, the run keeps its persisted catalog output and records deferred linking state in run progress/events so rematch or recovery can happen separately
+- authenticated users can now trigger `POST /api/job-sources/rematch-now` to rebuild opportunities from the shared catalog when catalog persistence succeeded but workflow linking needs recovery
 - schedule cron handling now supports weekday expressions such as `0 6 * * 1-5` without collapsing to a daily default
 - stale watchdog failures now distinguish `worker-not-started` from `heartbeat-stopped-or-callback-missing` in the stored run error
 - worker pipeline orchestration now uses a source-adapter contract so future sites can reuse fetch/parse/normalize stages without copying the Pracuj orchestration path

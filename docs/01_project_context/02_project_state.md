@@ -125,6 +125,7 @@ That framing should guide future implementation more than raw source count.
   - trigger-now for enabled schedule
   - planning automation now surfaces recent schedule enqueue evidence directly from persisted schedule events so cadence trust can be checked without opening admin tooling
   - schedule state now distinguishes saved cadence from proven scheduled enqueue timestamps, reducing “it should have run already” ambiguity on the product route
+  - planning now also exposes a user-facing catalog rematch recovery action so “scrape finished but no opportunities appeared” can be repaired without waiting for another worker run
   - enqueue responses and notebook-adjacent job-source UX now expose explicit reuse diagnostics when catalog rematch or DB reuse is skipped because fresh-candidate minimums were not met
   - scrape ingestion now persists per-run source observations and raw payload ledgers alongside the canonical offer row
   - scrape callbacks now preserve structured offer details end-to-end so catalog rematch and matching can use parsed technologies, requirements, position levels, work modes, contract types, apply links, and company profile URLs
@@ -146,6 +147,7 @@ That framing should guide future implementation more than raw source count.
   - explicit DTO coverage has improved for notebook, ops, schedule, and workspace summary
   - contract surface is now broad enough to support a product UI instead of internal-tool panels
   - scrape terminal success is now separated from notebook-link side effects: catalog persistence and run finalization complete first, while notebook linking/matching is treated as best-effort follow-up work with deferred recovery signals when it fails
+  - users now have an authenticated `rematch-now` recovery path on top of the existing admin rematch tooling, so deferred linking can be repaired from persisted catalog data without direct ops access
   - modularization is now an active engineering concern because `job-sources` and `job-offers` service files have grown beyond easy human scanability
   - feature-local helper modules are now the preferred way to move pure derivation, shaping, and preference logic out of large Nest services before creating more service classes
   - support-facing read models now provide LLM-friendly incident bundles instead of forcing raw endpoint composition

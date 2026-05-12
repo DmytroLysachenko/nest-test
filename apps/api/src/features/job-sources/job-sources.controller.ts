@@ -1,4 +1,17 @@
-import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { SkipThrottle } from '@nestjs/throttler';
@@ -6,7 +19,7 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '@/common/guards';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public.decorator';
-import { SensitiveRateLimit } from '@/common/rate-limits/rate-limit-groups';
+import { SensitiveRateLimit, WorkflowRateLimit } from '@/common/rate-limits/rate-limit-groups';
 import { JwtValidateUser } from '@/types/interface/jwt';
 
 import { EnqueueScrapeDto, EnqueueScrapeResponseDto } from './dto/enqueue-scrape.dto';
@@ -29,6 +42,7 @@ import {
 } from './dto/scrape-schedule.dto';
 import { JobSourceHealthResponse } from './dto/source-health.response';
 import { ScrapeScheduleEventsResponseDto } from './dto/schedule-events.response';
+import { RematchNowResponseDto } from './dto/rematch-now.response';
 
 @ApiTags('job-sources')
 @ApiBearerAuth()
@@ -186,6 +200,46 @@ export class JobSourcesController {
     @Headers('x-request-id') requestId: string | undefined,
   ) {
     return this.jobSourcesService.triggerScheduleNow(user.userId, requestId);
+  }
+
+  @Post('rematch-now')
+  @ApiOperation({ summary: 'Rebuild current user opportunities from the shared offer catalog' })
+  @ApiOkResponse({ type: RematchNowResponseDto })
+  @WorkflowRateLimit()
+  async rematchNow(
+    @CurrentUser() user: JwtValidateUser,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ): Promise<RematchNowResponseDto> {
+    const result = await this.jobSourcesService.rematchCatalogForUser(user.userId, null, limit ?? 20);
+
+    if (result.status === 'empty') {
+      return {
+        ok: true,
+        status: 'empty',
+        sourceRunId: null,
+        traceId: null,
+        acceptedAt: null,
+        inserted: 0,
+        totalOffers: 0,
+        matchedOffers: 0,
+        message: 'No recent catalog offers matched your current profile.',
+      };
+    }
+
+    return {
+      ok: true,
+      status: 'reused',
+      sourceRunId: result.sourceRunId,
+      traceId: result.traceId ?? null,
+      acceptedAt: result.acceptedAt ?? null,
+      inserted: result.inserted ?? 0,
+      totalOffers: result.totalOffers ?? 0,
+      matchedOffers: result.matchedOffers ?? 0,
+      message:
+        result.inserted > 0
+          ? 'Matched offers were rebuilt from the shared catalog.'
+          : 'Catalog rematch finished, but everything was already linked.',
+    };
   }
 
   @Post('runs/:id/heartbeat')

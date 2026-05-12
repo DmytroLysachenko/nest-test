@@ -219,6 +219,12 @@ Check first:
 - notebook summary/focus endpoints
 - approx vs strict offer list
 
+Preferred recovery order when catalog rows exist but user workflow is still empty:
+
+- authenticated `POST /api/job-sources/rematch-now`
+- admin `POST /api/ops/catalog/rematch/users/:id`
+- only then another worker scrape if rematch also returns empty
+
 ### 5. Frontend Auth and Route Bootstrap
 
 Frequent traps:

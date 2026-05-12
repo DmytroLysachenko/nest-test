@@ -653,6 +653,18 @@ export type EnqueueScrapeResponseDto = {
   };
 };
 
+export type RematchNowResponseDto = {
+  ok: boolean;
+  status: 'reused' | 'empty';
+  sourceRunId: string | null;
+  traceId: string | null;
+  acceptedAt: string | null;
+  inserted: number;
+  totalOffers: number;
+  matchedOffers: number;
+  message: string;
+};
+
 export type ScrapePreflightDto = {
   ready: boolean;
   blockers: string[];

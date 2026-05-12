@@ -241,6 +241,26 @@ export const JobSourcesPanel = ({ token, disabled = false, disabledReason }: Job
         </div>
       ) : null}
 
+      <div className="border-border/55 bg-surface-elevated/82 mt-5 rounded-[1.25rem] border px-4 py-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <p className="text-text-strong text-sm font-semibold">Rebuild opportunities from recent catalog</p>
+            <p className="text-text-soft text-sm leading-6">
+              Use this when a scrape finished but your discovery or notebook stayed empty. It relinks recent shared
+              catalog offers to your workflow without waiting for another worker run.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={disabled || jobSourcesPanel.isRepairingCatalog}
+            onClick={() => jobSourcesPanel.rematchNow()}
+          >
+            {jobSourcesPanel.isRepairingCatalog ? 'Rebuilding...' : 'Rebuild opportunities'}
+          </Button>
+        </div>
+      </div>
+
       <form className="app-tonal-section mt-5 space-y-4" onSubmit={jobSourcesPanel.submitSchedule}>
         <div className="flex items-center justify-between gap-3">
           <div>

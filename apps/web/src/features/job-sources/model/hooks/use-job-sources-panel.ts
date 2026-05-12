@@ -52,7 +52,8 @@ export const useJobSourcesPanel = (token: string) => {
   );
 
   const { scheduleQuery, scheduleEventsQuery, preflightQuery } = useJobSourcesQueries(token, preflightParams);
-  const { enqueueMutation, updateScheduleMutation, triggerScheduleNowMutation } = useJobSourcesMutations(token, form);
+  const { enqueueMutation, updateScheduleMutation, triggerScheduleNowMutation, rematchNowMutation } =
+    useJobSourcesMutations(token, form);
 
   useEffect(() => {
     if (!scheduleQuery.data) {
@@ -109,7 +110,9 @@ export const useJobSourcesPanel = (token: string) => {
     isSubmitting: enqueueMutation.isPending,
     isSavingSchedule: updateScheduleMutation.isPending,
     isTriggeringSchedule: triggerScheduleNowMutation.isPending,
+    isRepairingCatalog: rematchNowMutation.isPending,
     triggerScheduleNow: triggerScheduleNowMutation.mutate,
+    rematchNow: rematchNowMutation.mutate,
     applySchedulePreset,
   };
 };
