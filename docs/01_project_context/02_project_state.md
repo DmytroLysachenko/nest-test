@@ -92,6 +92,7 @@ That framing should guide future implementation more than raw source count.
   - notebook pipeline surface for active kept roles
   - notebook pipeline data is now being separated from strict-fit discovery ranking so active saved roles stay visible even when discovery slices are narrow
   - notebook now keeps full pipeline truth separate from the currently filtered maintenance queue, so action-plan or follow-up filters can narrow the queue without erasing active-role visibility
+  - notebook/discovery workflow writes now use narrower cache invalidation scopes, reducing unnecessary refetch storms after save/dismiss/follow-up actions and making high-volume review loops less likely to hit workflow throttles
   - discovery now uses grouped review queues while notebook uses a Kanban-first board with a full-width active-offer workspace
   - normalized company and taxonomy context is now exposed directly in notebook and discovery offer details
   - strict/approx/explore ranking modes

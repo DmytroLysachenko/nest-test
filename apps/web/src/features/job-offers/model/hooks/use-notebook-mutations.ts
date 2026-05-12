@@ -203,7 +203,16 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
         }
       }
 
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: true,
+        discoverySummary: true,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
     },
   });
 
@@ -228,7 +237,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       };
     },
     onSuccess: (result) => {
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        notebookSummary: true,
+        discoverySummary: true,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       if (result.failed === 0) {
         toastSuccess(`Updated ${result.updated} offers`);
       } else {
@@ -252,7 +269,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const dismissAllSeenMutation = useMutation({
     mutationFn: () => dismissAllSeenJobOffers(token),
     onSuccess: (result) => {
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        notebookSummary: true,
+        discoverySummary: true,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       toastSuccess(`Marked ${result.count} offers as dismissed`);
     },
     onError: (error) => {
@@ -263,7 +288,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const autoArchiveMutation = useMutation({
     mutationFn: () => autoArchiveOldJobOffers(token),
     onSuccess: (result) => {
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        notebookSummary: true,
+        discoverySummary: true,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       if (result.count > 0) {
         toastSuccess(`Automatically archived ${result.count} old offers`);
       }
@@ -276,8 +309,17 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const metaMutation = useMutation({
     mutationFn: ({ id, notes, tags }: { id: string; notes: string; tags: string[] }) =>
       updateJobOfferMeta(token, id, { notes, tags }),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: false,
+        actionPlan: false,
+        reminderPreview: false,
+        workspace: false,
+      });
     },
   });
 
@@ -291,8 +333,17 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       aiFeedbackScore: number;
       aiFeedbackNotes?: string;
     }) => updateJobOfferFeedback(token, id, { aiFeedbackScore, aiFeedbackNotes }),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: false,
+        actionPlan: false,
+        reminderPreview: false,
+        workspace: false,
+      });
       toastSuccess('Feedback submitted');
     },
     onError: (error) => {
@@ -303,8 +354,17 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const pipelineMutation = useMutation({
     mutationFn: ({ id, pipelineMeta }: { id: string; pipelineMeta: Record<string, unknown> }) =>
       updateJobOfferPipeline(token, id, { pipelineMeta }),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: true,
+        discoverySummary: false,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
     },
     onError: (error) => {
       toastError(toUserErrorMessage(error, 'Failed to update pipeline details'));
@@ -321,8 +381,17 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       note?: string;
       nextAction?: 'clear' | 'tomorrow' | 'in3days' | 'in1week';
     }) => completeJobOfferFollowUp(token, id, { note, nextAction }),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       toastSuccess('Follow-up marked as completed');
     },
     onError: (error) => {
@@ -334,7 +403,16 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     mutationFn: ({ id, durationHours }: { id: string; durationHours?: number }) =>
       snoozeJobOfferFollowUp(token, id, { durationHours }),
     onSuccess: (_result, variables) => {
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       toastSuccess(`Follow-up snoozed${variables.durationHours ? ` by ${variables.durationHours}h` : ''}`);
     },
     onError: (error) => {
@@ -344,8 +422,17 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
 
   const clearFollowUpMutation = useMutation({
     mutationFn: ({ id }: { id: string }) => clearJobOfferFollowUp(token, id),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       toastSuccess('Follow-up cleared');
     },
     onError: (error) => {
@@ -361,7 +448,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       note?: string | null;
     }) => bulkUpdateJobOfferFollowUp(token, payload),
     onSuccess: (result) => {
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       const noteLabel = result.summary.noteApplied ? ' with notes' : '';
       toastSuccess(
         `Updated follow-up plan for ${result.updated} offers (${result.summary.due} due, ${result.summary.upcoming} upcoming, ${result.summary.none} none)${noteLabel}`,
@@ -382,7 +477,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       prepRecommended?: boolean | null;
     }) => bulkUpdateJobOfferWorkflow(token, payload),
     onSuccess: (result) => {
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        notebookSummary: true,
+        discoverySummary: false,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       toastSuccess(
         `Updated workflow plan for ${result.updated} offers (${result.summary.due} due, ${result.summary.upcoming} upcoming, ${result.summary.none} none)`,
       );
@@ -394,16 +497,35 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
 
   const scoreMutation = useMutation({
     mutationFn: ({ id }: { id: string }) => scoreJobOffer(token, id, 0),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: true,
+        focus: true,
+        actionPlan: false,
+        reminderPreview: false,
+        workspace: false,
+      });
     },
   });
 
   const generatePrepMutation = useMutation({
     mutationFn: ({ id, instructions }: { id: string; instructions?: string }) =>
       generateJobOfferPrep(token, id, { instructions }),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: false,
+        historyOfferId: variables.id,
+        prepOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: false,
+        actionPlan: false,
+        reminderPreview: false,
+        workspace: false,
+      });
       toastSuccess('Interview prep generated');
     },
     onError: (error) => {
@@ -418,7 +540,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       }),
     onSuccess: (result) => {
       syncJobSources();
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        notebookSummary: true,
+        discoverySummary: true,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       toastSuccess(result.status === 'reused' ? 'Recent results are already available' : 'Finding fresh matches now');
     },
     onError: (error) => {
