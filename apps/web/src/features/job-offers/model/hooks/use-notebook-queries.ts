@@ -22,6 +22,7 @@ import type { JobOfferSummaryDto } from '@/shared/types/api';
 type UseNotebookQueriesArgs = {
   token: string;
   listParams: ListJobOffersParams;
+  pipelineParams: ListJobOffersParams;
   selectedId: string | null;
   sharedNotebookSummary?: JobOfferSummaryDto | null;
 };
@@ -29,6 +30,7 @@ type UseNotebookQueriesArgs = {
 export const useNotebookQueries = ({
   token,
   listParams,
+  pipelineParams,
   selectedId,
   sharedNotebookSummary,
 }: UseNotebookQueriesArgs) => {
@@ -41,9 +43,18 @@ export const useNotebookQueries = ({
     }),
   );
 
+  const pipelineQuery = useQuery(
+    buildAuthedQueryOptions({
+      token,
+      queryKey: queryKeys.jobOffers.list(token, pipelineParams),
+      queryFn: (authToken) => listJobOffers(authToken, pipelineParams),
+      ...mutableRouteQueryPreset(),
+    }),
+  );
+
   const selectedOffer = useMemo(
-    () => listQuery.data?.items.find((item) => item.id === selectedId) ?? null,
-    [listQuery.data?.items, selectedId],
+    () => pipelineQuery.data?.items.find((item) => item.id === selectedId) ?? null,
+    [pipelineQuery.data?.items, selectedId],
   );
 
   const historyQuery = useQuery(
@@ -105,6 +116,7 @@ export const useNotebookQueries = ({
 
   return {
     listQuery,
+    pipelineQuery,
     selectedOffer,
     historyQuery,
     preferencesQuery,

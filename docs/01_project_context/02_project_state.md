@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-05-04
+Last updated: 2026-05-12
 
 ## Purpose
 
@@ -90,6 +90,7 @@ That framing should guide future implementation more than raw source count.
 - Notebook and applications
   - opportunities review surface for matched-role discovery
   - notebook pipeline surface for active kept roles
+  - notebook pipeline data is now being separated from strict-fit discovery ranking so active saved roles stay visible even when discovery slices are narrow
   - discovery now uses grouped review queues while notebook uses a Kanban-first board with a full-width active-offer workspace
   - normalized company and taxonomy context is now exposed directly in notebook and discovery offer details
   - strict/approx/explore ranking modes
@@ -181,6 +182,7 @@ That framing should guide future implementation more than raw source count.
   - planning no longer has the sticky utility-rail overlap that previously broke the automation surface at common desktop widths
   - discovery detail rail now uses a controlled desktop-height layout with internal scrolling and a reachable action bar
   - opportunity pagination and filters now survive reload/back/forward through URL ownership, including explicit `page`, `perPage`, `search`, `tag`, `mode`, and selected-offer context
+  - opportunities now default to `approx` instead of `strict`, which reduces false-empty first impressions and lowers the chance that successful review actions appear to do nothing
   - opportunities and companies free-text filters now debounce before route/query updates, which reduces request churn and rate-limit pressure
   - document, profile, progress, and notebook-empty-state copy has also been shifted further away from diagnostics/run jargon toward plain-language status and recovery wording
   - document technical diagnostics are now hidden by default on end-user routes and can be surfaced only when a route explicitly opts into technical detail

@@ -23,7 +23,13 @@ import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { useDataSync } from '@/shared/lib/query/use-data-sync';
 import { toastError, toastInfo, toastSuccess, toastSuccessWithAction } from '@/shared/lib/ui/toast';
 
-import type { JobOfferStatus, JobOffersListDto, NotebookFiltersDto } from '@/shared/types/api';
+import type {
+  DiscoverySummaryDto,
+  JobOfferStatus,
+  JobOfferSummaryDto,
+  JobOffersListDto,
+  NotebookFiltersDto,
+} from '@/shared/types/api';
 
 type UseNotebookMutationsArgs = {
   token: string;
@@ -32,6 +38,7 @@ type UseNotebookMutationsArgs = {
 export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const queryClient = useQueryClient();
   const { syncJobOffers, syncJobSources } = useDataSync(token);
+  const pipelineStatuses: JobOfferStatus[] = ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'];
 
   const statusMutation = useMutation({
     mutationFn: ({
@@ -78,6 +85,7 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
               return {
                 ...offer,
                 status,
+                isInPipeline: 'isInPipeline' in offer ? pipelineStatuses.includes(status) : undefined,
                 lastStatusAt: changedAt,
                 statusHistory: nextHistory,
               };
@@ -85,6 +93,80 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
           };
         },
       );
+
+      queryClient.setQueryData<DiscoverySummaryDto | undefined>(
+        ['job-offers', 'discovery-summary', token],
+        (current) => {
+          if (!current || previousStatus === status) {
+            return current;
+          }
+
+          const wasPipeline = previousStatus ? pipelineStatuses.includes(previousStatus) : false;
+          const isPipeline = pipelineStatuses.includes(status);
+          const wasReviewed = previousStatus === 'SEEN';
+          const wasUnseen = previousStatus === 'NEW';
+          const isReviewed = status === 'SEEN';
+          const isUnseen = status === 'NEW';
+
+          return {
+            ...current,
+            unseen: Math.max(0, current.unseen + (isUnseen ? 1 : 0) - (wasUnseen ? 1 : 0)),
+            reviewed: Math.max(0, current.reviewed + (isReviewed ? 1 : 0) - (wasReviewed ? 1 : 0)),
+            inPipeline: Math.max(0, current.inPipeline + (isPipeline ? 1 : 0) - (wasPipeline ? 1 : 0)),
+            buckets: current.buckets.map((bucket) => {
+              if (bucket.key === 'new') {
+                return { ...bucket, count: Math.max(0, bucket.count + (isUnseen ? 1 : 0) - (wasUnseen ? 1 : 0)) };
+              }
+              if (bucket.key === 'seen') {
+                return {
+                  ...bucket,
+                  count: Math.max(0, bucket.count + (isReviewed ? 1 : 0) - (wasReviewed ? 1 : 0)),
+                };
+              }
+              if (bucket.key === 'pipeline') {
+                return {
+                  ...bucket,
+                  count: Math.max(0, bucket.count + (isPipeline ? 1 : 0) - (wasPipeline ? 1 : 0)),
+                };
+              }
+              return bucket;
+            }),
+          };
+        },
+      );
+
+      queryClient.setQueryData<JobOfferSummaryDto | undefined>(['job-offers', 'summary', token], (current) => {
+        if (!current || previousStatus === status) {
+          return current;
+        }
+
+        const pipelineBucketStatusKeys = new Set(['saved', 'applied']);
+        const wasPipeline = previousStatus ? pipelineStatuses.includes(previousStatus) : false;
+        const isPipeline = pipelineStatuses.includes(status);
+
+        return {
+          ...current,
+          buckets: current.buckets.map((bucket) => {
+            if (!pipelineBucketStatusKeys.has(bucket.key)) {
+              return bucket;
+            }
+            if (bucket.key === 'saved') {
+              return {
+                ...bucket,
+                count: bucket.count + (status === 'SAVED' ? 1 : 0) - (previousStatus === 'SAVED' ? 1 : 0),
+              };
+            }
+            if (bucket.key === 'applied') {
+              return {
+                ...bucket,
+                count: bucket.count + (status === 'APPLIED' ? 1 : 0) - (previousStatus === 'APPLIED' ? 1 : 0),
+              };
+            }
+            return bucket;
+          }),
+          total: Math.max(0, current.total + (isPipeline ? 0 : 0) - (wasPipeline ? 0 : 0)),
+        };
+      });
 
       queryClient.setQueryData<{ statusHistory: Array<{ status: JobOfferStatus; changedAt: string }> } | undefined>(
         ['job-offers', 'history', token, id],

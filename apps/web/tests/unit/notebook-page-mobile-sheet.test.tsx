@@ -91,6 +91,13 @@ describe('NotebookPage pipeline workspace', () => {
         dataUpdatedAt: Date.now(),
         refetch: vi.fn(),
       },
+      pipelineQuery: {
+        isLoading: false,
+        isError: false,
+        data: { items: [offer], total: 1, hiddenByModeCount: 0, degradedResultCount: 0, mode: 'approx' },
+        dataUpdatedAt: Date.now(),
+        refetch: vi.fn(),
+      },
       historyQuery: { data: undefined },
       listError: null,
       historyError: null,
@@ -107,7 +114,7 @@ describe('NotebookPage pipeline workspace', () => {
       selectedId: offer.id,
       filters: {
         status: 'ALL',
-        mode: 'strict',
+        mode: 'approx',
         view: 'PIPELINE',
         search: '',
         tag: '',

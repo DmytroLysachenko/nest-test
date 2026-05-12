@@ -46,9 +46,17 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
   );
 
   const listParams = useMemo(() => toNotebookListParams(filters, pagination), [filters, pagination]);
+  const pipelineParams = useMemo(
+    () => ({
+      ...toNotebookListParams(filters, pagination),
+      view: 'PIPELINE' as const,
+    }),
+    [filters, pagination],
+  );
 
   const {
     listQuery,
+    pipelineQuery,
     selectedOffer,
     historyQuery,
     preferencesQuery,
@@ -59,6 +67,7 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
   } = useNotebookQueries({
     token,
     listParams,
+    pipelineParams,
     selectedId,
     sharedNotebookSummary: notebookSummary,
   });
@@ -115,14 +124,14 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
   }, [filters, hydratedFromServer, preferencesMutation, savedPreset]);
 
   const canPrev = pagination.offset > 0;
-  const canNext = (listQuery.data?.items.length ?? 0) === pagination.limit;
+  const canNext = (pipelineQuery.data?.items.length ?? 0) === pagination.limit;
   const activeFilters = useMemo(
     () => buildNotebookActiveFilters(filters, setNotebookFilter),
     [filters, setNotebookFilter],
   );
 
-  const listError = listQuery.isError
-    ? toUserErrorMessage(listQuery.error, 'Failed to load notebook offers.', {
+  const listError = pipelineQuery.isError
+    ? toUserErrorMessage(pipelineQuery.error, 'Failed to load notebook offers.', {
         byStatus: {
           401: 'Your session expired. Sign in again to keep working in the notebook.',
           403: 'You do not have access to this notebook yet.',
@@ -139,7 +148,7 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
         },
       })
     : null;
-  const selectedVisibleIds = listQuery.data?.items.map((offer) => offer.id) ?? [];
+  const selectedVisibleIds = pipelineQuery.data?.items.map((offer) => offer.id) ?? [];
   const isAllVisibleSelected =
     selectedVisibleIds.length > 0 && selectedVisibleIds.every((id) => selectedOfferIds.includes(id));
   const setNotebookSelectedOffer = useCallback((offerId: string | null) => {
@@ -212,18 +221,18 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
   }, [filters]);
 
   useEffect(() => {
-    if (!listQuery.data?.items.length) {
+    if (!pipelineQuery.data?.items.length) {
       if (selectedId) {
         setSelectedId(null);
       }
       return;
     }
 
-    const selectedStillVisible = listQuery.data.items.some((offer) => offer.id === selectedId);
+    const selectedStillVisible = pipelineQuery.data.items.some((offer) => offer.id === selectedId);
     if (!selectedStillVisible) {
-      setSelectedId(listQuery.data.items[0]?.id ?? null);
+      setSelectedId(pipelineQuery.data.items[0]?.id ?? null);
     }
-  }, [listQuery.data?.items, selectedId]);
+  }, [pipelineQuery.data?.items, selectedId]);
 
   useEffect(() => {
     setSelectedOfferIds((current) => current.filter((id) => selectedVisibleIds.includes(id)));
@@ -231,6 +240,7 @@ export const useNotebookPage = ({ token, initialQuickAction = null, initialOffer
 
   return {
     listQuery,
+    pipelineQuery,
     historyQuery,
     listError,
     historyError,

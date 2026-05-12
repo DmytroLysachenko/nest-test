@@ -1,6 +1,6 @@
 # Notebook Feature
 
-Last updated: 2026-04-26
+Last updated: 2026-05-12
 
 ## Purpose
 
@@ -81,6 +81,8 @@ Current workflow-facing additions:
 - notebook is the intended singular owner of active application work even when discovery and dashboard routes link into it
 - notebook controls are now explicitly pipeline-scoped on the route itself; discovery refresh and broader orientation no longer ride along inside the main notebook controls
 - notebook route rendering now depends on notebook-owned queries plus a minimal route-level update-status input for empty-state trust messaging, instead of reusing the full workspace summary inside the notebook page hook
+- notebook pipeline visibility is now contract-separated from strict-fit discovery ranking: active `SAVED` / `APPLIED` / `INTERVIEWING` / `OFFER` work must remain visible even when strict review rules would hide discovery candidates
+- notebook selected-offer workspace now resolves against the pipeline-scoped dataset rather than whichever offers survived the current discovery-style ranking mode
 
 Schema references:
 

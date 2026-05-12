@@ -36,7 +36,7 @@ export const useOpportunitiesPage = ({
   token,
   initialQuickAction = null,
   initialOfferId = null,
-  initialMode = 'strict',
+  initialMode = 'approx',
   initialHasScore = 'all',
   initialSearch = '',
   initialTag = '',
@@ -89,7 +89,7 @@ export const useOpportunitiesPage = ({
 
   useEffect(() => {
     const nextPath = buildPathWithQuery(pathname, {
-      mode: mode !== 'strict' ? mode : null,
+      mode: mode !== 'approx' ? mode : null,
       hasScore: hasScore !== 'all' ? hasScore : null,
       search: normalizedSearch,
       tag: normalizedTag,
@@ -168,7 +168,7 @@ export const useOpportunitiesPage = ({
       setPage(DEFAULT_PAGE);
     },
     resetFilters: () => {
-      setMode('strict');
+      setMode('approx');
       setHasScore('all');
       setSearch('');
       setTag('');

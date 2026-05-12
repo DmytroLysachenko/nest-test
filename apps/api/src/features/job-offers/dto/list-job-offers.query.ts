@@ -15,6 +15,7 @@ const STATUS_VALUES = [
 ] as const;
 const SOURCE_VALUES = ['PRACUJ_PL'] as const;
 const RANKING_MODE_VALUES = ['strict', 'approx', 'explore'] as const;
+const VIEW_VALUES = ['LIST', 'PIPELINE'] as const;
 const FOLLOW_UP_VALUES = ['due', 'upcoming', 'none'] as const;
 const ATTENTION_VALUES = [
   'staleUntriaged',
@@ -39,6 +40,14 @@ export class ListJobOffersQuery {
   @IsOptional()
   @IsIn(RANKING_MODE_VALUES)
   mode?: (typeof RANKING_MODE_VALUES)[number];
+
+  @ApiPropertyOptional({
+    enum: VIEW_VALUES,
+    description: 'Notebook view variant. PIPELINE scopes the result to active-work statuses.',
+  })
+  @IsOptional()
+  @IsIn(VIEW_VALUES)
+  view?: (typeof VIEW_VALUES)[number];
 
   @ApiPropertyOptional({ enum: STATUS_VALUES })
   @IsOptional()

@@ -6,7 +6,7 @@ describe('useAppUiStore', () => {
       notebook: {
         filters: {
           status: 'ALL',
-          mode: 'strict',
+          mode: 'approx',
           view: 'LIST',
           search: '',
           tag: '',
@@ -43,7 +43,7 @@ describe('useAppUiStore', () => {
       },
       {
         status: 'APPLIED',
-        mode: 'strict',
+        mode: 'approx',
         view: 'LIST',
         search: 'node',
         tag: '',
@@ -72,7 +72,7 @@ describe('useAppUiStore', () => {
     expect(filters.hasScore).toBe('all');
     expect(filters.followUp).toBe('all');
     expect(filters.attention).toBe('all');
-    expect(filters.mode).toBe('strict');
+    expect(filters.mode).toBe('approx');
     expect(useAppUiStore.getState().notebook.hydratedFromServer).toBe(true);
   });
 

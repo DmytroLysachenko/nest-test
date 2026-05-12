@@ -93,9 +93,7 @@ export const NotebookPage = ({
   latestUpdateStatus = null,
 }: NotebookPageProps) => {
   const notebook = useNotebookPage({ token, initialQuickAction, initialOfferId });
-  const pipelineOffers = (notebook.listQuery.data?.items ?? []).filter((offer) =>
-    ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'].includes(offer.status),
-  );
+  const pipelineOffers = notebook.pipelineQuery.data?.items ?? [];
   const reminderDeliveryStats = pipelineOffers.reduce(
     (acc, offer) => {
       if (!offer.reminderDelivery) {
@@ -146,7 +144,7 @@ export const NotebookPage = ({
       history={notebook.historyQuery.data}
       prepPacket={notebook.prepPacket ?? null}
       historyError={notebook.historyError}
-      updatedAt={notebook.listQuery.dataUpdatedAt}
+      updatedAt={notebook.pipelineQuery.dataUpdatedAt}
       isBusy={notebook.isBusy}
       onStatusChange={(status) => {
         if (!notebook.selectedOffer) {
@@ -460,9 +458,9 @@ export const NotebookPage = ({
         onApplyPreset={notebook.applyNotebookFilterPreset}
         hasSavedPreset={Boolean(notebook.savedPreset)}
         activeFilters={notebook.activeFilters}
-        total={notebook.listQuery.data?.total ?? 0}
-        hiddenByModeCount={notebook.listQuery.data?.hiddenByModeCount ?? 0}
-        listUpdatedAt={notebook.listQuery.dataUpdatedAt}
+        total={notebook.pipelineQuery.data?.total ?? 0}
+        hiddenByModeCount={notebook.pipelineQuery.data?.hiddenByModeCount ?? 0}
+        listUpdatedAt={notebook.pipelineQuery.dataUpdatedAt}
         isBusy={notebook.isBusy}
         summary={notebook.notebookSummary ?? null}
         onQuickAction={notebook.applyQuickAction}
@@ -470,14 +468,14 @@ export const NotebookPage = ({
         onAutoArchive={notebook.autoArchive}
       />
 
-      {notebook.listQuery.isLoading ? (
+      {notebook.pipelineQuery.isLoading ? (
         <SectionLoadingState title="Pipeline" description="Loading notebook data..." rows={7} />
       ) : notebook.listError ? (
         <SectionErrorState
           title="Pipeline"
           message={notebook.listError}
           onRetry={() => {
-            void notebook.listQuery.refetch();
+            void notebook.pipelineQuery.refetch();
           }}
         />
       ) : (

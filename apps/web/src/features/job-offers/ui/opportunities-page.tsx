@@ -26,7 +26,7 @@ export const OpportunitiesPage = ({
   token,
   initialQuickAction = null,
   initialOfferId = null,
-  initialMode = 'strict',
+  initialMode = 'approx',
   initialHasScore = 'all',
   initialSearch = '',
   initialTag = '',

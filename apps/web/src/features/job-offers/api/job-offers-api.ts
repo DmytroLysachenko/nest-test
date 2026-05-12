@@ -22,6 +22,7 @@ export type ListJobOffersParams = {
   offset?: number;
   status?: JobOfferStatus;
   mode?: 'strict' | 'approx' | 'explore';
+  view?: 'LIST' | 'PIPELINE';
   minScore?: number;
   search?: string;
   tag?: string;
@@ -51,6 +52,9 @@ const toQuery = (params: ListJobOffersParams) => {
   }
   if (params.mode) {
     query.set('mode', params.mode);
+  }
+  if (params.view) {
+    query.set('view', params.view);
   }
   if (params.minScore !== undefined) {
     query.set('minScore', String(params.minScore));

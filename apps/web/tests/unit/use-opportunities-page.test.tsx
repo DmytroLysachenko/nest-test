@@ -100,6 +100,17 @@ describe('useOpportunitiesPage', () => {
     expect(replaceMock).toHaveBeenCalledWith('/opportunities?search=React&tag=frontend', { scroll: false });
   });
 
+  it('defaults review mode to approx and keeps the url clean for that default', () => {
+    const { result } = renderHook(() =>
+      useOpportunitiesPage({
+        token: 'token',
+      }),
+    );
+
+    expect(result.current.mode).toBe('approx');
+    expect(replaceMock).not.toHaveBeenCalledWith(expect.stringContaining('mode='), expect.anything());
+  });
+
   it('keeps page and per-page state shareable through the route query', async () => {
     discoveryData = { items: [], total: 40 };
     summaryData = { unseen: 0, reviewed: 0, inPipeline: 0 };

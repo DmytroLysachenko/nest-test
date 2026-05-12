@@ -1,6 +1,6 @@
 # Opportunities And Dashboard Feature
 
-Last updated: 2026-04-26
+Last updated: 2026-05-12
 
 ## Purpose
 
@@ -106,6 +106,8 @@ Current routing/read-model additions:
 - progress is now being tightened toward momentum/history ownership so it stops duplicating the dashboard command role
 - opportunities bootstrapping and gating copy now stays specific to discovery/review instead of describing the route as a generic readiness checkpoint
 - planning and progress route blockers now resolve against their own route ownership instead of reusing notebook-targeted fallback routing
+- opportunities now default to `approx` review mode so first-pass discovery does not begin from the narrowest strict-fit slice unless the user explicitly chooses it
+- review actions are expected to reconcile discovery counters and queue grouping immediately, so “saved to pipeline” reflects as workflow movement instead of a delayed background refresh
 
 ## Dependencies
 
