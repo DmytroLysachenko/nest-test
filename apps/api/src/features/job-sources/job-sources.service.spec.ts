@@ -8,6 +8,44 @@ import * as candidateMatcher from '@/features/job-matching/candidate-matcher';
 
 import { JobSourcesService } from './job-sources.service';
 
+const createSelectWhereResolvedMock = (rows: unknown[]) => ({
+  from: jest.fn().mockReturnValue({
+    where: jest.fn().mockResolvedValue(rows),
+  }),
+});
+
+const createSelectOrderByLimitResolvedMock = (rows: unknown[]) => ({
+  from: jest.fn().mockReturnValue({
+    where: jest.fn().mockReturnValue({
+      orderBy: jest.fn().mockReturnValue({
+        limit: jest.fn().mockResolvedValue(rows),
+      }),
+    }),
+  }),
+});
+
+const createSelectLimitThenMock = (rows: unknown[]) => ({
+  from: jest.fn().mockReturnValue({
+    where: jest.fn().mockReturnValue({
+      limit: jest.fn().mockReturnValue({
+        then: (cb: (input: unknown[]) => unknown) => Promise.resolve(cb(rows)),
+      }),
+    }),
+  }),
+});
+
+const createSelectOrderByLimitThenMock = (rows: unknown[]) => ({
+  from: jest.fn().mockReturnValue({
+    where: jest.fn().mockReturnValue({
+      orderBy: jest.fn().mockReturnValue({
+        limit: jest.fn().mockReturnValue({
+          then: (cb: (input: unknown[]) => unknown) => Promise.resolve(cb(rows)),
+        }),
+      }),
+    }),
+  }),
+});
+
 const createConfigService = (overrides: Record<string, unknown> = {}) =>
   ({
     get: jest.fn((key: string) => {
@@ -712,65 +750,36 @@ describe('JobSourcesService', () => {
     const db = {
       select: jest
         .fn()
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockResolvedValue([]),
-          }),
-        })
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockResolvedValue([]),
-          }),
-        })
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              orderBy: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue([
-                  {
-                    careerProfileId: 'profile-id',
-                    contentJson: candidateProfileFixture,
-                  },
-                ]),
-              }),
-            }),
-          }),
-        })
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockResolvedValue([{ value: 1 }]),
-          }),
-        })
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockResolvedValue([{ value: 2 }]),
-          }),
-        })
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              limit: jest.fn().mockReturnValue({
-                then: (cb: (rows: unknown[]) => unknown) =>
-                  Promise.resolve(
-                    cb([
-                      {
-                        enabled: 1,
-                        cron: '0 9 * * *',
-                        timezone: 'Europe/Warsaw',
-                        source: 'pracuj-pl-it',
-                        limit: 20,
-                        careerProfileId: null,
-                        filters: null,
-                        lastTriggeredAt: new Date('2026-03-08T09:00:00.000Z'),
-                        nextRunAt: new Date('2026-03-10T09:00:00.000Z'),
-                        lastRunStatus: 'COMPLETED',
-                      },
-                    ]),
-                  ),
-              }),
-            }),
-          }),
-        }),
+        .mockReturnValueOnce(createSelectWhereResolvedMock([]))
+        .mockReturnValueOnce(createSelectWhereResolvedMock([]))
+        .mockReturnValueOnce(
+          createSelectOrderByLimitResolvedMock([
+            {
+              careerProfileId: 'profile-id',
+              contentJson: candidateProfileFixture,
+            },
+          ]),
+        )
+        .mockReturnValueOnce(createSelectWhereResolvedMock([{ value: 1 }]))
+        .mockReturnValueOnce(createSelectWhereResolvedMock([{ value: 2 }]))
+        .mockReturnValueOnce(
+          createSelectLimitThenMock([
+            {
+              enabled: 1,
+              cron: '0 9 * * *',
+              timezone: 'Europe/Warsaw',
+              source: 'pracuj-pl-it',
+              limit: 20,
+              careerProfileId: null,
+              filters: null,
+              lastTriggeredAt: new Date('2026-03-08T09:00:00.000Z'),
+              nextRunAt: new Date('2026-03-10T09:00:00.000Z'),
+              lastRunStatus: 'COMPLETED',
+            },
+          ]),
+        )
+        .mockReturnValueOnce(createSelectOrderByLimitThenMock([]))
+        .mockReturnValueOnce(createSelectOrderByLimitThenMock([])),
       update: jest.fn().mockReturnValue({
         set: jest.fn().mockReturnValue({
           where: jest.fn().mockResolvedValue(undefined),
