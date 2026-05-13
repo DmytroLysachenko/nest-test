@@ -193,10 +193,11 @@ test('opportunities page renders discovery queue and sends save action', async (
   await page.goto('/opportunities', { waitUntil: 'domcontentloaded' });
 
   await expect(page.getByRole('heading', { name: 'Review new roles quickly' })).toBeVisible({ timeout: 20_000 });
+  const offerCard = page.getByRole('article').filter({ hasText: 'Frontend Developer' }).first();
   await expect(page.getByText('Strong React fit for your current profile.').first()).toBeVisible();
-  await expect(page.getByText('Save to pipeline')).toBeVisible();
+  await expect(offerCard.getByRole('button', { name: 'Save to pipeline' })).toBeVisible();
 
   const statusRequest = page.waitForRequest('**/api/job-offers/ujo-1/status');
-  await page.getByRole('button', { name: 'Save to pipeline' }).first().click();
+  await offerCard.getByRole('button', { name: 'Save to pipeline' }).click();
   await statusRequest;
 });
