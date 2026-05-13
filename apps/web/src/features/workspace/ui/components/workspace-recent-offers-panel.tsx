@@ -2,6 +2,7 @@
 
 import { Inbox } from 'lucide-react';
 
+import { getSafeOfferField } from '@/shared/lib/presentation/job-search-ui';
 import { DataTableShell, StatusPill } from '@/shared/ui/dashboard-primitives';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { WorkflowFeedback } from '@/shared/ui/workflow-feedback';
@@ -59,7 +60,7 @@ export const WorkspaceRecentOffersPanel = ({
                 <p className="text-text-strong font-medium">{offer.title}</p>
               </td>
               <td className="text-text-soft py-3 pr-3">{offer.company}</td>
-              <td className="text-text-soft py-3 pr-3">{offer.location ?? 'n/a'}</td>
+              <td className="text-text-soft py-3 pr-3">{getSafeOfferField(offer.location, 'location') ?? 'n/a'}</td>
               <td className="py-3">
                 <StatusPill
                   value={offer.matchScore == null ? 'n/a' : offer.matchScore.toFixed(2)}

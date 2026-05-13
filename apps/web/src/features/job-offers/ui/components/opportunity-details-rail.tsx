@@ -4,7 +4,7 @@ import { Pointer } from 'lucide-react';
 
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { getUserFacingOfferStatus } from '@/shared/lib/presentation/job-search-ui';
+import { getSafeOfferField, getUserFacingOfferStatus } from '@/shared/lib/presentation/job-search-ui';
 import { toTrimmedString } from '@/shared/lib/utils/input-normalizers';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
@@ -49,6 +49,8 @@ export const OpportunityDetailsRail = ({
     );
   }
 
+  const safeLocation = getSafeOfferField(offer.location, 'location');
+
   return (
     <Card
       title="Opportunity details"
@@ -67,7 +69,7 @@ export const OpportunityDetailsRail = ({
           <div className="space-y-2">
             <p className="text-secondary-foreground font-medium">
               {offer.company ?? 'Unknown company'}
-              {offer.location ? ` | ${offer.location}` : ''}
+              {safeLocation ? ` | ${safeLocation}` : ''}
             </p>
             <p className="text-text-strong text-sm font-semibold">{offer.fitSummary ?? 'Review this role manually.'}</p>
             {offer.expiresAt ? (

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Inbox, Layers3 } from 'lucide-react';
 
 import { getNotebookCollectionState } from '@/features/job-offers/model/notebook-state-copy';
+import { getSafeOfferField } from '@/shared/lib/presentation/job-search-ui';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
 import { toOptionalTrimmedString, toTrimmedString } from '@/shared/lib/utils/input-normalizers';
 import { Button } from '@/shared/ui/button';
@@ -430,7 +431,7 @@ export const NotebookOffersListCard = ({
                       </p>
                       <p className="text-secondary-foreground mt-1">{offer.company ?? 'Unknown company'}</p>
                       <p className="text-muted-foreground mt-1 text-xs uppercase tracking-[0.14em]">
-                        {offer.location ?? 'Unknown location'}
+                        {getSafeOfferField(offer.location, 'location') ?? 'Unknown location'}
                       </p>
                     </div>
                     <span className="app-badge">{offer.status}</span>

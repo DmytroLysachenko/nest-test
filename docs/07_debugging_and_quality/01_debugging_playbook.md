@@ -1,6 +1,6 @@
 # Debugging Playbook
 
-Last updated: 2026-04-24
+Last updated: 2026-05-13
 
 ## Purpose
 
@@ -34,6 +34,7 @@ Use this document when debugging:
    - callback finalization
    - notebook visibility
    - diagnostics richness
+   - source-data corruption shown to users vs raw corruption merely persisted in DB
 6. When smoke fails, verify whether the failure is on:
    - fresh worker execution path
    - DB reuse path
@@ -218,6 +219,24 @@ Check first:
 - `sourceRunId`
 - notebook summary/focus endpoints
 - approx vs strict offer list
+
+### 5. Polluted Offer Surface Text
+
+Frequent trap:
+
+- scraper fallback captures neighboring cards, CTA text, or recommendation rails and persists them into fields like `salary`
+- UI then prints that blob as if it were trusted role context
+
+Check first:
+
+- whether the suspicious text is already persisted in `job_offers`
+- whether the polluted field contains markers like `Superoferta`, `Podobne oferty`, or `Włącz powiadomienie`
+- whether the page is rendering raw `location` / `salary` directly instead of using sanitized presentation helpers
+
+Rule:
+
+- if a field is uncertain, hide it and fall back cleanly
+- do not invent a value from noisy whole-page text just to avoid nulls
 
 Preferred recovery order when catalog rows exist but user workflow is still empty:
 

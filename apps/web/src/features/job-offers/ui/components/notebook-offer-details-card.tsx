@@ -14,6 +14,7 @@ import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { Textarea } from '@/shared/ui/textarea';
 import { EmptyState } from '@/shared/ui/empty-state';
+import { getSafeOfferField } from '@/shared/lib/presentation/job-search-ui';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
 
 import { OfferStructuredDetailsPanel } from './offer-structured-details-panel';
@@ -116,6 +117,7 @@ export const NotebookOfferDetailsCard = ({
           : 'Capture the next step early so this role stays actionable if it becomes a keeper.';
   const decisionDueAt = typeof pipelineDraft.decisionDueAt === 'string' ? pipelineDraft.decisionDueAt : null;
   const prepRecommended = typeof pipelineDraft.prepRecommended === 'boolean' ? pipelineDraft.prepRecommended : false;
+  const safeLocation = getSafeOfferField(offer.location, 'location');
 
   const setStructuredPipelineField = (field: string, value: unknown) => {
     setPipelineDraft((current) => ({
@@ -151,7 +153,7 @@ export const NotebookOfferDetailsCard = ({
           </div>
           <p className="text-secondary-foreground font-medium">
             {offer.company ?? 'Unknown company'}
-            {offer.location ? ` | ${offer.location}` : ''}
+            {safeLocation ? ` | ${safeLocation}` : ''}
           </p>
           {offer.expiresAt ? (
             <p className="text-text-soft text-xs">

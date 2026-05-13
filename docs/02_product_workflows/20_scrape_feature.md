@@ -1,6 +1,6 @@
 # Scrape Feature
 
-Last updated: 2026-05-12
+Last updated: 2026-05-13
 
 ## Purpose
 
@@ -100,6 +100,7 @@ Current enqueue contract direction:
 - local worker diagnostics now include `pnpm --filter worker scrape:once -- --source pracuj-pl-it --listingUrl <url> --limit <n>` for single-run execution outside the full stack
 - run diagnostics now expose a usefulness read model so UI/support can distinguish useful, hidden, degraded, blocked, empty, failed, and pending outcomes without recomputing raw counters
 - Pracuj parser drift coverage now includes changed detail-section headings and semicolon-delimited requirement strings
+- product offer surfaces now sanitize suspicious location/salary text before rendering, so polluted fallback blobs stay hidden in opportunities, notebook, companies, and workspace views until the underlying source row is repaired
 
 Operational and recovery endpoints live under `apps/api/src/features/ops`.
 

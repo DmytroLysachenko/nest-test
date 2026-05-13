@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, Briefcase, CheckCircle2, Clock3, MessageSquare, 
 import { Card } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
 import { EmptyState } from '@/shared/ui/empty-state';
+import { getSafeOfferField } from '@/shared/lib/presentation/job-search-ui';
 
 import type { JobOfferListItemDto, JobOfferStatus } from '@/shared/types/api';
 
@@ -82,7 +83,7 @@ const PipelineColumn = ({
                   <p className="text-text-strong mb-1 truncate text-xs font-bold">{offer.title}</p>
                   <p className="text-text-soft truncate text-[10px]">{offer.company ?? 'Unknown company'}</p>
                   <p className="text-text-soft mt-1 truncate text-[10px] uppercase tracking-[0.14em]">
-                    {offer.location ?? 'Unknown location'}
+                    {getSafeOfferField(offer.location, 'location') ?? 'Unknown location'}
                   </p>
                 </div>
                 {typeof offer.matchScore === 'number' ? (
