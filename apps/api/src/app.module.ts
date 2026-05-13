@@ -59,6 +59,11 @@ import type { Env } from '@/config/env';
             limit: configService.get('API_WRITE_THROTTLE_LIMIT', { infer: true }),
           },
           {
+            name: 'workflow',
+            ttl: configService.get('API_WORKFLOW_THROTTLE_TTL_MS', { infer: true }),
+            limit: configService.get('API_WORKFLOW_THROTTLE_LIMIT', { infer: true }),
+          },
+          {
             name: 'auth',
             ttl:
               configService.get('API_AUTH_THROTTLE_TTL_MS', { infer: true }) ??

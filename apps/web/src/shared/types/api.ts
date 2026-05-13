@@ -384,6 +384,11 @@ export type JobSourceRunDto = {
   failureType?: 'timeout' | 'network' | 'validation' | 'parse' | 'callback' | 'unknown' | null;
   silentFailure?: boolean;
   usefulOfferCount?: number;
+  matchingState?: 'pending' | 'completed' | 'skipped' | 'deferred' | null;
+  matchingUpdatedAt?: string | null;
+  candidateOffers?: number;
+  matchedOffers?: number;
+  linkedNotebookOffers?: number;
   story?: {
     phase: 'completed' | 'partial' | 'blocked' | 'empty' | 'failed' | 'running' | 'queued';
     summary: string;
@@ -653,6 +658,18 @@ export type EnqueueScrapeResponseDto = {
   };
 };
 
+export type RematchNowResponseDto = {
+  ok: boolean;
+  status: 'reused' | 'empty';
+  sourceRunId: string | null;
+  traceId: string | null;
+  acceptedAt: string | null;
+  inserted: number;
+  totalOffers: number;
+  matchedOffers: number;
+  message: string;
+};
+
 export type ScrapePreflightDto = {
   ready: boolean;
   blockers: string[];
@@ -697,6 +714,9 @@ export type ScrapeScheduleDto = {
   lastTriggeredAt: string | null;
   nextRunAt: string | null;
   lastRunStatus: string | null;
+  lastSuccessfulScheduledAt: string | null;
+  lastSuccessfulScheduledRunId: string | null;
+  lastFailedScheduledAt: string | null;
 };
 
 export type ScrapeScheduleEventDto = {

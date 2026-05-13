@@ -100,10 +100,37 @@ export const WorkspacePlanningPage = () => {
         }
       />
 
-      <section className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)] lg:items-start">
+      <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
+        <Link href="/opportunities" className="app-inset-stack block">
+          <p className="text-text-strong text-sm font-semibold">Review fresh roles</p>
+          <p className="text-text-soft mt-1 text-sm">
+            Jump back into first-pass triage once your update cadence is set.
+          </p>
+        </Link>
+        <Link href="/notebook" className="app-inset-stack block">
+          <p className="text-text-strong text-sm font-semibold">Move active roles forward</p>
+          <p className="text-text-soft mt-1 text-sm">
+            Continue follow-up, prep, and application work after automation is stable.
+          </p>
+        </Link>
+        <Link href="/companies" className="app-inset-stack block">
+          <p className="text-text-strong text-sm font-semibold">Research employers</p>
+          <p className="text-text-soft mt-1 text-sm">
+            Inspect companies separately from role triage when you need employer context.
+          </p>
+        </Link>
+        <Link href="/profile" className="app-inset-stack block">
+          <p className="text-text-strong text-sm font-semibold">Update targeting</p>
+          <p className="text-text-soft mt-1 text-sm">
+            Change profile inputs only when your real search direction has shifted.
+          </p>
+        </Link>
+      </section>
+
+      <section className="grid gap-5 2xl:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)] 2xl:items-start">
         <JobSourcesPanel token={auth.token} />
 
-        <div className="space-y-5 lg:self-start">
+        <div className="space-y-5 2xl:self-start">
           <UtilityRail title="Current automation" description="A plain-language view of your search update cadence.">
             <div className="space-y-3">
               <StatRow

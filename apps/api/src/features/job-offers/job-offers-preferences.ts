@@ -1,6 +1,6 @@
 export const defaultNotebookFilters = {
   status: 'ALL',
-  mode: 'strict',
+  mode: 'approx',
   view: 'LIST',
   search: '',
   tag: '',

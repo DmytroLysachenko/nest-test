@@ -4,7 +4,7 @@ import { Pointer } from 'lucide-react';
 
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { getUserFacingOfferStatus } from '@/shared/lib/presentation/job-search-ui';
+import { getSafeOfferField, getUserFacingOfferStatus } from '@/shared/lib/presentation/job-search-ui';
 import { toTrimmedString } from '@/shared/lib/utils/input-normalizers';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
@@ -35,10 +35,10 @@ export const OpportunityDetailsRail = ({
       <Card
         title="Opportunity details"
         description="Select a role from the discovery queue to inspect it."
-        className="xl:h-[calc(100vh-7rem)]"
-        contentClassName="xl:flex xl:h-[calc(100%-5.5rem)] xl:flex-col"
+        className="2xl:h-[calc(100vh-7rem)]"
+        contentClassName="2xl:flex 2xl:h-[calc(100%-5.5rem)] 2xl:flex-col"
       >
-        <div className="xl:flex xl:h-full xl:flex-col xl:justify-center">
+        <div className="2xl:flex 2xl:h-full 2xl:flex-col 2xl:justify-center">
           <EmptyState
             icon={<Pointer className="h-8 w-8" />}
             title="No opportunity selected"
@@ -49,15 +49,17 @@ export const OpportunityDetailsRail = ({
     );
   }
 
+  const safeLocation = getSafeOfferField(offer.location, 'location');
+
   return (
     <Card
       title="Opportunity details"
       description={offer.title}
-      className="xl:flex xl:h-[calc(100vh-7rem)] xl:flex-col"
-      contentClassName="flex flex-col gap-4 xl:min-h-0 xl:flex-1 xl:gap-0"
+      className="2xl:flex 2xl:h-[calc(100vh-7rem)] 2xl:flex-col"
+      contentClassName="flex flex-col gap-4 2xl:min-h-0 2xl:flex-1 2xl:gap-0"
     >
-      <div className="space-y-4 text-sm xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:space-y-0">
-        <header className="border-border/45 space-y-3 border-b pb-4 xl:shrink-0">
+      <div className="space-y-4 text-sm 2xl:flex 2xl:min-h-0 2xl:flex-1 2xl:flex-col 2xl:space-y-0">
+        <header className="border-border/45 space-y-3 border-b pb-4 2xl:shrink-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="app-badge">{getUserFacingOfferStatus(offer.status)}</span>
             {typeof offer.matchScore === 'number' ? <span className="app-badge">Match {offer.matchScore}</span> : null}
@@ -67,7 +69,7 @@ export const OpportunityDetailsRail = ({
           <div className="space-y-2">
             <p className="text-secondary-foreground font-medium">
               {offer.company ?? 'Unknown company'}
-              {offer.location ? ` | ${offer.location}` : ''}
+              {safeLocation ? ` | ${safeLocation}` : ''}
             </p>
             <p className="text-text-strong text-sm font-semibold">{offer.fitSummary ?? 'Review this role manually.'}</p>
             {offer.expiresAt ? (
@@ -78,7 +80,7 @@ export const OpportunityDetailsRail = ({
           </div>
         </header>
 
-        <div className="space-y-5 pt-1 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1 xl:pt-5">
+        <div className="space-y-5 pt-1 2xl:min-h-0 2xl:flex-1 2xl:overflow-y-auto 2xl:pr-1 2xl:pt-5">
           <OfferReliabilityNotice reliabilityContext={offer.reliabilityContext} />
 
           {offer.fitHighlights.length ? (
@@ -109,7 +111,7 @@ export const OpportunityDetailsRail = ({
           </section>
         </div>
 
-        <div className="bg-surface/95 xl:border-border/45 xl:mt-5 xl:shrink-0 xl:border-t xl:pt-4">
+        <div className="bg-surface/95 2xl:border-border/45 2xl:mt-5 2xl:shrink-0 2xl:border-t 2xl:pt-4">
           <div className="app-tonal-section flex flex-wrap gap-2">
             <Button type="button" disabled={isBusy} onClick={() => onSave(offer.id)}>
               Save to pipeline

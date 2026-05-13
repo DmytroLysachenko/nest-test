@@ -91,6 +91,17 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 ::selection {
   background: color-mix(in oklab, var(--primary) 22%, white);
   color: var(--text-strong);
@@ -146,7 +157,7 @@ body {
   }
 
   .app-select {
-    @apply border-border bg-input text-text-strong shadow-xs focus:border-ring focus-visible:ring-ring/30 h-10 w-full rounded-xl border px-3 text-sm outline-none transition-colors focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply border-border bg-input text-text-strong shadow-xs focus:border-ring focus-visible:ring-ring/30 h-10 w-full appearance-none rounded-xl border px-3 text-sm outline-none transition-colors focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .app-muted-panel {

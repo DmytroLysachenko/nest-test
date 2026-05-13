@@ -2,10 +2,15 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { enqueueScrape, triggerScheduleNow, updateScrapeSchedule } from '@/features/job-sources/api/job-sources-api';
+import {
+  enqueueScrape,
+  rematchNow,
+  triggerScheduleNow,
+  updateScrapeSchedule,
+} from '@/features/job-sources/api/job-sources-api';
 import { setRootServerError } from '@/shared/lib/forms/set-root-server-error';
 import { useDataSync } from '@/shared/lib/query/use-data-sync';
-import { toastSuccess } from '@/shared/lib/ui/toast';
+import { toastInfo, toastSuccess } from '@/shared/lib/ui/toast';
 
 import type { UseFormReturn } from 'react-hook-form';
 import type { EnqueueScrapeFormValues } from '@/features/job-sources/model/validation/enqueue-scrape-schema';
@@ -56,9 +61,27 @@ export const useJobSourcesMutations = (token: string, form: UseFormReturn<Enqueu
     },
   });
 
+  const rematchNowMutation = useMutation({
+    mutationFn: () => rematchNow(token),
+    onSuccess: (result) => {
+      syncJobSources();
+      queryClient.invalidateQueries({ queryKey: ['job-offers', token] });
+      if (result.status === 'empty') {
+        toastInfo('No recent catalog offers matched the current profile');
+        return;
+      }
+      if (result.inserted > 0) {
+        toastSuccess(`Recovered ${result.inserted} opportunities from the shared catalog`);
+        return;
+      }
+      toastInfo('Catalog rematch finished, but the current opportunities were already linked');
+    },
+  });
+
   return {
     enqueueMutation,
     updateScheduleMutation,
     triggerScheduleNowMutation,
+    rematchNowMutation,
   };
 };

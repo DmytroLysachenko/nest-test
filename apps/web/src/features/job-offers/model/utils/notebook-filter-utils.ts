@@ -21,7 +21,7 @@ const attentionFilterLabels: Record<Exclude<NotebookFiltersDto['attention'], 'al
 
 const baseQuickActionFilters: Pick<NotebookFiltersDto, 'status' | 'mode' | 'hasScore' | 'followUp' | 'attention'> = {
   status: 'ALL',
-  mode: 'strict',
+  mode: 'approx',
   hasScore: 'all',
   followUp: 'all',
   attention: 'all',
@@ -95,11 +95,11 @@ export const buildNotebookActiveFilters = (
       onClear: () => setNotebookFilter('status', 'ALL'),
     });
   }
-  if (filters.mode !== 'strict') {
+  if (filters.mode !== 'approx') {
     activeFilters.push({
       key: 'mode',
       label: `Mode: ${filters.mode}`,
-      onClear: () => setNotebookFilter('mode', 'strict'),
+      onClear: () => setNotebookFilter('mode', 'approx'),
     });
   }
   if (filters.hasScore !== 'all') {

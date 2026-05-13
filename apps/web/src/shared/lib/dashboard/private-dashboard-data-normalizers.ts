@@ -85,6 +85,9 @@ const defaultScrapeSchedule: ScrapeScheduleDto = {
   lastTriggeredAt: null,
   nextRunAt: null,
   lastRunStatus: null,
+  lastSuccessfulScheduledAt: null,
+  lastSuccessfulScheduledRunId: null,
+  lastFailedScheduledAt: null,
 };
 
 export const normalizeWorkspaceSummary = (
@@ -155,4 +158,7 @@ export const normalizeScrapeSchedule = (schedule: ScrapeScheduleDto | null | und
   lastTriggeredAt: schedule?.lastTriggeredAt ?? null,
   nextRunAt: schedule?.nextRunAt ?? null,
   lastRunStatus: schedule?.lastRunStatus ?? null,
+  lastSuccessfulScheduledAt: schedule?.lastSuccessfulScheduledAt ?? null,
+  lastSuccessfulScheduledRunId: schedule?.lastSuccessfulScheduledRunId ?? null,
+  lastFailedScheduledAt: schedule?.lastFailedScheduledAt ?? null,
 });

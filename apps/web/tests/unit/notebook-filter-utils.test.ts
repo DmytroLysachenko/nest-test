@@ -12,7 +12,7 @@ import type { NotebookFiltersDto } from '@/shared/types/api';
 
 const baseFilters: NotebookFiltersDto = {
   status: 'ALL',
-  mode: 'strict',
+  mode: 'approx',
   view: 'LIST',
   search: '',
   tag: '',
@@ -39,7 +39,7 @@ describe('notebook filter utilities', () => {
       limit: 20,
       offset: 40,
       status: 'SAVED',
-      mode: 'strict',
+      mode: 'approx',
       search: 'react',
       tag: undefined,
       hasScore: true,
@@ -50,13 +50,13 @@ describe('notebook filter utilities', () => {
 
   it('keeps quick-action filters deterministic and server-compatible', () => {
     expect(notebookQuickActionFilters.followUpDue).toEqual(
-      expect.objectContaining({ status: 'ALL', mode: 'strict', followUp: 'due', attention: 'all' }),
+      expect.objectContaining({ status: 'ALL', mode: 'approx', followUp: 'due', attention: 'all' }),
     );
     expect(notebookQuickActionFilters.degradedResults).toEqual(
-      expect.objectContaining({ status: 'ALL', mode: 'strict', attention: 'degradedResults' }),
+      expect.objectContaining({ status: 'ALL', mode: 'approx', attention: 'degradedResults' }),
     );
     expect(notebookQuickActionFilters.applied).toEqual(
-      expect.objectContaining({ status: 'APPLIED', mode: 'strict', hasScore: 'all' }),
+      expect.objectContaining({ status: 'APPLIED', mode: 'approx', hasScore: 'all' }),
     );
   });
 

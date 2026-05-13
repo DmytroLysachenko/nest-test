@@ -87,6 +87,46 @@ describe('CompaniesPage', () => {
     expect(screen.getByText('OpenAI')).toBeInTheDocument();
     expect(screen.getByText('Company research')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /open details/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Opportunities' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Notebook' })).toBeInTheDocument();
+  });
+
+  it('shows a direct page input beside companies pagination controls', () => {
+    mockedUseCompaniesPage.mockReturnValue(
+      createCompaniesState({
+        listQuery: {
+          data: {
+            items: [
+              {
+                id: 'company-1',
+                canonicalName: 'OpenAI',
+                description: 'AI research and products.',
+                activeOfferCount: 3,
+                totalOfferCount: 25,
+                hqLocation: 'San Francisco',
+                lastSeenAt: '2026-05-02T10:00:00.000Z',
+                websiteUrl: 'https://openai.com',
+                sourceProfileUrl: 'https://example.com/openai',
+              },
+            ],
+            total: 25,
+          },
+          isLoading: false,
+          error: null,
+          refetch: vi.fn(),
+        },
+        page: 2,
+        offset: 20,
+        total: 25,
+        canPrev: true,
+        canNext: false,
+      }) as unknown as ReturnType<typeof useCompaniesPage>,
+    );
+
+    render(<CompaniesPage token="token" />);
+
+    expect(screen.getByLabelText('Companies page')).toHaveValue(2);
+    expect(screen.getByText('Page 2 | Showing 21-21 of 25')).toBeInTheDocument();
   });
 
   it('shows empty-state guidance when no companies match the filters', () => {

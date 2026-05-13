@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-05-04
+Last updated: 2026-05-13
 
 ## Purpose
 
@@ -90,6 +90,11 @@ That framing should guide future implementation more than raw source count.
 - Notebook and applications
   - opportunities review surface for matched-role discovery
   - notebook pipeline surface for active kept roles
+  - notebook pipeline data is now being separated from strict-fit discovery ranking so active saved roles stay visible even when discovery slices are narrow
+  - notebook now keeps full pipeline truth separate from the currently filtered maintenance queue, so action-plan or follow-up filters can narrow the queue without erasing active-role visibility
+  - notebook queue empty states now include a direct “show active pipeline” recovery path when filters hide only the queue slice, reducing false impressions that kept roles disappeared
+  - notebook/discovery workflow writes now use narrower cache invalidation scopes, reducing unnecessary refetch storms after save/dismiss/follow-up actions and making high-volume review loops less likely to hit workflow throttles
+  - opportunities save/dismiss flows now patch the discovery queue itself and advance selection to the next visible role, so first-pass review feels immediate instead of waiting for a delayed refresh
   - discovery now uses grouped review queues while notebook uses a Kanban-first board with a full-width active-offer workspace
   - normalized company and taxonomy context is now exposed directly in notebook and discovery offer details
   - strict/approx/explore ranking modes
@@ -122,6 +127,11 @@ That framing should guide future implementation more than raw source count.
   - user-managed scrape schedule
   - trigger-now for enabled schedule
   - planning automation now surfaces recent schedule enqueue evidence directly from persisted schedule events so cadence trust can be checked without opening admin tooling
+  - schedule state now distinguishes saved cadence from proven scheduled enqueue timestamps, reducing “it should have run already” ambiguity on the product route
+  - planning now also exposes a user-facing catalog rematch recovery action so “scrape finished but no opportunities appeared” can be repaired without waiting for another worker run
+  - automation now also surfaces recent run-level linking proof (`pending` / `completed` / `deferred` / `skipped`) with candidate, matched, and linked counts, so users can tell whether a scrape merely ran or actually delivered visible opportunities
+  - planning and company-research routes now keep their secondary navigation and pagination controls usable on narrower layouts instead of assuming early desktop two-column space
+  - company, discovery, notebook, and workspace offer surfaces now suppress obviously polluted location/salary blobs from scraper fallback drift instead of echoing junk text into user-facing role context
   - enqueue responses and notebook-adjacent job-source UX now expose explicit reuse diagnostics when catalog rematch or DB reuse is skipped because fresh-candidate minimums were not met
   - scrape ingestion now persists per-run source observations and raw payload ledgers alongside the canonical offer row
   - scrape callbacks now preserve structured offer details end-to-end so catalog rematch and matching can use parsed technologies, requirements, position levels, work modes, contract types, apply links, and company profile URLs
@@ -143,6 +153,7 @@ That framing should guide future implementation more than raw source count.
   - explicit DTO coverage has improved for notebook, ops, schedule, and workspace summary
   - contract surface is now broad enough to support a product UI instead of internal-tool panels
   - scrape terminal success is now separated from notebook-link side effects: catalog persistence and run finalization complete first, while notebook linking/matching is treated as best-effort follow-up work with deferred recovery signals when it fails
+  - users now have an authenticated `rematch-now` recovery path on top of the existing admin rematch tooling, so deferred linking can be repaired from persisted catalog data without direct ops access
   - modularization is now an active engineering concern because `job-sources` and `job-offers` service files have grown beyond easy human scanability
   - feature-local helper modules are now the preferred way to move pure derivation, shaping, and preference logic out of large Nest services before creating more service classes
   - support-facing read models now provide LLM-friendly incident bundles instead of forcing raw endpoint composition
@@ -152,6 +163,7 @@ That framing should guide future implementation more than raw source count.
   - notebook and discovery list responses now also expose explicit collection-state guidance so hidden/degraded/empty queues are explained by API instead of inferred only in the web layer
   - prep packet responses now include workflow-aware attention context and requirement highlights in addition to the existing role/profile summary
   - scrape enqueue responses now return explicit catalog-rematch and DB-reuse diagnostics so fresh-result gating is visible instead of silently falling through to worker dispatch
+  - workflow-heavy offer actions now have their own throttle budget, which reduces false `429` responses during normal review passes without loosening auth or AI-heavy endpoint protection
 - Worker
   - scrape lifecycle visibility is materially stronger
   - duplicate active scrape execution protection now uses a durable `worker_task_executions` lease row instead of relying only on event-history reads
@@ -181,11 +193,15 @@ That framing should guide future implementation more than raw source count.
   - planning no longer has the sticky utility-rail overlap that previously broke the automation surface at common desktop widths
   - discovery detail rail now uses a controlled desktop-height layout with internal scrolling and a reachable action bar
   - opportunity pagination and filters now survive reload/back/forward through URL ownership, including explicit `page`, `perPage`, `search`, `tag`, `mode`, and selected-offer context
+  - opportunities now default to `approx` instead of `strict`, which reduces false-empty first impressions and lowers the chance that successful review actions appear to do nothing
+  - route bootstrap now respects that same `approx` default instead of quietly reintroducing `strict` when the URL has no explicit mode
   - opportunities and companies free-text filters now debounce before route/query updates, which reduces request churn and rate-limit pressure
   - document, profile, progress, and notebook-empty-state copy has also been shifted further away from diagnostics/run jargon toward plain-language status and recovery wording
   - document technical diagnostics are now hidden by default on end-user routes and can be surfaced only when a route explicitly opts into technical detail
   - notebook refresh controls and profile search-summary copy now use product-facing language around fresh matches and profile direction instead of sourcing/indexing terminology
   - app shell chrome, dashboard, planning, and profile pages now use a lighter hierarchy with fewer nested utility cards, and the remaining advanced diagnostics stay on admin/tester surfaces instead of normal user routes
+  - app shell now exposes a compact horizontal route strip below the header on non-sidebar widths, which reduces navigation friction when users work on laptop/tablet breakpoints
+  - shared number inputs now render without native spinner arrows, which keeps pagination and workflow controls visually cleaner across the app
   - the information-architecture and workflow-ownership cleanup is now implemented across home, planning, opportunities, notebook, progress, and profile
   - progress now acts as a momentum/history surface instead of a second dashboard-style orientation page
   - profile avoids acting like a general recovery hub, while notebook controls are explicitly pipeline-only and route loading states describe discovery vs active-work purpose instead of generic readiness checks

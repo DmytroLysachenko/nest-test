@@ -20,7 +20,7 @@ type CompaniesPageProps = {
 };
 
 const CompaniesListSkeleton = () => (
-  <section className="grid gap-4 xl:grid-cols-2">
+  <section className="grid gap-4 2xl:grid-cols-2">
     {Array.from({ length: 6 }).map((_, index) => (
       <div key={index} className="app-tonal-section space-y-4">
         <div className="space-y-2">
@@ -95,6 +95,16 @@ export const CompaniesPage = ({
           <div className="flex flex-wrap gap-2">
             <span className="app-badge">Page {companiesPage.page}</span>
             {companiesPage.location ? <span className="app-badge">Location {companiesPage.location}</span> : null}
+            <Link href="/opportunities">
+              <Button type="button" variant="secondary">
+                Opportunities
+              </Button>
+            </Link>
+            <Link href="/notebook">
+              <Button type="button" variant="secondary">
+                Notebook
+              </Button>
+            </Link>
             <Button type="button" variant="secondary" onClick={companiesPage.resetFilters}>
               Clear filters
             </Button>
@@ -136,7 +146,7 @@ export const CompaniesPage = ({
             </div>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-4 2xl:grid-cols-2">
             {companies.map((company) => (
               <article key={company.id} className="app-tonal-section flex h-full flex-col gap-4 text-sm">
                 <div className="space-y-2">
@@ -218,7 +228,7 @@ export const CompaniesPage = ({
           Page {companiesPage.page} | Showing {companies.length ? companiesPage.offset + 1 : 0}-
           {Math.min(companiesPage.offset + companies.length, companiesPage.total)} of {companiesPage.total}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="secondary"
@@ -227,6 +237,21 @@ export const CompaniesPage = ({
           >
             Previous
           </Button>
+          <Input
+            aria-label="Companies page"
+            type="number"
+            min={1}
+            max={Math.max(1, Math.ceil(companiesPage.total / 20))}
+            value={companiesPage.page}
+            onChange={(event) => {
+              const nextPage = Number(event.target.value);
+              if (!Number.isFinite(nextPage) || nextPage < 1) {
+                return;
+              }
+              companiesPage.setPage(nextPage);
+            }}
+            className="h-10 w-20"
+          />
           <Button
             type="button"
             variant="secondary"

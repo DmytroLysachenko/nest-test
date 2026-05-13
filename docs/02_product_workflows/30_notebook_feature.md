@@ -1,6 +1,6 @@
 # Notebook Feature
 
-Last updated: 2026-04-26
+Last updated: 2026-05-12
 
 ## Purpose
 
@@ -81,6 +81,15 @@ Current workflow-facing additions:
 - notebook is the intended singular owner of active application work even when discovery and dashboard routes link into it
 - notebook controls are now explicitly pipeline-scoped on the route itself; discovery refresh and broader orientation no longer ride along inside the main notebook controls
 - notebook route rendering now depends on notebook-owned queries plus a minimal route-level update-status input for empty-state trust messaging, instead of reusing the full workspace summary inside the notebook page hook
+- notebook pipeline visibility is now contract-separated from strict-fit discovery ranking: active `SAVED` / `APPLIED` / `INTERVIEWING` / `OFFER` work must remain visible even when strict review rules would hide discovery candidates
+- notebook selected-offer workspace now resolves against the pipeline-scoped dataset rather than whichever offers survived the current discovery-style ranking mode
+- notebook now has two explicit read surfaces on the same route:
+  - a full active-pipeline dataset used by the board, reminders, signal panels, and selected-offer workspace
+  - a filtered queue dataset used for the current maintenance slice, bulk edits, and queue pagination
+- quick-action and follow-up filters are therefore allowed to empty the queue slice without making the whole notebook appear empty or losing the selected active role context
+- when queue filters empty only the maintenance slice, notebook now exposes an explicit “show active pipeline” reset path instead of making the user infer that the board still contains active roles
+- notebook board and selected-offer workspace now avoid sticky two-column compression until ultra-wide layouts, so laptop-width use keeps the route readable without hiding navigation or squeezing action controls
+- notebook workflow mutations now use scoped cache reconciliation instead of one blanket refetch burst, so repetitive save/dismiss/follow-up actions do not immediately fan out into every notebook/discovery read model and trip workflow throttles during normal review sessions
 
 Schema references:
 

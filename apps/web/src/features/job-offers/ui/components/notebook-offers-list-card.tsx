@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Inbox, Layers3 } from 'lucide-react';
 
 import { getNotebookCollectionState } from '@/features/job-offers/model/notebook-state-copy';
+import { getSafeOfferField } from '@/shared/lib/presentation/job-search-ui';
 import { formatDateTime } from '@/shared/lib/utils/date-format';
 import { toOptionalTrimmedString, toTrimmedString } from '@/shared/lib/utils/input-normalizers';
 import { Button } from '@/shared/ui/button';
@@ -18,6 +19,8 @@ import type { JobOfferListItemDto, JobOfferStatus } from '@/shared/types/api';
 
 type NotebookOffersListCardProps = {
   offers: JobOfferListItemDto[];
+  total: number;
+  activePipelineCount: number;
   hiddenByModeCount: number;
   degradedResultCount: number;
   lastScrapeStatus: string | null;
@@ -25,6 +28,7 @@ type NotebookOffersListCardProps = {
   selectedOfferIds: string[];
   isBusy: boolean;
   offset: number;
+  limit: number;
   canPrev: boolean;
   canNext: boolean;
   isAllVisibleSelected: boolean;
@@ -52,12 +56,16 @@ type NotebookOffersListCardProps = {
   onBulkClearFollowUp: () => void;
   onModeChange?: (mode: 'strict' | 'approx' | 'explore') => void;
   onOpenPlanning?: () => void;
+  onShowActivePipeline?: () => void;
+  onPageChange?: (page: number) => void;
   onPrev: () => void;
   onNext: () => void;
 };
 
 export const NotebookOffersListCard = ({
   offers,
+  total,
+  activePipelineCount,
   hiddenByModeCount,
   degradedResultCount,
   lastScrapeStatus,
@@ -65,6 +73,7 @@ export const NotebookOffersListCard = ({
   selectedOfferIds,
   isBusy,
   offset,
+  limit,
   canPrev,
   canNext,
   isAllVisibleSelected,
@@ -80,6 +89,8 @@ export const NotebookOffersListCard = ({
   onBulkClearFollowUp,
   onModeChange,
   onOpenPlanning,
+  onShowActivePipeline,
+  onPageChange,
   onPrev,
   onNext,
 }: NotebookOffersListCardProps) => {
@@ -114,6 +125,10 @@ export const NotebookOffersListCard = ({
     degradedResultCount,
     lastScrapeStatus,
   });
+  const currentPage = total === 0 ? 0 : Math.floor(offset / limit) + 1;
+  const totalPages = total === 0 ? 0 : Math.max(1, Math.ceil(total / limit));
+  const startItem = total === 0 ? 0 : offset + 1;
+  const endItem = Math.min(offset + limit, total);
 
   useEffect(() => {
     if (!selectedOfferIds.length) {
@@ -137,6 +152,11 @@ export const NotebookOffersListCard = ({
   };
 
   const handlePrimaryCollectionAction = () => {
+    if (activePipelineCount > 0 && onShowActivePipeline) {
+      onShowActivePipeline();
+      return;
+    }
+
     if (collectionState.nextMode && onModeChange) {
       onModeChange(collectionState.nextMode);
       return;
@@ -378,6 +398,13 @@ export const NotebookOffersListCard = ({
       )}
 
       <div className="space-y-3">
+        {!offers.length && activePipelineCount > 0 ? (
+          <WorkflowInlineNotice
+            title="Active roles still exist outside this queue slice"
+            description={`The current filters hide the maintenance queue, but ${activePipelineCount} active pipeline role${activePipelineCount === 1 ? '' : 's'} still exist in the board and selected-workspace sections.`}
+            tone="info"
+          />
+        ) : null}
         {offers.length ? (
           offers.map((offer) => (
             <article
@@ -404,7 +431,7 @@ export const NotebookOffersListCard = ({
                       </p>
                       <p className="text-secondary-foreground mt-1">{offer.company ?? 'Unknown company'}</p>
                       <p className="text-muted-foreground mt-1 text-xs uppercase tracking-[0.14em]">
-                        {offer.location ?? 'Unknown location'}
+                        {getSafeOfferField(offer.location, 'location') ?? 'Unknown location'}
                       </p>
                     </div>
                     <span className="app-badge">{offer.status}</span>
@@ -480,27 +507,61 @@ export const NotebookOffersListCard = ({
               tone={
                 collectionState.key === 'failed' ? 'danger' : collectionState.key === 'degraded' ? 'warning' : 'info'
               }
-              actionLabel={collectionState.actionLabel}
-              onAction={handlePrimaryCollectionAction}
+              actionLabel={activePipelineCount > 0 ? 'Show active pipeline' : collectionState.actionLabel}
+              onAction={
+                activePipelineCount > 0 && onShowActivePipeline ? onShowActivePipeline : handlePrimaryCollectionAction
+              }
             />
             <WorkflowInlineNotice
-              title={collectionState.nextStepTitle}
-              description={collectionState.nextStepDescription}
+              title={
+                activePipelineCount > 0 ? 'Reset the queue before assuming work is gone' : collectionState.nextStepTitle
+              }
+              description={
+                activePipelineCount > 0
+                  ? 'Clear strict, follow-up, or attention filters to restore the active-role queue, then continue from the board or selected workspace.'
+                  : collectionState.nextStepDescription
+              }
               tone={collectionState.key === 'failed' ? 'danger' : 'info'}
             />
           </div>
         )}
       </div>
 
-      <div className="mt-5 flex items-center justify-between">
-        <Button type="button" variant="secondary" disabled={!canPrev} onClick={onPrev}>
-          Previous
-        </Button>
-        <p className="text-muted-foreground text-xs">Showing roles from {offset + 1}</p>
-        <Button type="button" variant="secondary" disabled={!canNext} onClick={onNext}>
-          Next
-        </Button>
-      </div>
+      <section className="border-border/40 mt-5 flex flex-col gap-3 border-t pt-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-muted-foreground text-xs">
+            Page {currentPage || 1}
+            {totalPages ? ` of ${totalPages}` : ''}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            Showing {startItem}-{endItem} of {total} notebook roles
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="secondary" disabled={!canPrev} onClick={onPrev}>
+            Previous
+          </Button>
+          {onPageChange ? (
+            <>
+              <Label htmlFor="notebook-page" className="sr-only">
+                Page number
+              </Label>
+              <Input
+                id="notebook-page"
+                type="number"
+                min={1}
+                max={Math.max(totalPages, 1)}
+                value={currentPage || 1}
+                className="h-9 w-20 text-center"
+                onChange={(event) => onPageChange(Math.max(1, Number(event.target.value) || 1))}
+              />
+            </>
+          ) : null}
+          <Button type="button" variant="secondary" disabled={!canNext} onClick={onNext}>
+            Next
+          </Button>
+        </div>
+      </section>
     </Card>
   );
 };

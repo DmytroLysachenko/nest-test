@@ -1,11 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 import { useOpportunitiesPage } from '@/features/job-offers/model/use-opportunities-page';
 import { OpportunitiesListCard } from '@/features/job-offers/ui/components/opportunities-list-card';
 import { OpportunityDetailsRail } from '@/features/job-offers/ui/components/opportunity-details-rail';
 import { SectionErrorState, SectionLoadingState } from '@/shared/ui/async-states';
+import { Button } from '@/shared/ui/button';
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
 
 import type { DiscoveryQuickActionKey } from '@/features/job-offers/model/types/notebook-view-model';
@@ -26,7 +28,7 @@ export const OpportunitiesPage = ({
   token,
   initialQuickAction = null,
   initialOfferId = null,
-  initialMode = 'strict',
+  initialMode = 'approx',
   initialHasScore = 'all',
   initialSearch = '',
   initialTag = '',
@@ -48,7 +50,7 @@ export const OpportunitiesPage = ({
   const mobileDetailsRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 1280px)');
+    const mediaQuery = window.matchMedia('(min-width: 1536px)');
     const update = () => setShowRail(mediaQuery.matches);
     update();
     mediaQuery.addEventListener('change', update);
@@ -79,9 +81,14 @@ export const OpportunitiesPage = ({
             </>
           ) : undefined
         }
+        action={
+          <Link href="/notebook">
+            <Button variant="secondary">Open notebook</Button>
+          </Link>
+        }
       />
 
-      <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(420px,0.8fr)] 2xl:grid-cols-[minmax(0,1.25fr)_minmax(480px,0.75fr)]">
+      <div className="relative grid gap-5 2xl:grid-cols-[minmax(0,1.25fr)_minmax(480px,0.75fr)]">
         <div>
           {opportunities.listQuery.isLoading ? (
             <SectionLoadingState title="Opportunities" description="Loading the discovery queue..." rows={6} />
@@ -128,7 +135,7 @@ export const OpportunitiesPage = ({
         </div>
 
         {showRail ? (
-          <div className="hidden min-w-0 xl:sticky xl:top-24 xl:block xl:self-start">
+          <div className="hidden min-w-0 2xl:sticky 2xl:top-24 2xl:block 2xl:self-start">
             <OpportunityDetailsRail
               offer={opportunities.selectedOffer}
               isBusy={opportunities.isBusy}
@@ -141,7 +148,13 @@ export const OpportunitiesPage = ({
       </div>
 
       {!showRail ? (
-        <section ref={mobileDetailsRef}>
+        <section ref={mobileDetailsRef} className="space-y-3">
+          <div className="app-open-section border-border/45 border-b pb-3 2xl:hidden">
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Selected opportunity</p>
+            <p className="text-text-soft mt-1 text-sm">
+              Keep fit context and the keep-or-dismiss action close without squeezing the main queue on smaller screens.
+            </p>
+          </div>
           <OpportunityDetailsRail
             offer={opportunities.selectedOffer}
             isBusy={opportunities.isBusy}

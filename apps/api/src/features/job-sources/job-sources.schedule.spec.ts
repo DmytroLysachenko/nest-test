@@ -4,6 +4,28 @@ import { UnauthorizedException } from '@nestjs/common';
 
 import { computeNextRunAt, JobSourcesService, parseSchedule } from './job-sources.service';
 
+const createSelectLimitThenMock = (rows: unknown[]) => ({
+  from: jest.fn().mockReturnValue({
+    where: jest.fn().mockReturnValue({
+      limit: jest.fn().mockReturnValue({
+        then: (cb: (input: unknown[]) => unknown) => Promise.resolve(cb(rows)),
+      }),
+    }),
+  }),
+});
+
+const createSelectOrderByLimitThenMock = (rows: unknown[]) => ({
+  from: jest.fn().mockReturnValue({
+    where: jest.fn().mockReturnValue({
+      orderBy: jest.fn().mockReturnValue({
+        limit: jest.fn().mockReturnValue({
+          then: (cb: (input: unknown[]) => unknown) => Promise.resolve(cb(rows)),
+        }),
+      }),
+    }),
+  }),
+});
+
 const createService = (configOverrides: Record<string, unknown> = {}) => {
   const configService = {
     get: jest.fn((key: string) => {
@@ -58,15 +80,10 @@ describe('JobSourcesService schedule', () => {
 
   it('returns default schedule when user has no schedule row', async () => {
     const { service, db } = createService();
-    db.select.mockReturnValue({
-      from: jest.fn().mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          limit: jest.fn().mockReturnValue({
-            then: (cb: (rows: unknown[]) => unknown) => Promise.resolve(cb([])),
-          }),
-        }),
-      }),
-    });
+    db.select
+      .mockReturnValueOnce(createSelectLimitThenMock([]))
+      .mockReturnValueOnce(createSelectOrderByLimitThenMock([]))
+      .mockReturnValueOnce(createSelectOrderByLimitThenMock([]));
 
     const result = await service.getSchedule('user-1');
     expect(result.enabled).toBe(false);
@@ -85,34 +102,26 @@ describe('JobSourcesService schedule', () => {
 
   it('writes a schedule event when the schedule is updated', async () => {
     const { service, db } = createService();
-    const selectThen = jest
-      .fn()
-      .mockReturnValueOnce(Promise.resolve({ id: 'schedule-1' }))
+    db.select
+      .mockReturnValueOnce(createSelectLimitThenMock([{ id: 'schedule-1' }]))
       .mockReturnValueOnce(
-        Promise.resolve({
-          enabled: 1,
-          cron: '0 9 * * *',
-          timezone: 'Europe/Warsaw',
-          source: 'pracuj-pl-it',
-          limit: 20,
-          careerProfileId: null,
-          filters: null,
-          lastTriggeredAt: null,
-          nextRunAt: new Date('2026-03-15T09:00:00.000Z'),
-          lastRunStatus: null,
-        }),
-      );
-
-    db.select.mockReturnValue({
-      from: jest.fn().mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          limit: jest.fn().mockReturnValue({
-            then: (cb: (rows: Array<Record<string, unknown>>) => unknown) =>
-              selectThen().then((row) => cb(row ? [row] : [])),
-          }),
-        }),
-      }),
-    });
+        createSelectLimitThenMock([
+          {
+            enabled: 1,
+            cron: '0 9 * * *',
+            timezone: 'Europe/Warsaw',
+            source: 'pracuj-pl-it',
+            limit: 20,
+            careerProfileId: null,
+            filters: null,
+            lastTriggeredAt: null,
+            nextRunAt: new Date('2026-03-15T09:00:00.000Z'),
+            lastRunStatus: null,
+          },
+        ]),
+      )
+      .mockReturnValueOnce(createSelectOrderByLimitThenMock([]))
+      .mockReturnValueOnce(createSelectOrderByLimitThenMock([]));
     db.update.mockReturnValue({
       set: jest.fn().mockReturnValue({
         where: jest.fn().mockResolvedValue(undefined),

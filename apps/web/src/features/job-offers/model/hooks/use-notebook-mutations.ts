@@ -23,7 +23,14 @@ import { toUserErrorMessage } from '@/shared/lib/http/to-user-error-message';
 import { useDataSync } from '@/shared/lib/query/use-data-sync';
 import { toastError, toastInfo, toastSuccess, toastSuccessWithAction } from '@/shared/lib/ui/toast';
 
-import type { JobOfferStatus, JobOffersListDto, NotebookFiltersDto } from '@/shared/types/api';
+import type {
+  DiscoveryJobOffersListDto,
+  DiscoverySummaryDto,
+  JobOfferStatus,
+  JobOfferSummaryDto,
+  JobOffersListDto,
+  NotebookFiltersDto,
+} from '@/shared/types/api';
 
 type UseNotebookMutationsArgs = {
   token: string;
@@ -32,6 +39,8 @@ type UseNotebookMutationsArgs = {
 export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const queryClient = useQueryClient();
   const { syncJobOffers, syncJobSources } = useDataSync(token);
+  const pipelineStatuses: JobOfferStatus[] = ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'];
+  const discoveryStatuses: JobOfferStatus[] = ['NEW', 'SEEN'];
 
   const statusMutation = useMutation({
     mutationFn: ({
@@ -52,9 +61,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       const snapshots = queryClient.getQueriesData<JobOffersListDto>({
         queryKey: ['job-offers', token],
       });
+      const discoverySnapshots = queryClient.getQueriesData<DiscoveryJobOffersListDto>({
+        queryKey: ['job-offers', 'discovery', token],
+      });
 
       const previousStatus =
-        snapshots.flatMap(([, data]) => data?.items ?? []).find((offer) => offer.id === id)?.status ?? null;
+        [
+          ...snapshots.flatMap(([, data]) => data?.items ?? []),
+          ...discoverySnapshots.flatMap(([, data]) => data?.items ?? []),
+        ].find((offer) => offer.id === id)?.status ?? null;
 
       queryClient.setQueriesData<JobOffersListDto>(
         {
@@ -78,6 +93,7 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
               return {
                 ...offer,
                 status,
+                isInPipeline: 'isInPipeline' in offer ? pipelineStatuses.includes(status) : undefined,
                 lastStatusAt: changedAt,
                 statusHistory: nextHistory,
               };
@@ -86,6 +102,80 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
         },
       );
 
+      queryClient.setQueryData<DiscoverySummaryDto | undefined>(
+        ['job-offers', 'discovery-summary', token],
+        (current) => {
+          if (!current || previousStatus === status) {
+            return current;
+          }
+
+          const wasPipeline = previousStatus ? pipelineStatuses.includes(previousStatus) : false;
+          const isPipeline = pipelineStatuses.includes(status);
+          const wasReviewed = previousStatus === 'SEEN';
+          const wasUnseen = previousStatus === 'NEW';
+          const isReviewed = status === 'SEEN';
+          const isUnseen = status === 'NEW';
+
+          return {
+            ...current,
+            unseen: Math.max(0, current.unseen + (isUnseen ? 1 : 0) - (wasUnseen ? 1 : 0)),
+            reviewed: Math.max(0, current.reviewed + (isReviewed ? 1 : 0) - (wasReviewed ? 1 : 0)),
+            inPipeline: Math.max(0, current.inPipeline + (isPipeline ? 1 : 0) - (wasPipeline ? 1 : 0)),
+            buckets: current.buckets.map((bucket) => {
+              if (bucket.key === 'new') {
+                return { ...bucket, count: Math.max(0, bucket.count + (isUnseen ? 1 : 0) - (wasUnseen ? 1 : 0)) };
+              }
+              if (bucket.key === 'seen') {
+                return {
+                  ...bucket,
+                  count: Math.max(0, bucket.count + (isReviewed ? 1 : 0) - (wasReviewed ? 1 : 0)),
+                };
+              }
+              if (bucket.key === 'pipeline') {
+                return {
+                  ...bucket,
+                  count: Math.max(0, bucket.count + (isPipeline ? 1 : 0) - (wasPipeline ? 1 : 0)),
+                };
+              }
+              return bucket;
+            }),
+          };
+        },
+      );
+
+      queryClient.setQueryData<JobOfferSummaryDto | undefined>(['job-offers', 'summary', token], (current) => {
+        if (!current || previousStatus === status) {
+          return current;
+        }
+
+        const pipelineBucketStatusKeys = new Set(['saved', 'applied']);
+        const wasPipeline = previousStatus ? pipelineStatuses.includes(previousStatus) : false;
+        const isPipeline = pipelineStatuses.includes(status);
+
+        return {
+          ...current,
+          buckets: current.buckets.map((bucket) => {
+            if (!pipelineBucketStatusKeys.has(bucket.key)) {
+              return bucket;
+            }
+            if (bucket.key === 'saved') {
+              return {
+                ...bucket,
+                count: bucket.count + (status === 'SAVED' ? 1 : 0) - (previousStatus === 'SAVED' ? 1 : 0),
+              };
+            }
+            if (bucket.key === 'applied') {
+              return {
+                ...bucket,
+                count: bucket.count + (status === 'APPLIED' ? 1 : 0) - (previousStatus === 'APPLIED' ? 1 : 0),
+              };
+            }
+            return bucket;
+          }),
+          total: Math.max(0, current.total + (isPipeline ? 0 : 0) - (wasPipeline ? 0 : 0)),
+        };
+      });
+
       queryClient.setQueryData<{ statusHistory: Array<{ status: JobOfferStatus; changedAt: string }> } | undefined>(
         ['job-offers', 'history', token, id],
         (current) => ({
@@ -93,13 +183,57 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
         }),
       );
 
+      queryClient.setQueriesData<DiscoveryJobOffersListDto>(
+        {
+          queryKey: ['job-offers', 'discovery', token],
+        },
+        (current) => {
+          if (!current) {
+            return current;
+          }
+
+          if (!discoveryStatuses.includes(status)) {
+            const filteredItems = current.items.filter((offer) => offer.id !== id);
+            return {
+              ...current,
+              items: filteredItems,
+              total: Math.max(0, current.total - (filteredItems.length === current.items.length ? 0 : 1)),
+            };
+          }
+
+          return {
+            ...current,
+            items: current.items.map((offer) => {
+              if (offer.id !== id) {
+                return offer;
+              }
+
+              const history = Array.isArray(offer.statusHistory) ? offer.statusHistory : [];
+              const nextHistory = [...history, { status, changedAt }];
+
+              return {
+                ...offer,
+                status,
+                isInPipeline: pipelineStatuses.includes(status),
+                lastStatusAt: changedAt,
+                statusHistory: nextHistory,
+              };
+            }),
+          };
+        },
+      );
+
       return {
         snapshots,
+        discoverySnapshots,
         previousStatus,
       };
     },
     onError: (error, _variables, context) => {
       context?.snapshots.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+      context?.discoverySnapshots.forEach(([queryKey, data]) => {
         queryClient.setQueryData(queryKey, data);
       });
       toastError(toUserErrorMessage(error, 'Failed to update status.'));
@@ -121,7 +255,16 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
         }
       }
 
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: true,
+        discoverySummary: true,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
     },
   });
 
@@ -146,7 +289,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       };
     },
     onSuccess: (result) => {
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        notebookSummary: true,
+        discoverySummary: true,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       if (result.failed === 0) {
         toastSuccess(`Updated ${result.updated} offers`);
       } else {
@@ -170,7 +321,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const dismissAllSeenMutation = useMutation({
     mutationFn: () => dismissAllSeenJobOffers(token),
     onSuccess: (result) => {
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        notebookSummary: true,
+        discoverySummary: true,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       toastSuccess(`Marked ${result.count} offers as dismissed`);
     },
     onError: (error) => {
@@ -181,7 +340,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const autoArchiveMutation = useMutation({
     mutationFn: () => autoArchiveOldJobOffers(token),
     onSuccess: (result) => {
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        notebookSummary: true,
+        discoverySummary: true,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       if (result.count > 0) {
         toastSuccess(`Automatically archived ${result.count} old offers`);
       }
@@ -194,8 +361,17 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const metaMutation = useMutation({
     mutationFn: ({ id, notes, tags }: { id: string; notes: string; tags: string[] }) =>
       updateJobOfferMeta(token, id, { notes, tags }),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: false,
+        actionPlan: false,
+        reminderPreview: false,
+        workspace: false,
+      });
     },
   });
 
@@ -209,8 +385,17 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       aiFeedbackScore: number;
       aiFeedbackNotes?: string;
     }) => updateJobOfferFeedback(token, id, { aiFeedbackScore, aiFeedbackNotes }),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: false,
+        actionPlan: false,
+        reminderPreview: false,
+        workspace: false,
+      });
       toastSuccess('Feedback submitted');
     },
     onError: (error) => {
@@ -221,8 +406,17 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
   const pipelineMutation = useMutation({
     mutationFn: ({ id, pipelineMeta }: { id: string; pipelineMeta: Record<string, unknown> }) =>
       updateJobOfferPipeline(token, id, { pipelineMeta }),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: true,
+        discoverySummary: false,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
     },
     onError: (error) => {
       toastError(toUserErrorMessage(error, 'Failed to update pipeline details'));
@@ -239,8 +433,17 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       note?: string;
       nextAction?: 'clear' | 'tomorrow' | 'in3days' | 'in1week';
     }) => completeJobOfferFollowUp(token, id, { note, nextAction }),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       toastSuccess('Follow-up marked as completed');
     },
     onError: (error) => {
@@ -252,7 +455,16 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
     mutationFn: ({ id, durationHours }: { id: string; durationHours?: number }) =>
       snoozeJobOfferFollowUp(token, id, { durationHours }),
     onSuccess: (_result, variables) => {
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       toastSuccess(`Follow-up snoozed${variables.durationHours ? ` by ${variables.durationHours}h` : ''}`);
     },
     onError: (error) => {
@@ -262,8 +474,17 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
 
   const clearFollowUpMutation = useMutation({
     mutationFn: ({ id }: { id: string }) => clearJobOfferFollowUp(token, id),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       toastSuccess('Follow-up cleared');
     },
     onError: (error) => {
@@ -279,7 +500,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       note?: string | null;
     }) => bulkUpdateJobOfferFollowUp(token, payload),
     onSuccess: (result) => {
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       const noteLabel = result.summary.noteApplied ? ' with notes' : '';
       toastSuccess(
         `Updated follow-up plan for ${result.updated} offers (${result.summary.due} due, ${result.summary.upcoming} upcoming, ${result.summary.none} none)${noteLabel}`,
@@ -300,7 +529,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       prepRecommended?: boolean | null;
     }) => bulkUpdateJobOfferWorkflow(token, payload),
     onSuccess: (result) => {
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        notebookSummary: true,
+        discoverySummary: false,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       toastSuccess(
         `Updated workflow plan for ${result.updated} offers (${result.summary.due} due, ${result.summary.upcoming} upcoming, ${result.summary.none} none)`,
       );
@@ -312,16 +549,35 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
 
   const scoreMutation = useMutation({
     mutationFn: ({ id }: { id: string }) => scoreJobOffer(token, id, 0),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: true,
+        historyOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: true,
+        focus: true,
+        actionPlan: false,
+        reminderPreview: false,
+        workspace: false,
+      });
     },
   });
 
   const generatePrepMutation = useMutation({
     mutationFn: ({ id, instructions }: { id: string; instructions?: string }) =>
       generateJobOfferPrep(token, id, { instructions }),
-    onSuccess: () => {
-      syncJobOffers();
+    onSuccess: (_result, variables) => {
+      syncJobOffers({
+        collections: false,
+        historyOfferId: variables.id,
+        prepOfferId: variables.id,
+        notebookSummary: false,
+        discoverySummary: false,
+        focus: false,
+        actionPlan: false,
+        reminderPreview: false,
+        workspace: false,
+      });
       toastSuccess('Interview prep generated');
     },
     onError: (error) => {
@@ -336,7 +592,15 @@ export const useNotebookMutations = ({ token }: UseNotebookMutationsArgs) => {
       }),
     onSuccess: (result) => {
       syncJobSources();
-      syncJobOffers();
+      syncJobOffers({
+        collections: true,
+        notebookSummary: true,
+        discoverySummary: true,
+        focus: true,
+        actionPlan: true,
+        reminderPreview: true,
+        workspace: true,
+      });
       toastSuccess(result.status === 'reused' ? 'Recent results are already available' : 'Finding fresh matches now');
     },
     onError: (error) => {

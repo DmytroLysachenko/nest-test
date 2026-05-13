@@ -51,8 +51,12 @@ export const useJobSourcesPanel = (token: string) => {
     [limit, listingUrl, mode],
   );
 
-  const { scheduleQuery, scheduleEventsQuery, preflightQuery } = useJobSourcesQueries(token, preflightParams);
-  const { enqueueMutation, updateScheduleMutation, triggerScheduleNowMutation } = useJobSourcesMutations(token, form);
+  const { scheduleQuery, scheduleEventsQuery, preflightQuery, recentRunsQuery } = useJobSourcesQueries(
+    token,
+    preflightParams,
+  );
+  const { enqueueMutation, updateScheduleMutation, triggerScheduleNowMutation, rematchNowMutation } =
+    useJobSourcesMutations(token, form);
 
   useEffect(() => {
     if (!scheduleQuery.data) {
@@ -106,10 +110,13 @@ export const useJobSourcesPanel = (token: string) => {
     enqueueResult: enqueueMutation.data,
     scheduleResult: scheduleQuery.data,
     scheduleEvents: scheduleEventsQuery.data?.items ?? [],
+    recentRuns: recentRunsQuery.data?.items ?? [],
     isSubmitting: enqueueMutation.isPending,
     isSavingSchedule: updateScheduleMutation.isPending,
     isTriggeringSchedule: triggerScheduleNowMutation.isPending,
+    isRepairingCatalog: rematchNowMutation.isPending,
     triggerScheduleNow: triggerScheduleNowMutation.mutate,
+    rematchNow: rematchNowMutation.mutate,
     applySchedulePreset,
   };
 };

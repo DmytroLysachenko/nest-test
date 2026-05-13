@@ -5,10 +5,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Building2, ExternalLink, MapPin } from 'lucide-react';
 
 import { getCompanyDetail } from '@/features/companies/api/companies-api';
+import { getOfferSurfaceLocationLine, getSafeOfferField } from '@/shared/lib/presentation/job-search-ui';
 import { queryKeys } from '@/shared/lib/query/query-keys';
 import { formatDate, formatDateTime, formatRelativeTime } from '@/shared/lib/utils/date-format';
 import { buildPathWithQuery } from '@/shared/lib/utils/url-normalizers';
-import { PageErrorState, SectionLoadingState } from '@/shared/ui/async-states';
+import { PageErrorState } from '@/shared/ui/async-states';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { HeroHeader } from '@/shared/ui/dashboard-primitives';
@@ -110,6 +111,8 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
     );
   }
 
+  const getSafeLocation = (value: string | null | undefined) => getSafeOfferField(value, 'location');
+
   return (
     <main className="app-page space-y-6">
       <HeroHeader
@@ -156,7 +159,7 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
       />
 
       <section className="app-tonal-section space-y-4">
-        <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
+        <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-end 2xl:justify-between">
           <div className="space-y-1">
             <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Company context</p>
             <p className="text-text-strong text-lg font-semibold">
@@ -192,65 +195,95 @@ export const CompanyDetailPage = ({ token, companyId }: CompanyDetailPageProps) 
       </section>
 
       <Card title="Recent offers" description="The latest offers linked to this company in your workspace catalog.">
+        <div className="app-open-section border-border/45 mb-4 flex flex-col gap-2 border-b pb-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Use this next</p>
+            <p className="text-text-soft mt-1 text-sm">
+              Return to role triage or your active pipeline once this employer looks worth deeper effort.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/opportunities">
+              <Button type="button" variant="secondary" size="sm">
+                Open opportunities
+              </Button>
+            </Link>
+            <Link href="/notebook">
+              <Button type="button" variant="secondary" size="sm">
+                Open notebook
+              </Button>
+            </Link>
+          </div>
+        </div>
         {company.recentOffers.length ? (
           <div className="space-y-3">
             {company.recentOffers.map((offer) => (
               <article key={offer.id} className="app-tonal-section space-y-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <p className="text-text-strong text-base font-semibold">{offer.title}</p>
-                    <p className="text-text-soft text-sm leading-6">
-                      {offer.location ?? 'Location not specified'}
-                      {offer.salary ? ` | ${offer.salary}` : ''}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {offer.isExpired ? (
-                      <span className="app-badge">Expired</span>
-                    ) : (
-                      <span className="app-badge">Active</span>
-                    )}
-                    {offer.expiresAt ? (
-                      <span className="app-badge">
-                        {offer.isExpired ? 'Expired' : 'Valid until'} {formatDate(offer.expiresAt)}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
+                {(() => {
+                  const safeLocation = getSafeLocation(offer.location);
+                  return (
+                    <>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <p className="text-text-strong text-base font-semibold">{offer.title}</p>
+                          <p className="text-text-soft text-sm leading-6">
+                            {getOfferSurfaceLocationLine({
+                              location: offer.location,
+                              salary: offer.salary,
+                              fallbackLocation: 'Location not specified',
+                            })}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {offer.isExpired ? (
+                            <span className="app-badge">Expired</span>
+                          ) : (
+                            <span className="app-badge">Active</span>
+                          )}
+                          {offer.expiresAt ? (
+                            <span className="app-badge">
+                              {offer.isExpired ? 'Expired' : 'Valid until'} {formatDate(offer.expiresAt)}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="app-open-section border-border/35 border-t pt-3">
-                    <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Offer status</p>
-                    <p className="text-text-soft mt-2 text-sm">
-                      {offer.isExpired
-                        ? 'This listing is no longer active, but it remains useful for employer context.'
-                        : 'This listing is still active and can be used to understand current employer demand.'}
-                    </p>
-                  </div>
-                  <div className="app-open-section border-border/35 border-t pt-3">
-                    <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Next jump</p>
-                    <p className="text-text-soft mt-2 text-sm">
-                      Open the source listing for details or pivot back to the filtered company list for nearby
-                      employers.
-                    </p>
-                  </div>
-                </div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="app-open-section border-border/35 border-t pt-3">
+                          <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Offer status</p>
+                          <p className="text-text-soft mt-2 text-sm">
+                            {offer.isExpired
+                              ? 'This listing is no longer active, but it remains useful for employer context.'
+                              : 'This listing is still active and can be used to understand current employer demand.'}
+                          </p>
+                        </div>
+                        <div className="app-open-section border-border/35 border-t pt-3">
+                          <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Next jump</p>
+                          <p className="text-text-soft mt-2 text-sm">
+                            Open the source listing for details or pivot back to the filtered company list for nearby
+                            employers.
+                          </p>
+                        </div>
+                      </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Link href={offer.url} target="_blank" rel="noreferrer">
-                    <Button type="button" size="sm">
-                      Open listing
-                      <ExternalLink className="ml-1 h-3.5 w-3.5" />
-                    </Button>
-                  </Link>
-                  {offer.location ? (
-                    <Link href={buildPathWithQuery('/companies', { location: offer.location })}>
-                      <Button type="button" size="sm" variant="secondary">
-                        More in this location
-                      </Button>
-                    </Link>
-                  ) : null}
-                </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Link href={offer.url} target="_blank" rel="noreferrer">
+                          <Button type="button" size="sm">
+                            Open listing
+                            <ExternalLink className="ml-1 h-3.5 w-3.5" />
+                          </Button>
+                        </Link>
+                        {safeLocation ? (
+                          <Link href={buildPathWithQuery('/companies', { location: safeLocation })}>
+                            <Button type="button" size="sm" variant="secondary">
+                              More in {safeLocation}
+                            </Button>
+                          </Link>
+                        ) : null}
+                      </div>
+                    </>
+                  );
+                })()}
               </article>
             ))}
           </div>

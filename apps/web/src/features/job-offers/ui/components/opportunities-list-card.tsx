@@ -4,7 +4,7 @@ import { ArrowRight, Compass, Eye, FolderPlus, X } from 'lucide-react';
 
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { formatCountLabel, getUserFacingOfferStatus } from '@/shared/lib/presentation/job-search-ui';
+import { formatCountLabel, getSafeOfferField, getUserFacingOfferStatus } from '@/shared/lib/presentation/job-search-ui';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
@@ -120,7 +120,7 @@ export const OpportunitiesListCard = ({
             <p className="text-foreground truncate text-base font-semibold tracking-[-0.02em]">{offer.title}</p>
             <p className="text-secondary-foreground mt-1">{offer.company ?? 'Unknown company'}</p>
             <p className="text-muted-foreground mt-1 text-xs uppercase tracking-[0.14em]">
-              {offer.location ?? 'Unknown location'}
+              {getSafeOfferField(offer.location, 'location') ?? 'Unknown location'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -205,7 +205,7 @@ export const OpportunitiesListCard = ({
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(220px,0.7fr)_minmax(180px,0.45fr)]">
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(220px,0.7fr)_minmax(180px,0.45fr)]">
             <div className="app-field-group">
               <Label htmlFor="opportunity-search" className="app-inline-label">
                 Search
@@ -228,7 +228,7 @@ export const OpportunitiesListCard = ({
                 onChange={(event) => onTagChange(event.target.value)}
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 2xl:contents">
               <div className="app-field-group">
                 <Label htmlFor="opportunity-mode" className="app-inline-label">
                   Review mode

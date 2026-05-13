@@ -16,7 +16,7 @@ vi.mock('@tanstack/react-query', async () => {
 const mockedUseQueryClient = vi.mocked(useQueryClient);
 
 describe('useDataSync', () => {
-  it('invalidates all mutable job-offer read models after workflow mutations', () => {
+  it('invalidates workflow-critical job-offer read models after a broad workflow mutation', () => {
     const invalidateQueries = vi.fn();
     const setQueryData = vi.fn();
 
@@ -28,14 +28,8 @@ describe('useDataSync', () => {
     const { result } = renderHook(() => useDataSync('token-1'));
     result.current.syncJobOffers();
 
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['job-offers'] });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['job-offers', 'token-1'] });
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['job-offers', 'history', 'token-1'] });
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['job-offers', 'prep-packet', 'token-1'] });
-    expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: queryKeys.jobOffers.preferences('token-1'),
-      exact: true,
-    });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['job-offers', 'discovery', 'token-1'] });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: queryKeys.jobOffers.summary('token-1'),
       exact: true,
@@ -58,6 +52,45 @@ describe('useDataSync', () => {
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: queryKeys.workflow.summary('token-1'),
+    });
+  });
+
+  it('supports narrow job-offer invalidation for single-offer workflow actions', () => {
+    const invalidateQueries = vi.fn();
+    const setQueryData = vi.fn();
+
+    mockedUseQueryClient.mockReturnValue({
+      invalidateQueries,
+      setQueryData,
+    } as unknown as ReturnType<typeof useQueryClient>);
+
+    const { result } = renderHook(() => useDataSync('token-3'));
+    result.current.syncJobOffers({
+      collections: false,
+      historyOfferId: 'offer-1',
+      prepOfferId: 'offer-1',
+      notebookSummary: false,
+      discoverySummary: false,
+      focus: false,
+      actionPlan: false,
+      reminderPreview: false,
+      workspace: false,
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: queryKeys.jobOffers.history('token-3', 'offer-1'),
+      exact: true,
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: queryKeys.jobOffers.prepPacket('token-3', 'offer-1'),
+      exact: true,
+    });
+    expect(invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: queryKeys.workflow.summary('token-3'),
+    });
+    expect(invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: queryKeys.jobOffers.summary('token-3'),
+      exact: true,
     });
   });
 

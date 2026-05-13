@@ -93,9 +93,8 @@ export const NotebookPage = ({
   latestUpdateStatus = null,
 }: NotebookPageProps) => {
   const notebook = useNotebookPage({ token, initialQuickAction, initialOfferId });
-  const pipelineOffers = (notebook.listQuery.data?.items ?? []).filter((offer) =>
-    ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'].includes(offer.status),
-  );
+  const pipelineOffers = notebook.fullPipelineQuery.data?.items ?? [];
+  const queueOffers = notebook.queueQuery.data?.items ?? [];
   const reminderDeliveryStats = pipelineOffers.reduce(
     (acc, offer) => {
       if (!offer.reminderDelivery) {
@@ -146,7 +145,7 @@ export const NotebookPage = ({
       history={notebook.historyQuery.data}
       prepPacket={notebook.prepPacket ?? null}
       historyError={notebook.historyError}
-      updatedAt={notebook.listQuery.dataUpdatedAt}
+      updatedAt={notebook.fullPipelineQuery.dataUpdatedAt}
       isBusy={notebook.isBusy}
       onStatusChange={(status) => {
         if (!notebook.selectedOffer) {
@@ -199,9 +198,14 @@ export const NotebookPage = ({
         title="Keep active roles moving"
         subtitle="Track follow-ups, notes, prep work, and status changes for the jobs you decided to pursue."
         action={
-          <Link href="/opportunities">
-            <Button variant="secondary">Review new roles</Button>
-          </Link>
+          <>
+            <Link href="/opportunities">
+              <Button variant="secondary">Review new roles</Button>
+            </Link>
+            <Link href="/planning">
+              <Button variant="secondary">Open planning</Button>
+            </Link>
+          </>
         }
       />
 
@@ -245,7 +249,7 @@ export const NotebookPage = ({
         <UtilityRail
           title="Keep notebook singular"
           description="This route owns active application work only."
-          className="xl:sticky xl:top-24"
+          className="2xl:sticky 2xl:top-24"
         >
           <div className="space-y-3 text-sm">
             <div className="border-border/60 border-b pb-3">
@@ -271,7 +275,7 @@ export const NotebookPage = ({
       </section>
 
       {reminderBuckets.length ? (
-        <section className="grid gap-3 xl:grid-cols-2">
+        <section className="grid gap-3 2xl:grid-cols-2">
           {reminderBuckets.map((bucket) => (
             <section key={bucket.key} className="app-tonal-section space-y-3">
               <div className="flex items-start justify-between gap-3">
@@ -340,7 +344,7 @@ export const NotebookPage = ({
       ) : null}
 
       {stalePipelineOffers.length || missingNextStepOffers.length ? (
-        <section className="grid gap-3 xl:grid-cols-2">
+        <section className="grid gap-3 2xl:grid-cols-2">
           {stalePipelineOffers.length ? (
             <NotebookSignalPanel
               icon={<Clock3 className="text-app-warning h-4 w-4" />}
@@ -460,9 +464,9 @@ export const NotebookPage = ({
         onApplyPreset={notebook.applyNotebookFilterPreset}
         hasSavedPreset={Boolean(notebook.savedPreset)}
         activeFilters={notebook.activeFilters}
-        total={notebook.listQuery.data?.total ?? 0}
-        hiddenByModeCount={notebook.listQuery.data?.hiddenByModeCount ?? 0}
-        listUpdatedAt={notebook.listQuery.dataUpdatedAt}
+        total={notebook.queueQuery.data?.total ?? 0}
+        hiddenByModeCount={notebook.queueQuery.data?.hiddenByModeCount ?? 0}
+        listUpdatedAt={notebook.queueQuery.dataUpdatedAt}
         isBusy={notebook.isBusy}
         summary={notebook.notebookSummary ?? null}
         onQuickAction={notebook.applyQuickAction}
@@ -470,14 +474,14 @@ export const NotebookPage = ({
         onAutoArchive={notebook.autoArchive}
       />
 
-      {notebook.listQuery.isLoading ? (
+      {notebook.fullPipelineQuery.isLoading || notebook.queueQuery.isLoading ? (
         <SectionLoadingState title="Pipeline" description="Loading notebook data..." rows={7} />
       ) : notebook.listError ? (
         <SectionErrorState
           title="Pipeline"
           message={notebook.listError}
           onRetry={() => {
-            void notebook.listQuery.refetch();
+            void Promise.all([notebook.fullPipelineQuery.refetch(), notebook.queueQuery.refetch()]);
           }}
         />
       ) : (
@@ -488,12 +492,14 @@ export const NotebookPage = ({
             onSelectOffer={notebook.setNotebookSelectedOffer}
             onUpdateStatus={notebook.updateStatus}
           />
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] xl:items-start">
+          <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] 2xl:items-start">
             <NotebookOffersListCard
-              offers={pipelineOffers}
-              hiddenByModeCount={0}
+              offers={queueOffers}
+              total={notebook.queueQuery.data?.total ?? 0}
+              activePipelineCount={pipelineOffers.length}
+              hiddenByModeCount={notebook.queueQuery.data?.hiddenByModeCount ?? 0}
               degradedResultCount={
-                pipelineOffers.filter((offer) =>
+                queueOffers.filter((offer) =>
                   offer.attentionSignals?.some((signal) => signal.key === 'prep_recommended'),
                 ).length
               }
@@ -502,13 +508,14 @@ export const NotebookPage = ({
               selectedOfferIds={notebook.selectedOfferIds}
               isBusy={notebook.isBusy}
               offset={notebook.pagination.offset}
+              limit={notebook.pagination.limit}
               canPrev={notebook.canPrev}
               canNext={notebook.canNext}
               isAllVisibleSelected={notebook.isAllVisibleSelected}
               mode={notebook.filters.mode}
               onSelectOffer={notebook.setNotebookSelectedOffer}
               onToggleOfferSelection={notebook.toggleNotebookSelectedOfferId}
-              onSelectAllVisible={() => notebook.setNotebookSelectedOfferIds(pipelineOffers.map((offer) => offer.id))}
+              onSelectAllVisible={() => notebook.setNotebookSelectedOfferIds(queueOffers.map((offer) => offer.id))}
               onClearSelected={notebook.clearNotebookSelectedOfferIds}
               onBulkStatusChange={(status) => notebook.bulkUpdateStatus({ ids: notebook.selectedOfferIds, status })}
               onBulkFollowUpSave={notebook.bulkUpdateFollowUp}
@@ -517,10 +524,12 @@ export const NotebookPage = ({
                 notebook.selectedOfferIds.forEach((id) => notebook.snoozeFollowUp({ id, durationHours }))
               }
               onBulkClearFollowUp={() => notebook.selectedOfferIds.forEach((id) => notebook.clearFollowUp({ id }))}
+              onShowActivePipeline={notebook.resetNotebookFilters}
+              onPageChange={(page) => notebook.setNotebookOffset((page - 1) * notebook.pagination.limit)}
               onPrev={() => notebook.setNotebookOffset(notebook.pagination.offset - notebook.pagination.limit)}
               onNext={() => notebook.setNotebookOffset(notebook.pagination.offset + notebook.pagination.limit)}
             />
-            <section ref={mobileWorkspaceRef} className="space-y-3 xl:sticky xl:top-24">
+            <section ref={mobileWorkspaceRef} className="space-y-3 2xl:sticky 2xl:top-24">
               <div className="app-open-section border-border/45 border-b pb-3">
                 <p className="text-text-soft text-xs uppercase tracking-[0.16em]">Selected offer workspace</p>
                 <p className="text-text-soft mt-1 text-sm">

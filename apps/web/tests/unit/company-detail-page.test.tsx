@@ -66,6 +66,42 @@ describe('CompanyDetailPage', () => {
     expect(screen.getByRole('link', { name: /open listing/i })).toBeInTheDocument();
   });
 
+  it('hides suspicious scraped salary and location pollution', () => {
+    mockedUseQuery.mockReturnValue({
+      data: {
+        id: 'company-1',
+        canonicalName: 'Capgemini Polska',
+        description: 'Consulting and engineering.',
+        activeOfferCount: 1,
+        totalOfferCount: 1,
+        hqLocation: 'Warsaw',
+        lastSeenAt: '2026-05-12T10:00:00.000Z',
+        websiteUrl: 'https://example.com',
+        sourceProfileUrl: null,
+        recentOffers: [
+          {
+            id: 'offer-1',
+            title: 'Senior Software Engineer',
+            location: 'Gdansk Superoferta Podobne oferty',
+            salary: '130-173 zl Gdansk Superoferta Wlacz powiadomienie Podobne oferty Senior Software Engineer',
+            isExpired: false,
+            expiresAt: null,
+            url: 'https://example.com/offer-1',
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useQuery>);
+
+    render(<CompanyDetailPage token="token" companyId="company-1" />);
+
+    expect(screen.getByText('Location not specified')).toBeInTheDocument();
+    expect(screen.queryByText(/Superoferta/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /more in/i })).not.toBeInTheDocument();
+  });
+
   it('shows fallback empty state when the company record is missing', () => {
     mockedUseQuery.mockReturnValue({
       data: null,

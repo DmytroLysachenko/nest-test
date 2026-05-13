@@ -36,7 +36,7 @@ export const useOpportunitiesPage = ({
   token,
   initialQuickAction = null,
   initialOfferId = null,
-  initialMode = 'strict',
+  initialMode = 'approx',
   initialHasScore = 'all',
   initialSearch = '',
   initialTag = '',
@@ -89,7 +89,7 @@ export const useOpportunitiesPage = ({
 
   useEffect(() => {
     const nextPath = buildPathWithQuery(pathname, {
-      mode: mode !== 'strict' ? mode : null,
+      mode: mode !== 'approx' ? mode : null,
       hasScore: hasScore !== 'all' ? hasScore : null,
       search: normalizedSearch,
       tag: normalizedTag,
@@ -126,6 +126,21 @@ export const useOpportunitiesPage = ({
     () => listQuery.data?.items.find((item) => item.id === selectedId) ?? null,
     [listQuery.data?.items, selectedId],
   );
+
+  useEffect(() => {
+    const items = listQuery.data?.items ?? [];
+    if (!items.length) {
+      if (selectedId) {
+        setSelectedId(null);
+      }
+      return;
+    }
+
+    const selectedStillVisible = items.some((item) => item.id === selectedId);
+    if (!selectedStillVisible) {
+      setSelectedId(items[0]?.id ?? null);
+    }
+  }, [listQuery.data?.items, selectedId]);
 
   const mutations = useNotebookMutations({ token });
   const listError = listQuery.isError
@@ -168,7 +183,7 @@ export const useOpportunitiesPage = ({
       setPage(DEFAULT_PAGE);
     },
     resetFilters: () => {
-      setMode('strict');
+      setMode('approx');
       setHasScore('all');
       setSearch('');
       setTag('');

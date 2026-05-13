@@ -77,6 +77,7 @@ const toIsoString = (value: Date | null) => (value ? value.toISOString() : null)
 type ReminderBucketKey = 'overdue' | 'today' | 'upcoming' | 'stale';
 type ReminderDeliveryStatus = 'SENT' | 'FAILED';
 const REMINDER_DELIVERY_CONCURRENCY = 4;
+const PIPELINE_STATUSES: JobOfferStatus[] = ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'];
 
 @Injectable()
 export class JobOffersService {
@@ -242,6 +243,7 @@ export class JobOffersService {
     const limit = query.limit ? Number(query.limit) : 20;
     const offset = query.offset ? Number(query.offset) : 0;
     const mode: NotebookRankingMode = query.mode ?? 'strict';
+    const isPipelineView = query.view === 'PIPELINE';
     const fetchWindow = mode === 'explore' ? limit : Math.max(limit * 3, limit + offset);
     const fetchOffset = mode === 'explore' ? offset : 0;
 
@@ -251,6 +253,8 @@ export class JobOffersService {
     }
     if (query.status) {
       conditions.push(eq(userJobOffersTable.status, query.status));
+    } else if (isPipelineView) {
+      conditions.push(inArray(userJobOffersTable.status, PIPELINE_STATUSES));
     }
     if (query.source) {
       conditions.push(eq(jobOffersTable.source, query.source as JobSource));
@@ -482,8 +486,15 @@ export class JobOffersService {
       });
 
     const filteredRankedItems = modeEligibleItems
-      .filter((item) => item.__include)
+      .filter((item) => (isPipelineView ? true : item.__include))
       .sort((a, b) => {
+        if (isPipelineView) {
+          const statusOrder = PIPELINE_STATUSES.indexOf(a.status) - PIPELINE_STATUSES.indexOf(b.status);
+          if (statusOrder !== 0) {
+            return statusOrder;
+          }
+          return b.__createdAtMs - a.__createdAtMs;
+        }
         if (mode === 'explore') {
           const byCreatedAt = b.__createdAtMs - a.__createdAtMs;
           if (byCreatedAt !== 0) {
@@ -514,10 +525,14 @@ export class JobOffersService {
       items: rankedItems,
       total: filteredRankedItems.length,
       mode,
-      hiddenByModeCount: modeEligibleItems.length - filteredRankedItems.length,
+      hiddenByModeCount: isPipelineView ? 0 : modeEligibleItems.length - filteredRankedItems.length,
       degradedResultCount: filteredRankedItems.filter((item) => item.__isDegradedSource).length,
       stateReasons: [
-        ...(modeEligibleItems.length - filteredRankedItems.length > 0 ? ['hidden-by-current-mode'] : []),
+        ...(isPipelineView
+          ? []
+          : modeEligibleItems.length - filteredRankedItems.length > 0
+            ? ['hidden-by-current-mode']
+            : []),
         ...(filteredRankedItems.some((item) => item.followUpState === 'none' && hasMissingNextStep(item.status, item))
           ? ['missing-next-step-coverage']
           : []),

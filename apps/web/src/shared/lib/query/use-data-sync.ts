@@ -7,6 +7,19 @@ import { queryKeys } from './query-keys';
 
 import type { CareerProfileDto, ProfileInputDto } from '@/shared/types/api';
 
+type JobOfferSyncOptions = {
+  collections?: boolean;
+  historyOfferId?: string | null;
+  prepOfferId?: string | null;
+  preferences?: boolean;
+  notebookSummary?: boolean;
+  discoverySummary?: boolean;
+  focus?: boolean;
+  actionPlan?: boolean;
+  reminderPreview?: boolean;
+  workspace?: boolean;
+};
+
 /**
  * Centralized hook for manual data synchronization and invalidation.
  *
@@ -52,19 +65,70 @@ export const useDataSync = (token: string | null) => {
   /**
    * Sync Job Offers state (Tier 2)
    */
-  const syncJobOffers = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['job-offers'] });
-    queryClient.invalidateQueries({ queryKey: ['job-offers', token] });
-    queryClient.invalidateQueries({ queryKey: ['job-offers', 'history', token] });
-    queryClient.invalidateQueries({ queryKey: ['job-offers', 'prep-packet', token] });
-    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.preferences(token), exact: true });
-    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.summary(token), exact: true });
-    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.discoverySummary(token), exact: true });
-    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.focus(token), exact: true });
-    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.actionPlan(token), exact: true });
-    queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.reminderPreview(token), exact: true });
-    syncWorkspace();
-  }, [queryClient, token, syncWorkspace]);
+  const syncJobOffers = useCallback(
+    (options?: JobOfferSyncOptions) => {
+      const config: Required<JobOfferSyncOptions> = {
+        collections: options?.collections ?? true,
+        historyOfferId: options?.historyOfferId ?? null,
+        prepOfferId: options?.prepOfferId ?? null,
+        preferences: options?.preferences ?? false,
+        notebookSummary: options?.notebookSummary ?? true,
+        discoverySummary: options?.discoverySummary ?? true,
+        focus: options?.focus ?? true,
+        actionPlan: options?.actionPlan ?? true,
+        reminderPreview: options?.reminderPreview ?? true,
+        workspace: options?.workspace ?? true,
+      };
+
+      if (config.collections) {
+        queryClient.invalidateQueries({ queryKey: ['job-offers', token] });
+        queryClient.invalidateQueries({ queryKey: ['job-offers', 'discovery', token] });
+      }
+
+      if (config.historyOfferId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.jobOffers.history(token, config.historyOfferId),
+          exact: true,
+        });
+      }
+
+      if (config.prepOfferId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.jobOffers.prepPacket(token, config.prepOfferId),
+          exact: true,
+        });
+      }
+
+      if (config.preferences) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.preferences(token), exact: true });
+      }
+
+      if (config.notebookSummary) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.summary(token), exact: true });
+      }
+
+      if (config.discoverySummary) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.discoverySummary(token), exact: true });
+      }
+
+      if (config.focus) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.focus(token), exact: true });
+      }
+
+      if (config.actionPlan) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.actionPlan(token), exact: true });
+      }
+
+      if (config.reminderPreview) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.jobOffers.reminderPreview(token), exact: true });
+      }
+
+      if (config.workspace) {
+        syncWorkspace();
+      }
+    },
+    [queryClient, token, syncWorkspace],
+  );
 
   /**
    * Sync Onboarding state (Tier 1/2)

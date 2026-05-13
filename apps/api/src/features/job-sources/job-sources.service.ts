@@ -826,6 +826,41 @@ export class JobSourcesService {
       .limit(1)
       .then((rows) => rows[0]);
 
+    const [lastSuccessfulScheduledEvent, lastFailedScheduledEvent] = await Promise.all([
+      this.db
+        .select({
+          sourceRunId: scrapeScheduleEventsTable.sourceRunId,
+          createdAt: scrapeScheduleEventsTable.createdAt,
+        })
+        .from(scrapeScheduleEventsTable)
+        .where(
+          and(
+            eq(scrapeScheduleEventsTable.userId, userId),
+            eq(scrapeScheduleEventsTable.eventType, 'schedule_enqueue_succeeded'),
+          ),
+        )
+        .orderBy(desc(scrapeScheduleEventsTable.createdAt))
+        .limit(1)
+        .then(([row]) => row ?? null),
+      this.db
+        .select({
+          createdAt: scrapeScheduleEventsTable.createdAt,
+        })
+        .from(scrapeScheduleEventsTable)
+        .where(
+          and(
+            eq(scrapeScheduleEventsTable.userId, userId),
+            or(
+              eq(scrapeScheduleEventsTable.eventType, 'schedule_enqueue_failed'),
+              eq(scrapeScheduleEventsTable.eventType, 'schedule_run_failed'),
+            ),
+          ),
+        )
+        .orderBy(desc(scrapeScheduleEventsTable.createdAt))
+        .limit(1)
+        .then(([row]) => row ?? null),
+    ]);
+
     if (!schedule) {
       return {
         enabled: false,
@@ -838,6 +873,9 @@ export class JobSourcesService {
         lastTriggeredAt: null,
         nextRunAt: null,
         lastRunStatus: null,
+        lastSuccessfulScheduledAt: lastSuccessfulScheduledEvent?.createdAt?.toISOString() ?? null,
+        lastSuccessfulScheduledRunId: lastSuccessfulScheduledEvent?.sourceRunId ?? null,
+        lastFailedScheduledAt: lastFailedScheduledEvent?.createdAt?.toISOString() ?? null,
       };
     }
 
@@ -852,6 +890,9 @@ export class JobSourcesService {
       lastTriggeredAt: schedule.lastTriggeredAt?.toISOString() ?? null,
       nextRunAt: schedule.nextRunAt?.toISOString() ?? null,
       lastRunStatus: schedule.lastRunStatus ?? null,
+      lastSuccessfulScheduledAt: lastSuccessfulScheduledEvent?.createdAt?.toISOString() ?? null,
+      lastSuccessfulScheduledRunId: lastSuccessfulScheduledEvent?.sourceRunId ?? null,
+      lastFailedScheduledAt: lastFailedScheduledEvent?.createdAt?.toISOString() ?? null,
     };
   }
 

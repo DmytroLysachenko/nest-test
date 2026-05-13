@@ -1,6 +1,6 @@
 # Scrape Feature
 
-Last updated: 2026-04-11
+Last updated: 2026-05-13
 
 ## Purpose
 
@@ -77,6 +77,12 @@ Representative endpoints include `/api/job-sources/preflight`, `/api/job-sources
 
 Internal worker delivery endpoints also include `/api/job-sources/runs/:id/heartbeat`, `/api/job-sources/runs/:id/offers`, and `/api/job-sources/complete`.
 
+Current schedule-trust additions:
+
+- schedule responses now distinguish the saved schedule itself from proven scheduled enqueue evidence
+- `/api/job-sources/schedule` now also carries the latest successful scheduled enqueue timestamp and run id
+- planning/query polling should treat “next window passed with no later successful scheduled enqueue” as unresolved trust, not as silent success
+
 Current enqueue contract direction:
 
 - `/api/job-sources/scrape` may satisfy a request from catalog rematch, DB reuse, or worker dispatch
@@ -86,12 +92,15 @@ Current enqueue contract direction:
 - worker offer payloads now carry both `isExpired` and `expiresAt`; `isExpired` supports quick filtering while `expiresAt` preserves the source-derived validity date for audits and later UX
 - scrape completion is now intentionally more separate from matching: shared catalog persistence and terminal run finalization no longer fail just because notebook linking or matching throws later in the path
 - when post-persist notebook linking fails, the run keeps its persisted catalog output and records deferred linking state in run progress/events so rematch or recovery can happen separately
+- authenticated users can now trigger `POST /api/job-sources/rematch-now` to rebuild opportunities from the shared catalog when catalog persistence succeeded but workflow linking needs recovery
+- user-facing automation now also reads recent run-level linking state (`pending` / `completed` / `deferred` / `skipped`) plus candidate/matched/linked counts, so the product can distinguish “worker ran” from “opportunities actually reached the notebook”
 - schedule cron handling now supports weekday expressions such as `0 6 * * 1-5` without collapsing to a daily default
 - stale watchdog failures now distinguish `worker-not-started` from `heartbeat-stopped-or-callback-missing` in the stored run error
 - worker pipeline orchestration now uses a source-adapter contract so future sites can reuse fetch/parse/normalize stages without copying the Pracuj orchestration path
 - local worker diagnostics now include `pnpm --filter worker scrape:once -- --source pracuj-pl-it --listingUrl <url> --limit <n>` for single-run execution outside the full stack
 - run diagnostics now expose a usefulness read model so UI/support can distinguish useful, hidden, degraded, blocked, empty, failed, and pending outcomes without recomputing raw counters
 - Pracuj parser drift coverage now includes changed detail-section headings and semicolon-delimited requirement strings
+- product offer surfaces now sanitize suspicious location/salary text before rendering, so polluted fallback blobs stay hidden in opportunities, notebook, companies, and workspace views until the underlying source row is repaired
 
 Operational and recovery endpoints live under `apps/api/src/features/ops`.
 

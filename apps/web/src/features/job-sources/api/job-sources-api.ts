@@ -2,6 +2,7 @@ import { apiRequest, apiTextRequest } from '@/shared/lib/http/api-client';
 
 import type {
   EnqueueScrapeResponseDto,
+  RematchNowResponseDto,
   ScrapePreflightDto,
   ScrapeScheduleDto,
   ScrapeScheduleEventsDto,
@@ -138,6 +139,12 @@ export const updateScrapeSchedule = (
 
 export const triggerScheduleNow = (token: string) =>
   apiRequest<EnqueueScrapeResponseDto>('/job-sources/schedule/trigger-now', {
+    method: 'POST',
+    token,
+  });
+
+export const rematchNow = (token: string, limit = 20) =>
+  apiRequest<RematchNowResponseDto>(`/job-sources/rematch-now?limit=${limit}`, {
     method: 'POST',
     token,
   });
